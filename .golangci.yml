@@ -1,0 +1,42 @@
+run:
+  skip-dirs:
+    - deploy
+    - vendor
+
+linters:
+  enable:
+    - deadcode      # Finds unused code
+    - gosimple      # Linter for Go source code that specializes in simplifying a code
+    - govet         # Vet examines Go source code and reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
+    - ineffassign   # Detects when assignments to existing variables are not used
+    - staticcheck   # Staticcheck is a go vet on steroids, applying a ton of static analysis checks
+    - structcheck   # Finds unused struct fields
+    - typecheck     # Like the front-end of a Go compiler, parses and type-checks Go code
+    - unused        # Checks Go code for unused constants, variables, functions and types
+    - varcheck      # Finds unused global variables and constants
+    - scopelint     # Scopelint checks for unpinned variables in go programs
+    - golint        # Carry out the stylistic conventions put forth in Effective Go and CodeReviewComments
+    - asciicheck
+    - depguard
+    - errorlint
+    - gosec
+    - importas
+    - prealloc
+    - revive
+    - stylecheck
+    - tparallel
+    - unconvert
+    - unparam
+    - gofmt
+    - goimports
+    - bodyclose
+
+  disable:
+    - errcheck      # Errcheck is a program for checking for unchecked errors in go programs. These unchecked errors can be critical bugs in some cases
+
+linters-settings:
+  govet:
+    check-shadowing: true
+    check-unreachable: true
+    check-rangeloops: true
+    check-copylocks: true

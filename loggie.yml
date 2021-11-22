@@ -1,0 +1,30 @@
+loggie:
+  reload:
+    enabled: true
+    period: 10s
+
+  monitor:
+    logger:
+      period: 30s
+      enabled: true
+    listeners:
+      filesource: ~
+      filewatcher: ~
+      reload: ~
+      sink: ~
+
+  discovery:
+    enabled: false
+    kubernetes:
+      kubeconfig: ~/.kube/config
+
+  defaults:
+    sink:
+      type: dev
+    sources:
+      - type: file
+        watcher:
+          cleanFiles:
+            maxHistory: 1
+  http:
+    enabled: true

@@ -1,0 +1,27 @@
+/*
+Copyright 2021 Loggie Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package memory
+
+import "time"
+
+type Config struct {
+	BatchSize          int           `yaml:"batchSize" default:"2048"`
+	BatchBufferFactor  int           `yaml:"batchBufferFactor" default:"2"` // BufferSize = BatchSize * BatchBufferFactor
+	BatchBytes         int64         `yaml:"batchBytes" default:"33554432"` // default:32MB
+	BatchAggMaxTimeout time.Duration `yaml:"batchAggTimeout" default:"1s"`
+	CleanDataTimeout   time.Duration `yaml:"cleanDataTimeout" default:"5s"`
+}
