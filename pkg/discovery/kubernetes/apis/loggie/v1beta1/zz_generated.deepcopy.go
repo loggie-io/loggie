@@ -168,16 +168,10 @@ func (in *LogConfigSpec) DeepCopyInto(out *LogConfigSpec) {
 		*out = new(Selector)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Pipelines != nil {
-		in, out := &in.Pipelines, &out.Pipelines
-		*out = make([]*Pipeline, len(*in))
-		for i := range *in {
-			if (*in)[i] != nil {
-				in, out := &(*in)[i], &(*out)[i]
-				*out = new(Pipeline)
-				**out = **in
-			}
-		}
+	if in.Pipeline != nil {
+		in, out := &in.Pipeline, &out.Pipeline
+		*out = new(Pipeline)
+		**out = **in
 	}
 	return
 }

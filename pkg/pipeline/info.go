@@ -17,6 +17,7 @@ limitations under the License.
 package pipeline
 
 import (
+	"gopkg.in/yaml.v2"
 	"log"
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/cfg"
@@ -103,6 +104,19 @@ func (cr *ConfigRaw) ToConfig() (*Config, error) {
 	}
 
 	return config, nil
+}
+
+func (cr *ConfigRaw) DeepCopy() (dest *ConfigRaw, err error) {
+	out, err := yaml.Marshal(cr)
+	if err != nil {
+		return nil, err
+	}
+
+	d := new(ConfigRaw)
+	if err = yaml.Unmarshal(out, d); err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
 type Info struct {
