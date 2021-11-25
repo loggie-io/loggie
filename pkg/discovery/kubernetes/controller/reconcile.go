@@ -188,7 +188,7 @@ func (c *Controller) syncConfigToFile(selectorType string) error {
 	var cfgRaws *control.PipelineRawConfig
 	switch selectorType {
 	case logconfigv1beta1.SelectorTypePod:
-		cfgRaws = c.typePodIndex.GetAll()
+		cfgRaws = c.typePodIndex.GetAllGroupByLogConfig()
 
 	case logconfigv1beta1.SelectorTypeLoggie:
 		cfgRaws = c.typeLoggieIndex.GetAll()

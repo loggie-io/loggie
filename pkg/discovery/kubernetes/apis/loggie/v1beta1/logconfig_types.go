@@ -41,8 +41,8 @@ type LogConfig struct {
 }
 
 type LogConfigSpec struct {
-	Selector  *Selector   `json:"selector,omitempty"`
-	Pipelines []*Pipeline `json:"pipelines,omitempty"`
+	Selector *Selector `json:"selector,omitempty"`
+	Pipeline *Pipeline `json:"pipeline,omitempty"`
 }
 
 type Selector struct {
@@ -78,7 +78,7 @@ type Message struct {
 }
 
 func (in *LogConfig) Validate() error {
-	if in.Spec.Pipelines == nil {
+	if in.Spec.Pipeline == nil {
 		return errors.New("spec.pipelines is required")
 	}
 	if in.Spec.Selector == nil {

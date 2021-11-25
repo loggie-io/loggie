@@ -19,25 +19,26 @@ package index
 import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"loggie.io/loggie/pkg/control"
+	"loggie.io/loggie/pkg/core/log"
 	"loggie.io/loggie/pkg/discovery/kubernetes/helper"
 	"loggie.io/loggie/pkg/pipeline"
 )
 
 type LogConfigTypePodIndex struct {
-	pipeConfigs  map[string][]pipeline.ConfigRaw // key: podKey/lgcKey, value: related pipeline configs
-	lgcToPodSets map[string]sets.String          // key: namespace/lgcName, value: namespace/podName
-	podToLgcSets map[string]sets.String          // key: namespace/podName, value: namespace/lgcName
+	pipeConfigs  map[string]*pipeline.ConfigRaw // key: podKey/lgcKey, value: related pipeline configs
+	lgcToPodSets map[string]sets.String         // key: lgcKey(namespace/lgcName) , value: podKey(namespace/podName)
+	podToLgcSets map[string]sets.String         // key: podKey(namespace/podName), value: lgcKey(namespace/lgcName)
 }
 
 func NewLogConfigTypePodIndex() *LogConfigTypePodIndex {
 	return &LogConfigTypePodIndex{
-		pipeConfigs:  make(map[string][]pipeline.ConfigRaw),
+		pipeConfigs:  make(map[string]*pipeline.ConfigRaw),
 		lgcToPodSets: make(map[string]sets.String),
 		podToLgcSets: make(map[string]sets.String),
 	}
 }
 
-func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string, lgcName string) []pipeline.ConfigRaw {
+func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string, lgcName string) *pipeline.ConfigRaw {
 	podKey := helper.MetaNamespaceKey(namespace, podName)
 	lgcKey := helper.MetaNamespaceKey(namespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
@@ -69,17 +70,17 @@ func (p *LogConfigTypePodIndex) GetPipeConfigsByPod(namespace string, podName st
 	}
 	for _, lgcKey := range lgcSets.List() {
 		podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
-		pipcfgs = append(pipcfgs, p.pipeConfigs[podAndLgc]...)
+		pipcfgs = append(pipcfgs, *p.pipeConfigs[podAndLgc])
 	}
 	return pipcfgs
 }
 
-func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgcName string, cfgs []pipeline.ConfigRaw) {
+func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgcName string, cfg *pipeline.ConfigRaw) {
 	podKey := helper.MetaNamespaceKey(namespace, podName)
 	lgcKey := helper.MetaNamespaceKey(namespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
 
-	p.pipeConfigs[podAndLgc] = cfgs
+	p.pipeConfigs[podAndLgc] = cfg
 	if _, ok := p.lgcToPodSets[lgcKey]; !ok {
 		p.lgcToPodSets[lgcKey] = sets.NewString(podKey)
 	} else {
@@ -93,9 +94,9 @@ func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgc
 	}
 }
 
-func (p *LogConfigTypePodIndex) ValidateAndSetConfigs(namespace string, podName string, lgcName string, cfgs []pipeline.ConfigRaw) error {
-	p.SetConfigs(namespace, podName, lgcName, cfgs)
-	if err := p.GetAll().Validate(); err != nil {
+func (p *LogConfigTypePodIndex) ValidateAndSetConfigs(namespace string, podName string, lgcName string, cfg *pipeline.ConfigRaw) error {
+	p.SetConfigs(namespace, podName, lgcName, cfg)
+	if err := p.GetAllGroupByLogConfig().Validate(); err != nil {
 		lgcKey := helper.MetaNamespaceKey(namespace, lgcName)
 		p.DeletePipeConfigsByLogConfigKey(lgcKey)
 		return err
@@ -154,11 +155,38 @@ func (p *LogConfigTypePodIndex) DeletePipeConfigsByPodKey(podKey string) bool {
 }
 
 func (p *LogConfigTypePodIndex) GetAll() *control.PipelineRawConfig {
-	cfg := control.PipelineRawConfig{}
+	conf := control.PipelineRawConfig{}
 	var pipeConfigs []pipeline.ConfigRaw
 	for _, cfg := range p.pipeConfigs {
-		pipeConfigs = append(pipeConfigs, cfg...)
+		pipeConfigs = append(pipeConfigs, *cfg)
 	}
-	cfg.Pipelines = pipeConfigs
-	return &cfg
+	conf.Pipelines = pipeConfigs
+	return &conf
+}
+
+func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineRawConfig {
+	conf := control.PipelineRawConfig{}
+	var pipeConfigs []pipeline.ConfigRaw
+
+	for lgcKey, podSet := range p.lgcToPodSets {
+		cfg := pipeline.ConfigRaw{}
+
+		for _, podKey := range podSet.List() {
+			key := helper.MetaNamespaceKey(podKey, lgcKey)
+			cfgRaw, ok := p.pipeConfigs[key]
+			if !ok {
+				log.Error("%s/%s is not in logConfigTypePodIndex", lgcKey, podKey)
+				continue
+			}
+			cfg.Name = cfgRaw.Name
+			cfg.Sources = append(cfg.Sources, cfgRaw.Sources...)
+			cfg.Interceptors = cfgRaw.Interceptors
+			cfg.Sink = cfgRaw.Sink
+		}
+
+		pipeConfigs = append(pipeConfigs, cfg)
+	}
+
+	conf.Pipelines = pipeConfigs
+	return &conf
 }

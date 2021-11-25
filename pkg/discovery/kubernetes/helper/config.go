@@ -29,30 +29,30 @@ func ToPipeline(lgc *logconfigv1beta1.LogConfig, sinkLister v1beta1.SinkLister, 
 
 	pipelineRawCfg := &control.PipelineRawConfig{}
 	var pipRaws []pipeline.ConfigRaw
-	for _, pip := range lgc.Spec.Pipelines {
-		pipRaw := pipeline.ConfigRaw{}
-		pipRaw.Name = pip.Name
+	pip := lgc.Spec.Pipeline
 
-		src, err := ToPipelineSources(pip.Sources)
-		if err != nil {
-			return nil, err
-		}
-		pipRaw.Sources = src
+	pipRaw := pipeline.ConfigRaw{}
+	pipRaw.Name = pip.Name
 
-		inter, err := ToPipelineInterceptor(pip.InterceptorRef, interceptorLister)
-		if err != nil {
-			return nil, err
-		}
-		pipRaw.Interceptors = inter
-
-		sink, err := ToPipelineSink(pip.SinkRef, sinkLister)
-		if err != nil {
-			return nil, err
-		}
-		pipRaw.Sink = sink
-
-		pipRaws = append(pipRaws, pipRaw)
+	src, err := ToPipelineSources(pip.Sources)
+	if err != nil {
+		return nil, err
 	}
+	pipRaw.Sources = src
+
+	inter, err := ToPipelineInterceptor(pip.InterceptorRef, interceptorLister)
+	if err != nil {
+		return nil, err
+	}
+	pipRaw.Interceptors = inter
+
+	sink, err := ToPipelineSink(pip.SinkRef, sinkLister)
+	if err != nil {
+		return nil, err
+	}
+	pipRaw.Sink = sink
+
+	pipRaws = append(pipRaws, pipRaw)
 
 	pipelineRawCfg.Pipelines = pipRaws
 	return pipelineRawCfg, nil

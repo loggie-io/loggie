@@ -21,7 +21,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"loggie.io/loggie/pkg/control"
 	"loggie.io/loggie/pkg/core/cfg"
 	"loggie.io/loggie/pkg/core/log"
 	"loggie.io/loggie/pkg/core/source"
@@ -140,18 +139,21 @@ func (c *Controller) handlePodAddOrUpdate(pod *corev1.Pod) error {
 func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod) error {
 
 	// generate pod related pipeline configs
-	pipeRaws, err := getConfigFromPodAndLogConfig(c.config, lgc, pod, c.sinkLister, c.interceptorLister)
+	pipeRaw, err := getConfigFromPodAndLogConfig(c.config, lgc, pod, c.sinkLister, c.interceptorLister)
 	if err != nil {
 		return err
 	}
+	if pipeRaw == nil {
+		return nil
+	}
 
 	// validate pipeline configs
-	pipeCopy, err := pipeRaws.DeepCopy()
+	pipeCopy, err := pipeRaw.DeepCopy()
 	if err != nil {
 		return errors.WithMessage(err, "deep copy pipeline config error")
 	}
 	pipeCopy.SetDefaults()
-	if err := pipeCopy.ValidateDive(); err != nil {
+	if err := pipeCopy.Validate(); err != nil {
 		return err
 	}
 
@@ -160,12 +162,12 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 
 	// compare and check if we should update
 	// FIXME Array order may causes inequality
-	if cmp.Equal(pipeRaws.Pipelines, cfgsInIndex) {
+	if cmp.Equal(pipeCopy, cfgsInIndex) {
 		return nil
 	}
 
 	// update index
-	if err := c.typePodIndex.ValidateAndSetConfigs(pod.Namespace, pod.Name, lgc.Name, pipeRaws.Pipelines); err != nil {
+	if err := c.typePodIndex.ValidateAndSetConfigs(pod.Namespace, pod.Name, lgc.Name, pipeCopy); err != nil {
 		return err
 	}
 
@@ -181,7 +183,7 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 }
 
 func getConfigFromPodAndLogConfig(config *Config, lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod,
-	sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*control.PipelineRawConfig, error) {
+	sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.ConfigRaw, error) {
 
 	if len(pod.Status.ContainerStatuses) == 0 {
 		return nil, nil
@@ -190,37 +192,28 @@ func getConfigFromPodAndLogConfig(config *Config, lgc *logconfigv1beta1.LogConfi
 	if err != nil {
 		return nil, err
 	}
-	pipeRaws := &control.PipelineRawConfig{}
-	pipeRaws.Pipelines = cfgs
-
-	return pipeRaws, nil
+	return cfgs, nil
 }
 
 func getConfigFromContainerAndLogConfig(config *Config, lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod,
-	sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) ([]pipeline.ConfigRaw, error) {
-
-	pipecfgList := make([]pipeline.ConfigRaw, 0)
+	sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.ConfigRaw, error) {
 
 	logConf := lgc.DeepCopy()
-	for _, pipe := range logConf.Spec.Pipelines {
-		sourceConfList := make([]fileSource, 0)
-		err := cfg.UnpackRaw([]byte(pipe.Sources), &sourceConfList)
-		if err != nil {
-			return nil, errors.WithMessagef(err, "unpack sources %s failed", pipe.Sources)
-		}
-
-		filesources, err := updateSources(sourceConfList, config, pod, logConf.Name)
-		if err != nil {
-			return nil, err
-		}
-		pipecfg, err := toPipeConfig(pipe, filesources, sinkLister, interceptorLister)
-		if err != nil {
-			return nil, err
-		}
-		pipecfgList = append(pipecfgList, pipecfg)
+	sourceConfList := make([]fileSource, 0)
+	err := cfg.UnpackRaw([]byte(logConf.Spec.Pipeline.Sources), &sourceConfList)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "unpack logConfig %s sources failed", lgc.Namespace)
 	}
 
-	return pipecfgList, nil
+	filesources, err := updateSources(sourceConfList, config, pod, logConf.Name)
+	if err != nil {
+		return nil, err
+	}
+	pipecfg, err := toPipeConfig(lgc.Namespace, lgc.Name, logConf.Spec.Pipeline, filesources, sinkLister, interceptorLister)
+	if err != nil {
+		return nil, err
+	}
+	return pipecfg, nil
 }
 
 func updateSources(sourceConfList []fileSource, config *Config, pod *corev1.Pod, logConfigName string) ([]fileSource, error) {
@@ -261,7 +254,7 @@ func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfig
 			continue
 		}
 		// change the source name, add container name as suffix
-		src.Name = fmt.Sprintf("%s%s", src.Name, status.Name)
+		src.Name = fmt.Sprintf("%s-%s-%s", pod.Name, status.Name, src.Name)
 		// inject default pod metadata
 		if err = injectFields(config, s.MatchFields, src, pod, logconfigName, status.Name); err != nil {
 			return nil, err
@@ -373,10 +366,10 @@ func injectFields(config *Config, match *matchFields, src *source.Config, pod *c
 	return nil
 }
 
-func toPipeConfig(lgcPipe *logconfigv1beta1.Pipeline, filesources []fileSource, sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (pipeline.ConfigRaw, error) {
-	pipecfg := pipeline.ConfigRaw{}
+func toPipeConfig(lgcNamespace string, lgcName string, lgcPipe *logconfigv1beta1.Pipeline, filesources []fileSource, sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.ConfigRaw, error) {
+	pipecfg := &pipeline.ConfigRaw{}
 
-	pipecfg.Name = lgcPipe.Name
+	pipecfg.Name = fmt.Sprintf("%s-%s", lgcNamespace, lgcName)
 
 	src, err := toPipelineSource(filesources)
 	if err != nil {
