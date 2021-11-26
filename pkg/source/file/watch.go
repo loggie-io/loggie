@@ -667,10 +667,8 @@ func (w *Watcher) run() {
 		log.Info("watcher stop")
 	}()
 	var osEvents chan fsnotify.Event
-	//var osNotifyErrors chan error
 	if w.config.EnableOsWatch && w.osWatcher != nil {
 		osEvents = w.osWatcher.Events
-		//osNotifyErrors = w.osWatcher.Errors
 	}
 	for {
 		select {
@@ -681,8 +679,6 @@ func (w *Watcher) run() {
 			if watchTask.watchTaskType == START {
 				w.sourceWatchTasks[key] = watchTask
 				w.cleanWatchTaskRegistry(watchTask)
-				// scanFileTicker scan() will call scanTaskNewFiles()
-				//w.scanTaskNewFiles(watchTask)
 			} else if watchTask.watchTaskType == STOP {
 				delete(w.sourceWatchTasks, key)
 				// Delete the jobs of the corresponding source
@@ -710,8 +706,6 @@ func (w *Watcher) run() {
 			}
 		case e := <-osEvents:
 			w.osNotify(e)
-		//case err := <-osNotifyErrors:
-		//	log.Warn("os watch error: %s", err)
 		case <-scanFileTicker.C:
 			w.scan()
 		case <-maintenanceTicker.C:
