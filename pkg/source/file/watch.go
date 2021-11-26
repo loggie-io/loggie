@@ -55,12 +55,11 @@ type Watcher struct {
 	osWatchFiles           map[string]bool // key:file|value:1;only zombie job file need os notify
 	allJobs                map[string]*Job // key:`pipelineName:sourceName:job.Uid`|value:*job
 	zombieJobs             map[string]*Job // key:`pipelineName:sourceName:job.Uid`|value:*job
-	//activeChan             chan *Job
-	currentOpenFds int
-	zombieJobChan  chan *Job
-	dbHandler      *dbHandler
-	countDown      *sync.WaitGroup
-	stopOnce       *sync.Once
+	currentOpenFds         int
+	zombieJobChan          chan *Job
+	dbHandler              *dbHandler
+	countDown              *sync.WaitGroup
+	stopOnce               *sync.Once
 }
 
 func newWatcher(config WatchConfig, dbHandler *dbHandler) *Watcher {
@@ -71,13 +70,12 @@ func newWatcher(config WatchConfig, dbHandler *dbHandler) *Watcher {
 		waiteForStopWatchTasks: make(map[string]*WatchTask),
 		watchTaskChan:          make(chan *WatchTask),
 		dbHandler:              dbHandler,
-		//activeChan:             make(chan *Job, config.MaxOpenFds+1),
-		zombieJobChan: make(chan *Job, config.MaxOpenFds+1),
-		allJobs:       make(map[string]*Job),
-		osWatchFiles:  make(map[string]bool),
-		zombieJobs:    make(map[string]*Job),
-		countDown:     &sync.WaitGroup{},
-		stopOnce:      &sync.Once{},
+		zombieJobChan:          make(chan *Job, config.MaxOpenFds+1),
+		allJobs:                make(map[string]*Job),
+		osWatchFiles:           make(map[string]bool),
+		zombieJobs:             make(map[string]*Job),
+		countDown:              &sync.WaitGroup{},
+		stopOnce:               &sync.Once{},
 	}
 	w.initOsWatcher()
 	go w.run()
@@ -250,7 +248,6 @@ func (w *Watcher) eventBus(e jobEvent) {
 				}
 				return
 			}
-			//w.activeChan <- job
 			job.Read()
 		}
 	case CREATE:
@@ -298,21 +295,13 @@ func (w *Watcher) eventBus(e jobEvent) {
 			return
 		}
 		w.allJobs[watchJobId] = job
-		//w.activeChan <- job
 		job.Read()
 		if existAckOffset > 0 {
 			log.Info("[%s-%s] start collect file from existFileName(%s) with existOffset(%d): %s", job.task.pipelineName, job.task.sourceName, existRegistry.Filename, existAckOffset, job.filename)
 		} else {
 			log.Info("[%s-%s] start collect file: %s", job.task.pipelineName, job.task.sourceName, job.filename)
 		}
-		// add file path to os notify
 		// ignore OS notify of path because it will cause too many system notifications
-		//path := filepath.Dir(filename)
-		//if ignoreSystemFile(path) {
-		//	return
-		//}
-		//w.addOsNotify(path)
-
 	}
 }
 
@@ -352,7 +341,6 @@ func (w *Watcher) scanTaskNewFiles(watchTask *WatchTask) {
 	sourceName := watchTask.sourceName
 	paths := watchTask.config.Paths
 	for _, path := range paths {
-		//matches, err := filepath.Glob(path)
 		matches, err := util.GlobWithRecursive(path)
 		if err != nil {
 			if os.IsNotExist(err) {
