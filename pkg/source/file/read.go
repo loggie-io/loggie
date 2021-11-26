@@ -229,6 +229,7 @@ func (r *Reader) work(index int) {
 						// Send "last line"
 						endOffset := lastOffset + readTotal
 						job.ProductEvent(endOffset, time.Now(), backlogBuffer)
+						job.lastActiveTime = time.Now()
 						wasLastLineSend = true
 						// Ignore the /n that may be written next.
 						// Because the "last line" of the collection thinks that either it will not be written later,

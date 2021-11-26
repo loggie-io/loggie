@@ -59,8 +59,8 @@ type Job struct {
 	currentLines      int64
 	eofCount          int
 	lastActiveTime    time.Time
-	deleteTime        time.Time
-	renameTime        time.Time
+	deleteTime        atomic.Value
+	renameTime        atomic.Value
 	identifier        string
 
 	task *WatchTask
@@ -107,11 +107,25 @@ func (j *Job) Index() uint32 {
 
 func (j *Job) Delete() {
 	j.ChangeStatusTo(JobDelete)
-	j.deleteTime = time.Now()
+	j.deleteTime.Store(time.Now())
 }
 
 func (j *Job) IsDelete() bool {
-	return j.status == JobDelete || !j.deleteTime.IsZero()
+	if j.status == JobDelete {
+		return true
+	}
+	dt := j.deleteTime.Load()
+	if dt == nil {
+		return false
+	}
+	return !dt.(time.Time).IsZero()
+}
+
+func (j *Job) IsDeleteTimeout(timeout time.Duration) bool {
+	if !j.IsDelete() {
+		return false
+	}
+	return time.Since(j.deleteTime.Load().(time.Time)) > timeout
 }
 
 func (j *Job) Stop() {
@@ -123,9 +137,9 @@ func (j *Job) ChangeStatusTo(status JobStatus) {
 	j.aStatus.Store(status)
 }
 
-func (j *Job) Release() {
+func (j *Job) Release() bool {
 	if j.file == nil {
-		return
+		return false
 	}
 	err := j.file.Close()
 	if err != nil {
@@ -133,6 +147,7 @@ func (j *Job) Release() {
 	}
 	j.file = nil
 	log.Info("job(fileName: %s) has been released", j.filename)
+	return true
 }
 
 func (j *Job) Sync() {
@@ -143,14 +158,19 @@ func (j *Job) Sync() {
 func (j *Job) RenameTo(newFilename string) {
 	j.filename = newFilename
 	j.aFileName.Store(newFilename)
-	j.renameTime = time.Now()
+	j.renameTime.Store(time.Now())
 }
 
 func (j *Job) IsRename() bool {
-	return !j.renameTime.IsZero()
+	rt := j.renameTime.Load()
+	if rt == nil {
+		return false
+	}
+	return !rt.(time.Time).IsZero()
 }
 
-func (j *Job) Active() error {
+func (j *Job) Active() (error, bool) {
+	fdOpen := false
 	if j.file == nil {
 		// reopen
 		file, err := os.Open(j.filename)
@@ -158,30 +178,31 @@ func (j *Job) Active() error {
 			if os.IsPermission(err) {
 				log.Error("no permission for filename: %s", j.filename)
 			}
-			return err
+			return err, false
 		}
 		j.file = file
+		fdOpen = true
 
 		fileInfo, err := file.Stat()
 		if err != nil {
-			return err
+			return err, fdOpen
 		}
 		newUid := JobUid(fileInfo)
 		if j.Uid() != newUid {
-			return fmt.Errorf("job(filename: %s) uid(%s) changed to %s，it maybe not a file", j.filename, j.Uid(), newUid)
+			return fmt.Errorf("job(filename: %s) uid(%s) changed to %s，it maybe not a file", j.filename, j.Uid(), newUid), fdOpen
 		}
 
 		// reset file offset and lineNumber
 		if j.nextOffset != 0 {
 			_, err = file.Seek(j.nextOffset, io.SeekStart)
 			if err != nil {
-				return err
+				return err, fdOpen
 			}
 			// init lineNumber
 			if j.currentLineNumber == 0 {
 				lineNumber, err := util.LineCountTo(j.nextOffset, j.filename)
 				if err != nil {
-					return err
+					return err, fdOpen
 				}
 				j.currentLineNumber = int64(lineNumber)
 			}
@@ -191,7 +212,7 @@ func (j *Job) Active() error {
 	j.aStatus.Store(JobActive)
 	j.eofCount = 0
 	j.lastActiveTime = time.Now()
-	return nil
+	return nil, fdOpen
 }
 
 func (j *Job) NextOffset(offset int64) {
