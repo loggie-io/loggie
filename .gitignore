@@ -26,3 +26,6 @@ bin
 .vscode
 pkg/source/file/data
 data
+node_modules/
+package-lock.json
+package.json
