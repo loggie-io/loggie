@@ -55,12 +55,11 @@ type Watcher struct {
 	osWatchFiles           map[string]bool // key:file|value:1;only zombie job file need os notify
 	allJobs                map[string]*Job // key:`pipelineName:sourceName:job.Uid`|value:*job
 	zombieJobs             map[string]*Job // key:`pipelineName:sourceName:job.Uid`|value:*job
-	//activeChan             chan *Job
-	currentCollectFiles int
-	zombieJobChan       chan *Job
-	dbHandler           *dbHandler
-	countDown           *sync.WaitGroup
-	stopOnce            *sync.Once
+	currentOpenFds         int
+	zombieJobChan          chan *Job
+	dbHandler              *dbHandler
+	countDown              *sync.WaitGroup
+	stopOnce               *sync.Once
 }
 
 func newWatcher(config WatchConfig, dbHandler *dbHandler) *Watcher {
@@ -71,13 +70,12 @@ func newWatcher(config WatchConfig, dbHandler *dbHandler) *Watcher {
 		waiteForStopWatchTasks: make(map[string]*WatchTask),
 		watchTaskChan:          make(chan *WatchTask),
 		dbHandler:              dbHandler,
-		//activeChan:             make(chan *Job, config.MaxCollectFiles+1),
-		zombieJobChan: make(chan *Job, config.MaxCollectFiles+1),
-		allJobs:       make(map[string]*Job),
-		osWatchFiles:  make(map[string]bool),
-		zombieJobs:    make(map[string]*Job),
-		countDown:     &sync.WaitGroup{},
-		stopOnce:      &sync.Once{},
+		zombieJobChan:          make(chan *Job, config.MaxOpenFds+1),
+		allJobs:                make(map[string]*Job),
+		osWatchFiles:           make(map[string]bool),
+		zombieJobs:             make(map[string]*Job),
+		countDown:              &sync.WaitGroup{},
+		stopOnce:               &sync.Once{},
 	}
 	w.initOsWatcher()
 	go w.run()
@@ -222,12 +220,15 @@ func (w *Watcher) eventBus(e jobEvent) {
 		// cannot ignore call job.Delete()
 		job.Delete()
 		// More aggressive handling of deleted files
-		if _, ok := w.zombieJobs[job.WatchUid()]; ok {
+		if w.isZombieJob(job) {
 			w.finalizeJob(job)
 		}
 	case RENAME:
 		job.RenameTo(e.newFilename)
 		log.Info("job fileName(%s) rename to %s", filename, e.newFilename)
+		if w.isZombieJob(job) && job.file == nil {
+			w.handleRenameJobs(job)
+		}
 		// waiting to write to registry
 	case WRITE:
 		// only care about zombie job write event
@@ -236,16 +237,21 @@ func (w *Watcher) eventBus(e jobEvent) {
 			delete(w.zombieJobs, watchJobId)
 			// zombie job change to active, so without os notify
 			w.removeOsNotify(job.filename)
-			err := job.Active()
+			err, fdOpen := job.Active()
+			if fdOpen {
+				w.currentOpenFds++
+			}
 			if err != nil {
 				log.Error("active job fileName(%s) fail: %s", filename, err)
+				if job.Release() {
+					w.currentOpenFds--
+				}
 				return
 			}
-			//w.activeChan <- job
 			job.Read()
 		}
 	case CREATE:
-		if w.currentCollectFiles >= w.config.MaxCollectFiles {
+		if w.currentOpenFds >= w.config.MaxOpenFds {
 			log.Error("maxCollectFiles reached. fileName(%s) will be ignore", filename)
 			return
 		}
@@ -277,28 +283,25 @@ func (w *Watcher) eventBus(e jobEvent) {
 		// set ack offset
 		job.NextOffset(existAckOffset)
 		// active job
-		err = job.Active()
+		err, fdOpen := job.Active()
+		if fdOpen {
+			w.currentOpenFds++
+		}
 		if err != nil {
 			log.Error("active job fileName(%s) fail: %s", filename, err)
+			if job.Release() {
+				w.currentOpenFds--
+			}
 			return
 		}
 		w.allJobs[watchJobId] = job
-		w.currentCollectFiles++
-		//w.activeChan <- job
 		job.Read()
 		if existAckOffset > 0 {
 			log.Info("[%s-%s] start collect file from existFileName(%s) with existOffset(%d): %s", job.task.pipelineName, job.task.sourceName, existRegistry.Filename, existAckOffset, job.filename)
 		} else {
 			log.Info("[%s-%s] start collect file: %s", job.task.pipelineName, job.task.sourceName, job.filename)
 		}
-		// add file path to os notify
 		// ignore OS notify of path because it will cause too many system notifications
-		//path := filepath.Dir(filename)
-		//if ignoreSystemFile(path) {
-		//	return
-		//}
-		//w.addOsNotify(path)
-
 	}
 }
 
@@ -338,7 +341,6 @@ func (w *Watcher) scanTaskNewFiles(watchTask *WatchTask) {
 	sourceName := watchTask.sourceName
 	paths := watchTask.config.Paths
 	for _, path := range paths {
-		//matches, err := filepath.Glob(path)
 		matches, err := util.GlobWithRecursive(path)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -361,7 +363,7 @@ func (w *Watcher) createOrRename(filename string, watchTask *WatchTask) {
 			log.Info("file(%s) ignored because generate id fail: %s", filename, err)
 			return
 		}
-		j, ok := w.allJobs[job.WatchUid()]
+		existJob, ok := w.allJobs[job.WatchUid()]
 		// job create
 		if !ok {
 			w.eventBus(jobEvent{
@@ -371,32 +373,32 @@ func (w *Watcher) createOrRename(filename string, watchTask *WatchTask) {
 			return
 		}
 		// job exist
-		if filename == j.filename {
+		if filename == existJob.filename {
 			return
 		}
 		// FD is in hold, ignore
-		if j.file != nil {
+		if existJob.file != nil {
 			return
 		}
-		// check j renamed?
-		if j.IsSame(job) && j.nextOffset <= fileInfo.Size() {
+		// check existJob renamed?
+		if existJob.IsSame(job) && existJob.endOffset <= fileInfo.Size() {
 			w.eventBus(jobEvent{
 				opt:         RENAME,
-				job:         j,
+				job:         existJob,
 				newFilename: filename,
 			})
 			return
 		}
-		// check j removed?
-		_, err = os.Stat(j.filename)
+		// check existJob removed?
+		_, err = os.Stat(existJob.filename)
 		if err != nil && os.IsNotExist(err) {
 			w.eventBus(jobEvent{
 				opt:         REMOVE,
-				job:         j,
+				job:         existJob,
 				newFilename: filename,
 			})
 		} else {
-			log.Error("files has same inode and identifier: fileName(%s) and fileName(%s) inode(%s) repeat!", j.filename, filename, j.Uid())
+			log.Error("files has same inode and identifier: fileName(%s) and fileName(%s) inode(%s) repeat!", existJob.filename, filename, existJob.Uid())
 		}
 	}
 }
@@ -488,7 +490,7 @@ func (w *Watcher) scanActiveJob() {
 			continue
 		}
 		// check FdHoldTimeoutWhenRemove
-		if job.IsDelete() && time.Since(job.deleteTime) > fdHoldTimeoutWhenRemove {
+		if job.IsDeleteTimeout(fdHoldTimeoutWhenRemove) {
 			job.Stop()
 			log.Info("[pipeline(%s)-source(%s)]: job stop because file(%s) fdHoldTimeoutWhenRemove(%d second) reached", job.task.pipelineName, job.task.sourceName, job.filename, fdHoldTimeoutWhenRemove/time.Second)
 			continue
@@ -558,13 +560,23 @@ func (w *Watcher) scanZombieJob() {
 			}
 		} else {
 			if job.status == JobStopImmediately {
-				job.Release()
+				if job.Release() {
+					w.currentOpenFds--
+				}
+				if job.IsRename() {
+					w.handleRenameJobs(job)
+				}
 				// waiting for next round process,because rename or remove decide
 				continue
 			}
 			// release fd
 			if time.Since(job.lastActiveTime) > w.config.FdHoldTimeoutWhenInactive {
-				job.Release()
+				if job.Release() {
+					w.currentOpenFds--
+				}
+				if job.IsRename() {
+					w.handleRenameJobs(job)
+				}
 				continue
 			}
 			if job.status == JobStop {
@@ -594,8 +606,9 @@ func (w *Watcher) finalizeJob(job *Job) {
 	delete(w.zombieJobs, key)
 	delete(w.allJobs, key)
 	w.removeOsNotify(job.filename)
-	w.currentCollectFiles--
-	job.Release()
+	if job.Release() {
+		w.currentOpenFds--
+	}
 
 	if job.IsRename() {
 		w.handleRenameJobs(job)
@@ -618,7 +631,7 @@ func (w *Watcher) finalizeJob(job *Job) {
 func (w *Watcher) copyActiveJobs() []*Job {
 	jobs := make([]*Job, 0)
 	for _, job := range w.allJobs {
-		if _, ok := w.zombieJobs[job.WatchUid()]; !ok {
+		if !w.isZombieJob(job) {
 			jobs = append(jobs, job)
 		}
 	}
@@ -642,10 +655,8 @@ func (w *Watcher) run() {
 		log.Info("watcher stop")
 	}()
 	var osEvents chan fsnotify.Event
-	var osNotifyErrors chan error
 	if w.config.EnableOsWatch && w.osWatcher != nil {
 		osEvents = w.osWatcher.Events
-		osNotifyErrors = w.osWatcher.Errors
 	}
 	for {
 		select {
@@ -656,8 +667,6 @@ func (w *Watcher) run() {
 			if watchTask.watchTaskType == START {
 				w.sourceWatchTasks[key] = watchTask
 				w.cleanWatchTaskRegistry(watchTask)
-				// scanFileTicker scan() will call scanTaskNewFiles()
-				//w.scanTaskNewFiles(watchTask)
 			} else if watchTask.watchTaskType == STOP {
 				delete(w.sourceWatchTasks, key)
 				// Delete the jobs of the corresponding source
@@ -685,8 +694,6 @@ func (w *Watcher) run() {
 			}
 		case e := <-osEvents:
 			w.osNotify(e)
-		case err := <-osNotifyErrors:
-			log.Warn("os watch error: %s", err)
 		case <-scanFileTicker.C:
 			w.scan()
 		case <-maintenanceTicker.C:
@@ -906,7 +913,7 @@ func (w *Watcher) handleRemoveJobs(jobs ...*Job) {
 			Filename:     jt.filename,
 		}
 		//rs = append(rs, r)
-		log.Info("try to delete registry(%+v) because CleanWhenRemoved. deleteTime: %s", r, jt.deleteTime.Format(timeFormatPattern))
+		log.Info("try to delete registry(%+v) because CleanWhenRemoved. deleteTime: %s", r, jt.deleteTime.Load().(time.Time).Format(timeFormatPattern))
 		w.dbHandler.HandleOpt(DbOpt{
 			r:           r,
 			optType:     DeleteByJobUidOpt,

@@ -321,10 +321,17 @@ func (d *dbHandler) updateRegistry(registries []registry) {
 func (d *dbHandler) updateName(rs []registry) {
 	d.txWrapper(updateNameByJobWatchId, func(stmt *sql.Stmt) {
 		for _, r := range rs {
-			_, err := stmt.Exec(r.Filename, r.JobUid, r.SourceName, r.PipelineName)
+			result, err := stmt.Exec(r.Filename, r.JobUid, r.SourceName, r.PipelineName)
 			if err != nil {
 				log.Error("%s stmt exec fail: %s", d.String(), err)
+				continue
 			}
+			affected, err := result.RowsAffected()
+			if err != nil {
+				log.Error("%s get result fail: %s", d.String(), err)
+				continue
+			}
+			log.Info("updateName registry(%+v). affected: %d", r, affected)
 		}
 	})
 }
@@ -342,7 +349,7 @@ func (d *dbHandler) deleteRemoved(rs []registry) {
 				log.Error("%s get result fail: %s", d.String(), err)
 				continue
 			}
-			log.Info("delete registry(%+v) because CleanWhenRemoved. affected: %d", r, affected)
+			log.Info("delete registry(%+v). affected: %d", r, affected)
 		}
 	})
 }
