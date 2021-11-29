@@ -169,9 +169,8 @@ func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineRawCon
 	var pipeConfigs []pipeline.ConfigRaw
 
 	for lgcKey, podSet := range p.lgcToPodSets {
-		cfg := pipeline.ConfigRaw{}
-
 		for _, podKey := range podSet.List() {
+			cfg := pipeline.ConfigRaw{}
 			key := helper.MetaNamespaceKey(podKey, lgcKey)
 			cfgRaw, ok := p.pipeConfigs[key]
 			if !ok {
@@ -182,9 +181,8 @@ func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineRawCon
 			cfg.Sources = append(cfg.Sources, cfgRaw.Sources...)
 			cfg.Interceptors = cfgRaw.Interceptors
 			cfg.Sink = cfgRaw.Sink
+			pipeConfigs = append(pipeConfigs, cfg)
 		}
-
-		pipeConfigs = append(pipeConfigs, cfg)
 	}
 
 	conf.Pipelines = pipeConfigs
