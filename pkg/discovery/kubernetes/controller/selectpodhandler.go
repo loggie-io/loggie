@@ -258,7 +258,7 @@ func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfig
 		if s.ContainerName != "" && s.ContainerName != status.Name {
 			continue
 		}
-		// change the source name, add container name as suffix
+		// change the source name, add pod.Name-containerName as prefix
 		src.Name = fmt.Sprintf("%s-%s-%s", pod.Name, status.Name, src.Name)
 		// inject default pod metadata
 		if err = injectFields(config, s.MatchFields, src, pod, logconfigName, status.Name); err != nil {
