@@ -98,6 +98,10 @@ func (in *LogConfig) Validate() error {
 		return errors.New("selector.cluster is required when selector.type=loggie")
 	}
 
+	if in.Spec.Pipeline.Sources == "" {
+		return errors.New("pipeline sources is empty")
+	}
+
 	return nil
 }
 
