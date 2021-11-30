@@ -124,7 +124,7 @@ func (r *Reader) work(index int) {
 		case job := <-jobs:
 			filename := job.filename
 			status := job.status
-			if status == JobStop || status == JobStopImmediately {
+			if status == JobStop {
 				log.Info("job(uid: %s) file(%s) status(%d) is stop, job will be ignore", job.Uid(), filename, status)
 				r.watcher.decideJob(job)
 				continue

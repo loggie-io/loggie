@@ -178,7 +178,7 @@ func (w *Watcher) decideJob(job *Job) {
 	w.reportMetric(job)
 
 	// Stopped jobs are directly put into the zombie queue for release
-	if job.status == JobStop || job.status == JobStopImmediately {
+	if job.status == JobStop {
 		w.zombieJobChan <- job
 		return
 	}
@@ -381,24 +381,13 @@ func (w *Watcher) createOrRename(filename string, watchTask *WatchTask) {
 			return
 		}
 		// check existJob renamed?
-		if existJob.IsSame(job) && existJob.endOffset <= fileInfo.Size() {
+		if existJob.IsSame(job) {
 			w.eventBus(jobEvent{
 				opt:         RENAME,
 				job:         existJob,
 				newFilename: filename,
 			})
 			return
-		}
-		// check existJob removed?
-		_, err = os.Stat(existJob.filename)
-		if err != nil && os.IsNotExist(err) {
-			w.eventBus(jobEvent{
-				opt:         REMOVE,
-				job:         existJob,
-				newFilename: filename,
-			})
-		} else {
-			log.Error("files has same inode and identifier: fileName(%s) and fileName(%s) inode(%s) repeat!", existJob.filename, filename, existJob.Uid())
 		}
 	}
 }
@@ -481,12 +470,10 @@ func (w *Watcher) isIgnoreTime() bool {
 	return time.Since(dayOfStart) < ignoreScanTime
 }
 
-// 0. check remove fd
 func (w *Watcher) scanActiveJob() {
-	activeJobs := w.copyActiveJobs()
 	fdHoldTimeoutWhenRemove := w.config.FdHoldTimeoutWhenRemove
-	for _, job := range activeJobs {
-		if job.status == JobStop || job.status == JobStopImmediately {
+	for _, job := range w.allJobs {
+		if job.status == JobStop || w.isZombieJob(job) {
 			continue
 		}
 		// check FdHoldTimeoutWhenRemove
@@ -514,7 +501,7 @@ func (w *Watcher) scanZombieJob() {
 		var stat os.FileInfo
 		var err error
 		if job.file == nil {
-			if job.status == JobStop || job.status == JobStopImmediately {
+			if job.status == JobStop {
 				w.finalizeJob(job)
 				continue
 			}
@@ -559,7 +546,7 @@ func (w *Watcher) scanZombieJob() {
 				}
 			}
 		} else {
-			if job.status == JobStopImmediately {
+			if job.status == JobStop {
 				if job.Release() {
 					w.currentOpenFds--
 				}
@@ -577,10 +564,6 @@ func (w *Watcher) scanZombieJob() {
 				if job.IsRename() {
 					w.handleRenameJobs(job)
 				}
-				continue
-			}
-			if job.status == JobStop {
-				// wait for job release
 				continue
 			}
 			stat, err = os.Stat(filename)
@@ -628,16 +611,6 @@ func (w *Watcher) finalizeJob(job *Job) {
 	}
 }
 
-func (w *Watcher) copyActiveJobs() []*Job {
-	jobs := make([]*Job, 0)
-	for _, job := range w.allJobs {
-		if !w.isZombieJob(job) {
-			jobs = append(jobs, job)
-		}
-	}
-	return jobs
-}
-
 func (w *Watcher) isZombieJob(job *Job) bool {
 	_, ok := w.zombieJobs[job.WatchUid()]
 	return ok
@@ -672,7 +645,7 @@ func (w *Watcher) run() {
 				// Delete the jobs of the corresponding source
 				for _, job := range w.allJobs {
 					if watchTask.isParentOf(job) {
-						job.ChangeStatusTo(JobStopImmediately)
+						job.Stop()
 					}
 					if w.isZombieJob(job) {
 						w.finalizeJob(job)
@@ -693,6 +666,7 @@ func (w *Watcher) run() {
 				w.addOsNotify(job.filename)
 			}
 		case e := <-osEvents:
+			//log.Info("os event: %v", e)
 			w.osNotify(e)
 		case <-scanFileTicker.C:
 			w.scan()
@@ -732,22 +706,32 @@ func (w *Watcher) osNotify(e fsnotify.Event) {
 		return
 	}
 
-	var opt Operation
-	switch e.Op {
-	case fsnotify.Remove:
-		opt = REMOVE
-	case fsnotify.Write:
-		opt = WRITE
+	if e.Op == fsnotify.Remove {
+		for _, job := range w.allJobs {
+			if job.status == JobDelete || job.status == JobStop {
+				continue
+			}
+			if fileName == job.filename {
+				w.eventBus(jobEvent{
+					opt: REMOVE,
+					job: job,
+				})
+			}
+		}
+		return
 	}
 
-	for _, job := range w.allJobs {
-		if job.status == JobDelete || job.status == JobStop || job.status == JobStopImmediately {
-			continue
+	if e.Op == fsnotify.Write {
+		stat, err := os.Stat(fileName)
+		if err != nil {
+			log.Error("os notify stat file(%s) fail: %s", fileName, err)
+			return
 		}
-		if job.filename == fileName {
+		jobUid := JobUid(stat)
+		if existJob, ok := w.allJobs[jobUid]; ok {
 			w.eventBus(jobEvent{
-				opt: opt,
-				job: job,
+				opt: WRITE,
+				job: existJob,
 			})
 		}
 	}
@@ -876,7 +860,6 @@ func (w *Watcher) handleRenameJobs(jobs ...*Job) {
 	if l == 0 {
 		return
 	}
-	//rs := make([]registry, 0, l)
 	for _, job := range jobs {
 		jt := job
 		r := registry{
@@ -885,14 +868,14 @@ func (w *Watcher) handleRenameJobs(jobs ...*Job) {
 			Filename:     jt.filename,
 			JobUid:       jt.Uid(),
 		}
-		//rs = append(rs, r)
+		log.Info("try to rename job: %s", job.filename)
 		w.dbHandler.HandleOpt(DbOpt{
 			r:           r,
 			optType:     UpdateNameByJobWatchIdOpt,
 			immediately: false,
 		})
+		job.cleanRename()
 	}
-	//w.dbHandler.updateName(rs)
 }
 
 func (w *Watcher) handleRemoveJobs(jobs ...*Job) {
@@ -903,7 +886,6 @@ func (w *Watcher) handleRemoveJobs(jobs ...*Job) {
 	if l == 0 {
 		return
 	}
-	//rs := make([]registry, 0, l)
 	for _, j := range jobs {
 		jt := j
 		r := registry{
@@ -912,7 +894,6 @@ func (w *Watcher) handleRemoveJobs(jobs ...*Job) {
 			JobUid:       jt.Uid(),
 			Filename:     jt.filename,
 		}
-		//rs = append(rs, r)
 		log.Info("try to delete registry(%+v) because CleanWhenRemoved. deleteTime: %s", r, jt.deleteTime.Load().(time.Time).Format(timeFormatPattern))
 		w.dbHandler.HandleOpt(DbOpt{
 			r:           r,
@@ -920,5 +901,4 @@ func (w *Watcher) handleRemoveJobs(jobs ...*Job) {
 			immediately: false,
 		})
 	}
-	//w.dbHandler.deleteRemoved(rs)
 }
