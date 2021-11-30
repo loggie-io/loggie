@@ -80,6 +80,7 @@ func proxyFileHandler(writer http.ResponseWriter, request *http.Request) {
 		fmt.Fprintf(writer, "open file err: %v", err)
 		return
 	}
+	defer f.Close()
 
 	offset, err := findTailLineStartIndex(f, int64(tailLine))
 	if err != nil {
