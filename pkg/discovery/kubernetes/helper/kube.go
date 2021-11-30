@@ -322,7 +322,6 @@ func envVarsToMap(envs []corev1.EnvVar) map[string]string {
 	return result
 }
 
-
 func nodePathByContainerPath(pathPattern string, pod *corev1.Pod, volumeName string, volumeMountPath string, subPathRes string, kubeletRootDir string) (string, error) {
 	for _, vol := range pod.Spec.Volumes {
 		if vol.Name != volumeName {
