@@ -31,13 +31,14 @@ import (
 )
 
 const (
-	JobActive          = JobStatus(1)
-	JobDelete          = JobStatus(2)
-	JobStop            = JobStatus(3)
-	JobStopImmediately = JobStatus(999)
+	JobActive = JobStatus(1)
+	JobDelete = JobStatus(2)
+	JobStop   = JobStatus(3)
 
 	defaultIdentifier = "BLANK"
 )
+
+var NilOfTime, _ = time.ParseInLocation("2006-01-02 15:04:05", "2008-08-08 08:08:08", time.Local)
 
 var globalJobIndex uint32
 
@@ -163,10 +164,14 @@ func (j *Job) RenameTo(newFilename string) {
 
 func (j *Job) IsRename() bool {
 	rt := j.renameTime.Load()
-	if rt == nil {
+	if rt == nil || rt == NilOfTime {
 		return false
 	}
 	return !rt.(time.Time).IsZero()
+}
+
+func (j *Job) cleanRename() {
+	j.renameTime.Store(NilOfTime)
 }
 
 func (j *Job) Active() (error, bool) {
@@ -189,6 +194,7 @@ func (j *Job) Active() (error, bool) {
 		}
 		newUid := JobUid(fileInfo)
 		if j.Uid() != newUid {
+			j.Delete()
 			return fmt.Errorf("job(filename: %s) uid(%s) changed to %s，it maybe not a file", j.filename, j.Uid(), newUid), fdOpen
 		}
 

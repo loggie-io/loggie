@@ -31,10 +31,10 @@ import (
 // LineCountTo calculates the number of lines to the offset
 func LineCountTo(offset int64, fileName string) (int, error) {
 	r, err := os.Open(fileName)
+	defer r.Close()
 	if err != nil {
 		return 0, err
 	}
-	defer r.Close()
 	buf := make([]byte, 64*1024)
 	count := 0
 	lineSep := []byte{'\n'}
