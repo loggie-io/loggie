@@ -17,9 +17,12 @@ limitations under the License.
 package helper
 
 import (
+	"bytes"
+	"fmt"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"loggie.io/loggie/pkg/core/log"
 	"path/filepath"
 	"strings"
@@ -106,12 +109,12 @@ func PathsInNode(kubeletRootDir string, paths []string, pod *corev1.Pod, contain
 	nodePaths := make([]string, 0)
 
 	for _, path := range paths {
-		volumeName, volumeMountPath, err := findVolumeMountsByPaths(path, pod, containerName)
+		volumeName, volumeMountPath, subPathRes, err := findVolumeMountsByPaths(path, pod, containerName)
 		if err != nil {
 			return nil, err
 		}
 
-		nodePath, err := nodePathByContainerPath(path, pod, volumeName, volumeMountPath, kubeletRootDir)
+		nodePath, err := nodePathByContainerPath(path, pod, volumeName, volumeMountPath, subPathRes, kubeletRootDir)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +122,6 @@ func PathsInNode(kubeletRootDir string, paths []string, pod *corev1.Pod, contain
 		nodePaths = append(nodePaths, nodePath)
 	}
 	return nodePaths, nil
-
 }
 
 func GenDockerStdoutLog(dockerDataRoot string, containerId string) string {
@@ -136,33 +138,202 @@ func GenContainerdStdoutLog(podLogDirPrefix string, namespace string, podName st
 	return paths
 }
 
-func findVolumeMountsByPaths(path string, pod *corev1.Pod, containerName string) (volumeName string, volumeMountPath string, err error) {
+func findVolumeMountsByPaths(path string, pod *corev1.Pod, containerName string) (volumeName string, volumeMountPath string, subPathExprResult string, err error) {
 	for _, c := range pod.Spec.Containers {
 		if c.Name != containerName {
 			continue
 		}
 		for _, volMount := range c.VolumeMounts {
 			if strings.HasPrefix(path, volMount.MountPath) {
-				return volMount.Name, volMount.MountPath, nil
+
+				var subPathExprRes string
+				if volMount.SubPathExpr != "" {
+					envVars := getEnvInPod(pod, containerName)
+					envMap := envVarsToMap(envVars)
+					subPathExprRes = subPathExpand(volMount.SubPathExpr, envMap)
+				}
+
+				return volMount.Name, volMount.MountPath, subPathExprRes, nil
+			}
+		}
+	}
+	return "", "", "", errors.Errorf("cannot find volume mounts by path: %s", path)
+}
+
+func getEnvInPod(pod *corev1.Pod, containerName string) []corev1.EnvVar {
+	var envResult []corev1.EnvVar
+	if pod.Spec.Containers == nil {
+		return envResult
+	}
+
+	for _, container := range pod.Spec.Containers {
+		if container.Name != containerName {
+			continue
+		}
+
+		for _, env := range container.Env {
+
+			if env.Value != "" {
+				envResult = append(envResult, env)
+				continue
+			}
+
+			if env.ValueFrom != nil && env.ValueFrom.FieldRef != nil {
+				fieldPath := env.ValueFrom.FieldRef.FieldPath
+
+				var val string
+				switch fieldPath {
+				case "spec.nodeName":
+					val = pod.Spec.NodeName
+				case "spec.serviceAccountName":
+					val = pod.Spec.ServiceAccountName
+				case "status.hostIP":
+					val = pod.Status.HostIP
+				case "status.podIP":
+					val = pod.Status.PodIP
+
+				default:
+					val = extractFieldPathAsString(pod, fieldPath)
+				}
+
+				if val != "" {
+					env.Value = val
+					envResult = append(envResult, env)
+				}
+			}
+		}
+	}
+
+	return envResult
+}
+
+func extractFieldPathAsString(pod *corev1.Pod, fieldPath string) string {
+
+	if path, subscript, ok := splitMaybeSubscriptedPath(fieldPath); ok {
+		switch path {
+		case "metadata.annotations":
+			return pod.GetAnnotations()[subscript]
+		case "metadata.labels":
+			return pod.GetLabels()[subscript]
+		default:
+			return ""
+		}
+	}
+
+	switch fieldPath {
+	case "metadata.annotations":
+		return formatMap(pod.GetAnnotations())
+	case "metadata.labels":
+		return formatMap(pod.GetLabels())
+	case "metadata.name":
+		return pod.GetName()
+	case "metadata.namespace":
+		return pod.GetNamespace()
+	case "metadata.uid":
+		return string(pod.GetUID())
+	}
+
+	return ""
+}
+
+func splitMaybeSubscriptedPath(fieldPath string) (string, string, bool) {
+	if !strings.HasSuffix(fieldPath, "']") {
+		return fieldPath, "", false
+	}
+	s := strings.TrimSuffix(fieldPath, "']")
+	parts := strings.SplitN(s, "['", 2)
+	if len(parts) < 2 {
+		return fieldPath, "", false
+	}
+	if len(parts[0]) == 0 {
+		return fieldPath, "", false
+	}
+	return parts[0], parts[1], true
+}
+
+func formatMap(m map[string]string) (fmtStr string) {
+	keys := sets.NewString()
+	for key := range m {
+		keys.Insert(key)
+	}
+	for _, key := range keys.List() {
+		fmtStr += fmt.Sprintf("%v=%q\n", key, m[key])
+	}
+	fmtStr = strings.TrimSuffix(fmtStr, "\n")
+
+	return
+}
+
+const (
+	operator        = '$'
+	referenceOpener = '('
+	referenceCloser = ')'
+)
+
+func subPathExpand(expr string, envMap map[string]string) string {
+	var buf bytes.Buffer
+	checkpoint := 0
+	for cursor := 0; cursor < len(expr); cursor++ {
+		if expr[cursor] == operator && cursor+1 < len(expr) {
+			buf.WriteString(expr[checkpoint:cursor])
+
+			read, isVar, advance := tryReadVariableName(expr[cursor+1:])
+
+			if isVar {
+				val, ok := envMap[read]
+				if !ok {
+					return ""
+				}
+				buf.WriteString(val)
+			} else {
+				buf.WriteString(read)
+			}
+
+			cursor += advance
+			checkpoint = cursor + 1
+		}
+	}
+
+	return buf.String() + expr[checkpoint:]
+}
+
+func tryReadVariableName(input string) (string, bool, int) {
+	switch input[0] {
+	case operator:
+		return input[0:1], false, 1
+	case referenceOpener:
+		for i := 1; i < len(input); i++ {
+			if input[i] == referenceCloser {
+				return input[1:i], true, i + 1
 			}
 		}
 
+		return string(operator) + string(referenceOpener), false, 1
+	default:
+		return (string(operator) + string(input[0])), false, 1
 	}
-	return "", "", errors.Errorf("cannot find volume mounts by path: %s", path)
 }
 
-func nodePathByContainerPath(pathPattern string, pod *corev1.Pod, volumeName string, volumeMountPath string, kubeletRootDir string) (string, error) {
+func envVarsToMap(envs []corev1.EnvVar) map[string]string {
+	result := map[string]string{}
+	for _, env := range envs {
+		result[env.Name] = env.Value
+	}
+	return result
+}
+
+func nodePathByContainerPath(pathPattern string, pod *corev1.Pod, volumeName string, volumeMountPath string, subPathRes string, kubeletRootDir string) (string, error) {
 	for _, vol := range pod.Spec.Volumes {
 		if vol.Name != volumeName {
 			continue
 		}
 
 		if vol.HostPath != nil {
-			return getHostPath(pathPattern, volumeMountPath, vol.HostPath.Path), nil
+			return getHostPath(pathPattern, volumeMountPath, vol.HostPath.Path, subPathRes), nil
 		}
 
 		if vol.EmptyDir != nil {
-			return getEmptyDirNodePath(pathPattern, pod, volumeName, volumeMountPath, kubeletRootDir), nil
+			return getEmptyDirNodePath(pathPattern, pod, volumeName, volumeMountPath, kubeletRootDir, subPathRes), nil
 		}
 
 		// unsupported volume type
@@ -172,15 +343,15 @@ func nodePathByContainerPath(pathPattern string, pod *corev1.Pod, volumeName str
 }
 
 // eg: @pathPattern=/var/log/test/*.log;  @volumeMountPath=/var/log; @volume=/data/log/var/log
-func getHostPath(pathPattern string, volumeMountPath string, hostPath string) string {
+func getHostPath(pathPattern string, volumeMountPath string, hostPath string, subPath string) string {
 	pathSuffix := strings.TrimPrefix(pathPattern, volumeMountPath)
-	return filepath.Join(hostPath, pathSuffix)
+	return filepath.Join(hostPath, subPath, pathSuffix)
 }
 
-func getEmptyDirNodePath(pathPattern string, pod *corev1.Pod, volumeName string, volumeMountPath string, kubeletRootDir string) string {
+func getEmptyDirNodePath(pathPattern string, pod *corev1.Pod, volumeName string, volumeMountPath string, kubeletRootDir string, subPath string) string {
 	emptyDirPath := filepath.Join(kubeletRootDir, "pods", string(pod.UID), "volumes/kubernetes.io~empty-dir", volumeName)
 	pathSuffix := strings.TrimPrefix(pathPattern, volumeMountPath)
-	return filepath.Join(emptyDirPath, pathSuffix)
+	return filepath.Join(emptyDirPath, subPath, pathSuffix)
 }
 
 func GetMatchedPodLabel(labelKeys []string, pod *corev1.Pod) map[string]string {

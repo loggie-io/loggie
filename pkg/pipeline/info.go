@@ -30,7 +30,7 @@ import (
 )
 
 type Config struct {
-	Name             string        `yaml:"name" validate:"required"`
+	Name             string        `yaml:"name,omitempty" validate:"required"`
 	CleanDataTimeout time.Duration `yaml:"cleanDataTimeout,omitempty" default:"5s"`
 
 	Queue        *queue.Config        `yaml:"queue,omitempty" validate:"dive,required"`
@@ -40,7 +40,7 @@ type Config struct {
 }
 
 type ConfigRaw struct {
-	Name             string        `yaml:"name" validate:"required"`
+	Name             string        `yaml:"name,omitempty" validate:"required"`
 	CleanDataTimeout time.Duration `yaml:"cleanDataTimeout,omitempty" default:"5s"`
 
 	Queue        cfg.CommonCfg   `yaml:"queue,omitempty" validate:"required"`
