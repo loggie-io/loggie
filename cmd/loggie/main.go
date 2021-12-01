@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"go.uber.org/automaxprocs/maxprocs"
+	"gopkg.in/yaml.v2"
 	"loggie.io/loggie/pkg/control"
 	"loggie.io/loggie/pkg/core/cfg"
 	"loggie.io/loggie/pkg/core/log"
@@ -84,6 +85,11 @@ func main() {
 	pipecfgs, err := control.ReadPipelineConfig(pipelineConfigPath, func(s os.FileInfo) bool {
 		return false
 	})
+	out, err := yaml.Marshal(pipecfgs)
+	if err == nil {
+		log.Info("initial pipelines config:\n%s", string(out))
+	}
+
 	if err != nil && !os.IsNotExist(err) {
 		log.Panic("unpack config.pipeline config file err: %v", err)
 	}

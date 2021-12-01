@@ -421,6 +421,7 @@ func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor
 	}
 	last := invoker
 	var interceptorChainName strings.Builder
+	interceptorChainName.WriteString("queue->")
 	// sort interceptors
 	sink.SortableInterceptor(interceptors).Sort()
 	// build chain
@@ -442,11 +443,11 @@ func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor
 		interceptorChainName.WriteString(tempInterceptor.String())
 		interceptorChainName.WriteString("->")
 	}
-	interceptorChainName.WriteString("end")
+	interceptorChainName.WriteString("sink")
 	if retry {
-		log.Info("retry interceptor chain:%s", interceptorChainName.String())
+		log.Info("retry interceptor chain: %s", interceptorChainName.String())
 	} else {
-		log.Info("interceptor chain:%s", interceptorChainName.String())
+		log.Info("sink interceptor chain: %s", interceptorChainName.String())
 	}
 	return last
 }
@@ -520,6 +521,10 @@ func buildSourceInvokerChain(sourceType string, invoker source.Invoker, intercep
 		return invoker
 	}
 	last := invoker
+
+	var interceptorChainName strings.Builder
+	interceptorChainName.WriteString("source->")
+
 	// sort interceptor
 	source.SortableInterceptor(interceptors).Sort()
 	for _, ic := range interceptors {
@@ -537,7 +542,14 @@ func buildSourceInvokerChain(sourceType string, invoker source.Invoker, intercep
 				return tempInterceptor.Intercept(next, invocation)
 			},
 		}
+
+		interceptorChainName.WriteString(tempInterceptor.String())
+		interceptorChainName.WriteString("->")
 	}
+
+	interceptorChainName.WriteString("queue")
+	log.Info("source interceptor chain: %s", interceptorChainName.String())
+
 	return last
 }
 
