@@ -92,9 +92,11 @@ func (r *Reloader) Run(stopCh <-chan struct{}) {
 			if len(stopList) > 0 || len(startList) > 0 {
 				log.Info("loggie is reloading..")
 
-				out, err := yaml.Marshal(newConfig)
-				if err == nil {
-					log.Info("reload latest pipelines config:\n%s", string(out))
+				if newConfig != nil {
+					out, err := yaml.Marshal(newConfig)
+					if err == nil {
+						log.Info("reload latest pipelines config:\n%s", string(out))
+					}
 				}
 
 				eventbus.Publish(eventbus.ReloadTopic, eventbus.ReloadMetricData{

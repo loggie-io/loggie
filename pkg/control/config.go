@@ -155,7 +155,7 @@ func ReadPipelineConfig(path string, ignore FileIgnore) (*PipelineConfig, error)
 
 		pipes, err := defaultsAndValidate(content)
 		if err != nil {
-			return nil, err
+			return nil, errors.WithMessagef(err, "\ninvalidate pipeline configs:\n%s", content)
 		}
 		pipecfgs.AddPipelines(pipes.Pipelines)
 	}

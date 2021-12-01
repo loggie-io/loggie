@@ -63,7 +63,7 @@ func main() {
 	// init logging configuration
 	// Automatically set GOMAXPROCS to match Linux container CPU quota
 	if _, err := maxprocs.Set(maxprocs.Logger(log.Debug)); err != nil {
-		log.Panic("set maxprocs error: %v", err)
+		log.Fatal("set maxprocs error: %v", err)
 	}
 	log.Info("real GOMAXPROCS %d", runtime.GOMAXPROCS(-1))
 
@@ -71,7 +71,7 @@ func main() {
 	syscfg := sysconfig.Config{}
 	err := cfg.UnpackFromFileDefaultsAndValidate(globalConfigFile, &syscfg)
 	if err != nil {
-		log.Panic("unpack global config file error: %v", err)
+		log.Fatal("unpack global config file error: %+v", err)
 	}
 
 	setDefaultPipelines(syscfg.Loggie.Defaults)
@@ -85,13 +85,15 @@ func main() {
 	pipecfgs, err := control.ReadPipelineConfig(pipelineConfigPath, func(s os.FileInfo) bool {
 		return false
 	})
-	out, err := yaml.Marshal(pipecfgs)
-	if err == nil {
-		log.Info("initial pipelines config:\n%s", string(out))
+	if pipecfgs != nil {
+		out, err := yaml.Marshal(pipecfgs)
+		if err == nil {
+			log.Info("initial pipelines config:\n%s", string(out))
+		}
 	}
 
 	if err != nil && !os.IsNotExist(err) {
-		log.Panic("unpack config.pipeline config file err: %v", err)
+		log.Fatal("unpack config.pipeline config file err: %v", err)
 	}
 
 	controller := control.NewController()
@@ -115,7 +117,7 @@ func main() {
 	if syscfg.Loggie.Http.Enabled {
 		go func() {
 			if err = http.ListenAndServe(fmt.Sprintf("%s:%d", syscfg.Loggie.Http.Host, syscfg.Loggie.Http.Port), nil); err != nil {
-				log.Panic("http listen and serve err: %v", err)
+				log.Fatal("http listen and serve err: %v", err)
 			}
 		}()
 	}
