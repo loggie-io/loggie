@@ -167,12 +167,12 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 
 	// compare and check if we should update
 	// FIXME Array order may causes inequality
-	if cmp.Equal(pipeCopy, cfgsInIndex) {
+	if cmp.Equal(pipeRaw, cfgsInIndex) {
 		return nil
 	}
 
 	// update index
-	if err := c.typePodIndex.ValidateAndSetConfigs(pod.Namespace, pod.Name, lgc.Name, pipeCopy); err != nil {
+	if err := c.typePodIndex.ValidateAndSetConfigs(pod.Namespace, pod.Name, lgc.Name, pipeRaw); err != nil {
 		return err
 	}
 
