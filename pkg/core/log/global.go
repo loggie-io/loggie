@@ -147,6 +147,14 @@ func Panic(format string, a ...interface{}) {
 	}
 }
 
+func Fatal(format string, a ...interface{}) {
+	if a == nil {
+		l.Fatal().Msg(format)
+	} else {
+		l.Fatal().Msgf(format, a...)
+	}
+}
+
 func afterErrorOpt(format string, a ...interface{}) {
 	if AfterError == nil {
 		return

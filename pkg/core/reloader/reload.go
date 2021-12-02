@@ -19,6 +19,7 @@ package reloader
 import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"gopkg.in/yaml.v2"
 	"loggie.io/loggie/pkg/control"
 	"loggie.io/loggie/pkg/core/interceptor"
 	"loggie.io/loggie/pkg/core/log"
@@ -90,6 +91,14 @@ func (r *Reloader) Run(stopCh <-chan struct{}) {
 
 			if len(stopList) > 0 || len(startList) > 0 {
 				log.Info("loggie is reloading..")
+
+				if newConfig != nil {
+					out, err := yaml.Marshal(newConfig)
+					if err == nil {
+						log.Info("reload latest pipelines config:\n%s", string(out))
+					}
+				}
+
 				eventbus.Publish(eventbus.ReloadTopic, eventbus.ReloadMetricData{
 					Tick: 1,
 				})
