@@ -29,6 +29,7 @@ import (
 	"loggie.io/loggie/pkg/core/source"
 	"loggie.io/loggie/pkg/sink/codec"
 	"loggie.io/loggie/pkg/util"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -512,6 +513,30 @@ func (p *Pipeline) fillEventHeader(e api.Event, config source.Config) {
 			}
 		} else {
 			header[config.FieldsUnderKey] = fields
+		}
+	}
+
+	// add source fields from env
+	if len(config.FieldsFromEnv) > 0 {
+		for k, envKey := range config.FieldsFromEnv {
+			envVal := os.Getenv(envKey)
+			if envVal == "" {
+				continue
+			}
+			if config.FieldsUnderRoot {
+				header[k] = envVal
+				continue
+			}
+			fieldsInHeader, exist := header[config.FieldsUnderKey]
+			if !exist {
+				f := make(map[string]interface{})
+				f[k] = envVal
+				header[config.FieldsUnderKey] = f
+				continue
+			}
+			if fieldsMap, ok := fieldsInHeader.(map[string]interface{}); ok {
+				fieldsMap[k] = envVal
+			}
 		}
 	}
 }

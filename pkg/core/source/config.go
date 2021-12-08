@@ -30,6 +30,7 @@ type Config struct {
 	FieldsUnderRoot         bool                   `yaml:"fieldsUnderRoot,omitempty" default:"false"`
 	FieldsUnderKey          string                 `yaml:"fieldsUnderKey,omitempty" default:"fields"`
 	Fields                  map[string]interface{} `yaml:"fields,omitempty"`
+	FieldsFromEnv           map[string]string      `yaml:"fieldsFromEnv,omitempty"`
 }
 
 func (c *Config) Validate() error {
