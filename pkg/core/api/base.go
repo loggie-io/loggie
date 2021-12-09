@@ -91,7 +91,6 @@ type Config interface {
 type ProductFunc func(event Event) Result
 
 type Producer interface {
-	Product() Event
 	ProductLoop(productFunc ProductFunc)
 }
 

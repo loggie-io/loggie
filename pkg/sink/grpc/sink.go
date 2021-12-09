@@ -19,6 +19,7 @@ package grpc
 import (
 	"context"
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/resolver"
 	"io"
@@ -27,11 +28,16 @@ import (
 	"loggie.io/loggie/pkg/core/result"
 	"loggie.io/loggie/pkg/pipeline"
 	pb "loggie.io/loggie/pkg/sink/grpc/pb"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const Type = "grpc"
+
+var (
+	json = jsoniter.ConfigFastest
+)
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)
@@ -130,8 +136,35 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		} else {
 			header = make(map[string][]byte)
 			for key, value := range eHeader {
-				v := fmt.Sprintf("%v", value)
-				header[key] = []byte(v)
+				switch value.(type) {
+				case []byte:
+					header[key] = value.([]byte)
+				case string:
+					header[key] = []byte(value.(string))
+				case int:
+					header[key] = []byte(strconv.FormatInt(int64(value.(int)), 10))
+				case uint:
+					header[key] = []byte(strconv.FormatUint(uint64(value.(uint)), 10))
+				case int32:
+					header[key] = []byte(strconv.FormatInt(int64(value.(int32)), 10))
+				case uint32:
+					header[key] = []byte(strconv.FormatUint(uint64(value.(uint32)), 10))
+				case int64:
+					header[key] = []byte(strconv.FormatInt(value.(int64), 10))
+				case uint64:
+					header[key] = []byte(strconv.FormatUint(value.(uint64), 10))
+				case float64:
+					header[key] = []byte(strconv.FormatFloat(value.(float64), 'f', 6, 64))
+				case float32:
+					header[key] = []byte(strconv.FormatFloat(float64(value.(float32)), 'f', 6, 32))
+				default:
+					v, err := json.Marshal(value)
+					if err != nil {
+						log.Warn("json marshal error: %s", err)
+						continue
+					}
+					header[key] = v
+				}
 			}
 		}
 
@@ -161,12 +194,14 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			log.Error("%s => grpc sink send error. err: %v; raw log content: %v", s.String(), err, ls)
 			return result.Fail(err)
 		}
-		// compute logMsg size -- publish metric event
-		//gc.DefaultMetric.Statistics(logMsg)
 	}
-	_, err = stream.CloseAndRecv()
+	logResp, err := stream.CloseAndRecv()
 	if err != nil {
-		log.Error("%s => get grpc response error, err: %v", s.String(), err)
+		log.Error("%s => get grpc response error: %v", s.String(), err)
+		return result.Fail(err)
+	}
+	if !logResp.Success {
+		log.Error("%s => get grpc response error: %v", s.String(), logResp.ErrorMsg)
 		return result.Fail(err)
 	}
 	return result.Success()

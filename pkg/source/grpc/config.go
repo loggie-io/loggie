@@ -14,18 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package file
+package grpc
 
-import (
-	"fmt"
-	"testing"
-)
+import "time"
 
-func TestSlice1(t *testing.T) {
-	s := make([]string, 0)
-	s = append(s, "a")
-	s1 := s[0]
-	s = s[1:]
-	fmt.Printf("s1:%s\n", s1)
-	fmt.Printf("s: %v\n", s)
+type Config struct {
+	Network             string        `yaml:"network" default:"tcp"`
+	Bind                string        `yaml:"bind" default:"0.0.0.0"`
+	Port                string        `yaml:"port" default:"6066"`
+	Timeout             time.Duration `yaml:"timeout" default:"20s"`
+	MaintenanceInterval time.Duration `yaml:"maintenanceInterval,omitempty" default:"30s"`
 }
