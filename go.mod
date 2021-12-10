@@ -10,7 +10,6 @@ require (
 	github.com/creasty/defaults v1.5.1
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-playground/validator/v10 v10.4.1
-	github.com/golang/protobuf v1.4.3
 	github.com/google/go-cmp v0.5.6
 	github.com/hpcloud/tail v1.0.0
 	github.com/json-iterator/go v1.1.11
@@ -26,6 +25,7 @@ require (
 	github.com/xhit/go-str2duration/v2 v2.0.0
 	go.uber.org/automaxprocs v0.0.0-20200415073007-b685be8c1c23
 	google.golang.org/grpc v1.33.2
+	google.golang.org/protobuf v1.26.0-rc.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.19.8

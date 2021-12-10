@@ -55,7 +55,6 @@ github.com/gogo/protobuf/sortkeys
 # github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.4.3
-## explicit
 github.com/golang/protobuf/proto
 github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
@@ -162,8 +161,6 @@ github.com/segmentio/kafka-go/compress/gzip
 github.com/segmentio/kafka-go/compress/lz4
 github.com/segmentio/kafka-go/compress/snappy
 github.com/segmentio/kafka-go/compress/zstd
-github.com/segmentio/kafka-go/gzip
-github.com/segmentio/kafka-go/lz4
 github.com/segmentio/kafka-go/protocol
 github.com/segmentio/kafka-go/protocol/addoffsetstotxn
 github.com/segmentio/kafka-go/protocol/addpartitionstotxn
@@ -192,8 +189,6 @@ github.com/segmentio/kafka-go/protocol/saslauthenticate
 github.com/segmentio/kafka-go/protocol/saslhandshake
 github.com/segmentio/kafka-go/protocol/txnoffsetcommit
 github.com/segmentio/kafka-go/sasl
-github.com/segmentio/kafka-go/snappy
-github.com/segmentio/kafka-go/zstd
 # github.com/smartystreets-prototypes/go-disruptor v0.0.0-20200316140655-c96477fd7a6a
 ## explicit
 github.com/smartystreets-prototypes/go-disruptor
@@ -305,6 +300,7 @@ google.golang.org/grpc/stats
 google.golang.org/grpc/status
 google.golang.org/grpc/tap
 # google.golang.org/protobuf v1.26.0-rc.1
+## explicit
 google.golang.org/protobuf/encoding/prototext
 google.golang.org/protobuf/encoding/protowire
 google.golang.org/protobuf/internal/descfmt
@@ -598,7 +594,6 @@ k8s.io/client-go/util/connrotation
 k8s.io/client-go/util/flowcontrol
 k8s.io/client-go/util/homedir
 k8s.io/client-go/util/keyutil
-k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
 # k8s.io/code-generator v0.19.8
 ## explicit

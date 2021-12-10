@@ -18,6 +18,8 @@ syntax = "proto3";
 
 package grpc;
 
+option go_package = "./;grpc";
+
 service LogService {
     rpc logStream (stream LogMsg) returns (LogResp) {
     }
@@ -25,10 +27,12 @@ service LogService {
 
 message LogMsg {
     bytes rawLog = 1;
+    // deprecated
     map<string, bytes> header = 2;
     // structured log data
     map<string, bytes> logBody = 3;
     bool isSplit = 4;
+    bytes packedHeader = 5;
 }
 
 message LogResp {

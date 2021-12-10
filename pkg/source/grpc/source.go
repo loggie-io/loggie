@@ -18,6 +18,7 @@ package grpc
 
 import (
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"google.golang.org/grpc"
 	"io"
 	"loggie.io/loggie/pkg/core/api"
@@ -29,6 +30,10 @@ import (
 )
 
 const Type = "grpc"
+
+var (
+	json = jsoniter.ConfigFastest
+)
 
 func init() {
 	pipeline.Register(api.SOURCE, Type, makeSource)
@@ -42,6 +47,7 @@ func makeSource(info pipeline.Info) api.Component {
 }
 
 type Source struct {
+	pb.UnimplementedLogServiceServer
 	name       string
 	eventPool  *event.Pool
 	config     *Config
@@ -121,10 +127,19 @@ func (s *Source) LogStream(ls pb.LogService_LogStreamServer) error {
 			}
 			return err
 		}
-		rawHeader := logMsg.GetHeader()
 		header := make(map[string]interface{})
-		for k, v := range rawHeader {
-			header[k] = string(v)
+		rawHeader := logMsg.GetHeader()
+		if len(rawHeader) > 0 {
+			for k, v := range rawHeader {
+				header[k] = string(v)
+			}
+		}
+		packedHeader := logMsg.PackedHeader
+		if len(packedHeader) > 0 {
+			err = json.Unmarshal(packedHeader, &header)
+			if err != nil {
+				log.Warn("Unmarshal packedHeader error: %s", err)
+			}
 		}
 		e := s.eventPool.Get()
 		e.Fill(header, logMsg.GetRawLog())
