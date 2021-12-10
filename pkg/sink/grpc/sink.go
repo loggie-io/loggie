@@ -153,7 +153,12 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		// header & packedHeader
 		grpcHeaderKey := s.config.GrpcHeaderKey
 		if grpcHeaderKey != "" {
-			logMsg.Header = eHeader[grpcHeaderKey].(map[string][]byte)
+			grpcHeader, ok := eHeader[grpcHeaderKey].(map[string][]byte)
+			if ok {
+				logMsg.Header = grpcHeader
+			} else {
+				log.Error("grpc header must be map[string][]byte: %v", grpcHeader)
+			}
 		} else {
 			packedHeader, err := json.Marshal(eHeader)
 			if err != nil {
