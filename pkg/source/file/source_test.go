@@ -18,27 +18,8 @@ package file
 
 import (
 	"fmt"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/context"
-	"loggie.io/loggie/pkg/pipeline"
 	"testing"
 )
-
-func TestSource_Product(t *testing.T) {
-	source := makeSource(pipeline.Info{
-		Stop: false,
-	}).(api.Source)
-	properties := map[string]interface{}{
-		"filename": "/tmp/loggie/access.log",
-	}
-	source.Init(context.NewContext("memory-queue-1", "memory-queue", api.QUEUE, properties))
-	source.Start()
-
-	for i := 0; i < 100; i++ {
-		event := source.Product()
-		fmt.Printf("event: %v \n", event)
-	}
-}
 
 func TestSlice1(t *testing.T) {
 	s := make([]string, 0)
