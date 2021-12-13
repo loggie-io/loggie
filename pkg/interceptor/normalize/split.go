@@ -30,10 +30,10 @@ type SplitProcessor struct {
 }
 
 type SplitConfig struct {
-	Target     string   `yaml:"target,omitempty" default:"body"`
-	Separator  string   `yaml:"separator,omitempty" validate:"required"`
-	Max        int      `yaml:"max,omitempty" default:"-1"`
-	Keys       []string `yaml:"keys,omitempty"`
+	Target    string   `yaml:"target,omitempty" default:"body"`
+	Separator string   `yaml:"separator,omitempty" validate:"required"`
+	Max       int      `yaml:"max,omitempty" default:"-1"`
+	Keys      []string `yaml:"keys,omitempty"`
 }
 
 func init() {
