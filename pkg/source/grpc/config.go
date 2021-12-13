@@ -14,29 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-syntax = "proto3";
+package grpc
 
-package grpc;
+import "time"
 
-option go_package = "./;grpc";
-
-service LogService {
-    rpc logStream (stream LogMsg) returns (LogResp) {
-    }
-}
-
-message LogMsg {
-    bytes rawLog = 1;
-    // deprecated
-    map<string, bytes> header = 2;
-    // structured log data
-    map<string, bytes> logBody = 3;
-    bool isSplit = 4;
-    bytes packedHeader = 5;
-}
-
-message LogResp {
-    bool success = 1;
-    int32 count = 2;
-    string errorMsg = 3;
+type Config struct {
+	Network             string        `yaml:"network" default:"tcp"`
+	Bind                string        `yaml:"bind" default:"0.0.0.0"`
+	Port                string        `yaml:"port" default:"6066"`
+	Timeout             time.Duration `yaml:"timeout" default:"20s"`
+	MaintenanceInterval time.Duration `yaml:"maintenanceInterval,omitempty" default:"30s"`
 }

@@ -41,6 +41,7 @@ import (
 	_ "loggie.io/loggie/pkg/sink/kafka"
 	_ "loggie.io/loggie/pkg/source/dev"
 	_ "loggie.io/loggie/pkg/source/file"
+	_ "loggie.io/loggie/pkg/source/grpc"
 	_ "loggie.io/loggie/pkg/source/kafka"
 	_ "loggie.io/loggie/pkg/source/kubernetes_event"
 )

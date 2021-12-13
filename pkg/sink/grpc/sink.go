@@ -19,6 +19,7 @@ package grpc
 import (
 	"context"
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/resolver"
 	"io"
@@ -32,6 +33,10 @@ import (
 )
 
 const Type = "grpc"
+
+var (
+	json = jsoniter.ConfigFastest
+)
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)
@@ -122,23 +127,15 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 	events := batch.Events()
 	for _, e := range events {
-		eHeader := e.Header()
-		grpcHeaderKey := s.config.GrpcHeaderKey
-		var header map[string][]byte
-		if grpcHeaderKey != "" {
-			header = eHeader[grpcHeaderKey].(map[string][]byte)
-		} else {
-			header = make(map[string][]byte)
-			for key, value := range eHeader {
-				v := fmt.Sprintf("%v", value)
-				header[key] = []byte(v)
-			}
+		logMsg := &pb.LogMsg{
+			RawLog: e.Body(),
 		}
+		eHeader := e.Header()
 
-		logMsg := &pb.LogMsg{}
+		// structured log data
 		logBody, ok := eHeader["systemLogBody"]
 		if ok {
-			delete(header, "systemLogBody")
+			delete(eHeader, "systemLogBody")
 			lb, covert := logBody.(map[string]string)
 			if covert {
 				lbl := len(lb)
@@ -148,12 +145,28 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 						logBodyByte[k] = []byte(v)
 					}
 					logMsg.LogBody = logBodyByte
+					logMsg.IsSplit = true
 				}
 			}
 		}
 
-		logMsg.RawLog = e.Body()
-		logMsg.Header = header
+		// header & packedHeader
+		grpcHeaderKey := s.config.GrpcHeaderKey
+		if grpcHeaderKey != "" {
+			grpcHeader, ok := eHeader[grpcHeaderKey].(map[string][]byte)
+			if ok {
+				logMsg.Header = grpcHeader
+			} else {
+				log.Error("grpc header must be map[string][]byte: %v", grpcHeader)
+			}
+		} else {
+			packedHeader, err := json.Marshal(eHeader)
+			if err != nil {
+				log.Warn("Marshal event header error: %s", err)
+				continue
+			}
+			logMsg.PackedHeader = packedHeader
+		}
 
 		err = stream.Send(logMsg)
 		if err != nil && err != io.EOF {
@@ -161,12 +174,14 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			log.Error("%s => grpc sink send error. err: %v; raw log content: %v", s.String(), err, ls)
 			return result.Fail(err)
 		}
-		// compute logMsg size -- publish metric event
-		//gc.DefaultMetric.Statistics(logMsg)
 	}
-	_, err = stream.CloseAndRecv()
+	logResp, err := stream.CloseAndRecv()
 	if err != nil {
-		log.Error("%s => get grpc response error, err: %v", s.String(), err)
+		log.Error("%s => get grpc response error: %v", s.String(), err)
+		return result.Fail(err)
+	}
+	if !logResp.Success {
+		log.Error("%s => get grpc response error: %v", s.String(), logResp.ErrorMsg)
 		return result.Fail(err)
 	}
 	return result.Success()

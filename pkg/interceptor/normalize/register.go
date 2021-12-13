@@ -14,29 +14,34 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-syntax = "proto3";
+package normalize
 
-package grpc;
+import (
+	"loggie.io/loggie/pkg/core/api"
+	"loggie.io/loggie/pkg/core/log"
+)
 
-option go_package = "./;grpc";
-
-service LogService {
-    rpc logStream (stream LogMsg) returns (LogResp) {
-    }
+type Processor interface {
+	Init()
+	Process(e api.Event) error
 }
 
-message LogMsg {
-    bytes rawLog = 1;
-    // deprecated
-    map<string, bytes> header = 2;
-    // structured log data
-    map<string, bytes> logBody = 3;
-    bool isSplit = 4;
-    bytes packedHeader = 5;
+type factory func() Processor
+
+var registry = make(map[string]factory)
+
+func register(name string, f factory) {
+	_, ok := registry[name]
+	if ok {
+		log.Panic("processor %s is duplicated", name)
+	}
+	registry[name] = f
 }
 
-message LogResp {
-    bool success = 1;
-    int32 count = 2;
-    string errorMsg = 3;
+func getProcessor(name string) (Processor, bool) {
+	trans, ok := registry[name]
+	if !ok {
+		return nil, false
+	}
+	return trans(), true
 }

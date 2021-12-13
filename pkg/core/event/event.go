@@ -30,6 +30,8 @@ const (
 
 	SystemPipelineKey = SystemKeyPrefix + "PipelineName"
 	SystemSourceKey   = SystemKeyPrefix + "SourceName"
+
+	Body = "body"
 )
 
 var (

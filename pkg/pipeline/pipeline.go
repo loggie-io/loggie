@@ -480,7 +480,7 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
 		}
 		p.ns[sourceConfig.Name] = si.Source
 
-		sourceInvokerChain := buildSourceInvokerChain(sourceConfig.Type, &source.PublishInvoker{}, si.Interceptors)
+		sourceInvokerChain := buildSourceInvokerChain(sourceConfig.Name, &source.PublishInvoker{}, si.Interceptors)
 		productFunc := func(e api.Event) api.Result {
 			p.fillEventHeader(e, sourceConfig)
 
@@ -555,7 +555,7 @@ func addSourceFields(header map[string]interface{}, config source.Config) {
 	header[sourceFieldsKey] = sourceFields
 }
 
-func buildSourceInvokerChain(sourceType string, invoker source.Invoker, interceptors []source.Interceptor) source.Invoker {
+func buildSourceInvokerChain(sourceName string, invoker source.Invoker, interceptors []source.Interceptor) source.Invoker {
 	if len(interceptors) == 0 {
 		return invoker
 	}
@@ -570,7 +570,7 @@ func buildSourceInvokerChain(sourceType string, invoker source.Invoker, intercep
 		if extension, ok := ic.(interceptor.Extension); ok {
 			belongTo := extension.BelongTo()
 			// calling len(belongTo) cannot be ignored
-			if len(belongTo) > 0 && !util.Contain(sourceType, belongTo) {
+			if len(belongTo) > 0 && !util.Contain(sourceName, belongTo) {
 				continue
 			}
 		}
@@ -587,7 +587,7 @@ func buildSourceInvokerChain(sourceType string, invoker source.Invoker, intercep
 	}
 
 	interceptorChainName.WriteString("queue")
-	log.Info("source interceptor chain: %s", interceptorChainName.String())
+	log.Info("source %s interceptor chain: %s", sourceName, interceptorChainName.String())
 
 	return last
 }

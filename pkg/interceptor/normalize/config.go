@@ -17,10 +17,30 @@ limitations under the License.
 package normalize
 
 import (
+	"loggie.io/loggie/pkg/core/cfg"
 	"loggie.io/loggie/pkg/core/interceptor"
 )
 
 type Config struct {
 	interceptor.ExtensionConfig `yaml:",inline"`
-	RegexpPattern               string `yaml:"regexpPattern,omitempty" validate:"required"`
+	Processors                  ProcessorConfig `yaml:"processors,omitempty"`
+}
+
+type ProcessorConfig []map[string]cfg.CommonCfg
+
+type Convert struct {
+	From string `yaml:"from,omitempty" validate:"required"`
+	To   string `yaml:"to,omitempty" validate:"required"`
+}
+
+func (c *Config) Validate() error {
+	for _, proc := range c.Processors {
+		for k, v := range proc {
+			_, err := newProcessor(k, v)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
