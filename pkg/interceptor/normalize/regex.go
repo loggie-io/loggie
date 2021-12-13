@@ -34,7 +34,7 @@ type RegexProcessor struct {
 
 type RegexConfig struct {
 	Target    string `yaml:"target,omitempty" default:"body"`
-	Pattern   string `yaml:"pattern,omitempty"`
+	Pattern   string `yaml:"pattern,omitempty" validate:"required"`
 	UnderRoot bool   `yaml:"underRoot,omitempty" default:"true"`
 }
 

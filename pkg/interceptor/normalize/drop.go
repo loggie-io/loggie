@@ -29,7 +29,7 @@ type DropProcessor struct {
 }
 
 type DropConfig struct {
-	Target []string `yaml:"target,omitempty"`
+	Target []string `yaml:"target,omitempty" validate:"required"`
 }
 
 func init() {
