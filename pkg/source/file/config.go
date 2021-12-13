@@ -38,7 +38,7 @@ type CollectConfig struct {
 	Paths                    []string      `yaml:"paths,omitempty" validate:"required"` // glob pattern
 	ExcludeFiles             []string      `yaml:"excludeFiles,omitempty"`              // regular pattern
 	IgnoreOlder              time.Duration `yaml:"ignoreOlder,omitempty"`
-	IgnoreSymlink            bool          `yaml:"ignoreSymlink,omitempty" default:"true"`
+	IgnoreSymlink            bool          `yaml:"ignoreSymlink,omitempty" default:"false"`
 	RereadTruncated          bool          `yaml:"rereadTruncated,omitempty" default:"true"`                           // Read from the beginning when the file is truncated
 	FirstNBytesForIdentifier int           `yaml:"firstNBytesForIdentifier,omitempty" default:"128" validate:"gte=10"` // If the file size is smaller than `firstNBytesForIdentifier`, it will not be collected
 	excludeFilePatterns      []*regexp.Regexp
