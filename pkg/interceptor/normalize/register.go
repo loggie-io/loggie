@@ -17,30 +17,31 @@ limitations under the License.
 package normalize
 
 import (
-	"loggie.io/loggie/pkg/core/cfg"
-	"loggie.io/loggie/pkg/core/interceptor"
+	"loggie.io/loggie/pkg/core/api"
+	"loggie.io/loggie/pkg/core/log"
 )
 
-type Config struct {
-	interceptor.ExtensionConfig `yaml:",inline"`
-	Processors                  ProcessorConfig `yaml:"processors,omitempty"`
+type Processor interface {
+	Init()
+	Process(e api.Event) error
 }
 
-type ProcessorConfig []map[string]cfg.CommonCfg
+type factory func() Processor
 
-type Convert struct {
-	From string `yaml:"from,omitempty" validate:"required"`
-	To   string `yaml:"to,omitempty" validate:"required"`
-}
+var registry = make(map[string]factory)
 
-func (c *Config) Validate() error {
-	for _, proc := range c.Processors {
-		for k, v := range proc {
-			_, err := newProcessor(k, v)
-			if err != nil {
-				return err
-			}
-		}
+func register(name string, f factory) {
+	_, ok := registry[name]
+	if ok {
+		log.Panic("processor %s is duplicated", name)
 	}
-	return nil
+	registry[name] = f
+}
+
+func getProcessor(name string) (Processor, bool) {
+	trans, ok := registry[name]
+	if !ok {
+		return nil, false
+	}
+	return trans(), true
 }

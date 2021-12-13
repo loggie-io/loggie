@@ -18,10 +18,18 @@ package maxbytes
 
 import "loggie.io/loggie/pkg/core/interceptor"
 
+const Order = 500
+
 type Config struct {
 	interceptor.ExtensionConfig `yaml:",inline"`
 	// The maximum number of bytes that a single log message can have.
 	// All bytes after max_bytes are discarded and not sent.
 	// The default is 128KB (131072)
 	MaxBytes int `yaml:"maxBytes,omitempty" default:"131072" validate:"gte=0"`
+}
+
+func (c *Config) SetDefaults() {
+	if c != nil {
+		c.ExtensionConfig.Order = Order
+	}
 }

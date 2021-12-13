@@ -20,13 +20,14 @@ import (
 	"fmt"
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/core/sink"
+	"loggie.io/loggie/pkg/core/source"
 	"loggie.io/loggie/pkg/pipeline"
-	"loggie.io/loggie/pkg/util"
 	"regexp"
 )
 
 const Type = "normalize"
+
+const SystemLogBody = "systemLogBody"
 
 func init() {
 	pipeline.Register(api.INTERCEPTOR, Type, makeInterceptor)
@@ -41,11 +42,12 @@ func makeInterceptor(info pipeline.Info) api.Component {
 }
 
 type Interceptor struct {
-	done         chan struct{}
-	pipelineName string
-	name         string
-	config       *Config
-	r            *regexp.Regexp
+	done           chan struct{}
+	pipelineName   string
+	name           string
+	config         *Config
+	r              *regexp.Regexp
+	ProcessorGroup *ProcessorGroup
 }
 
 func (i *Interceptor) Config() interface{} {
@@ -66,8 +68,9 @@ func (i *Interceptor) String() string {
 
 func (i *Interceptor) Init(context api.Context) {
 	i.name = context.Name()
-	log.Info("regex pattern: %s", i.config.RegexpPattern)
-	i.r = util.CompilePatternWithJavaStyle(i.config.RegexpPattern)
+	pg := NewProcessorGroup(i.config.Processors)
+	pg.InitAll()
+	i.ProcessorGroup = pg
 }
 
 func (i *Interceptor) Start() {
@@ -77,22 +80,18 @@ func (i *Interceptor) Stop() {
 	close(i.done)
 }
 
-func (i *Interceptor) Intercept(invoker sink.Invoker, invocation sink.Invocation) api.Result {
-	events := invocation.Batch.Events()
-	for _, e := range events {
-		body := e.Body()
-		if len(body) == 0 {
-			continue
-		}
-		paramsMap := util.MatchGroupWithRegex(i.r, string(body))
-		pl := len(paramsMap)
-		if pl == 0 {
-			continue
-		}
-		header := e.Header()
-		header["systemLogBody"] = paramsMap
+func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invocation) api.Result {
+	e := invocation.Event
+	err := i.process(e)
+	if err != nil {
+		log.Error("normalize event %s error: %v", e.String(), err)
 	}
+
 	return invoker.Invoke(invocation)
+}
+
+func (i *Interceptor) process(e api.Event) error {
+	return i.ProcessorGroup.ProcessAll(e)
 }
 
 func (i *Interceptor) Order() int {

@@ -54,7 +54,7 @@ func NewReloader(controller *control.Controller, config *ReloadConfig) *Reloader
 }
 
 func (r *Reloader) Run(stopCh <-chan struct{}) {
-	log.Info("Config reload starting...")
+	log.Info("reloader starting...")
 	t := time.NewTicker(r.config.ReloadPeriod)
 	defer t.Stop()
 	for {
