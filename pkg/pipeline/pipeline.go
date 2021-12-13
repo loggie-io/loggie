@@ -505,16 +505,7 @@ func (p *Pipeline) fillEventHeader(e api.Event, config source.Config) {
 	header[fieldsUnderKeyKey] = config.FieldsUnderKey
 
 	// add source fields
-	fields := config.Fields
-	if len(fields) > 0 {
-		if config.FieldsUnderRoot {
-			for k, v := range fields {
-				header[k] = v
-			}
-		} else {
-			header[config.FieldsUnderKey] = fields
-		}
-	}
+	addSourceFields(header, config)
 
 	// add source fields from env
 	if len(config.FieldsFromEnv) > 0 {
@@ -539,6 +530,29 @@ func (p *Pipeline) fillEventHeader(e api.Event, config source.Config) {
 			}
 		}
 	}
+}
+
+func addSourceFields(header map[string]interface{}, config source.Config) {
+	sourceFields := config.Fields
+	if len(sourceFields) <= 0 {
+		return
+	}
+	if config.FieldsUnderRoot {
+		for k, v := range sourceFields {
+			header[k] = v
+		}
+		return
+	}
+	sourceFieldsKey := config.FieldsUnderKey
+	if originFields, exist := header[sourceFieldsKey]; exist {
+		if originFieldsMap, convert := originFields.(map[string]interface{}); convert {
+			for k, v := range sourceFields {
+				originFieldsMap[k] = v
+			}
+		}
+		return
+	}
+	header[sourceFieldsKey] = sourceFields
 }
 
 func buildSourceInvokerChain(sourceType string, invoker source.Invoker, interceptors []source.Interceptor) source.Invoker {
