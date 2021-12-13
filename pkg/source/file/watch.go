@@ -428,8 +428,7 @@ func (w *Watcher) legalFile(filename string, watchTask *WatchTask, withIgnoreOld
 	}
 
 	isSymlink := fileInfo.Mode()&os.ModeSymlink != 0
-	if isSymlink {
-		// TODO support symlink
+	if isSymlink && watchTask.config.IgnoreSymlink {
 		log.Info("[pipeline(%s)-source(%s)]: fileName(%s) skipped as it is a symlink", pipelineName, sourceName, filename)
 		return false, "", nil
 	}
