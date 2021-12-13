@@ -122,9 +122,9 @@ func main() {
 		}()
 	}
 
-	log.Info("Started Loggie")
+	log.Info("started Loggie")
 	<-stopCh
-	log.Info("Shutting down Loggie")
+	log.Info("shutting down Loggie")
 }
 
 func setDefaultPipelines(defaults sysconfig.Defaults) {
