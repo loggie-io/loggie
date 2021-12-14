@@ -30,10 +30,10 @@ type SplitProcessor struct {
 }
 
 type SplitConfig struct {
-	Target     string   `yaml:"target,omitempty" default:"body"`
-	Separators string   `yaml:"separators,omitempty" validate:"required"`
-	Max        int      `yaml:"max,omitempty" default:"-1"`
-	Keys       []string `yaml:"keys,omitempty"`
+	Target    string   `yaml:"target,omitempty" default:"body"`
+	Separator string   `yaml:"separator,omitempty" validate:"required"`
+	Max       int      `yaml:"max,omitempty" default:"-1"`
+	Keys      []string `yaml:"keys,omitempty"`
 }
 
 func init() {
@@ -89,7 +89,7 @@ func (r *SplitProcessor) Process(e api.Event) error {
 		val = ts
 	}
 
-	splitResult := strings.SplitN(val, r.config.Separators, r.config.Max)
+	splitResult := strings.SplitN(val, r.config.Separator, r.config.Max)
 	keys := r.config.Keys
 	if len(splitResult) != len(keys) {
 		log.Info("length of split result: %d unequal to keys: %d", len(splitResult), len(keys))
