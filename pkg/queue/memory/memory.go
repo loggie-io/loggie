@@ -18,16 +18,19 @@ package memory
 
 import (
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/smartystreets-prototypes/go-disruptor"
+
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/batch"
 	"loggie.io/loggie/pkg/core/log"
 	"loggie.io/loggie/pkg/core/result"
 	"loggie.io/loggie/pkg/core/spi"
+	"loggie.io/loggie/pkg/eventbus"
 	"loggie.io/loggie/pkg/pipeline"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -46,14 +49,16 @@ func init() {
 
 func makeQueue(info pipeline.Info) api.Component {
 	return &Queue{
-		config:    &Config{},
-		epoch:     info.Epoch,
-		sinkCount: info.SinkCount,
-		listeners: info.R.LoadQueueListeners(),
+		pipelineName: info.PipelineName,
+		config:       &Config{},
+		epoch:        info.Epoch,
+		sinkCount:    info.SinkCount,
+		listeners:    info.R.LoadQueueListeners(),
 	}
 }
 
 type Queue struct {
+	pipelineName   string
 	epoch          pipeline.Epoch
 	sinkCount      int
 	config         *Config
@@ -250,6 +255,12 @@ func (ic *innerConsumer) run() {
 	for {
 		select {
 		case <-ic.done:
+			eventbus.PublishOrDrop(eventbus.QueueMetricTopic, eventbus.QueueMetricData{
+				PipelineName: ic.queue.pipelineName,
+				Type:         string(ic.queue.Type()),
+				Capacity:     int64(batchSize),
+				Size:         int64(size),
+			})
 			return
 		case es := <-ic.innerBuffer:
 			for _, e := range es {
@@ -270,6 +281,12 @@ func (ic *innerConsumer) run() {
 			if size > 0 && time.Since(firstEventAppendTime) > timeout {
 				flush()
 			}
+			eventbus.PublishOrDrop(eventbus.QueueMetricTopic, eventbus.QueueMetricData{
+				PipelineName: ic.queue.pipelineName,
+				Type:         string(ic.queue.Type()),
+				Capacity:     int64(batchSize),
+				Size:         int64(size),
+			})
 		}
 	}
 }

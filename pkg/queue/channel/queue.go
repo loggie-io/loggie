@@ -18,14 +18,16 @@ package channel
 
 import (
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/batch"
 	"loggie.io/loggie/pkg/core/log"
 	"loggie.io/loggie/pkg/core/spi"
+	"loggie.io/loggie/pkg/eventbus"
 	"loggie.io/loggie/pkg/pipeline"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -38,23 +40,25 @@ func init() {
 
 func makeQueue(info pipeline.Info) api.Component {
 	return &Queue{
-		config:    &Config{},
-		epoch:     info.Epoch,
-		sinkCount: info.SinkCount,
-		listeners: info.R.LoadQueueListeners(),
+		config:       &Config{},
+		pipelineName: info.PipelineName,
+		epoch:        info.Epoch,
+		sinkCount:    info.SinkCount,
+		listeners:    info.R.LoadQueueListeners(),
 	}
 }
 
 type Queue struct {
-	epoch     pipeline.Epoch
-	sinkCount int
-	config    *Config
-	done      chan struct{}
-	name      string
-	in        chan api.Event
-	out       chan api.Batch
-	listeners []spi.QueueListener
-	countDown *sync.WaitGroup
+	pipelineName string
+	epoch        pipeline.Epoch
+	sinkCount    int
+	config       *Config
+	done         chan struct{}
+	name         string
+	in           chan api.Event
+	out          chan api.Batch
+	listeners    []spi.QueueListener
+	countDown    *sync.WaitGroup
 }
 
 func (c *Queue) Type() api.Type {
@@ -128,6 +132,12 @@ func (c *Queue) worker() {
 	for {
 		select {
 		case <-c.done:
+			eventbus.PublishOrDrop(eventbus.QueueMetricTopic, eventbus.QueueMetricData{
+				PipelineName: c.pipelineName,
+				Type:         string(c.Type()),
+				Capacity:     int64(batchSize),
+				Size:         int64(size),
+			})
 			return
 		case e := <-c.in:
 			if size == 0 {
@@ -146,6 +156,12 @@ func (c *Queue) worker() {
 			if size > 0 && time.Since(firstEventAppendTime) > timeout {
 				flush()
 			}
+			eventbus.PublishOrDrop(eventbus.QueueMetricTopic, eventbus.QueueMetricData{
+				PipelineName: c.pipelineName,
+				Type:         string(c.Type()),
+				Capacity:     int64(batchSize),
+				Size:         int64(size),
+			})
 		}
 	}
 }

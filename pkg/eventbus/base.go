@@ -30,6 +30,7 @@ var (
 	ReloadTopic           = "reload"
 	ErrorTopic            = "error"
 	LogAlertTopic         = "log"
+	QueueMetricTopic      = "queue"
 )
 
 type BaseMetric struct {
@@ -55,6 +56,13 @@ type SinkMetricData struct {
 	BaseMetric
 	SuccessEventCount int
 	FailEventCount    int
+}
+
+type QueueMetricData struct {
+	PipelineName string
+	Type         string
+	Capacity     int64
+	Size         int64
 }
 
 type ReloadMetricData struct {

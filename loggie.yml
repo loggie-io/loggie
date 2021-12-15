@@ -12,6 +12,7 @@ loggie:
       filewatcher: ~
       reload: ~
       sink: ~
+      queue: ~
 
   discovery:
     enabled: false
