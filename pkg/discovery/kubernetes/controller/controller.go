@@ -340,7 +340,7 @@ func (c *Controller) syncHandler(element Element) error {
 	switch element.Type {
 	case EventPod:
 		if err = c.reconcilePod(element.Key); err != nil {
-			log.Warn("reconcile pod %s err: %v", element.Key, err)
+			log.Warn("reconcile pod %s err: %+v", element.Key, err)
 		}
 
 	case EventLogConf:

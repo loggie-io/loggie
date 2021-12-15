@@ -21,12 +21,15 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"loggie.io/loggie/pkg/core/cfg"
 	"loggie.io/loggie/pkg/core/log"
 	"loggie.io/loggie/pkg/core/source"
 	logconfigv1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"loggie.io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
 	"loggie.io/loggie/pkg/discovery/kubernetes/helper"
+	"loggie.io/loggie/pkg/discovery/kubernetes/index"
 	"loggie.io/loggie/pkg/pipeline"
 	"loggie.io/loggie/pkg/source/file"
 	"loggie.io/loggie/pkg/util"
@@ -259,7 +262,8 @@ func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfig
 			continue
 		}
 		// change the source name, add pod.Name-containerName as prefix
-		src.Name = fmt.Sprintf("%s-%s-%s", pod.Name, status.Name, src.Name)
+		src.Name = genTypePodSourceName(pod.Name, status.Name, src.Name)
+
 		// inject default pod metadata
 		if err = injectFields(config, s.MatchFields, src, pod, logconfigName, status.Name); err != nil {
 			return nil, err
@@ -277,6 +281,18 @@ func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfig
 	}
 
 	return filesrcList, nil
+}
+
+func genTypePodSourceName(podName string, containerName string, sourceName string) string {
+	return fmt.Sprintf("%s/%s/%s", podName, containerName, sourceName)
+}
+
+func getTypePodOriginSourceName(podSourceName string) string {
+	res := strings.Split(podSourceName, "/")
+	if len(res) == 0 {
+		return ""
+	}
+	return res[len(res)-1]
 }
 
 func updatePaths(config *Config, s *fileSource, pod *corev1.Pod, containerName, containerId string) error {
@@ -374,7 +390,7 @@ func injectFields(config *Config, match *matchFields, src *source.Config, pod *c
 func toPipeConfig(lgcNamespace string, lgcName string, lgcPipe *logconfigv1beta1.Pipeline, filesources []fileSource, sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.ConfigRaw, error) {
 	pipecfg := &pipeline.ConfigRaw{}
 
-	pipecfg.Name = fmt.Sprintf("%s-%s", lgcNamespace, lgcName)
+	pipecfg.Name = fmt.Sprintf("%s/%s", lgcNamespace, lgcName)
 
 	src, err := toPipelineSource(filesources)
 	if err != nil {
@@ -388,7 +404,7 @@ func toPipeConfig(lgcNamespace string, lgcName string, lgcPipe *logconfigv1beta1
 	}
 	pipecfg.Sink = sink
 
-	interceptors, err := helper.ToPipelineInterceptor(lgcPipe.InterceptorRef, interceptorLister)
+	interceptors, err := toPipelineInterceptorWithPodInject(lgcPipe.InterceptorRef, interceptorLister, filesources)
 	if err != nil {
 		return pipecfg, err
 	}
@@ -410,4 +426,63 @@ func toPipelineSource(filesources []fileSource) ([]cfg.CommonCfg, error) {
 	}
 
 	return sourceConfList, nil
+}
+
+func toPipelineInterceptorWithPodInject(interceptorRef string, interceptorLister v1beta1.InterceptorLister, filesources []fileSource) ([]cfg.CommonCfg, error) {
+	lgcInterceptor, err := interceptorLister.Get(interceptorRef)
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	// key: originSourceName, multi value: podName/containerName/originSourceName
+	originSrcNameMap := make(map[string]sets.String)
+	for _, fs := range filesources {
+		podSrcName := fs.GetName()
+		origin := getTypePodOriginSourceName(podSrcName)
+		srcVal, ok := originSrcNameMap[origin]
+		if !ok {
+			originSrcNameMap[origin] = sets.NewString(podSrcName)
+			continue
+		}
+		srcVal.Insert(podSrcName)
+	}
+
+	icpConfList := make([]index.ExtInterceptorConfig, 0)
+	err = cfg.UnpackRaw([]byte(lgcInterceptor.Spec.Interceptors), &icpConfList)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, extIcp := range icpConfList {
+		if len(extIcp.BelongTo) == 0 {
+			continue
+		}
+
+		newBelongTo := make([]string, 0)
+		// update interceptor belongTo with podName/containerName/originSourceName
+		for _, origin := range extIcp.BelongTo {
+			podSrcNameSet, ok := originSrcNameMap[origin]
+			if !ok {
+				continue
+			}
+			newBelongTo = append(newBelongTo, podSrcNameSet.List()...)
+		}
+
+		icpConfList[i].BelongTo = newBelongTo
+	}
+
+	icpCommonCfg := make([]cfg.CommonCfg, 0)
+	for _, v := range icpConfList {
+		c, err := cfg.Pack(v)
+		if err != nil {
+			log.Info("pack interceptor config error: %+v", err)
+			continue
+		}
+		icpCommonCfg = append(icpCommonCfg, c)
+	}
+
+	return icpCommonCfg, nil
 }
