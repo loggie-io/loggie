@@ -17,6 +17,7 @@ limitations under the License.
 package cfg
 
 import (
+	"fmt"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 
@@ -59,6 +60,12 @@ func (c CommonCfg) Get(key string) interface{} {
 	return c[key]
 }
 
+func (c CommonCfg) UID() string {
+	tp := c.Get("type")
+	name := c.Get("name")
+	return fmt.Sprintf("%s/%s", tp, name)
+}
+
 // Enabled
 // return false: get key 'enabled' is null or 'false'
 // return true: get key 'enabled' is 'true'
@@ -75,6 +82,14 @@ func (c CommonCfg) GetType() string {
 		return ""
 	}
 	return typeName.(string)
+}
+
+func (c CommonCfg) GetName() string {
+	name, ok := c["name"]
+	if !ok {
+		return ""
+	}
+	return name.(string)
 }
 
 func MergeCommonCfg(base CommonCfg, from CommonCfg, override bool) CommonCfg {
