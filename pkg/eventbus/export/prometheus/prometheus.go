@@ -27,6 +27,7 @@ const (
 	Loggie          = "loggie"
 	PipelineNameKey = "pipeline"
 	SourceNameKey   = "source"
+	QueueTypeKey    = "type"
 )
 
 var collector *Collector
