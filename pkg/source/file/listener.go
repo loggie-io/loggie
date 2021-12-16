@@ -21,15 +21,16 @@ import (
 )
 
 const (
-	ackListenerName = "file-source-ack-listener"
+	ackListenerNamePrefix = "file-source-ack-listener"
 )
 
 type AckListener struct {
+	sourceName      string
 	ackChainHandler *AckChainHandler
 }
 
 func (al *AckListener) Name() string {
-	return ackListenerName
+	return ackListenerNamePrefix + "-" + al.sourceName
 }
 
 func (al *AckListener) Stop() {
@@ -39,8 +40,12 @@ func (al *AckListener) Stop() {
 func (al *AckListener) BeforeQueueConvertBatch(events []api.Event) {
 	//log.Info("append events len: %d", len(events))
 	ss := make([]*State, 0, len(events))
-	for _, event := range events {
-		ss = append(ss, getState(event))
+	for _, e := range events {
+		if al.sourceName == e.Source() {
+			ss = append(ss, getState(e))
+		}
 	}
-	al.ackChainHandler.appendChan <- ss
+	if len(ss) > 0 {
+		al.ackChainHandler.appendChan <- ss
+	}
 }
