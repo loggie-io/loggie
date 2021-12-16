@@ -54,6 +54,7 @@ type Source struct {
 	out                chan api.Event
 	productFunc        api.ProductFunc
 	r                  *Reader
+	ackEnable          bool
 	ackChainHandler    *AckChainHandler
 	watcher            *Watcher
 	watchTask          *WatchTask
@@ -84,6 +85,7 @@ func (s *Source) Init(context api.Context) {
 	s.name = context.Name()
 	s.out = make(chan api.Event, s.sinkCount)
 
+	s.ackEnable = s.config.AckConfig.Enable
 	// init default multi agg timeout
 	mutiTimeout := s.config.ReaderConfig.MultiConfig.Timeout
 	inactiveTimeout := s.config.ReaderConfig.InactiveTimeout
@@ -113,10 +115,11 @@ func (s *Source) Start() {
 		s.multilineProcessor = GetOrCreateShareMultilineProcessor()
 	}
 	// register queue listener for ack
-	if s.config.AckConfig.Enable {
+	if s.ackEnable {
 		s.dbHandler = GetOrCreateShareDbHandler(s.config.DbConfig)
 		s.ackChainHandler = GetOrCreateShareAckChainHandler(s.sinkCount, s.config.AckConfig)
 		s.rc.RegisterListener(&AckListener{
+			sourceName:      s.name,
 			ackChainHandler: s.ackChainHandler,
 		})
 	}
@@ -173,13 +176,13 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 
 func (s *Source) Commit(events []api.Event) {
 	// ack events
-	ss := make([]*State, 0, len(events))
-	for _, e := range events {
-		ss = append(ss, getState(e))
+	if s.ackEnable {
+		ss := make([]*State, 0, len(events))
+		for _, e := range events {
+			ss = append(ss, getState(e))
+		}
+		s.ackChainHandler.ackChan <- ss
 	}
-	//s.ackHandler.ackChan <- ss
-	s.ackChainHandler.ackChan <- ss
 	// release events
-	//event.CommonPool.PutAll(events)
 	s.eventPool.PutAll(events)
 }
