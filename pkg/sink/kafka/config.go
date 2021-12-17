@@ -18,9 +18,14 @@ package kafka
 
 import (
 	"fmt"
-	"github.com/segmentio/kafka-go"
-	"loggie.io/loggie/pkg/core/log"
 	"time"
+
+	"loggie.io/loggie/pkg/core/log"
+
+	"github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/sasl"
+	"github.com/segmentio/kafka-go/sasl/plain"
+	"github.com/segmentio/kafka-go/sasl/scram"
 )
 
 const (
@@ -32,6 +37,13 @@ const (
 	CompressionSnappy = "snappy"
 	CompressionLz4    = "lz4"
 	CompressionZstd   = "zstd"
+
+	SASLNoneType  = ""
+	SASLPlainType = "plain"
+	SASLSCRAMType = "scram"
+
+	AlgorithmSHA256 = "sha256"
+	AlgorithmSHA512 = "sha512"
 )
 
 type Config struct {
@@ -46,6 +58,14 @@ type Config struct {
 	ReadTimeout  time.Duration `yaml:"readTimeout,omitempty"`
 	WriteTimeout time.Duration `yaml:"writeTimeout,omitempty"`
 	RequiredAcks int           `yaml:"requiredAcks,omitempty"`
+	SASL         SASL          `yaml:"sasl,omitempty"`
+}
+
+type SASL struct {
+	Type      string `yaml:"type,omitempty"`
+	UserName  string `yaml:"userName,omitempty"`
+	Password  string `yaml:"password,omitempty"`
+	Algorithm string `yaml:"algorithm,omitempty"`
 }
 
 func (c *Config) Validate() error {
@@ -56,6 +76,25 @@ func (c *Config) Validate() error {
 	if c.Compression != "" && c.Compression != CompressionGzip && c.Compression != CompressionLz4 && c.Compression != CompressionSnappy &&
 		c.Compression != CompressionZstd {
 		return fmt.Errorf("kafka sink compression %s is not suppported", c.Compression)
+	}
+
+	if c.SASL.Type != SASLPlainType && c.SASL.Type != SASLSCRAMType && c.SASL.Type != SASLNoneType {
+		return fmt.Errorf("kafka sink sasl type %s not supported", c.SASL.Type)
+	}
+
+	if c.SASL.Type != SASLNoneType {
+		if c.SASL.UserName == "" {
+			return fmt.Errorf("kafka sink %s sasl with empty user name", c.SASL.Type)
+		}
+		if c.SASL.Password == "" {
+			return fmt.Errorf("kafka sink %s sasl with empty password", c.SASL.Type)
+		}
+
+		if c.SASL.Type == SASLSCRAMType {
+			if c.SASL.Algorithm == "" {
+				return fmt.Errorf("kafka sink %s sasl with empty hash algorithm", c.SASL.Type)
+			}
+		}
 	}
 
 	return nil
@@ -92,5 +131,31 @@ func compression(compression string) kafka.Compression {
 	default:
 		log.Panic("kafka sink compression %s is not supported", compression)
 		return kafka.Gzip
+	}
+}
+
+func mechanism(saslType, userName, password, algo string) (sasl.Mechanism, error) {
+	switch saslType {
+	case SASLPlainType:
+		return plain.Mechanism{
+			Username: userName,
+			Password: password,
+		}, nil
+	case SASLSCRAMType:
+		return scram.Mechanism(algorithm(algo), userName, password)
+	default:
+		return nil, nil
+	}
+}
+
+func algorithm(algo string) scram.Algorithm {
+	switch algo {
+	case AlgorithmSHA256:
+		return scram.SHA256
+	case AlgorithmSHA512:
+		return scram.SHA512
+	default:
+		log.Panic("kafka sink sasl scram hash algo %s is not supported", algo)
+		return scram.SHA512
 	}
 }
