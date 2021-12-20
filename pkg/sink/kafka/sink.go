@@ -19,13 +19,14 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"loggie.io/loggie/pkg/sink/codec"
 
 	"github.com/segmentio/kafka-go"
+
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/log"
 	"loggie.io/loggie/pkg/core/result"
 	"loggie.io/loggie/pkg/pipeline"
+	"loggie.io/loggie/pkg/sink/codec"
 )
 
 const Type = "kafka"
@@ -78,6 +79,12 @@ func (s *Sink) Init(context api.Context) {
 
 func (s *Sink) Start() {
 	c := s.config
+	mechanism, err := mechanism(c.SASL.Type, c.SASL.UserName, c.SASL.Password, c.SASL.Algorithm)
+	if err != nil {
+		log.Panic("kafka sink sasl mechanism with error: %s", err.Error())
+		return
+	}
+
 	w := &kafka.Writer{
 		Addr:         kafka.TCP(c.Brokers...),
 		MaxAttempts:  c.MaxAttempts,
@@ -89,6 +96,9 @@ func (s *Sink) Start() {
 		WriteTimeout: c.WriteTimeout,
 		RequiredAcks: kafka.RequiredAcks(c.RequiredAcks),
 		Compression:  compression(c.Compression),
+		Transport: &kafka.Transport{
+			SASL: mechanism,
+		},
 	}
 
 	s.writer = w
@@ -125,12 +135,18 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			Topic: topic,
 		})
 	}
-	err := s.writer.WriteMessages(context.Background(), km...)
-	if err != nil {
-		log.Error("write to kafka error: %v", err)
-		return result.Fail(err)
+
+	if s.writer != nil {
+		err := s.writer.WriteMessages(context.Background(), km...)
+		if err != nil {
+			log.Error("write to kafka error: %v", err)
+			return result.Fail(err)
+		}
+
+		return result.Success()
 	}
-	return result.Success()
+
+	return result.Fail(fmt.Errorf("kafka sink writer not initialized"))
 }
 
 func (s *Sink) selectTopic(res *codec.Result) (string, error) {
