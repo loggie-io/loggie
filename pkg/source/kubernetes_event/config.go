@@ -17,7 +17,7 @@ limitations under the License.
 package kubernetes_event
 
 type Config struct {
-	KubeConfig string `yaml:"kubeconfig,omitempty" default:"~/.kube/config"`
-	Master     string `yaml:"master,omitempty" default:""`
+	KubeConfig string `yaml:"kubeconfig,omitempty"`
+	Master     string `yaml:"master,omitempty"`
 	BufferSize int    `yaml:"bufferSize,omitempty" default:"1000" validate:"gte=1"`
 }

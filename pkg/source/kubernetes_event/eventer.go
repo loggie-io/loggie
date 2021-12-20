@@ -75,12 +75,12 @@ func (k *KubeEvent) Init(context api.Context) {
 func (k *KubeEvent) Start() {
 	config, err := clientcmd.BuildConfigFromFlags(k.config.Master, k.config.KubeConfig)
 	if err != nil {
-		log.Panic("Cannot build config")
+		log.Error("cannot build config: %v", err)
 		return
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Panic("Cannot new kube clientSet")
+		log.Error("cannot build clientSet: %v", err)
 		return
 	}
 
