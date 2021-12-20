@@ -127,6 +127,10 @@ func (c *Controller) handlePodAddOrUpdate(pod *corev1.Pod) error {
 
 	for _, lgc := range lgcList {
 
+		if !c.belongOfCluster(lgc.Spec.Selector.Cluster) {
+			continue
+		}
+
 		if err := lgc.Validate(); err != nil {
 			continue
 		}

@@ -17,6 +17,7 @@ limitations under the License.
 package helper
 
 import (
+	"fmt"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"loggie.io/loggie/pkg/control"
 	"loggie.io/loggie/pkg/core/cfg"
@@ -32,7 +33,7 @@ func ToPipeline(lgc *logconfigv1beta1.LogConfig, sinkLister v1beta1.SinkLister, 
 	pip := lgc.Spec.Pipeline
 
 	pipRaw := pipeline.ConfigRaw{}
-	pipRaw.Name = pip.Name
+	pipRaw.Name = fmt.Sprintf("%s/%s/%s", lgc.Namespace, lgc.Name, pip.Name)
 
 	src, err := ToPipelineSources(pip.Sources)
 	if err != nil {
