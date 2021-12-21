@@ -16,20 +16,28 @@ limitations under the License.
 
 package kafka
 
-// Config refer to https://github.com/edenhill/librdkafka/blob/master/CONFIGURATION.md
+import "github.com/segmentio/kafka-go"
+
 const (
-	cBrokers            = "bootstrap.servers"
-	cGroupId            = "group.id"
-	cEnableAutoCommit   = "enable.auto.commit"
-	cAutoCommitInterval = "auto.commit.interval.ms"
-	cAutoOffsetReset    = "auto.offset.reset"
+	earliestOffsetReset = "earliest"
+	latestOffsetReset   = "latest"
 )
 
 type Config struct {
-	Brokers            string   `yaml:"brokers,omitempty" validate:"required"`
-	Topics             []string `yaml:"topics,omitempty" validate:"required"`
+	Brokers            []string `yaml:"brokers,omitempty" validate:"required"`
+	Topic              string   `yaml:"topic,omitempty" validate:"required"`
 	GroupId            string   `yaml:"groupId,omitempty" default:"loggie"`
-	EnableAutoCommit   bool     `yaml:"enableAutoCommit" default:"true"`
 	AutoCommitInterval int      `yaml:"autoCommitInterval"`
-	AutoOffsetReset    string   `yaml:"autoOffsetReset" default:"latest" validate:"oneof=smallest earliest beginning largest latest end error"`
+	AutoOffsetReset    string   `yaml:"autoOffsetReset" default:"latest" validate:"oneof=earliest latest"`
+}
+
+func getAutoOffset(autoOffsetReset string) int64 {
+	switch autoOffsetReset {
+	case earliestOffsetReset:
+		return kafka.FirstOffset
+	case latestOffsetReset:
+		return kafka.LastOffset
+	}
+
+	return kafka.LastOffset
 }

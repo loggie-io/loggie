@@ -17,15 +17,20 @@ limitations under the License.
 package kafka
 
 import (
+	"context"
 	"fmt"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
+	"regexp"
+	"sync"
+	"time"
+
 	"github.com/pkg/errors"
+	"github.com/segmentio/kafka-go"
+	"github.com/segmentio/kafka-go/topics"
+
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/event"
 	"loggie.io/loggie/pkg/core/log"
 	"loggie.io/loggie/pkg/pipeline"
-	"sync"
-	"time"
 )
 
 const Type = "kafka"
@@ -47,7 +52,7 @@ type Source struct {
 	done      chan struct{}
 	closeOnce sync.Once
 	config    *Config
-	consumer  *kafka.Consumer
+	consumer  *kafka.Reader
 	eventPool *event.Pool
 }
 
@@ -72,41 +77,52 @@ func (k *Source) Init(context api.Context) {
 }
 
 func (k *Source) Start() {
-	conf := &kafka.ConfigMap{
-		cBrokers:          k.config.Brokers,
-		cGroupId:          k.config.GroupId,
-		cEnableAutoCommit: k.config.EnableAutoCommit,
-		cAutoOffsetReset:  k.config.AutoOffsetReset,
-	}
-	var err error
-	if k.config.AutoCommitInterval != 0 {
-		err = conf.SetKey(cAutoCommitInterval, k.config.AutoCommitInterval)
-	}
+	topicRegx, err := regexp.Compile(k.config.Topic)
 	if err != nil {
-		log.Panic("set config error: %+v", err)
+		log.Error("compile kafka topic regex %s error: %s", k.config.Topic, err.Error())
+		return
 	}
 
-	c, err := kafka.NewConsumer(conf)
-	if err != nil {
-		log.Panic("init kafka consumer error: %+v", err)
+	client := &kafka.Client{
+		Addr: kafka.TCP(k.config.Brokers...),
 	}
-	err = c.SubscribeTopics(k.config.Topics, nil)
+	kts, err := topics.ListRe(context.Background(), client, topicRegx)
 	if err != nil {
-		log.Panic("subscribe topics %+v error: %+v", k.config.Topics, err)
+		log.Error("list kafka topics that match a regex error: %s", err.Error())
+		return
 	}
-	k.consumer = c
+
+	var groupTopics []string
+	for _, t := range kts {
+		groupTopics = append(groupTopics, t.Name)
+	}
+	if len(groupTopics) <= 0 {
+		log.Error("regex %s matched zero kafka topics", k.config.Topic)
+		return
+	}
+
+	readerCfg := kafka.ReaderConfig{
+		Brokers:        k.config.Brokers,
+		GroupID:        k.config.GroupId,
+		GroupTopics:    groupTopics,
+		CommitInterval: time.Second * time.Duration(k.config.AutoCommitInterval),
+		StartOffset:    getAutoOffset(k.config.AutoOffsetReset),
+	}
+
+	k.consumer = kafka.NewReader(readerCfg)
 }
 
 func (k *Source) Stop() {
 	k.closeOnce.Do(func() {
-		err := k.consumer.Close()
-		if err != nil {
-			log.Panic("close kafka consumer error: %+v", err)
+		if k.consumer != nil {
+			err := k.consumer.Close()
+			if err != nil {
+				log.Panic("close kafka consumer error: %+v", err)
+			}
 		}
 
 		close(k.done)
 	})
-
 }
 
 func (k *Source) Product() api.Event {
@@ -131,12 +147,13 @@ func (k *Source) ProductLoop(productFunc api.ProductFunc) {
 }
 
 func (k *Source) consume(productFunc api.ProductFunc) error {
-	msg, err := k.consumer.ReadMessage(-1)
+	if k.consumer == nil {
+		return fmt.Errorf("kakfa consumer not initialized yet")
+	}
+
+	msg, err := k.consumer.ReadMessage(context.Background())
 	if err != nil {
 		return errors.Errorf("consumer read message error: %v", err)
-	}
-	if msg == nil {
-		return errors.New("received message is nil")
 	}
 
 	e := k.eventPool.Get()
@@ -145,10 +162,10 @@ func (k *Source) consume(productFunc api.ProductFunc) error {
 		header = make(map[string]interface{})
 	}
 	header["kafka"] = map[string]interface{}{
-		"offset":    msg.TopicPartition.Offset,
-		"partition": msg.TopicPartition.Partition,
-		"timestamp": msg.Timestamp.Format(time.RFC3339),
-		"topic":     msg.TopicPartition.Topic,
+		"offset":    msg.Offset,
+		"partition": msg.Partition,
+		"timestamp": msg.Time.Format(time.RFC3339),
+		"topic":     msg.Topic,
 	}
 
 	for _, h := range msg.Headers {
