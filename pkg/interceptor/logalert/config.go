@@ -28,11 +28,11 @@ type Config struct {
 type Matcher struct {
 	Regexp       []string `yaml:"regexp,omitempty"`
 	Contains     []string `yaml:"contains,omitempty"`
-	TargetHeader string   `yaml:"targetHeader,omitempty"`
+	TargetHeader string   `yaml:"target,omitempty"`
 }
 
 type Labels struct {
-	FromHeader []string `yaml:"fromHeader,omitempty"`
+	FromHeader []string `yaml:"from,omitempty"`
 }
 
 func (c *Config) Validate() error {

@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/core/sink"
+	"loggie.io/loggie/pkg/core/source"
 	"loggie.io/loggie/pkg/core/sysconfig"
 	"loggie.io/loggie/pkg/eventbus"
 	"loggie.io/loggie/pkg/pipeline"
@@ -42,6 +42,8 @@ func makeInterceptor(info pipeline.Info) api.Component {
 
 type Interceptor struct {
 	config *Config
+
+	regex []*regexp.Regexp
 }
 
 func (i *Interceptor) Config() interface{} {
@@ -61,6 +63,14 @@ func (i *Interceptor) String() string {
 }
 
 func (i *Interceptor) Init(context api.Context) {
+
+	if len(i.config.Matcher.Regexp) != 0 {
+		for _, r := range i.config.Matcher.Regexp {
+			regex := regexp.MustCompile(r) // after validated
+
+			i.regex = append(i.regex, regex)
+		}
+	}
 }
 
 func (i *Interceptor) Start() {
@@ -69,43 +79,41 @@ func (i *Interceptor) Start() {
 func (i *Interceptor) Stop() {
 }
 
-func (i *Interceptor) Intercept(invoker sink.Invoker, invocation sink.Invocation) api.Result {
+func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invocation) api.Result {
 
-	events := invocation.Batch.Events()
-	for _, ev := range events {
-		matched, reason, message := i.match(ev)
-		if !matched {
-			continue
-		}
-		log.Debug("logAlert matched: %s, %s", message, reason)
-
-		// do fire alert
-		labels := map[string]string{
-			"host":   sysconfig.NodeName,
-			"source": ev.Source(),
-		}
-		annotations := map[string]string{
-			"reason":  reason,
-			"message": message,
-		}
-
-		if len(i.config.Labels.FromHeader) != 0 {
-			for _, key := range i.config.Labels.FromHeader {
-				val, ok := ev.Header()[key]
-				if !ok {
-					continue
-				}
-				valStr, ok := val.(string)
-				if !ok {
-					continue
-				}
-				labels[key] = valStr
-			}
-		}
-
-		d := eventbus.NewLogAlertData(labels, annotations)
-		eventbus.PublishOrDrop(eventbus.LogAlertTopic, d)
+	ev := invocation.Event
+	matched, reason, message := i.match(ev)
+	if !matched {
+		return invoker.Invoke(invocation)
 	}
+	log.Debug("logAlert matched: %s, %s", message, reason)
+
+	// do fire alert
+	labels := map[string]string{
+		"host":   sysconfig.NodeName,
+		"source": ev.Source(),
+	}
+	annotations := map[string]string{
+		"reason":  reason,
+		"message": message,
+	}
+
+	if len(i.config.Labels.FromHeader) != 0 {
+		for _, key := range i.config.Labels.FromHeader {
+			val, ok := ev.Header()[key]
+			if !ok {
+				continue
+			}
+			valStr, ok := val.(string)
+			if !ok {
+				continue
+			}
+			labels[key] = valStr
+		}
+	}
+
+	d := eventbus.NewLogAlertData(labels, annotations)
+	eventbus.PublishOrDrop(eventbus.LogAlertTopic, d)
 
 	return invoker.Invoke(invocation)
 }
@@ -133,14 +141,9 @@ func (i *Interceptor) match(event api.Event) (matched bool, reason string, messa
 		}
 	}
 
-	// regexp matcher
-	if len(matcher.Regexp) != 0 {
-		for _, reg := range matcher.Regexp {
-			matched, err := regexp.MatchString(reg, target)
-			if err != nil {
-				log.Warn("regexp %s match error: %v", reg, err)
-				continue
-			}
+	if len(i.regex) != 0 {
+		for _, reg := range i.regex {
+			matched := reg.MatchString(target)
 			if matched {
 				return true, fmt.Sprintf("matched %s", reg), target
 			}
