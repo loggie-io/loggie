@@ -19,6 +19,7 @@ package logalert
 import (
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/event"
+	"regexp"
 	"testing"
 )
 
@@ -86,6 +87,13 @@ func TestInterceptor_match(t *testing.T) {
 			i := &Interceptor{
 				config: tt.fields.config,
 			}
+
+			var regex []*regexp.Regexp
+			for _, reg := range tt.fields.config.Matcher.Regexp {
+				regex = append(regex, regexp.MustCompile(reg))
+			}
+			i.regex = regex
+
 			gotMatched, reason, message := i.match(tt.args.event)
 			t.Logf("match() gotMatched = %v, want %v, reason: %s, message: %s", gotMatched, tt.wantMatched, reason, message)
 			if gotMatched != tt.wantMatched {
