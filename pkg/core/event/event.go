@@ -28,9 +28,9 @@ const (
 	SystemKeyPrefix  = "system"
 	PrivateKeyPrefix = "@private"
 
-	SystemPipelineKey = SystemKeyPrefix + "PipelineName"
-	SystemSourceKey   = SystemKeyPrefix + "SourceName"
-	SystemCollectTimeKey   = SystemKeyPrefix + "CollectTime"
+	SystemPipelineKey    = SystemKeyPrefix + "PipelineName"
+	SystemSourceKey      = SystemKeyPrefix + "SourceName"
+	SystemCollectTimeKey = SystemKeyPrefix + "CollectTime"
 
 	Body = "body"
 )
