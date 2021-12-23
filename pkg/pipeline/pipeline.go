@@ -497,6 +497,14 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
 
 func (p *Pipeline) fillEventHeader(e api.Event, config source.Config) {
 	header := e.Header()
+	if header == nil {
+		header = make(map[string]interface{})
+		e.Fill(header, e.Body())
+	}
+	// add system collect time
+	if _, exist := header[event.SystemCollectTimeKey]; !exist {
+		header[event.SystemCollectTimeKey] = time.Now()
+	}
 	// add system fields
 	header[event.SystemPipelineKey] = p.name
 	header[event.SystemSourceKey] = config.Name

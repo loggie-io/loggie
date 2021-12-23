@@ -30,6 +30,7 @@ const (
 
 	SystemPipelineKey = SystemKeyPrefix + "PipelineName"
 	SystemSourceKey   = SystemKeyPrefix + "SourceName"
+	SystemCollectTimeKey   = SystemKeyPrefix + "CollectTime"
 
 	Body = "body"
 )
