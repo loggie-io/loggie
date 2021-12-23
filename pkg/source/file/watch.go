@@ -660,7 +660,7 @@ func (w *Watcher) run() {
 			}
 		case job := <-w.zombieJobChan:
 			watchJobId := job.WatchUid()
-			if _, ok := w.zombieJobs[watchJobId]; !ok {
+			if !w.isZombieJob(job) {
 				w.zombieJobs[watchJobId] = job
 				w.addOsNotify(job.filename)
 			}
