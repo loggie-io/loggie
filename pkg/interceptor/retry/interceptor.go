@@ -50,7 +50,7 @@ func makeInterceptor(info pipeline.Info) api.Component {
 
 type Config struct {
 	interceptor.ExtensionConfig `yaml:",inline"`
-	RetryMaxTime                int `yaml:"retryMaxTime,omitempty" default:"0"`
+	RetryMaxCount               int `yaml:"retryMaxCount,omitempty" default:"0"`
 }
 
 type retryMeta struct {
@@ -129,8 +129,8 @@ func (i *Interceptor) Intercept(invoker sink.Invoker, invocation sink.Invocation
 	result := invoker.Invoke(invocation)
 	if result.Status() != api.SUCCESS {
 		rm := i.retryMeta(batch)
-		retryMaxTime := i.config.RetryMaxTime
-		if rm != nil && retryMaxTime > 0 && retryMaxTime < rm.count {
+		retryMaxCount := i.config.RetryMaxCount
+		if rm != nil && retryMaxCount > 0 && retryMaxCount < rm.count {
 			result.ChangeStatusTo(api.DROP)
 			return result
 		}
