@@ -18,3 +18,7 @@ Loggie是一个基于Golang的轻量级、高性能、云原生日志采集Agent
 ## 使用
 请参考Loggie[文档](https://loggie-io.github.io/docs/)。
 
+## License
+
+[Apache-2.0](https://choosealicense.com/licenses/apache-2.0/)
+
