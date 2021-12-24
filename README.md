@@ -1,5 +1,5 @@
 
-<img src="https://github.com/loggie-io/loggie/blob/6ba80c07b5576c9ed128caf15e80ffb45816ca0b/logo/loggie.png" width="250">
+<img src="https://github.com/loggie-io/loggie/blob/f30fd99eeb3010dac434779b4c36c94dd99f0447/logo/loggie.png" width="250">
 
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://loggie-io.github.io/docs/) 
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/569/badge)](https://bestpractices.coreinfrastructure.org/projects/569)
