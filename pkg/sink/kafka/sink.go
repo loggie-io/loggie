@@ -81,7 +81,7 @@ func (s *Sink) Start() {
 	c := s.config
 	mechanism, err := mechanism(c.SASL.Type, c.SASL.UserName, c.SASL.Password, c.SASL.Algorithm)
 	if err != nil {
-		log.Panic("kafka sink sasl mechanism with error: %s", err.Error())
+		log.Error("kafka sink sasl mechanism with error: %s", err.Error())
 		return
 	}
 
