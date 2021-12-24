@@ -1,10 +1,10 @@
 # Loggie
 
-[![GoPkg Widget]][GoPkg] [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/569/badge)](https://bestpractices.coreinfrastructure.org/projects/569)
+[![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://loggie-io.github.io/docs/)
 
-<img src="https://github.com/loggie-io/loggie/raw/master/logo/loggie.svg" width="100">
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/569/badge)](https://bestpractices.coreinfrastructure.org/projects/569)
 
-----
+<img src="https://github.com/loggie-io/loggie/blob/6ba80c07b5576c9ed128caf15e80ffb45816ca0b/logo/loggie.svg" width="100">
 
 
 Loggie是一个基于Golang的轻量级、高性能、云原生日志采集Agent和中转处理Aggregator，支持多Pipeline和组件热插拔，提供了：
