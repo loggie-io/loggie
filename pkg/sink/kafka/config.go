@@ -91,8 +91,8 @@ func (c *Config) Validate() error {
 		}
 
 		if c.SASL.Type == SASLSCRAMType {
-			if c.SASL.Algorithm == "" {
-				return fmt.Errorf("kafka sink %s sasl with empty hash algorithm", c.SASL.Type)
+			if c.SASL.Algorithm != "" && c.SASL.Algorithm != AlgorithmSHA512 && c.SASL.Algorithm != AlgorithmSHA256 {
+				return fmt.Errorf("kafka sink %s sasl hash algorithm %s not supported", c.SASL.Type, c.SASL.Algorithm)
 			}
 		}
 	}
@@ -109,7 +109,7 @@ func balanceInstance(balance string) kafka.Balancer {
 	case BalanceLeastBytes:
 		return &kafka.LeastBytes{}
 	default:
-		log.Panic("kafka sink balance %s is not supported", balance)
+		log.Warn("kafka sink balance %s is not supported", balance)
 		return nil
 	}
 }
@@ -129,7 +129,7 @@ func compression(compression string) kafka.Compression {
 		return kafka.Zstd
 
 	default:
-		log.Panic("kafka sink compression %s is not supported", compression)
+		log.Warn("kafka sink compression %s is not supported", compression)
 		return kafka.Gzip
 	}
 }
@@ -155,7 +155,7 @@ func algorithm(algo string) scram.Algorithm {
 	case AlgorithmSHA512:
 		return scram.SHA512
 	default:
-		log.Panic("kafka sink sasl scram hash algo %s is not supported", algo)
+		log.Warn("kafka sink sasl scram hash algo %s is not supported", algo)
 		return scram.SHA512
 	}
 }
