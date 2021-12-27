@@ -15,8 +15,36 @@ Loggie是一个基于Golang的轻量级、高性能、云原生日志采集Agent
 ![](https://loggie-io.github.io/docs/getting-started/imgs/loggie-arch.png)
 
 
-## 使用
+## 文档
 请参考Loggie[文档](https://loggie-io.github.io/docs/)。
+
+### 开始
+
+- [快速上手](https://loggie-io.github.io/docs/getting-started/quick-start/quick-start/)
+- 部署
+  - [Kubernetes](https://loggie-io.github.io/docs/getting-started/install/kubernetes/)
+  - [主机](https://loggie-io.github.io/docs/getting-started/install/node/)
+
+### 用户指南
+
+- [设计与架构](https://loggie-io.github.io/docs/user-guide/architecture/core-arch/)
+- [在Kubernetes下使用](https://loggie-io.github.io/docs/user-guide/use-in-kubernetes/general-usage/)
+- 最佳实践([日志切分与处理](https://loggie-io.github.io/docs/user-guide/best-practice/log-process/)..)
+- [监控与告警](https://loggie-io.github.io/docs/user-guide/monitor/loggie-monitor/)
+
+### 组件配置
+
+- [启动参数](https://loggie-io.github.io/docs/reference/global/args/)
+- [系统配置](https://loggie-io.github.io/docs/reference/global/system/)
+- Pipeline配置
+  - source: [file](https://loggie-io.github.io/docs/reference/pipelines/source/file/), [kafka](https://loggie-io.github.io/docs/reference/pipelines/source/kafka/), [kubeEvent](https://loggie-io.github.io/docs/reference/pipelines/source/kubeEvent/), [grpc](https://loggie-io.github.io/docs/reference/pipelines/source/grpc/)..
+  - sink: [elassticsearch](https://loggie-io.github.io/docs/reference/pipelines/sink/elasticsearch/), [kafka](https://loggie-io.github.io/docs/reference/pipelines/sink/kafka/), [grpc](https://loggie-io.github.io/docs/reference/pipelines/sink/grpc/), [dev](https://loggie-io.github.io/docs/reference/pipelines/sink/dev/)..
+  - interceptor: [normalize](https://loggie-io.github.io/docs/reference/pipelines/interceptor/normalize/), [limit](https://loggie-io.github.io/docs/reference/pipelines/interceptor/limit/), [logAlert](https://loggie-io.github.io/docs/reference/pipelines/interceptor/logalert/), [maxbytes](https://loggie-io.github.io/docs/reference/pipelines/interceptor/maxbytes/)..   
+
+- CRD
+  - [logConfig](https://loggie-io.github.io/docs/reference/discovery/kubernetes/logconfig/)
+  - [sink](https://loggie-io.github.io/docs/reference/discovery/kubernetes/sink/)
+  - [interceptor](https://loggie-io.github.io/docs/reference/discovery/kubernetes/interceptors/)
 
 ## License
 
