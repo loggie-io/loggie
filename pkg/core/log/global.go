@@ -47,20 +47,20 @@ func init() {
 }
 
 type LoggerConfig struct {
-	Level string `yaml:"level,omitempty"`
-	JsonFormat bool `yaml:"jsonFormat,omitempty"`
-	EnableStdout bool `yaml:"enableStdout,omitempty"`
-	EnableFile bool `yaml:"enableFile,omitempty"`
-	Directory string `yaml:"directory,omitempty"`
-	Filename string `yaml:"filename,omitempty"`
-	MaxSize  int `yaml:"maxSize,omitempty"`
-	MaxBackups int `yaml:"maxBackups,omitempty"`
-	MaxAge int `yaml:"maxAge,omitempty"`
-	TimeFormat string `yaml:"timeFormat,omitempty"`
+	Level        string `yaml:"level,omitempty"`
+	JsonFormat   bool   `yaml:"jsonFormat,omitempty"`
+	EnableStdout bool   `yaml:"enableStdout,omitempty"`
+	EnableFile   bool   `yaml:"enableFile,omitempty"`
+	Directory    string `yaml:"directory,omitempty"`
+	Filename     string `yaml:"filename,omitempty"`
+	MaxSize      int    `yaml:"maxSize,omitempty"`
+	MaxBackups   int    `yaml:"maxBackups,omitempty"`
+	MaxAge       int    `yaml:"maxAge,omitempty"`
+	TimeFormat   string `yaml:"timeFormat,omitempty"`
 }
 
 type Logger struct {
-  l *zerolog.Logger
+	l *zerolog.Logger
 }
 
 func InitDefaultLogger() {

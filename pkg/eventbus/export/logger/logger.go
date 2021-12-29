@@ -30,11 +30,11 @@ type Event struct {
 }
 
 type Config struct {
-	Enabled bool          `yaml:"enabled,omitempty"`
-	Period  time.Duration `yaml:"period,omitempty" default:"10s"`
-	Pretty bool `yaml:"pretty,omitempty"`
-	AdditionLogEnabled bool `yaml:"additionLogEnabled,omitempty"`
-	AdditionLogConfig log.LoggerConfig `yaml:"additionLogConfig,omitempty"`
+	Enabled            bool             `yaml:"enabled,omitempty"`
+	Period             time.Duration    `yaml:"period,omitempty" default:"10s"`
+	Pretty             bool             `yaml:"pretty,omitempty"`
+	AdditionLogEnabled bool             `yaml:"additionLogEnabled,omitempty"`
+	AdditionLogConfig  log.LoggerConfig `yaml:"additionLogConfig,omitempty"`
 }
 
 func (c *Config) SetDefaults() {
@@ -72,8 +72,8 @@ type logger struct {
 
 	eventChan chan *Event
 
-	done chan struct{}
-	config Config
+	done           chan struct{}
+	config         Config
 	additionLogger *log.Logger
 }
 
