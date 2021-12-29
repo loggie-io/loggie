@@ -25,7 +25,7 @@ import (
 )
 
 func init() {
-	log.InitLog()
+	log.InitDefaultLogger()
 }
 
 var config = &Config{

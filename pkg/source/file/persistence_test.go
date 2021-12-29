@@ -78,7 +78,7 @@ func Test_dbHandler_findAll(t *testing.T) {
 }
 
 func Test_dbHandler_write(t *testing.T) {
-	log.InitLog()
+	log.InitDefaultLogger()
 	handler := GetOrCreateShareDbHandler(DbConfig{
 		Async:        true,
 		File:         "./data/loggie.db",
@@ -109,7 +109,7 @@ func Test_dbHandler_write(t *testing.T) {
 }
 
 func Benchmark_dbHandler_write(b *testing.B) {
-	log.InitLog()
+	log.InitDefaultLogger()
 	handler := GetOrCreateShareDbHandler(DbConfig{
 		Async:        true,
 		File:         "./data/loggie.db",
@@ -142,7 +142,7 @@ func Benchmark_dbHandler_write(b *testing.B) {
 }
 
 func Test_text2time(t *testing.T) {
-	log.InitLog()
+	log.InitDefaultLogger()
 	tt := text2time("2020-11-16 19:57:59.888")
 	fmt.Println(time2text(tt))
 }

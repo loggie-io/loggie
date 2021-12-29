@@ -55,7 +55,7 @@ func init() {
 
 func main() {
 	flag.Parse()
-	log.InitLog()
+	log.InitDefaultLogger()
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
