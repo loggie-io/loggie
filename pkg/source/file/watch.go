@@ -104,6 +104,7 @@ func (w *Watcher) Stop() {
 
 func (w *Watcher) StopWatchTask(watchTask *WatchTask) {
 	watchTask.watchTaskType = STOP
+	watchTask.stopTime = time.Now()
 	watchTask.countDown.Add(1)
 	w.watchTaskChan <- watchTask
 	watchTask.countDown.Wait()
@@ -234,9 +235,6 @@ func (w *Watcher) eventBus(e jobEvent) {
 		// only care about zombie job write event
 		watchJobId := job.WatchUid()
 		if job, ok := w.zombieJobs[watchJobId]; ok {
-			delete(w.zombieJobs, watchJobId)
-			// zombie job change to active, so without os notify
-			w.removeOsNotify(job.filename)
 			err, fdOpen := job.Active()
 			if fdOpen {
 				w.currentOpenFds++
@@ -249,6 +247,9 @@ func (w *Watcher) eventBus(e jobEvent) {
 				return
 			}
 			job.Read()
+			// zombie job change to active, so without os notify
+			w.removeOsNotify(job.filename)
+			delete(w.zombieJobs, watchJobId)
 		}
 	case CREATE:
 		if w.currentOpenFds >= w.config.MaxOpenFds {
@@ -601,11 +602,9 @@ func (w *Watcher) finalizeJob(job *Job) {
 	}
 
 	for _, task := range w.waiteForStopWatchTasks {
-		if task.isParentOf(job) {
-			task.waiteForStopJobCount--
-			if task.waiteForStopJobCount == 0 {
-				task.countDown.Done()
-			}
+		delete(task.waiteForStopJobs, job.WatchUid())
+		if len(task.waiteForStopJobs) <= 0 {
+			task.countDown.Done()
 		}
 	}
 }
@@ -640,8 +639,10 @@ func (w *Watcher) run() {
 				w.sourceWatchTasks[key] = watchTask
 				w.cleanWatchTaskRegistry(watchTask)
 			} else if watchTask.watchTaskType == STOP {
+				log.Info("try to stop watch task: %s", watchTask.String())
 				delete(w.sourceWatchTasks, key)
 				// Delete the jobs of the corresponding source
+				waitForStopJobs := make(map[string]*Job)
 				for _, job := range w.allJobs {
 					if watchTask.isParentOf(job) {
 						job.Stop()
@@ -650,9 +651,10 @@ func (w *Watcher) run() {
 						w.finalizeJob(job)
 						continue
 					}
-					watchTask.waiteForStopJobCount++
+					waitForStopJobs[job.WatchUid()] = job
 				}
-				if watchTask.waiteForStopJobCount > 0 {
+				if len(waitForStopJobs) > 0 {
+					watchTask.waiteForStopJobs = waitForStopJobs
 					w.waiteForStopWatchTasks[watchTask.WatchTaskKey()] = watchTask
 				} else {
 					watchTask.countDown.Done()
@@ -738,6 +740,21 @@ func (w *Watcher) osNotify(e fsnotify.Event) {
 
 func (w *Watcher) maintenance() {
 	w.reportWatchMetricAndCleanFiles()
+	w.checkWaitForStopTask()
+}
+
+func (w *Watcher) checkWaitForStopTask() {
+	if len(w.waiteForStopWatchTasks) <= 0 {
+		return
+	}
+	for _, watchTask := range w.waiteForStopWatchTasks {
+		if time.Since(watchTask.stopTime) > w.config.TaskStopTimeout {
+			log.Error("watchTask stop timeout because jobs has not release: %s", watchTask.StopJobsInfo())
+			watchTask.waiteForStopJobs = nil
+			delete(w.waiteForStopWatchTasks, watchTask.WatchTaskKey())
+			watchTask.countDown.Done()
+		}
+	}
 }
 
 func (w *Watcher) reportWatchMetricAndCleanFiles() {

@@ -25,6 +25,7 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
 const (
@@ -35,16 +36,17 @@ const (
 type WatchTaskType string
 
 type WatchTask struct {
-	epoch                pipeline.Epoch
-	pipelineName         string
-	sourceName           string
-	config               CollectConfig
-	eventPool            *event.Pool
-	productFunc          api.ProductFunc
-	activeChan           chan *Job
-	watchTaskType        WatchTaskType
-	countDown            *sync.WaitGroup
-	waiteForStopJobCount int
+	epoch            pipeline.Epoch
+	pipelineName     string
+	sourceName       string
+	config           CollectConfig
+	eventPool        *event.Pool
+	productFunc      api.ProductFunc
+	activeChan       chan *Job
+	watchTaskType    WatchTaskType
+	countDown        *sync.WaitGroup
+	waiteForStopJobs map[string]*Job
+	stopTime         time.Time
 }
 
 func NewWatchTask(epoch pipeline.Epoch, pipelineName string, sourceName string, config CollectConfig,
@@ -104,4 +106,27 @@ func (wt *WatchTask) WatchTaskKey() string {
 
 func (wt *WatchTask) isParentOf(job *Job) bool {
 	return job.task.pipelineName == wt.pipelineName && job.task.sourceName == wt.sourceName
+}
+
+func (wt *WatchTask) String() string {
+	var watchTaskString strings.Builder
+	watchTaskString.WriteString(wt.epoch.String())
+	watchTaskString.WriteString(":")
+	watchTaskString.WriteString(wt.sourceName)
+	return watchTaskString.String()
+}
+
+func (wt *WatchTask) StopJobsInfo() string {
+	if len(wt.waiteForStopJobs) <= 0 {
+		return ""
+	}
+	var stopJobsInfo strings.Builder
+	for _, job := range wt.waiteForStopJobs {
+		stopJobsInfo.WriteString("{")
+		stopJobsInfo.WriteString(job.WatchUid())
+		stopJobsInfo.WriteString(":")
+		stopJobsInfo.WriteString(job.filename)
+		stopJobsInfo.WriteString("}")
+	}
+	return stopJobsInfo.String()
 }

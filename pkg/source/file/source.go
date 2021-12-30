@@ -111,6 +111,7 @@ func (s *Source) Init(context api.Context) {
 }
 
 func (s *Source) Start() {
+	log.Info("start source: %s", s.String())
 	if s.config.ReaderConfig.MultiConfig.Active {
 		s.multilineProcessor = GetOrCreateShareMultilineProcessor()
 	}
@@ -131,7 +132,7 @@ func (s *Source) Start() {
 }
 
 func (s *Source) Stop() {
-	log.Info("start stop source(%s)", s.String())
+	log.Info("start stop source: %s", s.String())
 	// Stop ack
 	if s.config.AckConfig.Enable {
 		// stop append&ack source event
@@ -148,7 +149,7 @@ func (s *Source) Stop() {
 	if s.config.ReaderConfig.MultiConfig.Active {
 		s.multilineProcessor.StopTask(s.mTask)
 	}
-	log.Info("source(%s) stop", s.String())
+	log.Info("source has stopped: %s", s.String())
 }
 
 func (s *Source) Product() api.Event {

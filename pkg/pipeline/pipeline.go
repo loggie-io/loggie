@@ -27,6 +27,7 @@ import (
 	"loggie.io/loggie/pkg/core/queue"
 	"loggie.io/loggie/pkg/core/sink"
 	"loggie.io/loggie/pkg/core/source"
+	"loggie.io/loggie/pkg/eventbus"
 	"loggie.io/loggie/pkg/sink/codec"
 	"loggie.io/loggie/pkg/util"
 	"os"
@@ -84,6 +85,7 @@ func (p *Pipeline) Stop() {
 	// 5. clean data(out chan、registry center、and so on)
 	p.cleanData()
 
+	log.Info("stop pipeline with epoch: %+v", p.epoch)
 }
 
 func (p *Pipeline) stopSinkConsumer() {
@@ -93,14 +95,17 @@ func (p *Pipeline) stopSinkConsumer() {
 
 func (p *Pipeline) stopSourceProduct() {
 	for name, s := range p.ns {
-		s.Stop()
-		p.r.removeComponent(s.Type(), s.Category(), name)
+		localSource := s
+		localSource.Stop()
+		p.r.removeComponent(localSource.Type(), localSource.Category(), name)
+		p.reportMetric(name, localSource, eventbus.ComponentStop)
 	}
 }
 
 func (p *Pipeline) stopQueue() {
 	p.q.Stop()
 	p.r.removeComponent(p.q.Type(), p.q.Category(), "default") // TODO
+	p.reportMetric("default", p.q, eventbus.ComponentStop)
 }
 
 func (p *Pipeline) stopComponents() {
@@ -109,9 +114,10 @@ func (p *Pipeline) stopComponents() {
 		// async stop with timeout
 		n := name
 		c := v
+		delete(p.r.nameComponents, n)
 		util.AsyncRunWithTimeout(func() {
 			c.Stop()
-			delete(p.r.nameComponents, n)
+			p.reportMetricWithCode(n, c, eventbus.ComponentStop)
 		}, p.config.CleanDataTimeout)
 	}
 }
@@ -244,6 +250,7 @@ func (p *Pipeline) startWithComponent(component api.Component, ctx api.Context) 
 	component.Init(ctx)
 	component.Start()
 	p.r.Register(component, ctx.Name())
+	p.reportMetric(ctx.Name(), component, eventbus.ComponentStart)
 }
 
 func (p *Pipeline) afterSinkConsumer(b api.Batch, result api.Result) {
@@ -651,4 +658,28 @@ func (p *Pipeline) next() api.OutFunc {
 	}
 	p.index++
 	return p.retryOutFuncs[int(p.index)%size]
+}
+
+func (p *Pipeline) reportMetricWithCode(code string, component api.Component, eventType eventbus.ComponentEventType) {
+	var name string
+	a := strings.Split(code, "/")
+	if len(a) < 3 {
+		name = ""
+	} else {
+		name = a[2]
+	}
+	p.reportMetric(name, component, eventType)
+}
+
+func (p *Pipeline) reportMetric(name string, component api.Component, eventType eventbus.ComponentEventType) {
+	eventbus.Publish(eventbus.ComponentBaseTopic, eventbus.ComponentBaseMetricData{
+		Type:         eventType,
+		PipelineName: p.name,
+		EpochTime:    p.epoch.StartTime,
+		Config: eventbus.ComponentBaseConfig{
+			Name:     name,
+			Type:     component.Type(),
+			Category: component.Category(),
+		},
+	})
 }

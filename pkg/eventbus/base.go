@@ -20,7 +20,14 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"loggie.io/loggie/pkg/core/api"
+	"strings"
 	"time"
+)
+
+const (
+	ComponentStop  = ComponentEventType(0)
+	ComponentStart = ComponentEventType(1)
 )
 
 var (
@@ -31,6 +38,8 @@ var (
 	ErrorTopic            = "error"
 	LogAlertTopic         = "log"
 	QueueMetricTopic      = "queue"
+	PipelineTopic         = "pipeline"
+	ComponentBaseTopic    = "component"
 )
 
 type BaseMetric struct {
@@ -69,6 +78,15 @@ type ReloadMetricData struct {
 	Tick int
 }
 
+type ComponentBaseMetricData struct {
+	Type         ComponentEventType // "start","stop"...
+	PipelineName string
+	EpochTime    time.Time
+	Config       ComponentBaseConfig
+}
+
+type ComponentEventType int32
+
 type ErrorMetricData struct {
 	ErrorMsg string
 }
@@ -105,4 +123,25 @@ func (lad *LogAlertData) Fingerprint() string {
 	labelStr := fmt.Sprint(lad.Labels)
 	out := md5.Sum([]byte(labelStr))
 	return hex.EncodeToString(out[:])
+}
+
+type PipelineMetricData struct {
+	Type             ComponentEventType
+	Name             string
+	Time             time.Time
+	ComponentConfigs []ComponentBaseConfig
+}
+
+type ComponentBaseConfig struct {
+	Name     string
+	Type     api.Type
+	Category api.Category
+}
+
+func (cbc ComponentBaseConfig) Code() string {
+	var code strings.Builder
+	code.WriteString(string(cbc.Type))
+	code.WriteString(":")
+	code.WriteString(cbc.Name)
+	return code.String()
 }
