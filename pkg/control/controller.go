@@ -17,8 +17,8 @@ limitations under the License.
 package control
 
 import (
-	"loggie.io/loggie/pkg/core/api"
 	"gopkg.in/yaml.v2"
+	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/log"
 	"loggie.io/loggie/pkg/eventbus"
 	"loggie.io/loggie/pkg/pipeline"
