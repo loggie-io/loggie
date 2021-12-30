@@ -16,13 +16,28 @@ limitations under the License.
 
 package util
 
-func Contain(key string, array []string) bool {
+func Contain(code string, array []string) bool {
 	if len(array) > 0 {
 		for _, s := range array {
-			if s == key {
+			if s == code {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func ContainWithFunc(code string, array []CodeFunc) bool {
+	if len(array) > 0 {
+		for _, keyFunc := range array {
+			if keyFunc.Code() == code {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+type CodeFunc interface {
+	Code() string
 }

@@ -13,6 +13,7 @@ loggie:
       reload: ~
       sink: ~
       queue: ~
+      pipeline: ~
 
   discovery:
     enabled: false

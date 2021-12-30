@@ -21,6 +21,7 @@ import (
 	_ "loggie.io/loggie/pkg/eventbus/listener/filesource"
 	_ "loggie.io/loggie/pkg/eventbus/listener/filewatcher"
 	_ "loggie.io/loggie/pkg/eventbus/listener/logalerting"
+	_ "loggie.io/loggie/pkg/eventbus/listener/pipeline"
 	_ "loggie.io/loggie/pkg/eventbus/listener/queue"
 	_ "loggie.io/loggie/pkg/eventbus/listener/reload"
 	_ "loggie.io/loggie/pkg/eventbus/listener/sink"

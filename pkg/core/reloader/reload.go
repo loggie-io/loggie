@@ -82,12 +82,6 @@ func (r *Reloader) Run(stopCh <-chan struct{}) {
 
 			// diff config
 			stopList, startList := diffConfig(newConfig, r.controller.CurrentConfig)
-			if len(stopList) > 0 {
-				r.controller.StopPipelines(stopList)
-			}
-			if len(startList) > 0 {
-				r.controller.StartPipelines(startList)
-			}
 
 			if len(stopList) > 0 || len(startList) > 0 {
 				log.Info("loggie is reloading..")
@@ -102,6 +96,13 @@ func (r *Reloader) Run(stopCh <-chan struct{}) {
 				eventbus.Publish(eventbus.ReloadTopic, eventbus.ReloadMetricData{
 					Tick: 1,
 				})
+			}
+
+			if len(stopList) > 0 {
+				r.controller.StopPipelines(stopList)
+			}
+			if len(startList) > 0 {
+				r.controller.StartPipelines(startList)
 			}
 		}
 	}

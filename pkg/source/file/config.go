@@ -103,6 +103,7 @@ type WatchConfig struct {
 	CleanWhenRemoved          bool          `yaml:"cleanWhenRemoved,omitempty" default:"true"`
 	ReadFromTail              bool          `yaml:"readFromTail,omitempty" default:"false"`
 	IgnoreScanTime            time.Duration `yaml:"ignoreScanTimeMinute,omitempty" default:"2m"`
+	TaskStopTimeout           time.Duration `yaml:"taskStopTimeout,omitempty" default:"30s"`
 }
 
 type CleanFiles struct {
