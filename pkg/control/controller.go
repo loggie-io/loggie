@@ -18,12 +18,20 @@ package control
 
 import (
 	"loggie.io/loggie/pkg/core/api"
+	"gopkg.in/yaml.v2"
 	"loggie.io/loggie/pkg/core/log"
 	"loggie.io/loggie/pkg/eventbus"
 	"loggie.io/loggie/pkg/pipeline"
+	"net/http"
 	_ "net/http/pprof"
 	"time"
 )
+
+const handleCurrentPipelines = "/api/v1/controller/pipelines"
+
+func (c *Controller) initHttp() {
+	http.HandleFunc(handleCurrentPipelines, c.currentPipelinesHandler)
+}
 
 type Controller struct {
 	CurrentConfig  *PipelineConfig
@@ -38,6 +46,7 @@ func NewController() *Controller {
 }
 
 func (c *Controller) Start(config *PipelineConfig) {
+	c.initHttp()
 	c.StartPipelines(config.Pipelines)
 }
 
@@ -109,4 +118,17 @@ func (c *Controller) reportMetric(p pipeline.Config, eventType eventbus.Componen
 		Time:             time.Now(),
 		ComponentConfigs: componentConfigs,
 	})
+}
+
+func (c *Controller) currentPipelinesHandler(writer http.ResponseWriter, request *http.Request) {
+	data, err := yaml.Marshal(c.CurrentConfig)
+	if err != nil {
+		log.Warn("marshal current pipeline config err: %v", err)
+		writer.WriteHeader(http.StatusInternalServerError)
+		writer.Write([]byte(err.Error()))
+		return
+	}
+
+	writer.WriteHeader(http.StatusOK)
+	writer.Write(data)
 }

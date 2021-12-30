@@ -28,73 +28,81 @@ import (
 )
 
 var (
-	l          *zerolog.Logger
-	AfterError spi.AfterError
-
-	// log format for local development
-	jsonFormat bool
-	// global log output level
-	logLevel string
-	// FileLoggingEnabled makes the framework log to a file
-	fileLoggingEnabled bool
-	// Directory to log to to when filelogging is enabled
-	directory string
-	// Filename is the name of the logfile which will be placed inside the directory
-	filename string
-	// MaxSize the max size in MB of the logfile before it's rolled
-	maxSize int
-	// MaxBackups the max number of rolled files to keep
-	maxBackups int
-	// MaxAge the max age in days to keep a logfile
-	maxAge int
-	// TimeFormat log time format
-	timeFormat string
+	defaultLogger *Logger
+	AfterError    spi.AfterError
+	gLoggerConfig = &LoggerConfig{}
 )
 
 func init() {
-	flag.StringVar(&logLevel, "log.level", "info", "Global log output level")
-	flag.BoolVar(&jsonFormat, "log.jsonFormat", true, "Parses the JSON log format")
-	flag.BoolVar(&fileLoggingEnabled, "log.enableFile", false, "FileLoggingEnabled makes the framework log to a file")
-	flag.StringVar(&directory, "log.directory", "/var/log", "Directory to log to to when log.enableFile is enabled")
-	flag.StringVar(&filename, "log.filename", "loggie.log", "Filename is the name of the logfile which will be placed inside the directory")
-	flag.IntVar(&maxSize, "log.maxSize", 1024, "Max size in MB of the logfile before it's rolled")
-	flag.IntVar(&maxBackups, "log.maxBackups", 3, "Max number of rolled files to keep")
-	flag.IntVar(&maxAge, "log.maxAge", 7, "Max age in days to keep a logfile")
-	flag.StringVar(&timeFormat, "log.timeFormat", "2006-01-02 15:04:05", "TimeFormat log time format")
+	flag.StringVar(&gLoggerConfig.Level, "log.level", "info", "Global log output level")
+	flag.BoolVar(&gLoggerConfig.JsonFormat, "log.jsonFormat", true, "Parses the JSON log format")
+	flag.BoolVar(&gLoggerConfig.EnableStdout, "log.enableStdout", true, "EnableStdout enable the log print to stdout")
+	flag.BoolVar(&gLoggerConfig.EnableFile, "log.enableFile", false, "EnableFile makes the framework log to a file")
+	flag.StringVar(&gLoggerConfig.Directory, "log.directory", "/var/log", "Directory to log to to when log.enableFile is enabled")
+	flag.StringVar(&gLoggerConfig.Filename, "log.filename", "loggie.log", "Filename is the name of the logfile which will be placed inside the directory")
+	flag.IntVar(&gLoggerConfig.MaxSize, "log.maxSize", 1024, "Max size in MB of the logfile before it's rolled")
+	flag.IntVar(&gLoggerConfig.MaxBackups, "log.maxBackups", 3, "Max number of rolled files to keep")
+	flag.IntVar(&gLoggerConfig.MaxAge, "log.maxAge", 7, "Max age in days to keep a logfile")
+	flag.StringVar(&gLoggerConfig.TimeFormat, "log.timeFormat", "2006-01-02 15:04:05", "TimeFormat log time format")
 }
 
-func InitLog() {
+type LoggerConfig struct {
+	Level        string `yaml:"level,omitempty"`
+	JsonFormat   bool   `yaml:"jsonFormat,omitempty"`
+	EnableStdout bool   `yaml:"enableStdout,omitempty"`
+	EnableFile   bool   `yaml:"enableFile,omitempty"`
+	Directory    string `yaml:"directory,omitempty"`
+	Filename     string `yaml:"filename,omitempty"`
+	MaxSize      int    `yaml:"maxSize,omitempty"`
+	MaxBackups   int    `yaml:"maxBackups,omitempty"`
+	MaxAge       int    `yaml:"maxAge,omitempty"`
+	TimeFormat   string `yaml:"timeFormat,omitempty"`
+}
 
+type Logger struct {
+	l *zerolog.Logger
+}
+
+func InitDefaultLogger() {
+	logger := NewLogger(gLoggerConfig)
+	defaultLogger = logger
+}
+
+func NewLogger(config *LoggerConfig) *Logger {
 	var writers []io.Writer
 
-	if jsonFormat {
-		writers = append(writers, os.Stderr)
-	} else {
-		writers = append(writers, zerolog.ConsoleWriter{
-			Out:        os.Stderr,
-			TimeFormat: timeFormat,
-		})
+	if config.EnableStdout {
+		if config.JsonFormat {
+			writers = append(writers, os.Stderr)
+		} else {
+			writers = append(writers, zerolog.ConsoleWriter{
+				Out:        os.Stderr,
+				TimeFormat: config.TimeFormat,
+			})
+		}
 	}
-	if fileLoggingEnabled {
-		writers = append(writers, newRollingFile())
+
+	if config.EnableFile {
+		writers = append(writers, newRollingFile(config.Directory, config.Filename, config.MaxBackups, config.MaxSize, config.MaxAge))
 	}
 
 	mw := io.MultiWriter(writers...)
 
-	zerolog.CallerSkipFrameCount = 3
-	level, err := zerolog.ParseLevel(logLevel)
+	zerolog.CallerSkipFrameCount = 4
+	level, err := zerolog.ParseLevel(config.Level)
 	if err != nil {
 		panic("set log level error, choose trace/debug/info/warn/error/fatal/panic")
 	}
-	zerolog.SetGlobalLevel(level)
-	logger := zerolog.New(mw).With().Timestamp().Caller().Logger()
-
-	l = &logger
+	multi := zerolog.MultiLevelWriter(mw)
+	logger := zerolog.New(multi).Level(level).With().Timestamp().Caller().Logger()
+	return &Logger{
+		l: &logger,
+	}
 }
 
-func newRollingFile() io.Writer {
+func newRollingFile(directory string, filename string, maxBackups int, maxSize int, maxAge int) io.Writer {
 	if err := os.MkdirAll(directory, 0744); err != nil {
-		panic("can't create log directory")
+		panic(fmt.Sprintf("can't create log directory %s", directory))
 	}
 
 	return &lumberjack.Logger{
@@ -105,54 +113,86 @@ func newRollingFile() io.Writer {
 	}
 }
 
-func Debug(format string, a ...interface{}) {
+func (logger *Logger) Debug(format string, a ...interface{}) {
 	if a == nil {
-		l.Debug().Msg(format)
+		logger.l.Debug().Msg(format)
 	} else {
-		l.Debug().Msgf(format, a...)
+		logger.l.Debug().Msgf(format, a...)
 	}
+}
+
+func (logger *Logger) Info(format string, a ...interface{}) {
+	if a == nil {
+		logger.l.Info().Msg(format)
+	} else {
+		logger.l.Info().Msgf(format, a...)
+	}
+}
+
+func (logger *Logger) Warn(format string, a ...interface{}) {
+	if a == nil {
+		logger.l.Warn().Msg(format)
+	} else {
+		logger.l.Warn().Msgf(format, a...)
+	}
+}
+
+func (logger *Logger) Error(format string, a ...interface{}) {
+	if a == nil {
+		logger.l.Error().Msg(format)
+	} else {
+		logger.l.Error().Msgf(format, a...)
+	}
+}
+
+func (logger *Logger) Panic(format string, a ...interface{}) {
+	if a == nil {
+		logger.l.Panic().Msg(format)
+	} else {
+		logger.l.Panic().Msgf(format, a...)
+	}
+}
+
+func (logger *Logger) Fatal(format string, a ...interface{}) {
+	if a == nil {
+		logger.l.Fatal().Msg(format)
+	} else {
+		logger.l.Fatal().Msgf(format, a...)
+	}
+}
+
+func (logger *Logger) RawJson(key string, raw []byte, format string, a ...interface{}) {
+	if a == nil {
+		logger.l.Log().RawJSON(key, raw).Msg(format)
+	} else {
+		logger.l.Log().RawJSON(key, raw).Msgf(format, a...)
+	}
+}
+
+func Debug(format string, a ...interface{}) {
+	defaultLogger.Debug(format, a...)
 }
 
 func Info(format string, a ...interface{}) {
-	if a == nil {
-		l.Info().Msg(format)
-	} else {
-		l.Info().Msgf(format, a...)
-	}
+	defaultLogger.Info(format, a...)
 }
 
 func Warn(format string, a ...interface{}) {
-	if a == nil {
-		l.Warn().Msg(format)
-	} else {
-		l.Warn().Msgf(format, a...)
-	}
+	defaultLogger.Warn(format, a...)
 }
 
 func Error(format string, a ...interface{}) {
 	defer afterErrorOpt(format, a...)
-	if a == nil {
-		l.Error().Msg(format)
-	} else {
-		l.Error().Msgf(format, a...)
-	}
+	defaultLogger.Error(format, a...)
 }
 
 func Panic(format string, a ...interface{}) {
 	defer afterErrorOpt(format, a...)
-	if a == nil {
-		l.Panic().Msg(format)
-	} else {
-		l.Panic().Msgf(format, a...)
-	}
+	defaultLogger.Panic(format, a...)
 }
 
 func Fatal(format string, a ...interface{}) {
-	if a == nil {
-		l.Fatal().Msg(format)
-	} else {
-		l.Fatal().Msgf(format, a...)
-	}
+	defaultLogger.Fatal(format, a...)
 }
 
 func afterErrorOpt(format string, a ...interface{}) {

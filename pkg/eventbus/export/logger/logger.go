@@ -30,8 +30,41 @@ type Event struct {
 }
 
 type Config struct {
-	Enabled bool          `yaml:"enabled"`
-	Period  time.Duration `yaml:"period" default:"10s"`
+	Enabled            bool             `yaml:"enabled,omitempty"`
+	Period             time.Duration    `yaml:"period,omitempty" default:"10s"`
+	Pretty             bool             `yaml:"pretty,omitempty"`
+	AdditionLogEnabled bool             `yaml:"additionLogEnabled,omitempty"`
+	AdditionLogConfig  log.LoggerConfig `yaml:"additionLogConfig,omitempty"`
+}
+
+func (c *Config) SetDefaults() {
+	if c.AdditionLogEnabled {
+		config := c.AdditionLogConfig
+
+		config.EnableStdout = false
+		config.EnableFile = true
+		config.Level = "info"
+		if config.Filename == "" {
+			config.Filename = "metrics.log"
+		}
+		if config.Directory == "" {
+			config.Directory = "/data/loggie/log"
+		}
+		if config.MaxBackups == 0 {
+			config.MaxBackups = 3
+		}
+		if config.MaxAge == 0 {
+			config.MaxAge = 14
+		}
+		if config.MaxSize == 0 {
+			config.MaxSize = 1024
+		}
+		if config.TimeFormat == "" {
+			config.TimeFormat = "2006-01-02 15:04:05"
+		}
+
+		c.AdditionLogConfig = config
+	}
 }
 
 type logger struct {
@@ -39,7 +72,9 @@ type logger struct {
 
 	eventChan chan *Event
 
-	done chan struct{}
+	done           chan struct{}
+	config         Config
+	additionLogger *log.Logger
 }
 
 func newLogger() *logger {
@@ -59,6 +94,12 @@ func Run(config Config) {
 }
 
 func (l *logger) run(config Config) {
+	l.config = config
+
+	if l.config.AdditionLogEnabled {
+		l.additionLogger = log.NewLogger(&l.config.AdditionLogConfig)
+	}
+
 	tick := time.NewTicker(config.Period)
 	defer tick.Stop()
 	for {
@@ -83,11 +124,23 @@ func (l *logger) run(config Config) {
 }
 
 func (l *logger) print() {
-	d, err := json.Marshal(l.data)
-	if err != nil {
-		log.Info("json marshal metric data err: %+v", err)
+
+	var d []byte
+	var err error
+	if l.config.Pretty {
+		d, err = json.MarshalIndent(l.data, "", "  ")
+	} else {
+		d, err = json.Marshal(l.data)
 	}
-	log.Info("[metric]: %s", d)
+	if err != nil {
+		log.Warn("json marshal metric data err: %+v", err)
+	}
+
+	if !l.config.AdditionLogEnabled {
+		log.Info("[metric]: %s", d)
+	} else {
+		l.additionLogger.RawJson("metrics", d, "")
+	}
 }
 
 func (l *logger) stop() {
