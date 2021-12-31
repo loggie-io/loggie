@@ -36,7 +36,8 @@ func init() {
 
 func makeListener() *Listener {
 	l := &Listener{
-		data:   make(map[string]*data),
+		eventChan: make(chan eventbus.QueueMetricData),
+		data:   make(map[string]metricData),
 		done:   make(chan struct{}),
 		config: &Config{},
 	}
@@ -49,11 +50,12 @@ type Config struct {
 
 type Listener struct {
 	config *Config
-	data   map[string]*data // key=pipelineName+type
+	eventChan chan eventbus.QueueMetricData
+	data   map[string]metricData // key=pipelineName+type
 	done   chan struct{}
 }
 
-type data struct {
+type metricData struct {
 	PipelineName string `json:"pipeline"`
 	QueueType    string `json:"queueType"`
 
@@ -70,7 +72,7 @@ func (l *Listener) Init(ctx api.Context) {
 }
 
 func (l *Listener) Start() {
-	go l.export()
+	go l.run()
 }
 
 func (l *Listener) Stop() {
@@ -84,45 +86,21 @@ func (l *Listener) Config() interface{} {
 func (l *Listener) Subscribe(event eventbus.Event) {
 	e, ok := event.Data.(eventbus.QueueMetricData)
 	if !ok {
-		log.Panic("convert eventbus queue failed: %v", ok)
+		log.Panic("type assert eventbus.QueueMetricData failed: %v", ok)
 	}
-	var buf strings.Builder
-	buf.WriteString(e.PipelineName)
-	buf.WriteString("-")
-	buf.WriteString(e.Type)
-	key := buf.String()
-
-	d, ok := l.data[key]
-	if !ok {
-		data := &data{
-			PipelineName: e.PipelineName,
-			QueueType:    e.Type,
-
-			Size:     e.Size,
-			Capacity: e.Capacity,
-		}
-
-		if e.Capacity > 0 {
-			data.FillPercentage = float64(e.Size) / float64(e.Capacity)
-		}
-
-		l.data[key] = data
-		return
-	}
-
-	d.Capacity = e.Capacity
-	d.Size = e.Size
-	if e.Capacity > 0 {
-		d.FillPercentage = float64(e.Size) / float64(e.Capacity)
-	}
+	l.eventChan <- e
 }
 
-func (l *Listener) export() {
+func (l *Listener) run() {
 	tick := time.Tick(l.config.Period)
 	for {
 		select {
 		case <-l.done:
 			return
+
+		case e := <- l.eventChan:
+			l.consumer(e)
+
 		case <-tick:
 			l.exportPrometheus()
 			m, _ := json.Marshal(l.data)
@@ -179,6 +157,38 @@ func (l *Listener) exportPrometheus() {
 		metrics = append(metrics, m...)
 	}
 	promeExporter.Export(eventbus.SinkMetricTopic, metrics)
+}
+
+func (l *Listener) consumer(e eventbus.QueueMetricData) {
+	var buf strings.Builder
+	buf.WriteString(e.PipelineName)
+	buf.WriteString("-")
+	buf.WriteString(e.Type)
+	key := buf.String()
+
+	d, ok := l.data[key]
+	if !ok {
+		data := metricData{
+			PipelineName: e.PipelineName,
+			QueueType:    e.Type,
+
+			Size:     e.Size,
+			Capacity: e.Capacity,
+		}
+
+		if e.Capacity > 0 {
+			data.FillPercentage = float64(e.Size) / float64(e.Capacity)
+		}
+
+		l.data[key] = data
+		return
+	}
+
+	d.Capacity = e.Capacity
+	d.Size = e.Size
+	if e.Capacity > 0 {
+		d.FillPercentage = float64(e.Size) / float64(e.Capacity)
+	}
 }
 
 func (l *Listener) clean() {

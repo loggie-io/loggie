@@ -37,6 +37,7 @@ func makeListener() *Listener {
 		data:   make(map[string]*data),
 		done:   make(chan struct{}),
 		config: &Config{},
+		eventChan: make(chan eventbus.SinkMetricData),
 	}
 	return l
 }
@@ -48,7 +49,7 @@ type Config struct {
 type Listener struct {
 	config *Config
 	data   map[string]*data // key=pipelineName+sourceName
-
+	eventChan chan eventbus.SinkMetricData
 	done chan struct{}
 }
 
@@ -70,7 +71,7 @@ func (l *Listener) Init(ctx api.Context) {
 }
 
 func (l *Listener) Start() {
-	go l.export()
+	go l.run()
 }
 
 func (l *Listener) Stop() {
@@ -84,44 +85,21 @@ func (l *Listener) Config() interface{} {
 func (l *Listener) Subscribe(event eventbus.Event) {
 	e, ok := event.Data.(eventbus.SinkMetricData)
 	if !ok {
-		log.Panic("convert eventbus reload failed: %v", ok)
+		log.Panic("type assert eventbus.SinkMetricData failed: %v", ok)
 	}
-	var buf strings.Builder
-	buf.WriteString(e.PipelineName)
-	buf.WriteString("-")
-	buf.WriteString(e.SourceName)
-	key := buf.String()
-
-	d, ok := l.data[key]
-	if !ok {
-		data := &data{
-			PipelineName: e.PipelineName,
-			SourceName:   e.SourceName,
-		}
-		if e.FailEventCount != 0 {
-			data.FailEventCount = int64(e.FailEventCount)
-		}
-		if e.SuccessEventCount != 0 {
-			data.SuccessEventCount = int64(e.SuccessEventCount)
-		}
-		l.data[key] = data
-		return
-	}
-
-	if e.FailEventCount != 0 {
-		d.FailEventCount += int64(e.FailEventCount)
-	}
-	if e.SuccessEventCount != 0 {
-		d.SuccessEventCount += int64(e.SuccessEventCount)
-	}
+	l.eventChan <- e
 }
 
-func (l *Listener) export() {
+func (l *Listener) run() {
 	tick := time.Tick(l.config.Period)
 	for {
 		select {
 		case <-l.done:
 			return
+
+		case e := <-l.eventChan:
+			l.consumer(e)
+
 		case <-tick:
 			l.compute()
 			l.exportPrometheus()
@@ -131,6 +109,7 @@ func (l *Listener) export() {
 		}
 	}
 }
+
 func (l *Listener) exportPrometheus() {
 
 	metrics := promeExporter.ExportedMetrics{}
@@ -179,5 +158,36 @@ func (l *Listener) compute() {
 func (l *Listener) clean() {
 	for k := range l.data {
 		delete(l.data, k)
+	}
+}
+
+func (l *Listener) consumer(e eventbus.SinkMetricData) {
+	var buf strings.Builder
+	buf.WriteString(e.PipelineName)
+	buf.WriteString("-")
+	buf.WriteString(e.SourceName)
+	key := buf.String()
+
+	d, ok := l.data[key]
+	if !ok {
+		data := &data{
+			PipelineName: e.PipelineName,
+			SourceName:   e.SourceName,
+		}
+		if e.FailEventCount != 0 {
+			data.FailEventCount = int64(e.FailEventCount)
+		}
+		if e.SuccessEventCount != 0 {
+			data.SuccessEventCount = int64(e.SuccessEventCount)
+		}
+		l.data[key] = data
+		return
+	}
+
+	if e.FailEventCount != 0 {
+		d.FailEventCount += int64(e.FailEventCount)
+	}
+	if e.SuccessEventCount != 0 {
+		d.SuccessEventCount += int64(e.SuccessEventCount)
 	}
 }
