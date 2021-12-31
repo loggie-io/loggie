@@ -26,8 +26,8 @@ import (
 )
 
 const (
-	ComponentStop  = ComponentEventType(0)
-	ComponentStart = ComponentEventType(1)
+	ComponentStop  = ComponentEventType("stop")
+	ComponentStart = ComponentEventType("start")
 )
 
 var (
@@ -85,7 +85,7 @@ type ComponentBaseMetricData struct {
 	Config       ComponentBaseConfig
 }
 
-type ComponentEventType int32
+type ComponentEventType string
 
 type ErrorMetricData struct {
 	ErrorMsg string

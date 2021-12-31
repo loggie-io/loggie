@@ -169,7 +169,7 @@ func (c *Queue) worker() {
 func (c *Queue) Stop() {
 	close(c.done)
 	c.countDown.Wait()
-	log.Info("channel queue stop")
+	log.Info("[%s]channel queue stop", c.pipelineName)
 }
 
 func (c *Queue) In(event api.Event) {

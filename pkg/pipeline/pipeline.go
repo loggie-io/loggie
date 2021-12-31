@@ -48,7 +48,7 @@ type Pipeline struct {
 	info          Info
 	r             *RegisterCenter
 	ns            map[string]api.Source // key:name|value:source
-	q             api.Queue
+	nq            map[string]api.Queue  // key:name|value:queue
 	outChans      []chan api.Batch
 	countDown     sync.WaitGroup
 	retryOutFuncs []api.OutFunc
@@ -103,9 +103,13 @@ func (p *Pipeline) stopSourceProduct() {
 }
 
 func (p *Pipeline) stopQueue() {
-	p.q.Stop()
-	p.r.removeComponent(p.q.Type(), p.q.Category(), "default") // TODO
-	p.reportMetric("default", p.q, eventbus.ComponentStop)
+	for n, q := range p.nq {
+		name := n
+		localQueue := q
+		localQueue.Stop()
+		p.r.removeComponent(localQueue.Type(), localQueue.Category(), name)
+		p.reportMetric(name, localQueue, eventbus.ComponentStop)
+	}
 }
 
 func (p *Pipeline) stopComponents() {
@@ -139,7 +143,7 @@ func (p *Pipeline) cleanData() {
 	p.r.cleanData()
 	// clean pipeline
 	p.ns = nil
-	p.q = nil
+	p.nq = nil
 	p.outChans = nil
 	p.r = nil
 }
@@ -215,6 +219,7 @@ func (p *Pipeline) init(pipelineConfig Config) {
 	p.done = make(chan struct{})
 	p.info.Stop = false
 	p.ns = make(map[string]api.Source)
+	p.nq = make(map[string]api.Queue)
 
 	// init event pool
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
@@ -231,7 +236,7 @@ func (p *Pipeline) startQueue(queueConfig queue.Config) {
 	ctx := context.NewContext(queueConfig.Name, api.Type(queueConfig.Type), api.QUEUE, queueConfig.Properties)
 	p.startComponent(ctx)
 	q := p.r.LoadQueue(api.Type(queueConfig.Type), queueConfig.Name)
-	p.q = q
+	p.nq[queueConfig.Name] = q
 	p.outChans = append(p.outChans, q.OutChan())
 }
 
