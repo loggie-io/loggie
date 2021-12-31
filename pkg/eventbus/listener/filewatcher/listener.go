@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"github.com/prometheus/client_golang/prometheus"
 	"loggie.io/loggie/pkg/core/api"
+	"loggie.io/loggie/pkg/core/log"
 	"loggie.io/loggie/pkg/eventbus"
 	"loggie.io/loggie/pkg/eventbus/export/logger"
 	promeExporter "loggie.io/loggie/pkg/eventbus/export/prometheus"
@@ -34,9 +35,10 @@ func init() {
 
 func makeListener() *Listener {
 	l := &Listener{
-		done:   make(chan struct{}),
-		data:   make(map[string]data),
-		config: &Config{},
+		done:      make(chan struct{}),
+		data:      make(map[string]data),
+		config:    &Config{},
+		eventChan: make(chan eventbus.WatchMetricData),
 	}
 	return l
 }
@@ -47,10 +49,10 @@ type Config struct {
 }
 
 type Listener struct {
-	config *Config
-	done   chan struct{}
-
-	data map[string]data // key=pipelineName+sourceName
+	config    *Config
+	done      chan struct{}
+	eventChan chan eventbus.WatchMetricData
+	data      map[string]data // key=pipelineName+sourceName
 }
 
 type data struct {
@@ -79,7 +81,7 @@ func (l *Listener) Init(ctx api.Context) {
 }
 
 func (l *Listener) Start() {
-	go l.export()
+	go l.run()
 }
 
 func (l *Listener) Stop() {
@@ -91,35 +93,11 @@ func (l *Listener) Config() interface{} {
 }
 
 func (l *Listener) Subscribe(event eventbus.Event) {
-
-	e := event.Data.(eventbus.WatchMetricData)
-	var buf strings.Builder
-	buf.WriteString(e.PipelineName)
-	buf.WriteString("-")
-	buf.WriteString(e.SourceName)
-	key := buf.String()
-
-	m := data{
-		PipelineName: e.PipelineName,
-		SourceName:   e.SourceName,
+	e, ok := event.Data.(eventbus.WatchMetricData)
+	if !ok {
+		log.Panic("type assert eventbus.WatchMetricData failed: %v", ok)
 	}
-
-	var files []*fileInfo
-	for _, fi := range e.FileInfos {
-		f := &fileInfo{
-			FileName:       fi.FileName,
-			FileSize:       fi.Size,
-			AckOffset:      fi.Offset,
-			LastModifyTime: fi.LastModifyTime,
-			IgnoreOlder:    fi.IsIgnoreOlder,
-		}
-		files = append(files, f)
-	}
-	m.FileInfo = files
-	m.TotalFileCount = e.TotalFileCount
-	m.InactiveFdCount = e.InactiveFdCount
-
-	l.data[key] = m
+	l.eventChan <- e
 }
 
 func (l *Listener) exportPrometheus() {
@@ -203,12 +181,16 @@ func (l *Listener) clean() {
 	}
 }
 
-func (l *Listener) export() {
+func (l *Listener) run() {
 	tick := time.Tick(l.config.Period)
 	for {
 		select {
 		case <-l.done:
 			return
+
+		case e := <-l.eventChan:
+			l.consumer(e)
+
 		case <-tick:
 			l.exportPrometheus()
 
@@ -218,4 +200,34 @@ func (l *Listener) export() {
 			l.clean()
 		}
 	}
+}
+
+func (l *Listener) consumer(e eventbus.WatchMetricData) {
+	var buf strings.Builder
+	buf.WriteString(e.PipelineName)
+	buf.WriteString("-")
+	buf.WriteString(e.SourceName)
+	key := buf.String()
+
+	m := data{
+		PipelineName: e.PipelineName,
+		SourceName:   e.SourceName,
+	}
+
+	var files []*fileInfo
+	for _, fi := range e.FileInfos {
+		f := &fileInfo{
+			FileName:       fi.FileName,
+			FileSize:       fi.Size,
+			AckOffset:      fi.Offset,
+			LastModifyTime: fi.LastModifyTime,
+			IgnoreOlder:    fi.IsIgnoreOlder,
+		}
+		files = append(files, f)
+	}
+	m.FileInfo = files
+	m.TotalFileCount = e.TotalFileCount
+	m.InactiveFdCount = e.InactiveFdCount
+
+	l.data[key] = m
 }

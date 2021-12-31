@@ -35,9 +35,10 @@ func init() {
 
 func makeListener() *Listener {
 	l := &Listener{
-		done:   make(chan struct{}),
-		data:   make(map[string]data),
-		config: &Config{},
+		eventChan: make(chan eventbus.CollectMetricData),
+		done:      make(chan struct{}),
+		data:      make(map[string]data),
+		config:    &Config{},
 	}
 	return l
 }
@@ -47,10 +48,10 @@ type Config struct {
 }
 
 type Listener struct {
-	config *Config
-	done   chan struct{}
-
-	data map[string]data // key=pipelineName+sourceName
+	config    *Config
+	done      chan struct{}
+	eventChan chan eventbus.CollectMetricData
+	data      map[string]data // key=pipelineName+sourceName
 }
 
 type data struct {
@@ -77,7 +78,7 @@ func (l *Listener) Init(ctx api.Context) {
 }
 
 func (l *Listener) Start() {
-	go l.export()
+	go l.run()
 }
 
 func (l *Listener) Stop() {
@@ -89,60 +90,11 @@ func (l *Listener) Config() interface{} {
 }
 
 func (l *Listener) Subscribe(event eventbus.Event) {
-
-	e := event.Data.(eventbus.CollectMetricData)
-	var buf strings.Builder
-	buf.WriteString(e.PipelineName)
-	buf.WriteString("-")
-	buf.WriteString(e.SourceName)
-	key := buf.String()
-
-	metric, ok := l.data[key]
-	// if pipeline metrics not exist
+	e, ok := event.Data.(eventbus.CollectMetricData)
 	if !ok {
-		m := data{
-			PipelineName: e.PipelineName,
-			SourceName:   e.SourceName,
-		}
-
-		h := map[string]*fileHarvester{
-			e.FileName: {
-				FileName:   e.FileName,
-				Offset:     e.Offset,
-				LineNumber: e.LineNumber,
-				TotalLine:  e.Lines,
-				FileSize:   e.FileSize,
-			},
-		}
-		m.FileHarvester = h
-		l.data[key] = m
-		return
+		log.Panic("type assert eventbus.CollectMetricData failed: %v", ok)
 	}
-
-	if metric.FileHarvester == nil {
-		metric.FileHarvester = map[string]*fileHarvester{}
-	}
-	harvester, ok := metric.FileHarvester[e.FileName]
-	if !ok {
-		h := fileHarvester{
-			FileName:   e.FileName,
-			Offset:     e.Offset,
-			LineNumber: e.LineNumber,
-			TotalLine:  e.Lines,
-			FileSize:   e.FileSize,
-		}
-		metric.FileHarvester[e.FileName] = &h
-		return
-	}
-
-	harvester.FileName = e.FileName
-	if e.Offset != 0 {
-		harvester.Offset = e.Offset
-	}
-	if e.LineNumber != 0 {
-		harvester.LineNumber = e.LineNumber
-	}
-	harvester.TotalLine += e.Lines
+	l.eventChan <- e
 }
 
 func (l *Listener) exportPrometheus() {
@@ -221,12 +173,16 @@ func (l *Listener) clean() {
 	}
 }
 
-func (l *Listener) export() {
+func (l *Listener) run() {
 	tick := time.Tick(l.config.Period)
 	for {
 		select {
 		case <-l.done:
 			return
+
+		case e := <-l.eventChan:
+			l.consumer(e)
+
 		case <-tick:
 			l.compute()
 			l.exportPrometheus()
@@ -237,4 +193,59 @@ func (l *Listener) export() {
 			l.clean()
 		}
 	}
+}
+
+func (l *Listener) consumer(e eventbus.CollectMetricData) {
+	var buf strings.Builder
+	buf.WriteString(e.PipelineName)
+	buf.WriteString("-")
+	buf.WriteString(e.SourceName)
+	key := buf.String()
+
+	metric, ok := l.data[key]
+	// if pipeline metrics not exist
+	if !ok {
+		m := data{
+			PipelineName: e.PipelineName,
+			SourceName:   e.SourceName,
+		}
+
+		h := map[string]*fileHarvester{
+			e.FileName: {
+				FileName:   e.FileName,
+				Offset:     e.Offset,
+				LineNumber: e.LineNumber,
+				TotalLine:  e.Lines,
+				FileSize:   e.FileSize,
+			},
+		}
+		m.FileHarvester = h
+		l.data[key] = m
+		return
+	}
+
+	if metric.FileHarvester == nil {
+		metric.FileHarvester = map[string]*fileHarvester{}
+	}
+	harvester, ok := metric.FileHarvester[e.FileName]
+	if !ok {
+		h := fileHarvester{
+			FileName:   e.FileName,
+			Offset:     e.Offset,
+			LineNumber: e.LineNumber,
+			TotalLine:  e.Lines,
+			FileSize:   e.FileSize,
+		}
+		metric.FileHarvester[e.FileName] = &h
+		return
+	}
+
+	harvester.FileName = e.FileName
+	if e.Offset != 0 {
+		harvester.Offset = e.Offset
+	}
+	if e.LineNumber != 0 {
+		harvester.LineNumber = e.LineNumber
+	}
+	harvester.TotalLine += e.Lines
 }
