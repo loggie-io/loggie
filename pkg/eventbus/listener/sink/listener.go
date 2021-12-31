@@ -34,9 +34,9 @@ func init() {
 
 func makeListener() *Listener {
 	l := &Listener{
-		data:   make(map[string]*data),
-		done:   make(chan struct{}),
-		config: &Config{},
+		data:      make(map[string]*data),
+		done:      make(chan struct{}),
+		config:    &Config{},
 		eventChan: make(chan eventbus.SinkMetricData),
 	}
 	return l
@@ -47,10 +47,10 @@ type Config struct {
 }
 
 type Listener struct {
-	config *Config
-	data   map[string]*data // key=pipelineName+sourceName
+	config    *Config
+	data      map[string]*data // key=pipelineName+sourceName
 	eventChan chan eventbus.SinkMetricData
-	done chan struct{}
+	done      chan struct{}
 }
 
 type data struct {

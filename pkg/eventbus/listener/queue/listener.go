@@ -37,9 +37,9 @@ func init() {
 func makeListener() *Listener {
 	l := &Listener{
 		eventChan: make(chan eventbus.QueueMetricData),
-		data:   make(map[string]metricData),
-		done:   make(chan struct{}),
-		config: &Config{},
+		data:      make(map[string]metricData),
+		done:      make(chan struct{}),
+		config:    &Config{},
 	}
 	return l
 }
@@ -49,10 +49,10 @@ type Config struct {
 }
 
 type Listener struct {
-	config *Config
+	config    *Config
 	eventChan chan eventbus.QueueMetricData
-	data   map[string]metricData // key=pipelineName+type
-	done   chan struct{}
+	data      map[string]metricData // key=pipelineName+type
+	done      chan struct{}
 }
 
 type metricData struct {
@@ -98,7 +98,7 @@ func (l *Listener) run() {
 		case <-l.done:
 			return
 
-		case e := <- l.eventChan:
+		case e := <-l.eventChan:
 			l.consumer(e)
 
 		case <-tick:
