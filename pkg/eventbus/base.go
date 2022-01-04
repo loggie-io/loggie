@@ -54,11 +54,12 @@ type BaseMetricData struct {
 
 type CollectMetricData struct {
 	BaseMetric
-	FileName   string // including path
-	Offset     int64
-	LineNumber int64 // file lines count
-	Lines      int64 // current line offset
-	FileSize   int64
+	FileName     string // including path
+	Offset       int64
+	LineNumber   int64 // file lines count
+	Lines        int64 // current line offset
+	FileSize     int64
+	SourceFields map[string]interface{}
 }
 
 type SinkMetricData struct {
@@ -96,6 +97,7 @@ type WatchMetricData struct {
 	FileInfos       []FileInfo
 	TotalFileCount  int
 	InactiveFdCount int
+	SourceFields    map[string]interface{}
 }
 
 type FileInfo struct {

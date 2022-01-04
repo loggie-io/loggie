@@ -25,12 +25,13 @@ import (
 )
 
 type Config struct {
-	AckConfig     AckConfig     `yaml:"ack,omitempty"`
-	DbConfig      DbConfig      `yaml:"db,omitempty"`
-	WatchConfig   WatchConfig   `yaml:"watcher,omitempty"`
-	ReaderConfig  ReaderConfig  `yaml:",inline,omitempty"`
-	CollectConfig CollectConfig `yaml:",inline,omitempty" validate:"required,dive"`
-	Isolation     string        `yaml:"isolation,omitempty" default:"pipeline"`
+	AckConfig     AckConfig              `yaml:"ack,omitempty"`
+	DbConfig      DbConfig               `yaml:"db,omitempty"`
+	WatchConfig   WatchConfig            `yaml:"watcher,omitempty"`
+	ReaderConfig  ReaderConfig           `yaml:",inline,omitempty"`
+	CollectConfig CollectConfig          `yaml:",inline,omitempty" validate:"required,dive"`
+	Isolation     string                 `yaml:"isolation,omitempty" default:"pipeline"`
+	Fields        map[string]interface{} `yaml:"fields,omitempty"`
 }
 
 type CollectConfig struct {
