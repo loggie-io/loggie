@@ -101,7 +101,8 @@ func getState(e api.Event) *State {
 	if e == nil {
 		panic("event is nil")
 	}
-	return e.Header()[SystemStateKey].(*State)
+	state, _ := e.Meta().Get(SystemStateKey)
+	return state.(*State)
 }
 
 var ackPool = sync.Pool{

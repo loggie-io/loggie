@@ -156,27 +156,6 @@ func (c *Queue) OutChan() chan api.Batch {
 	return c.out
 }
 
-func (c *Queue) OutLoop(outFunc api.OutFunc) {
-	go c.outLoop(outFunc)
-}
-
-func (c *Queue) outLoop(outFunc api.OutFunc) {
-	c.countDown.Add(1)
-	log.Info("%s out loop start", c.String())
-	defer func() {
-		c.countDown.Done()
-		log.Info("%s out loop stop", c.String())
-	}()
-	for {
-		select {
-		case <-c.done:
-			return
-		case b := <-c.out:
-			outFunc(b)
-		}
-	}
-}
-
 func (c *Queue) Consume(event api.Event) api.Result {
 	sequence := c.d.Reserve(c.reservations)
 	for lower := sequence - c.reservations + 1; lower <= sequence; lower++ {

@@ -57,12 +57,20 @@ type Describable interface {
 }
 
 type Event interface {
+	Meta() Meta
 	Header() map[string]interface{}
 	Body() []byte
-	Fill(header map[string]interface{}, body []byte)
+	// Fill event with meta,header,body cannot be nil
+	Fill(meta Meta, header map[string]interface{}, body []byte)
 	Release()
 	String() string
+}
+
+type Meta interface {
 	Source() string
+	Get(key string) (value interface{}, exist bool)
+	Set(key string, value interface{})
+	String() string
 }
 
 type Batch interface {
@@ -116,7 +124,6 @@ type Queue interface {
 	In(event Event)
 	Out() Batch
 	OutChan() chan Batch
-	OutLoop(outFunc OutFunc)
 }
 
 type Invocation interface {
@@ -138,8 +145,4 @@ type Interceptor interface {
 type Selector interface {
 	Component
 	Select(event Event, consumers []Consumer) []Consumer
-}
-
-type Manager interface {
-	Component
 }

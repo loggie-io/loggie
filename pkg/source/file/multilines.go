@@ -130,28 +130,27 @@ func (mh *MultiHolder) flush() {
 		return
 	}
 	mh.state.ContentBytes = mh.currentSize + 1
-	header := map[string]interface{}{
-		SystemStateKey: &State{
-			Epoch:        mh.state.Epoch,
-			PipelineName: mh.state.PipelineName,
-			SourceName:   mh.state.SourceName,
-			Offset:       mh.state.Offset,
-			NextOffset:   mh.state.NextOffset,
-			Filename:     mh.state.Filename,
-			CollectTime:  mh.state.CollectTime,
-			ContentBytes: mh.state.ContentBytes,
-			JobUid:       mh.state.JobUid,
-			JobIndex:     mh.state.JobIndex,
-			EventUid:     mh.state.EventUid,
-			LineNumber:   mh.state.LineNumber,
-			watchUid:     mh.state.watchUid,
-		},
+	state := &State{
+		Epoch:        mh.state.Epoch,
+		PipelineName: mh.state.PipelineName,
+		SourceName:   mh.state.SourceName,
+		Offset:       mh.state.Offset,
+		NextOffset:   mh.state.NextOffset,
+		Filename:     mh.state.Filename,
+		CollectTime:  mh.state.CollectTime,
+		ContentBytes: mh.state.ContentBytes,
+		JobUid:       mh.state.JobUid,
+		JobIndex:     mh.state.JobIndex,
+		EventUid:     mh.state.EventUid,
+		LineNumber:   mh.state.LineNumber,
+		watchUid:     mh.state.watchUid,
 	}
 	contentBuffer := make([]byte, mh.currentSize)
 	copy(contentBuffer, mh.content)
 
 	e := mh.mTask.eventPool.Get()
-	e.Fill(header, contentBuffer)
+	e.Meta().Set(SystemStateKey, state)
+	e.Fill(e.Meta(), e.Header(), contentBuffer)
 	mh.mTask.productFunc(e)
 
 	mh.content = mh.content[:0]

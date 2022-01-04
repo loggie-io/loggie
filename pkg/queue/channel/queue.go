@@ -184,9 +184,6 @@ func (c *Queue) OutChan() chan api.Batch {
 	return c.out
 }
 
-func (c *Queue) OutLoop(outFunc api.OutFunc) {
-}
-
 func (c *Queue) beforeQueueConvertBatch(events []api.Event) {
 	for _, listener := range c.listeners {
 		listener.BeforeQueueConvertBatch(events)

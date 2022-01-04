@@ -41,7 +41,7 @@ func (al *AckListener) BeforeQueueConvertBatch(events []api.Event) {
 	//log.Info("append events len: %d", len(events))
 	ss := make([]*State, 0, len(events))
 	for _, e := range events {
-		if al.sourceName == e.Source() {
+		if al.sourceName == e.Meta().Source() {
 			ss = append(ss, getState(e))
 		}
 	}

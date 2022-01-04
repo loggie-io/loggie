@@ -85,7 +85,7 @@ func (d *Dev) ProductLoop(productFunc api.ProductFunc) {
 		header["offset"] = 888
 		header["topic"] = "log-test"
 		e := d.eventPool.Get()
-		e.Fill(header, content)
+		e.Fill(e.Meta(), header, content)
 		productFunc(e)
 	}
 }

@@ -77,6 +77,6 @@ func (r *DropProcessor) Process(e api.Event) error {
 		}
 	}
 
-	e.Fill(header, body)
+	e.Fill(e.Meta(), header, body)
 	return nil
 }
