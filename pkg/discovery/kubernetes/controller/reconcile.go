@@ -18,16 +18,19 @@ package controller
 
 import (
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/control"
-	"github.com/loggie-io/loggie/pkg/core/log"
-	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
-	"github.com/loggie-io/loggie/pkg/util"
+
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
+
+	"github.com/loggie-io/loggie/pkg/control"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	"github.com/loggie-io/loggie/pkg/util"
 )
 
 const (
@@ -207,7 +210,17 @@ func (c *Controller) handleAllTypesDelete(key string, selectorType string) error
 func (c *Controller) reconcilePodAddOrUpdate(pod *corev1.Pod) error {
 	log.Debug("pod: %s/%s add or update event received", pod.Namespace, pod.Name)
 
-	return c.handlePodAddOrUpdate(pod)
+	var errs []error
+	err := c.handlePodAddOrUpdate(pod)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	err = c.handlePodEnvConfigs(pod)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	return utilerrors.NewAggregate(errs)
 }
 
 func (c *Controller) reconcilePodDelete(key string) error {
