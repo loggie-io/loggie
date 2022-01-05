@@ -71,6 +71,7 @@ type Meta interface {
 	Get(key string) (value interface{}, exist bool)
 	Set(key string, value interface{})
 	String() string
+	GetAll() map[string]interface{}
 }
 
 type Batch interface {

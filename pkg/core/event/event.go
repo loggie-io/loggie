@@ -53,6 +53,10 @@ func (dm *DefaultMeta) Get(key string) (value interface{}, exist bool) {
 	return value, exist
 }
 
+func (dm *DefaultMeta) GetAll() map[string]interface{} {
+	return dm.Properties
+}
+
 func (dm *DefaultMeta) Set(key string, value interface{}) {
 	dm.Properties[key] = value
 }

@@ -20,6 +20,7 @@ import (
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/event"
 	"loggie.io/loggie/pkg/core/log"
+	"loggie.io/loggie/pkg/util/runtime"
 	"strings"
 )
 
@@ -66,27 +67,24 @@ func (r *SplitProcessor) Process(e api.Event) error {
 	}
 
 	target := r.config.Target
-	if strings.HasPrefix(target, event.PrivateKeyPrefix) || strings.HasPrefix(target, event.SystemKeyPrefix) {
-		return nil
-	}
+	obj := runtime.NewObject(header)
 
 	var val string
 	if target == event.Body {
 		val = string(e.Body())
 	} else {
-		t, ok := header[target]
-		if !ok {
-			log.Info("cannot find target fields %s", target)
-			log.Debug("split failed event: %s", e.String())
-			return nil
-		}
-		ts, ok := t.(string)
-		if !ok {
+		t, err := obj.GetPath(target).String()
+		if err != nil {
 			log.Info("target %s is not string", target)
 			log.Debug("split failed event: %s", e.String())
 			return nil
 		}
-		val = ts
+		if t == "" {
+			log.Info("cannot find target fields %s", target)
+			log.Debug("split failed event: %s", e.String())
+			return nil
+		}
+		val = t
 	}
 
 	splitResult := strings.SplitN(val, r.config.Separator, r.config.Max)
@@ -98,7 +96,7 @@ func (r *SplitProcessor) Process(e api.Event) error {
 	}
 	for i, r := range splitResult {
 		k := keys[i]
-		header[k] = r
+		obj.SetPath(k, r)
 	}
 
 	return nil
