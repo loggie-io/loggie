@@ -219,7 +219,7 @@ func TestObject_GetPath(t *testing.T) {
 		want   *Object
 	}{
 		{
-			name:   "ok-sin",
+			name: "ok-sin",
 			fields: fields{
 				data: map[string]interface{}{
 					"a": "b",
@@ -238,7 +238,7 @@ func TestObject_GetPath(t *testing.T) {
 			},
 		},
 		{
-			name:   "ok-paths",
+			name: "ok-paths",
 			fields: fields{
 				data: map[string]interface{}{
 					"a": "b",
@@ -255,7 +255,6 @@ func TestObject_GetPath(t *testing.T) {
 			want: &Object{
 				data: "f",
 			},
-
 		},
 	}
 	for _, tt := range tests {

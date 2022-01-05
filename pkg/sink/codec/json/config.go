@@ -17,6 +17,6 @@ limitations under the License.
 package json
 
 type Config struct {
-	Pretty      bool                    `yaml:"pretty,omitempty" default:"false"`
-	BeatsFormat bool                    `yaml:"beatsFormat" default:"false"`
+	Pretty      bool `yaml:"pretty,omitempty" default:"false"`
+	BeatsFormat bool `yaml:"beatsFormat" default:"false"`
 }

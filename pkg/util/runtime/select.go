@@ -73,4 +73,3 @@ func getNew(obj *Object, key string) (string, error) {
 	}
 	return val, nil
 }
-

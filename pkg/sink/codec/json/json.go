@@ -29,7 +29,7 @@ var (
 )
 
 type Json struct {
-	config    *Config
+	config *Config
 }
 
 const (
