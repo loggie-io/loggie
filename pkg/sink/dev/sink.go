@@ -95,7 +95,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			log.Warn("codec event error: %+v", err)
 			continue
 		}
-		log.Info("event: %s", string(out.Raw))
+		log.Info("event: %s", string(out))
 	}
 	return result.NewResult(api.SUCCESS)
 }

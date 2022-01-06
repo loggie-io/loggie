@@ -21,6 +21,7 @@ import (
 	"loggie.io/loggie/pkg/core/event"
 	"loggie.io/loggie/pkg/core/log"
 	"loggie.io/loggie/pkg/util"
+	"loggie.io/loggie/pkg/util/runtime"
 	"regexp"
 )
 
@@ -73,20 +74,19 @@ func (r *RegexProcessor) Process(e api.Event) error {
 	if r.config.Target == event.Body {
 		paramsMap = util.MatchGroupWithRegex(r.regex, string(e.Body()))
 	} else {
-		targetHeader, ok := header[r.config.Target]
-		if ok {
-			log.Info("cannot find target fields %s", r.config.Target)
+		obj := runtime.NewObject(header)
+		targetVal, err := obj.GetPath(r.config.Target).String()
+		if err != nil {
+			log.Info("get target %s failed: %v", r.config.Target, err)
 			log.Debug("regex failed event: %s", e.String())
 			return nil
 		}
-		targetHeaderStr, ok := targetHeader.(string)
-		if !ok {
-			log.Info("target %s value is not string in event %s", r.config.Target)
-			log.Debug("regex failed event: %s", e.String())
+		if targetVal == "" {
+			log.Debug("target %s value is empty, event is: %s", r.config.Target, e.String())
 			return nil
 		}
 
-		paramsMap = util.MatchGroupWithRegex(r.regex, targetHeaderStr)
+		paramsMap = util.MatchGroupWithRegex(r.regex, targetVal)
 	}
 
 	pl := len(paramsMap)

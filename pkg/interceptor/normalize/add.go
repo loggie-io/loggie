@@ -18,6 +18,7 @@ package normalize
 
 import (
 	"loggie.io/loggie/pkg/core/api"
+	"loggie.io/loggie/pkg/util/runtime"
 )
 
 const ProcessorAdd = "add"
@@ -27,7 +28,7 @@ type AddProcessor struct {
 }
 
 type AddConfig struct {
-	Target map[string]interface{} `yaml:"target,omitempty" validate:"required"`
+	Fields map[string]interface{} `yaml:"fields,omitempty" validate:"required"`
 }
 
 func init() {
@@ -53,7 +54,7 @@ func (r *AddProcessor) Process(e api.Event) error {
 	if r.config == nil {
 		return nil
 	}
-	if len(r.config.Target) == 0 {
+	if len(r.config.Fields) == 0 {
 		return nil
 	}
 
@@ -61,8 +62,9 @@ func (r *AddProcessor) Process(e api.Event) error {
 	if header == nil {
 		header = make(map[string]interface{})
 	}
-	for k, v := range r.config.Target {
-		header[k] = v
+	for k, v := range r.config.Fields {
+		obj := runtime.NewObject(header)
+		obj.SetPath(k, v)
 	}
 
 	return nil

@@ -16,13 +16,7 @@ limitations under the License.
 
 package json
 
-import (
-	"loggie.io/loggie/pkg/sink/codec/transformer"
-)
-
 type Config struct {
-	Pretty      bool                    `yaml:"pretty,omitempty" default:"false"`
-	Transformer transformer.TransConfig `yaml:"transformer,omitempty" validate:"dive"`
-	BeatsFormat bool                    `yaml:"beatsFormat" default:"false"`
-	Prune       bool                    `yaml:"prune" default:"false"`
+	Pretty      bool `yaml:"pretty,omitempty" default:"false"`
+	BeatsFormat bool `yaml:"beatsFormat" default:"false"`
 }

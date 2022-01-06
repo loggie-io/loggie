@@ -144,6 +144,37 @@ func MergeCommonCfgListByType(base []CommonCfg, from []CommonCfg, override bool,
 	return base
 }
 
+func MergeCommonCfgListByTypeAndName(base []CommonCfg, from []CommonCfg, override bool, ignoreFromType bool) []CommonCfg {
+	if len(base) == 0 {
+		return from
+	}
+	if len(from) == 0 {
+		return base
+	}
+
+	fromMap := make(map[string]CommonCfg)
+	for _, v := range from {
+		fromMap[v.UID()] = v
+	}
+
+	for _, baseCfg := range base {
+		baseUID := baseCfg.UID()
+		fromCfg, ok := fromMap[baseUID]
+		if ok {
+			baseCfg = MergeCommonCfg(baseCfg, fromCfg, override)
+			delete(fromMap, baseUID)
+			continue
+		}
+	}
+
+	if !ignoreFromType {
+		for _, v := range fromMap {
+			base = append(base, v)
+		}
+	}
+	return base
+}
+
 func UnpackFromFileDefaultsAndValidate(path string, config interface{}) error {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {

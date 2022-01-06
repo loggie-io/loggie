@@ -19,7 +19,7 @@ package normalize
 import (
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/event"
-	"strings"
+	"loggie.io/loggie/pkg/util/runtime"
 )
 
 const ProcessorDrop = "drop"
@@ -29,7 +29,7 @@ type DropProcessor struct {
 }
 
 type DropConfig struct {
-	Target []string `yaml:"target,omitempty" validate:"required"`
+	Targets []string `yaml:"targets,omitempty" validate:"required"`
 }
 
 func init() {
@@ -55,7 +55,7 @@ func (r *DropProcessor) Process(e api.Event) error {
 	if r.config == nil {
 		return nil
 	}
-	if len(r.config.Target) == 0 {
+	if len(r.config.Targets) == 0 {
 		return nil
 	}
 
@@ -65,18 +65,15 @@ func (r *DropProcessor) Process(e api.Event) error {
 	}
 	body := e.Body()
 
-	for _, target := range r.config.Target {
-		if strings.HasPrefix(target, event.PrivateKeyPrefix) || strings.HasPrefix(target, event.SystemKeyPrefix) {
-			continue
-		}
-
+	for _, target := range r.config.Targets {
 		if target == event.Body {
 			body = []byte{}
 		} else {
-			delete(header, target)
+			obj := runtime.NewObject(e.Header())
+			obj.DelPath(target)
 		}
 	}
 
-	e.Fill(header, body)
+	e.Fill(e.Meta(), header, body)
 	return nil
 }

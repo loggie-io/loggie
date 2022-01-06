@@ -55,7 +55,7 @@ func (cr *ConfigRaw) SetDefaults() {
 		log.Fatalf("get default pipeline config error: %v", err)
 	}
 	cr.Queue = cfg.MergeCommonCfg(cr.Queue, defaults.Queue, false)
-	cr.Interceptors = cfg.MergeCommonCfgListByType(cr.Interceptors, defaults.Interceptors, false, false)
+	cr.Interceptors = cfg.MergeCommonCfgListByTypeAndName(cr.Interceptors, defaults.Interceptors, false, false)
 	cr.Sink = cfg.MergeCommonCfg(cr.Sink, defaults.Sink, false)
 	cr.Sources = cfg.MergeCommonCfgListByType(cr.Sources, defaults.Sources, false, true)
 }

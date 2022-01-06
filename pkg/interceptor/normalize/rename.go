@@ -18,9 +18,8 @@ package normalize
 
 import (
 	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/event"
 	"loggie.io/loggie/pkg/core/log"
-	"strings"
+	"loggie.io/loggie/pkg/util/runtime"
 )
 
 const ProcessorRename = "rename"
@@ -30,7 +29,7 @@ type RenameProcessor struct {
 }
 
 type RenameConfig struct {
-	Convert []Convert `yaml:"target,omitempty"`
+	Convert []Convert `yaml:"convert,omitempty"`
 }
 
 func init() {
@@ -64,19 +63,16 @@ func (r *RenameProcessor) Process(e api.Event) error {
 
 	for _, convert := range r.config.Convert {
 		from := convert.From
-		if strings.HasPrefix(from, event.PrivateKeyPrefix) || strings.HasPrefix(from, event.SystemKeyPrefix) {
-			continue
-		}
 
-		val, ok := header[from]
-		if !ok {
+		obj := runtime.NewObject(header)
+		val := obj.GetPath(from)
+		if val.IsNull() {
 			log.Info("rename fields from %s is not exist", from)
 			log.Debug("rename event: %s", e.String())
 			continue
 		}
-
-		delete(header, from)
-		header[convert.To] = val
+		obj.DelPath(from)
+		obj.SetPath(convert.To, val)
 	}
 
 	return nil
