@@ -22,7 +22,6 @@ import (
 	"strings"
 )
 
-
 func GetQueryPaths(query string) []string {
 	paths := strings.Split(query, sep)
 	return paths

@@ -27,7 +27,6 @@ func InitMatcher(pattern string) [][]string {
 	return indexReg.FindAllStringSubmatch(pattern, -1)
 }
 
-
 func CompilePatternWithJavaStyle(pattern string) *regexp.Regexp {
 	// compile java、c# named capturing groups style
 	if strings.Contains(pattern, "?<") {
