@@ -19,6 +19,7 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"loggie.io/loggie/pkg/util"
 	"loggie.io/loggie/pkg/util/runtime"
 
 	"github.com/segmentio/kafka-go"
@@ -75,7 +76,7 @@ func (s *Sink) String() string {
 }
 
 func (s *Sink) Init(context api.Context) {
-	s.topicMatcher = runtime.InitMatcher(s.config.Topic)
+	s.topicMatcher = util.InitMatcher(s.config.Topic)
 }
 
 func (s *Sink) Start() {

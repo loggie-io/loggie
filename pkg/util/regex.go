@@ -21,6 +21,13 @@ import (
 	"strings"
 )
 
+func InitMatcher(pattern string) [][]string {
+	// TODO regexp optimize
+	indexReg := regexp.MustCompile(`\${(.+?)}`)
+	return indexReg.FindAllStringSubmatch(pattern, -1)
+}
+
+
 func CompilePatternWithJavaStyle(pattern string) *regexp.Regexp {
 	// compile java、c# named capturing groups style
 	if strings.Contains(pattern, "?<") {

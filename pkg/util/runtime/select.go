@@ -19,15 +19,9 @@ package runtime
 import (
 	"github.com/pkg/errors"
 	"loggie.io/loggie/pkg/util"
-	"regexp"
 	"strings"
 )
 
-func InitMatcher(pattern string) [][]string {
-	// TODO regexp optimize
-	indexReg := regexp.MustCompile(`\${(.+?)}`)
-	return indexReg.FindAllStringSubmatch(pattern, -1)
-}
 
 func GetQueryPaths(query string) []string {
 	paths := strings.Split(query, sep)

@@ -23,7 +23,7 @@ import (
 	"loggie.io/loggie/pkg/core/result"
 	"loggie.io/loggie/pkg/pipeline"
 	"loggie.io/loggie/pkg/sink/codec"
-	"loggie.io/loggie/pkg/util/runtime"
+	"loggie.io/loggie/pkg/util"
 )
 
 const Type = "elasticsearch"
@@ -72,7 +72,7 @@ func (s *Sink) Init(context api.Context) {
 }
 
 func (s *Sink) Start() {
-	indexMatchers := runtime.InitMatcher(s.config.Index)
+	indexMatchers := util.InitMatcher(s.config.Index)
 	cli, err := NewClient(s.config, s.codec, indexMatchers)
 	if err != nil {
 		log.Error("start elasticsearch connection fail, err: %+v", err)
