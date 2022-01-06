@@ -152,3 +152,7 @@ func (obj *Object) IsNull() bool {
 	}
 	return false
 }
+
+func (obj *Object) Value() interface{} {
+	return obj.data
+}

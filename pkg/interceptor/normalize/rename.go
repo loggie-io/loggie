@@ -22,36 +22,36 @@ import (
 	"loggie.io/loggie/pkg/util/runtime"
 )
 
-const ProcessorRename = "rename"
+const ProcessorMove = "move"
 
-type RenameProcessor struct {
-	config *RenameConfig
+type MoveProcessor struct {
+	config *MoveConfig
 }
 
-type RenameConfig struct {
+type MoveConfig struct {
 	Convert []Convert `yaml:"convert,omitempty"`
 }
 
 func init() {
-	register(ProcessorRename, func() Processor {
-		return NewRenameProcessor()
+	register(ProcessorMove, func() Processor {
+		return NewMoveProcessor()
 	})
 }
 
-func NewRenameProcessor() *RenameProcessor {
-	return &RenameProcessor{
-		config: &RenameConfig{},
+func NewMoveProcessor() *MoveProcessor {
+	return &MoveProcessor{
+		config: &MoveConfig{},
 	}
 }
 
-func (r *RenameProcessor) Config() interface{} {
+func (r *MoveProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *RenameProcessor) Init() {
+func (r *MoveProcessor) Init() {
 }
 
-func (r *RenameProcessor) Process(e api.Event) error {
+func (r *MoveProcessor) Process(e api.Event) error {
 	if r.config == nil {
 		return nil
 	}
@@ -67,12 +67,12 @@ func (r *RenameProcessor) Process(e api.Event) error {
 		obj := runtime.NewObject(header)
 		val := obj.GetPath(from)
 		if val.IsNull() {
-			log.Info("rename fields from %s is not exist", from)
-			log.Debug("rename event: %s", e.String())
+			log.Info("move fields from %s is not exist", from)
+			log.Debug("move event: %s", e.String())
 			continue
 		}
 		obj.DelPath(from)
-		obj.SetPath(convert.To, val)
+		obj.SetPath(convert.To, val.Value())
 	}
 
 	return nil
