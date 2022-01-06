@@ -17,9 +17,13 @@ limitations under the License.
 package normalize
 
 import (
+	"github.com/pkg/errors"
 	"loggie.io/loggie/pkg/core/api"
 	eventer "loggie.io/loggie/pkg/core/event"
+	"loggie.io/loggie/pkg/core/log"
+	"reflect"
 	"strings"
+	"time"
 )
 
 const ProcessorAddMeta = "addMeta"
@@ -79,7 +83,41 @@ func getMetaData(e api.Event) map[string]interface{} {
 			continue
 		}
 
+		if isStruct(v) {
+			m, err := structToMap(v)
+			if err != nil {
+				log.Warn("convert struct to map error: %v", err)
+				continue
+			}
+			metaData[k] = m
+			continue
+		}
+
 		metaData[k] = v
 	}
 	return metaData
+}
+
+func isStruct(v interface{}) bool {
+	refVal := reflect.ValueOf(v)
+	if refVal.Kind() == reflect.Ptr {
+		refVal = refVal.Elem()
+	}
+	if refVal.Kind() == reflect.Struct && reflect.TypeOf(v) != reflect.TypeOf(time.Time{}) {
+		return true
+	}
+	return false
+}
+
+func structToMap(v interface{}) (map[string]interface{}, error) {
+	b, err := json.Marshal(&v)
+	if err != nil {
+		return nil, errors.Errorf("json marshal %s in meta error: %v", v, err)
+	}
+	var m map[string]interface{}
+	err = json.Unmarshal(b, &m)
+	if err != nil {
+		return nil, errors.Errorf("json unmarshal %s in meta error: %v", v, err)
+	}
+	return m, nil
 }
