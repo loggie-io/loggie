@@ -125,10 +125,6 @@ func (k *Source) Stop() {
 	})
 }
 
-func (k *Source) Product() api.Event {
-	return nil
-}
-
 func (k *Source) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", k.String())
 

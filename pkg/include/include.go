@@ -45,4 +45,5 @@ import (
 	_ "loggie.io/loggie/pkg/source/grpc"
 	_ "loggie.io/loggie/pkg/source/kafka"
 	_ "loggie.io/loggie/pkg/source/kubernetes_event"
+	_ "loggie.io/loggie/pkg/source/prometheus_exporter"
 )
