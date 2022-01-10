@@ -16,7 +16,11 @@ limitations under the License.
 
 package kafka
 
-import "github.com/segmentio/kafka-go"
+import (
+	"time"
+
+	"github.com/segmentio/kafka-go"
+)
 
 const (
 	earliestOffsetReset = "earliest"
@@ -24,11 +28,19 @@ const (
 )
 
 type Config struct {
-	Brokers            []string `yaml:"brokers,omitempty" validate:"required"`
-	Topic              string   `yaml:"topic,omitempty" validate:"required"`
-	GroupId            string   `yaml:"groupId,omitempty" default:"loggie"`
-	AutoCommitInterval int      `yaml:"autoCommitInterval"`
-	AutoOffsetReset    string   `yaml:"autoOffsetReset" default:"latest" validate:"oneof=earliest latest"`
+	Brokers            []string      `yaml:"brokers,omitempty" validate:"required"`
+	Topic              string        `yaml:"topic,omitempty" validate:"required"`
+	GroupId            string        `yaml:"groupId,omitempty" default:"loggie"`
+	QueueCapacity      int           `yaml:"queueCapacity" default:"100"`
+	MinAcceptedBytes   int           `yaml:"minAcceptedBytes" default:"1"`
+	MaxAcceptedBytes   int           `yaml:"maxAcceptedBytes" default:"1e6"`
+	ReadMaxAttempts    int           `yaml:"readMaxAttempts" default:"3"`
+	MaxReadWait        time.Duration `yaml:"maxPollWait" default:"10s"`
+	ReadBackoffMin     time.Duration `yaml:"readBackoffMin" default:"100ms"`
+	ReadBackoffMax     time.Duration `yaml:"readBackoffMax" default:"1s"`
+	EnableAutoCommit   bool          `yaml:"enableAutoCommit" default:"true"`
+	AutoCommitInterval time.Duration `yaml:"autoCommitInterval" default:"1s"`
+	AutoOffsetReset    string        `yaml:"autoOffsetReset" default:"latest" validate:"oneof=earliest latest"`
 }
 
 func getAutoOffset(autoOffsetReset string) int64 {
