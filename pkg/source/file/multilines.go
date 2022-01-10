@@ -24,6 +24,7 @@ import (
 	"loggie.io/loggie/pkg/core/result"
 	"loggie.io/loggie/pkg/pipeline"
 	"loggie.io/loggie/pkg/util"
+	"strings"
 	"sync"
 	"time"
 )
@@ -45,6 +46,14 @@ type MultiTask struct {
 	eventPool   *event.Pool
 	productFunc api.ProductFunc
 	countDown   *sync.WaitGroup
+}
+
+func (mt *MultiTask) String() string {
+	var s strings.Builder
+	s.WriteString(mt.epoch.String())
+	s.WriteString(":")
+	s.WriteString(mt.sourceName)
+	return s.String()
 }
 
 func (mt *MultiTask) isParentOf(mh *MultiHolder) bool {
@@ -119,8 +128,10 @@ func (mh *MultiHolder) appendContent(content []byte, state State) {
 	mh.currentSize += int64(len(content))
 	mh.content = append(mh.content, content...)
 
-	if mh.currentLines == mh.mTask.config.MaxLines || mh.currentSize >= mh.mTask.config.MaxBytes {
+	if mh.currentLines >= mh.mTask.config.MaxLines || mh.currentSize >= mh.mTask.config.MaxBytes {
 		// flush immediately when (line maximum) or (the first line size exceed)
+		log.Warn("task(%s) multiline log exceeds limit: currentLines(%d),maxLines(%d);currentBytes(%d),maxBytes(%d)",
+			mh.mTask.String(), mh.currentLines, mh.mTask.config.MaxLines, mh.currentSize, mh.mTask.config.MaxBytes)
 		mh.flush()
 	}
 }
@@ -145,15 +156,16 @@ func (mh *MultiHolder) flush() {
 		LineNumber:   mh.state.LineNumber,
 		watchUid:     mh.state.watchUid,
 	}
-	contentBuffer := make([]byte, mh.currentSize)
-	copy(contentBuffer, mh.content)
+	//contentBuffer := make([]byte, mh.currentSize)
+	//copy(contentBuffer, mh.content)
+	contentBuffer := mh.content
 
 	e := mh.mTask.eventPool.Get()
 	e.Meta().Set(SystemStateKey, state)
 	e.Fill(e.Meta(), e.Header(), contentBuffer)
 	mh.mTask.productFunc(e)
 
-	mh.content = mh.content[:0]
+	mh.content = make([]byte, 0)
 	mh.currentLines = 0
 	mh.currentSize = 0
 }

@@ -674,7 +674,7 @@ func (p *Pipeline) reportMetricWithCode(code string, component api.Component, ev
 
 func (p *Pipeline) reportMetric(name string, component api.Component, eventType eventbus.ComponentEventType) {
 	eventbus.Publish(eventbus.ComponentBaseTopic, eventbus.ComponentBaseMetricData{
-		Type:         eventType,
+		EventType:    eventType,
 		PipelineName: p.name,
 		EpochTime:    p.epoch.StartTime,
 		Config: eventbus.ComponentBaseConfig{
