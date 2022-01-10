@@ -106,10 +106,6 @@ func (k *KubeEvent) Stop() {
 	close(k.stop)
 }
 
-func (k *KubeEvent) Product() api.Event {
-	return nil
-}
-
 func (k *KubeEvent) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", k.String())
 

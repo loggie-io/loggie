@@ -37,3 +37,7 @@ func TimeFormatNow(pattern string) string {
 	layout := replacer.Replace(pattern)
 	return time.Now().Format(layout)
 }
+
+func UnixMilli(t time.Time) int64 {
+	return t.Unix()*1e3 + int64(t.Nanosecond())/1e6
+}
