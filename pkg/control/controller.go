@@ -113,7 +113,7 @@ func (c *Controller) reportMetric(p pipeline.Config, eventType eventbus.Componen
 		})
 	}
 	eventbus.Publish(eventbus.PipelineTopic, eventbus.PipelineMetricData{
-		Type:             eventType,
+		EventType:        eventType,
 		Name:             p.Name,
 		Time:             time.Now(),
 		ComponentConfigs: componentConfigs,

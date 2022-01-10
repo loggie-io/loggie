@@ -79,7 +79,7 @@ type ReloadMetricData struct {
 }
 
 type ComponentBaseMetricData struct {
-	Type         ComponentEventType // "start","stop"...
+	EventType    ComponentEventType // "start","stop"...
 	PipelineName string
 	EpochTime    time.Time
 	Config       ComponentBaseConfig
@@ -126,7 +126,7 @@ func (lad *LogAlertData) Fingerprint() string {
 }
 
 type PipelineMetricData struct {
-	Type             ComponentEventType
+	EventType        ComponentEventType
 	Name             string
 	Time             time.Time
 	ComponentConfigs []ComponentBaseConfig
