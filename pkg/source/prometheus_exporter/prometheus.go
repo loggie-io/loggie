@@ -117,9 +117,8 @@ func (k *PromExporter) batchScrape(c ctx.Context, productFunc api.ProductFunc) {
 			continue
 		}
 
-		header := make(map[string]interface{})
 		e := k.eventPool.Get()
-		e.Fill(e.Meta(), header, metrics)
+		e.Fill(e.Meta(), e.Header(), metrics)
 
 		productFunc(e)
 	}

@@ -136,9 +136,8 @@ func (k *unix) handleConn(ctx context.Context, conn net.Conn, productFunc api.Pr
 		}
 
 		body := scan.Bytes()
-		header := make(map[string]interface{})
 		e := k.eventPool.Get()
-		e.Fill(e.Meta(), header, body)
+		e.Fill(e.Meta(), e.Header(), body)
 
 		productFunc(e)
 	}
