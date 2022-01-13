@@ -754,6 +754,14 @@ func (w *Watcher) checkWaitForStopTask() {
 	for _, watchTask := range w.waiteForStopWatchTasks {
 		if time.Since(watchTask.stopTime) > w.config.TaskStopTimeout {
 			log.Error("watchTask(%s) stop timeout because jobs has not release: %s", watchTask.String(), watchTask.StopJobsInfo())
+			for _, job := range watchTask.waiteForStopJobs {
+				existJob, exist := w.allJobs[job.WatchUid()]
+				if exist {
+					log.Warn("job(%s:%s) exist, status: %d", existJob.WatchUid(), existJob.filename, existJob.status)
+				} else {
+					log.Warn("job(%s:%s) was deleted but not finalize", job.WatchUid(), job.filename)
+				}
+			}
 			watchTask.waiteForStopJobs = nil
 			delete(w.waiteForStopWatchTasks, watchTask.WatchTaskKey())
 			watchTask.countDown.Done()

@@ -41,7 +41,7 @@ func makeListener() *Listener {
 
 type Config struct {
 	Period           time.Duration `yaml:"period" default:"30s"`
-	ValidateDuration time.Duration `yaml:"validateDuration" default:"5m"`
+	ValidateDuration time.Duration `yaml:"validateDuration" default:"60s"`
 }
 
 type Listener struct {
@@ -144,7 +144,7 @@ func (l *Listener) validate() {
 		}
 		reportPipelineComponentConfig := make([]eventbus.ComponentBaseConfig, 0)
 		for _, baseMetricData := range componentBaseMetricData {
-			if baseMetricData.EpochTime.After(pipelineMetricData.Time) && baseMetricData.EventType == pipelineMetricData.EventType {
+			if baseMetricData.EventType == pipelineMetricData.EventType {
 				reportPipelineComponentConfig = append(reportPipelineComponentConfig, baseMetricData.Config)
 			}
 		}
@@ -156,6 +156,11 @@ func (l *Listener) validate() {
 		}
 		if len(missComponentConfig) > 0 {
 			log.Error("pipeline(%s) %s timeout, because miss component: %s", pipelineName, pipelineMetricData.EventType, componentConfigInfo(missComponentConfig))
+			for _, datum := range componentBaseMetricData {
+				if datum.EventType == pipelineMetricData.EventType {
+					log.Warn("%s pipeline(%s) current metric component: %+v", pipelineMetricData.EventType, pipelineName, datum.Config)
+				}
+			}
 		}
 		// clean data
 		delete(l.namePipelineMetric, pipelineName)
