@@ -116,9 +116,8 @@ func (k *KubeEvent) ProductLoop(productFunc api.ProductFunc) {
 			return
 		}
 
-		header := make(map[string]interface{})
 		e := k.eventPool.Get()
-		e.Fill(e.Meta(), header, jsonBytes)
+		e.Fill(e.Meta(), e.Header(), jsonBytes)
 
 		productFunc(e)
 	}

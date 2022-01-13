@@ -105,7 +105,14 @@ func (k *Source) Start() {
 		Brokers:        k.config.Brokers,
 		GroupID:        k.config.GroupId,
 		GroupTopics:    groupTopics,
-		CommitInterval: time.Second * time.Duration(k.config.AutoCommitInterval),
+		QueueCapacity:  k.config.QueueCapacity,
+		MinBytes:       k.config.MinAcceptedBytes,
+		MaxBytes:       k.config.MaxAcceptedBytes,
+		MaxAttempts:    k.config.ReadMaxAttempts,
+		MaxWait:        k.config.MaxReadWait,
+		ReadBackoffMin: k.config.ReadBackoffMin,
+		ReadBackoffMax: k.config.ReadBackoffMax,
+		CommitInterval: k.config.AutoCommitInterval,
 		StartOffset:    getAutoOffset(k.config.AutoOffsetReset),
 	}
 
@@ -147,9 +154,18 @@ func (k *Source) consume(productFunc api.ProductFunc) error {
 		return fmt.Errorf("kakfa consumer not initialized yet")
 	}
 
-	msg, err := k.consumer.ReadMessage(context.Background())
+	ctx := context.Background()
+	msg, err := k.consumer.FetchMessage(ctx)
 	if err != nil {
 		return errors.Errorf("consumer read message error: %v", err)
+	}
+
+	// auto commit message, commit before sink ack
+	if k.config.EnableAutoCommit {
+		err := k.consumer.CommitMessages(ctx, msg)
+		if err != nil {
+			return errors.Errorf("consumer auto commit message error: %v", err)
+		}
 	}
 
 	e := k.eventPool.Get()
@@ -174,5 +190,40 @@ func (k *Source) consume(productFunc api.ProductFunc) error {
 }
 
 func (k *Source) Commit(events []api.Event) {
+	// commit when sink ack
+	if !k.config.EnableAutoCommit {
+		var msgs []kafka.Message
+		for _, e := range events {
+			h := e.Header()
+			if _, exist := h["kafka"]; !exist {
+				continue
+			}
+
+			k, ok := h["kafka"].(map[string]interface{})
+			if !ok {
+				continue
+			}
+			if _, exist := k["topic"]; !exist {
+				continue
+			}
+			if _, exist := k["partition"]; !exist {
+				continue
+			}
+			if _, exist := k["offset"]; !exist {
+				continue
+			}
+
+			msgs = append(msgs, kafka.Message{
+				Topic:     k["topic"].(string),
+				Partition: k["partition"].(int),
+				Offset:    k["offset"].(int64),
+			})
+		}
+		if len(msgs) > 0 {
+			err := k.consumer.CommitMessages(context.Background(), msgs...)
+			log.Error("consumer manually commit messgage error: %v", err)
+		}
+	}
+
 	k.eventPool.PutAll(events)
 }
