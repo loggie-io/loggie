@@ -16,7 +16,7 @@ limitations under the License.
 
 package api
 
-import "loggie.io/loggie/pkg/core/cfg"
+import "github.com/loggie-io/loggie/pkg/core/cfg"
 
 const (
 	FAIL    = Status(0)

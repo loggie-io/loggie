@@ -19,7 +19,7 @@ package util
 import (
 	"bytes"
 	"fmt"
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"regexp"
 	"regexp/syntax"
 	"strings"

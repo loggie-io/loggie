@@ -17,8 +17,8 @@ limitations under the License.
 package file
 
 import (
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/util"
 	"os"
 	"regexp"
 	"time"

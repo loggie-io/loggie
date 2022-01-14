@@ -1,4 +1,4 @@
-module loggie.io/loggie
+module github.com/loggie-io/loggie
 
 go 1.16
 

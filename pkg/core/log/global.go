@@ -19,10 +19,10 @@ package log
 import (
 	"flag"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/log/spi"
 	"github.com/rs/zerolog"
 	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
-	"loggie.io/loggie/pkg/core/log/spi"
 	"os"
 	"path"
 )

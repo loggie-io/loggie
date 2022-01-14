@@ -18,12 +18,12 @@ package logalert
 
 import (
 	"fmt"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/core/source"
-	"loggie.io/loggie/pkg/core/sysconfig"
-	"loggie.io/loggie/pkg/eventbus"
-	"loggie.io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/source"
+	"github.com/loggie-io/loggie/pkg/core/sysconfig"
+	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 	"regexp"
 	"strings"
 )

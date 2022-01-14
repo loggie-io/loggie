@@ -18,14 +18,14 @@ limitations under the License.
 package fake
 
 import (
+	clientset "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
+	loggiev1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/typed/loggie/v1beta1"
+	fakeloggiev1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/typed/loggie/v1beta1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
-	clientset "loggie.io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
-	loggiev1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/typed/loggie/v1beta1"
-	fakeloggiev1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/typed/loggie/v1beta1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
