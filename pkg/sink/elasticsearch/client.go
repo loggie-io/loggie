@@ -22,9 +22,9 @@ import (
 	"fmt"
 	es "github.com/olivere/elastic/v7"
 	"github.com/pkg/errors"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/sink/codec"
-	"loggie.io/loggie/pkg/util/runtime"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"strings"
 )
 

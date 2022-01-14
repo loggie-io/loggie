@@ -26,7 +26,7 @@ import (
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
-	v1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	v1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 )
 
 // FakeInterceptors implements InterceptorInterface

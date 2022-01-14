@@ -17,7 +17,7 @@ limitations under the License.
 package metric
 
 import (
-	"loggie.io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"time"
 )
 

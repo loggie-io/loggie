@@ -17,7 +17,7 @@ limitations under the License.
 package batch
 
 import (
-	"loggie.io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/api"
 	"sync"
 	"time"
 )

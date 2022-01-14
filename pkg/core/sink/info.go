@@ -16,7 +16,7 @@ limitations under the License.
 
 package sink
 
-import "loggie.io/loggie/pkg/core/api"
+import "github.com/loggie-io/loggie/pkg/core/api"
 
 type Info struct {
 	Sink         api.Sink

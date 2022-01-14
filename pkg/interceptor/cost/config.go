@@ -16,7 +16,7 @@ limitations under the License.
 
 package cost
 
-import "loggie.io/loggie/pkg/core/interceptor"
+import "github.com/loggie-io/loggie/pkg/core/interceptor"
 
 type Config struct {
 	interceptor.ExtensionConfig `yaml:",inline"`

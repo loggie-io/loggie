@@ -18,10 +18,10 @@ package control
 
 import (
 	"gopkg.in/yaml.v2"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/eventbus"
-	"loggie.io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 	"net/http"
 	_ "net/http/pprof"
 	"time"

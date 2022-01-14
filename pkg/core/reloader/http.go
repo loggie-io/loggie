@@ -18,7 +18,7 @@ package reloader
 
 import (
 	"io/ioutil"
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"net/http"
 	"os"
 	"path/filepath"

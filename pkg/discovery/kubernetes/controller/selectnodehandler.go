@@ -18,9 +18,9 @@ package controller
 
 import (
 	"github.com/pkg/errors"
-	"loggie.io/loggie/pkg/core/log"
-	logconfigv1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
-	"loggie.io/loggie/pkg/discovery/kubernetes/helper"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 )
 
 func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) error {

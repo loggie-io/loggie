@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/log"
 
 	"github.com/segmentio/kafka-go"
 	"github.com/segmentio/kafka-go/sasl"

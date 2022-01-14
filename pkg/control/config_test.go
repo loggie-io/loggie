@@ -18,7 +18,7 @@ package control
 
 import (
 	"github.com/pkg/errors"
-	"loggie.io/loggie/pkg/core/source"
+	"github.com/loggie-io/loggie/pkg/core/source"
 	"testing"
 )
 

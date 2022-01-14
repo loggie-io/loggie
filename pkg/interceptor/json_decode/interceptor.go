@@ -20,11 +20,11 @@ import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/pkg/errors"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/event"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/core/source"
-	"loggie.io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/source"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 	"strings"
 )
 

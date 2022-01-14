@@ -22,7 +22,7 @@ import (
 	"github.com/mattn/go-zglob"
 	"io"
 	"io/ioutil"
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"os"
 	"path/filepath"
 	"strings"

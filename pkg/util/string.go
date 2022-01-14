@@ -18,7 +18,7 @@ package util
 
 import (
 	"github.com/xhit/go-str2duration/v2"
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"reflect"
 	"time"
 	"unsafe"

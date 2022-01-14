@@ -19,13 +19,13 @@ package pipeline
 import (
 	"gopkg.in/yaml.v2"
 	"log"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/cfg"
-	"loggie.io/loggie/pkg/core/event"
-	"loggie.io/loggie/pkg/core/interceptor"
-	"loggie.io/loggie/pkg/core/queue"
-	"loggie.io/loggie/pkg/core/sink"
-	"loggie.io/loggie/pkg/core/source"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/core/queue"
+	"github.com/loggie-io/loggie/pkg/core/sink"
+	"github.com/loggie-io/loggie/pkg/core/source"
 	"time"
 )
 

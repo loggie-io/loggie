@@ -19,8 +19,8 @@ package v1beta1
 
 import (
 	rest "k8s.io/client-go/rest"
-	v1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
-	"loggie.io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/scheme"
+	v1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/scheme"
 )
 
 type LoggieV1beta1Interface interface {

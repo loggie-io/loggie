@@ -17,8 +17,8 @@ limitations under the License.
 package context
 
 import (
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
 )
 
 func NewContext(name string, typename api.Type, category api.Category, properties cfg.CommonCfg) api.Context {

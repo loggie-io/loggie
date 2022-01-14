@@ -23,10 +23,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/event"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
 const Type = "kubeEvent"

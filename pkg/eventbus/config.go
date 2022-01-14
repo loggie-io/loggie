@@ -17,8 +17,8 @@ limitations under the License.
 package eventbus
 
 import (
-	"loggie.io/loggie/pkg/core/cfg"
-	"loggie.io/loggie/pkg/eventbus/export/logger"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/eventbus/export/logger"
 )
 
 type Config struct {

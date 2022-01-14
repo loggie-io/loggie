@@ -22,7 +22,7 @@ import (
 
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
-	v1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	v1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other

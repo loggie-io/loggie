@@ -17,7 +17,7 @@ limitations under the License.
 package discovery
 
 import (
-	kubernetes "loggie.io/loggie/pkg/discovery/kubernetes/controller"
+	kubernetes "github.com/loggie-io/loggie/pkg/discovery/kubernetes/controller"
 )
 
 // TODO validate and defaults

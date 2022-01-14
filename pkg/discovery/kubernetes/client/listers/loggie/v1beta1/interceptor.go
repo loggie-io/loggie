@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
-	v1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	v1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 )
 
 // InterceptorLister helps list Interceptors.

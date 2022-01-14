@@ -16,7 +16,7 @@ limitations under the License.
 
 package maxbytes
 
-import "loggie.io/loggie/pkg/core/interceptor"
+import "github.com/loggie-io/loggie/pkg/core/interceptor"
 
 const Order = 500
 

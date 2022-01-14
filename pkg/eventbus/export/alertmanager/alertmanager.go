@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"net/http"
 	"time"
 )

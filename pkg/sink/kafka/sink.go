@@ -19,16 +19,16 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"loggie.io/loggie/pkg/util"
-	"loggie.io/loggie/pkg/util/runtime"
+	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/util/runtime"
 
 	"github.com/segmentio/kafka-go"
 
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/core/result"
-	"loggie.io/loggie/pkg/pipeline"
-	"loggie.io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/result"
+	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/sink/codec"
 )
 
 const Type = "kafka"

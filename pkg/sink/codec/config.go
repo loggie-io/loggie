@@ -18,7 +18,7 @@ package codec
 
 import (
 	"github.com/pkg/errors"
-	"loggie.io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
 )
 
 type Config struct {

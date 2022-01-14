@@ -17,8 +17,8 @@ limitations under the License.
 package index
 
 import (
-	"loggie.io/loggie/pkg/control"
-	"loggie.io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/control"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
 type LogConfigTypeLoggieIndex struct {

@@ -19,9 +19,9 @@ package file
 import (
 	"bytes"
 	"io"
-	"loggie.io/loggie/pkg/core/event"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 	"sync"
 	"time"
 )

@@ -18,7 +18,7 @@ package runtime
 
 import (
 	"github.com/pkg/errors"
-	"loggie.io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/util"
 	"strings"
 )
 

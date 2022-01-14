@@ -16,7 +16,7 @@ limitations under the License.
 
 package result
 
-import "loggie.io/loggie/pkg/core/api"
+import "github.com/loggie-io/loggie/pkg/core/api"
 
 type DefaultResult struct {
 	err    error

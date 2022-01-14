@@ -19,8 +19,8 @@ package file
 import (
 	"database/sql"
 	"fmt"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"math/rand"
 	"reflect"
 	"testing"

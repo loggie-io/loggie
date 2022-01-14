@@ -17,8 +17,8 @@ limitations under the License.
 package normalize
 
 import (
-	"loggie.io/loggie/pkg/core/cfg"
-	"loggie.io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
 )
 
 type Config struct {

@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"github.com/hpcloud/tail"
 	"io"
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"net/http"
 	"os"
 	"strconv"
