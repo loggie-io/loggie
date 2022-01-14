@@ -19,9 +19,9 @@ package file
 import (
 	"crypto/md5"
 	"fmt"
-	"io"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util"
+	"io"
 	"os"
 	"strconv"
 	"strings"

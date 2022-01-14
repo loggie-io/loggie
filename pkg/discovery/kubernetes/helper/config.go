@@ -18,12 +18,12 @@ package helper
 
 import (
 	"fmt"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
 func ToPipeline(lgc *logconfigv1beta1.LogConfig, sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*control.PipelineRawConfig, error) {

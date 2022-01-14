@@ -17,8 +17,8 @@ limitations under the License.
 package codec
 
 import (
-	"github.com/pkg/errors"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/pkg/errors"
 )
 
 type Config struct {

@@ -17,7 +17,6 @@ limitations under the License.
 package pipeline
 
 import (
-	"github.com/pkg/errors"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/context"
@@ -30,6 +29,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/pkg/errors"
 	"os"
 	"strings"
 	"sync"

@@ -17,12 +17,12 @@ limitations under the License.
 package control
 
 import (
-	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
-	"io/ioutil"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/pkg/errors"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 )

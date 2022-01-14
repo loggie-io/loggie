@@ -17,8 +17,8 @@ limitations under the License.
 package pipeline
 
 import (
-	"github.com/pkg/errors"
 	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/pkg/errors"
 )
 
 var defaultConfigRaw ConfigRaw

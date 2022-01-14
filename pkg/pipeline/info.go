@@ -17,8 +17,6 @@ limitations under the License.
 package pipeline
 
 import (
-	"gopkg.in/yaml.v2"
-	"log"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/event"
@@ -26,6 +24,8 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/queue"
 	"github.com/loggie-io/loggie/pkg/core/sink"
 	"github.com/loggie-io/loggie/pkg/core/source"
+	"gopkg.in/yaml.v2"
+	"log"
 	"time"
 )
 

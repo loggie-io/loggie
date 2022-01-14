@@ -17,12 +17,12 @@ limitations under the License.
 package kubernetes
 
 import (
-	"k8s.io/apimachinery/pkg/fields"
-	kubeclientset "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	logconfigclientset "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/controller"
+	"k8s.io/apimachinery/pkg/fields"
+	kubeclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"

@@ -17,10 +17,10 @@ limitations under the License.
 package normalize
 
 import (
-	"github.com/pkg/errors"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/pkg/errors"
 )
 
 type ProcessorGroup struct {

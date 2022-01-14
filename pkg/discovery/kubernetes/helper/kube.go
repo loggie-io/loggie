@@ -19,17 +19,17 @@ package helper
 import (
 	"bytes"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"github.com/loggie-io/loggie/pkg/core/log"
 	"path/filepath"
 	"strings"
 
-	corev1listers "k8s.io/client-go/listers/core/v1"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	logconfigLister "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 func IsPodReady(pod *corev1.Pod) bool {

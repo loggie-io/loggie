@@ -17,13 +17,13 @@ limitations under the License.
 package index
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type LogConfigTypePodIndex struct {

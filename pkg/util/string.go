@@ -17,8 +17,8 @@ limitations under the License.
 package util
 
 import (
-	"github.com/xhit/go-str2duration/v2"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/xhit/go-str2duration/v2"
 	"reflect"
 	"time"
 	"unsafe"

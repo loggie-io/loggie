@@ -17,8 +17,8 @@ limitations under the License.
 package runtime
 
 import (
-	"github.com/pkg/errors"
 	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/pkg/errors"
 	"strings"
 )
 

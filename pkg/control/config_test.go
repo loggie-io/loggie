@@ -17,8 +17,8 @@ limitations under the License.
 package control
 
 import (
-	"github.com/pkg/errors"
 	"github.com/loggie-io/loggie/pkg/core/source"
+	"github.com/pkg/errors"
 	"testing"
 )
 

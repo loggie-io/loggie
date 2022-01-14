@@ -17,11 +17,11 @@ limitations under the License.
 package control
 
 import (
-	"gopkg.in/yaml.v2"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"gopkg.in/yaml.v2"
 	"net/http"
 	_ "net/http/pprof"
 	"time"

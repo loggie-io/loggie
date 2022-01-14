@@ -17,8 +17,8 @@ limitations under the License.
 package reloader
 
 import (
-	"io/ioutil"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"

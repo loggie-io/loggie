@@ -19,8 +19,8 @@ package alertmanager
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"io/ioutil"
 	"net/http"
 	"time"
 )
