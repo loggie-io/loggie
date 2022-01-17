@@ -14,6 +14,7 @@ require (
 	github.com/mattn/go-zglob v0.0.3
 	github.com/mmaxiaolei/backoff v0.0.0-20210104115436-e015e09efaba
 	github.com/olivere/elastic/v7 v7.0.28
+	github.com/panjf2000/ants/v2 v2.4.7
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.26.0
@@ -33,3 +34,5 @@ require (
 	k8s.io/client-go v0.19.8
 	k8s.io/code-generator v0.19.8
 )
+
+replace gopkg.in/natefinch/lumberjack.v2 v2.0.0 => github.com/machine3/lumberjack v0.1.0
