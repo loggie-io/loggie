@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"loggie.io/loggie/pkg/core/api"
+	"loggie.io/loggie/pkg/core/log"
 	"strings"
 	"time"
 )
@@ -146,4 +147,31 @@ func (cbc ComponentBaseConfig) Code() string {
 	code.WriteString(":")
 	code.WriteString(cbc.Name)
 	return code.String()
+}
+
+func GetFieldsByRef(fieldsRef []string, fields map[string]interface{}) map[string]interface{} {
+	if fieldsRef == nil {
+		return nil
+	}
+
+	res := make(map[string]interface{})
+	for _, key := range fieldsRef {
+		if val, ok := fields[key]; ok {
+			res[key] = val
+		}
+	}
+	return res
+}
+
+func InjectFields(labels map[string]string, fields map[string]interface{}) {
+	if len(fields) > 0 {
+		for k, v := range fields {
+			vs, ok := v.(string)
+			if !ok {
+				log.Debug("fields %v is not string", v)
+				continue
+			}
+			labels[k] = vs
+		}
+	}
 }
