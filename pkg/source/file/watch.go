@@ -19,9 +19,9 @@ package file
 import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/eventbus"
-	"loggie.io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/util"
 	"os"
 	"path/filepath"
 	"sync"

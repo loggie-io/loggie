@@ -19,9 +19,9 @@ package file
 import (
 	"database/sql"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	_ "github.com/mattn/go-sqlite3"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/log"
 	"os"
 	"path/filepath"
 	"sync"

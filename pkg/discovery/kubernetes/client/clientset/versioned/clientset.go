@@ -20,10 +20,10 @@ package versioned
 import (
 	"fmt"
 
+	loggiev1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/typed/loggie/v1beta1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
-	loggiev1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/typed/loggie/v1beta1"
 )
 
 type Interface interface {

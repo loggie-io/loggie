@@ -21,12 +21,12 @@ import (
 	"context"
 	"time"
 
+	v1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	scheme "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/scheme"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	rest "k8s.io/client-go/rest"
-	v1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
-	scheme "loggie.io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/scheme"
 )
 
 // InterceptorsGetter has a method to return a InterceptorInterface.

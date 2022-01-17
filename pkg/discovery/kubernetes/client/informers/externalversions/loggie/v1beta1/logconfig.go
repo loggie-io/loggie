@@ -21,14 +21,14 @@ import (
 	"context"
 	time "time"
 
+	loggiev1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	versioned "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
+	internalinterfaces "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/informers/externalversions/internalinterfaces"
+	v1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	watch "k8s.io/apimachinery/pkg/watch"
 	cache "k8s.io/client-go/tools/cache"
-	loggiev1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
-	versioned "loggie.io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
-	internalinterfaces "loggie.io/loggie/pkg/discovery/kubernetes/client/informers/externalversions/internalinterfaces"
-	v1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
 )
 
 // LogConfigInformer provides access to a shared informer and lister for

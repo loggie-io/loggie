@@ -18,13 +18,13 @@ package filewatcher
 
 import (
 	"encoding/json"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/eventbus/export/logger"
+	promeExporter "github.com/loggie-io/loggie/pkg/eventbus/export/prometheus"
+	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/prometheus/client_golang/prometheus"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/eventbus"
-	"loggie.io/loggie/pkg/eventbus/export/logger"
-	promeExporter "loggie.io/loggie/pkg/eventbus/export/prometheus"
-	"loggie.io/loggie/pkg/util"
 	"strings"
 	"time"
 )

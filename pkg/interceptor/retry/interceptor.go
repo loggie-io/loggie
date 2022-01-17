@@ -18,12 +18,12 @@ package retry
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/sink"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/mmaxiaolei/backoff"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/interceptor"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/core/sink"
-	"loggie.io/loggie/pkg/pipeline"
 	"sync"
 	"sync/atomic"
 	"time"

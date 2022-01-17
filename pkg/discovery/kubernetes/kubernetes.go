@@ -17,17 +17,17 @@ limitations under the License.
 package kubernetes
 
 import (
+	"github.com/loggie-io/loggie/pkg/core/log"
+	logconfigclientset "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/controller"
 	"k8s.io/apimachinery/pkg/fields"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"loggie.io/loggie/pkg/core/log"
-	logconfigclientset "loggie.io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
-	"loggie.io/loggie/pkg/discovery/kubernetes/controller"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
 
-	logconfigInformer "loggie.io/loggie/pkg/discovery/kubernetes/client/informers/externalversions"
+	logconfigInformer "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/informers/externalversions"
 )
 
 type Discovery struct {

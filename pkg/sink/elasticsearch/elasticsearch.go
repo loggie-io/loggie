@@ -18,12 +18,12 @@ package elasticsearch
 
 import (
 	"fmt"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/core/result"
-	"loggie.io/loggie/pkg/pipeline"
-	"loggie.io/loggie/pkg/sink/codec"
-	"loggie.io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/result"
+	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/util"
 )
 
 const Type = "elasticsearch"

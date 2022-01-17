@@ -21,7 +21,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/log"
 
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"

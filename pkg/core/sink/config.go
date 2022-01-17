@@ -17,8 +17,8 @@ limitations under the License.
 package sink
 
 import (
-	"loggie.io/loggie/pkg/core/cfg"
-	"loggie.io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/sink/codec"
 )
 
 type Config struct {

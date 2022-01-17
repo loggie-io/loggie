@@ -16,7 +16,7 @@ limitations under the License.
 
 package source
 
-import "loggie.io/loggie/pkg/core/api"
+import "github.com/loggie-io/loggie/pkg/core/api"
 
 type Info struct {
 	Source       api.Source

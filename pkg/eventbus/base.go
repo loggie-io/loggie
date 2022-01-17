@@ -20,8 +20,8 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"strings"
 	"time"
 )

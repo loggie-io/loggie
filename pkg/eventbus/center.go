@@ -17,10 +17,10 @@ limitations under the License.
 package eventbus
 
 import (
-	"loggie.io/loggie/pkg/core/cfg"
-	"loggie.io/loggie/pkg/core/context"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/eventbus/export/logger"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/context"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/eventbus/export/logger"
 )
 
 // asyncConsumerSize should always be 1 because concurrency may cause panic

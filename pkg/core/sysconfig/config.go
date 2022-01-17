@@ -17,14 +17,14 @@ limitations under the License.
 package sysconfig
 
 import (
-	"loggie.io/loggie/pkg/core/cfg"
-	"loggie.io/loggie/pkg/core/reloader"
-	"loggie.io/loggie/pkg/discovery"
-	"loggie.io/loggie/pkg/eventbus"
-	"loggie.io/loggie/pkg/interceptor/maxbytes"
-	"loggie.io/loggie/pkg/interceptor/metric"
-	"loggie.io/loggie/pkg/interceptor/retry"
-	"loggie.io/loggie/pkg/queue/channel"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/reloader"
+	"github.com/loggie-io/loggie/pkg/discovery"
+	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/interceptor/maxbytes"
+	"github.com/loggie-io/loggie/pkg/interceptor/metric"
+	"github.com/loggie-io/loggie/pkg/interceptor/retry"
+	"github.com/loggie-io/loggie/pkg/queue/channel"
 )
 
 type Config struct {
