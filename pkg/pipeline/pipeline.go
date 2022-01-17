@@ -276,7 +276,7 @@ func (p *Pipeline) finalizeBatch(batch api.Batch) {
 	events := batch.Events()
 	l := len(events)
 	for _, e := range events {
-		sourceName := e.Source()
+		sourceName := e.Meta().Source()
 		es, ok := nes[sourceName]
 		if !ok {
 			es = make([]api.Event, 0, l)
@@ -494,7 +494,7 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
 
 		sourceInvokerChain := buildSourceInvokerChain(sourceConfig.Name, &source.PublishInvoker{}, si.Interceptors)
 		productFunc := func(e api.Event) api.Result {
-			p.fillEventHeader(e, sourceConfig)
+			p.fillEventMetaAndHeader(e, sourceConfig)
 
 			result := sourceInvokerChain.Invoke(source.Invocation{
 				Event: e,
@@ -507,27 +507,23 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
 	//go p.sourceInvokeLoop(si)
 }
 
-func (p *Pipeline) fillEventHeader(e api.Event, config source.Config) {
+func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
+	// add meta fields
+	e.Meta().Set(event.SystemProductTimeKey, time.Now())
+	e.Meta().Set(event.SystemPipelineKey, p.name)
+	e.Meta().Set(event.SystemSourceKey, config.Name)
+	e.Meta().Set(fieldsUnderRootKey, config.FieldsUnderRoot)
+	e.Meta().Set(fieldsUnderKeyKey, config.FieldsUnderKey)
+
 	header := e.Header()
 	if header == nil {
 		header = make(map[string]interface{})
-		e.Fill(header, e.Body())
+		e.Fill(e.Meta(), header, e.Body())
 	}
-	// add system collect time
-	if _, exist := header[event.SystemCollectTimeKey]; !exist {
-		header[event.SystemCollectTimeKey] = time.Now()
-	}
-	// add system fields
-	header[event.SystemPipelineKey] = p.name
-	header[event.SystemSourceKey] = config.Name
-	// add private fields
-	header[fieldsUnderRootKey] = config.FieldsUnderRoot
-	header[fieldsUnderKeyKey] = config.FieldsUnderKey
-
-	// add source fields
+	// add header source fields
 	addSourceFields(header, config)
 
-	// add source fields from env
+	// add header source fields from env
 	if len(config.FieldsFromEnv) > 0 {
 		for k, envKey := range config.FieldsFromEnv {
 			envVal := os.Getenv(envKey)
@@ -678,7 +674,7 @@ func (p *Pipeline) reportMetricWithCode(code string, component api.Component, ev
 
 func (p *Pipeline) reportMetric(name string, component api.Component, eventType eventbus.ComponentEventType) {
 	eventbus.Publish(eventbus.ComponentBaseTopic, eventbus.ComponentBaseMetricData{
-		Type:         eventType,
+		EventType:    eventType,
 		PipelineName: p.name,
 		EpochTime:    p.epoch.StartTime,
 		Config: eventbus.ComponentBaseConfig{

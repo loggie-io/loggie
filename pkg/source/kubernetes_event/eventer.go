@@ -106,10 +106,6 @@ func (k *KubeEvent) Stop() {
 	close(k.stop)
 }
 
-func (k *KubeEvent) Product() api.Event {
-	return nil
-}
-
 func (k *KubeEvent) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", k.String())
 
@@ -120,9 +116,8 @@ func (k *KubeEvent) ProductLoop(productFunc api.ProductFunc) {
 			return
 		}
 
-		header := make(map[string]interface{})
 		e := k.eventPool.Get()
-		e.Fill(header, jsonBytes)
+		e.Fill(e.Meta(), e.Header(), jsonBytes)
 
 		productFunc(e)
 	}

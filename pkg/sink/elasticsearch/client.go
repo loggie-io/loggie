@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/sink/codec"
+	"loggie.io/loggie/pkg/util/runtime"
 	"strings"
 )
 
@@ -80,16 +81,17 @@ func NewClient(config *Config, cod codec.Codec, indexMatcher [][]string) (*Clien
 func (c *ClientSet) BulkCreate(batch api.Batch, index string) error {
 	req := c.cli.Bulk()
 	for _, event := range batch.Events() {
+		// select index
+		idx, err := runtime.PatternSelect(runtime.NewObject(event.Header()), index, c.indexMatcher)
+		if err != nil {
+			return errors.WithMessagef(err, "select index pattern error: %+v", err)
+		}
+
 		data, err := c.codec.Encode(event)
 		if err != nil {
 			return errors.WithMessagef(err, "codec encode event: %s error", event.String())
 		}
 
-		// select index
-		idx, err := codec.PatternSelect(data, index, c.indexMatcher)
-		if err != nil {
-			return errors.WithMessagef(err, "select index pattern error: %+v, event: %s", err, string(data.Raw))
-		}
 		// TODO cache the index
 		exist, err := c.cli.IndexExists(idx).Do(context.Background())
 		if err != nil {
@@ -102,7 +104,7 @@ func (c *ClientSet) BulkCreate(batch api.Batch, index string) error {
 			}
 		}
 
-		doc := es.NewBulkCreateRequest().Index(idx).Doc(json.RawMessage(data.Raw))
+		doc := es.NewBulkCreateRequest().Index(idx).Doc(json.RawMessage(data))
 		req.Add(doc)
 	}
 	ret, err := req.Do(context.Background())

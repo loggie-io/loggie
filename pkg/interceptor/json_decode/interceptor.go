@@ -121,7 +121,7 @@ func (i *Interceptor) process(e api.Event) error {
 	}
 
 	if i.config.BodyKey == "" {
-		e.Fill(header, body)
+		e.Fill(e.Meta(), header, body)
 		return nil
 	}
 
@@ -129,6 +129,6 @@ func (i *Interceptor) process(e api.Event) error {
 	if !ok {
 		return errors.New("message value is not string")
 	}
-	e.Fill(header, []byte(val))
+	e.Fill(e.Meta(), header, []byte(val))
 	return nil
 }

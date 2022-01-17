@@ -27,15 +27,8 @@ type SinkCodec interface {
 
 type Codec interface {
 	Init()
-	Encode(event api.Event) (*Result, error)
+	Encode(event api.Event) ([]byte, error)
 }
-
-type Result struct {
-	Raw []byte
-	Lookup
-}
-
-type Lookup func(paths ...string) (interface{}, error)
 
 type Factory func() Codec
 

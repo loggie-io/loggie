@@ -75,7 +75,7 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 	event := invocation.Event
 	body := event.Body()
 	if len(body) > i.config.MaxBytes {
-		event.Fill(event.Header(), body[:i.config.MaxBytes])
+		event.Fill(event.Meta(), event.Header(), body[:i.config.MaxBytes])
 	}
 	return invoker.Invoke(invocation)
 }

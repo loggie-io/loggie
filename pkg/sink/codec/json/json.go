@@ -17,14 +17,11 @@ limitations under the License.
 package json
 
 import (
-	"github.com/bitly/go-simplejson"
 	jsoniter "github.com/json-iterator/go"
 	"loggie.io/loggie/pkg/core/api"
 	eventer "loggie.io/loggie/pkg/core/event"
 	"loggie.io/loggie/pkg/sink/codec"
-	"loggie.io/loggie/pkg/sink/codec/transformer"
-	"loggie.io/loggie/pkg/source/file"
-	"strings"
+	"time"
 )
 
 var (
@@ -32,11 +29,12 @@ var (
 )
 
 type Json struct {
-	config    *Config
-	transform *transformer.Transformer
+	config *Config
 }
 
-const Type = "json"
+const (
+	Type = "json"
+)
 
 const tsLayout = "2006-01-02T15:04:05.000Z"
 
@@ -59,94 +57,39 @@ func (j *Json) Config() interface{} {
 }
 
 func (j *Json) Init() {
-	j.transform = transformer.NewTransformer(j.config.Transformer)
 }
 
-func (j *Json) Encode(event api.Event) (*codec.Result, error) {
-	h := event.Header()
+func (j *Json) Encode(e api.Event) ([]byte, error) {
+	header := e.Header()
 
-	// events should not be modified
-	header := make(map[string]interface{})
+	if header == nil {
+		header = make(map[string]interface{})
+	}
 	if j.config.BeatsFormat {
-		if sysState, ok := h[file.SystemStateKey]; ok {
-			stat, ok := sysState.(*file.State)
-			if ok {
-				header["@timestamp"] = stat.CollectTime.Format(tsLayout)
-			}
-		}
-
-		if len(event.Body()) != 0 {
-			header["message"] = string(event.Body())
-		}
-	} else {
+		beatsFormat(e)
+	} else if len(e.Body()) != 0 {
 		// put body in header
-		if len(event.Body()) != 0 {
-			header["body"] = string(event.Body())
-		}
+		header[eventer.Body] = string(e.Body())
 	}
-
-	for k, v := range h {
-		if strings.HasPrefix(k, eventer.PrivateKeyPrefix) {
-			continue
-		}
-
-		if j.config.Prune && strings.HasPrefix(k, eventer.SystemKeyPrefix) {
-			continue
-		}
-
-		header[k] = v
-	}
-
-	// format
-	if j.config.Transformer == nil {
-		var err error
-		var out []byte
-		if j.config.Pretty {
-			out, err = json.MarshalIndent(header, "", "    ")
-		} else {
-			out, err = json.Marshal(header)
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		result := &codec.Result{
-			Raw: out,
-			Lookup: func(paths ...string) (interface{}, error) {
-				jsonObj, err := simplejson.NewJson(out)
-				if err != nil {
-					return nil, err
-				}
-				return jsonObj.GetPath(paths...).String()
-			},
-		}
-		return result, nil
-	}
-
-	out, err := json.Marshal(header)
-	if err != nil {
-		return nil, err
-	}
-	jsonObj, err := simplejson.NewJson(out)
-	if err != nil {
-		return nil, err
-	}
-
-	j.transform.Transform(jsonObj)
 
 	if j.config.Pretty {
-		out, err = jsonObj.EncodePretty()
-	} else {
-		out, err = jsonObj.Encode()
+		return json.MarshalIndent(header, "", "    ")
 	}
-	if err != nil {
-		return nil, err
+	return json.Marshal(header)
+}
+
+func beatsFormat(e api.Event) {
+	meta := e.Meta()
+	header := e.Header()
+	if meta != nil {
+		if timestamp, exist := meta.Get(eventer.SystemProductTimeKey); exist {
+			if t, ok := timestamp.(time.Time); ok {
+				header["@timestamp"] = t.Format(tsLayout)
+			}
+		}
 	}
-	result := &codec.Result{
-		Raw: out,
-		Lookup: func(paths ...string) (interface{}, error) {
-			return jsonObj.GetPath(paths...).String()
-		},
+
+	if len(e.Body()) != 0 {
+		header["message"] = string(e.Body())
 	}
-	return result, nil
 }

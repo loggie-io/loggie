@@ -19,6 +19,7 @@ package normalize
 import (
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/log"
+	"loggie.io/loggie/pkg/util/runtime"
 	"strconv"
 	"time"
 )
@@ -32,7 +33,7 @@ type TimestampProcessor struct {
 }
 
 type TimestampConfig struct {
-	Target []TimestampConvert `yaml:"target,omitempty"`
+	Convert []TimestampConvert `yaml:"convert,omitempty"`
 }
 
 type TimestampConvert struct {
@@ -65,7 +66,7 @@ func (r *TimestampProcessor) Process(e api.Event) error {
 	if r.config == nil {
 		return nil
 	}
-	if len(r.config.Target) == 0 {
+	if len(r.config.Convert) == 0 {
 		return nil
 	}
 
@@ -74,18 +75,20 @@ func (r *TimestampProcessor) Process(e api.Event) error {
 		header = make(map[string]interface{})
 	}
 
-	for _, target := range r.config.Target {
+	obj := runtime.NewObject(header)
+
+	for _, target := range r.config.Convert {
 		// parse timestamp
-		timeInHeader, ok := header[target.From]
-		if !ok {
-			log.Info("cannot find target.From %s fields in event: %s", target.From, e.String())
-			continue
-		}
-		timeStr, ok := timeInHeader.(string)
-		if !ok {
+		timeStr, err := obj.GetPath(target.From).String()
+		if err != nil {
 			log.Info("unexpected type for timestamp in event: %s", e.String())
 			continue
 		}
+		if timeStr == "" {
+			log.Info("cannot find %s in event: %s", target.From, e.String())
+			continue
+		}
+
 		timeVal, err := time.Parse(target.FromLayout, timeStr)
 		if err != nil {
 			log.Info("parse time: %s by layout %s error", timeStr, target.FromLayout)
@@ -96,21 +99,21 @@ func (r *TimestampProcessor) Process(e api.Event) error {
 		case "unix":
 			s := timeVal.Unix()
 			if target.ToType == typeString {
-				header[target.From] = strconv.FormatInt(s, 10)
+				obj.SetPath(target.From, strconv.FormatInt(s, 10))
 			} else {
-				header[target.From] = s
+				obj.SetPath(target.From, s)
 			}
 		case "unix_ms":
 			ms := timeVal.UnixNano() / int64(time.Millisecond)
 			if target.ToType == typeString {
-				header[target.From] = strconv.FormatInt(ms, 10)
+				obj.SetPath(target.From, strconv.FormatInt(ms, 10))
 			} else {
-				header[target.From] = ms
+				obj.SetPath(target.From, ms)
 			}
 
 		default:
 			timeRes := timeVal.Format(target.ToLayout)
-			header[target.From] = timeRes
+			obj.SetPath(target.From, timeRes)
 		}
 	}
 

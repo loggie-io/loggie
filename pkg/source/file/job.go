@@ -307,14 +307,12 @@ func (j *Job) ProductEvent(endOffset int64, collectTime time.Time, body []byte) 
 		watchUid:     watchUid,
 		EventUid:     eventUid.String(),
 	}
-	header := map[string]interface{}{
-		SystemStateKey: state,
-	}
 	e := j.task.eventPool.Get()
+	e.Meta().Set(SystemStateKey, state)
 	// copy body,because readBuffer reuse
 	contentBuffer := make([]byte, contentBytes)
 	copy(contentBuffer, body)
-	e.Fill(header, contentBuffer)
+	e.Fill(e.Meta(), e.Header(), contentBuffer)
 	j.task.productFunc(e)
 }
 

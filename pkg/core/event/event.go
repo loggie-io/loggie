@@ -17,7 +17,6 @@ limitations under the License.
 package event
 
 import (
-	"flag"
 	"fmt"
 	"loggie.io/loggie/pkg/core/api"
 	"strings"
@@ -30,22 +29,55 @@ const (
 
 	SystemPipelineKey    = SystemKeyPrefix + "PipelineName"
 	SystemSourceKey      = SystemKeyPrefix + "SourceName"
-	SystemCollectTimeKey = SystemKeyPrefix + "CollectTime"
+	SystemProductTimeKey = SystemKeyPrefix + "ProductTime"
 
 	Body = "body"
 )
 
-var (
-	commonPoolCapacity int
-)
+type DefaultMeta struct {
+	Properties map[string]interface{} `json:"properties"`
+}
 
-func init() {
-	flag.IntVar(&commonPoolCapacity, "event.pool.capacity", 8194, "Event pool capacity")
+func NewDefaultMeta() *DefaultMeta {
+	return &DefaultMeta{
+		Properties: make(map[string]interface{}),
+	}
+}
+
+func (dm *DefaultMeta) Source() string {
+	return dm.Properties[SystemSourceKey].(string)
+}
+
+func (dm *DefaultMeta) Get(key string) (value interface{}, exist bool) {
+	value, exist = dm.Properties[key]
+	return value, exist
+}
+
+func (dm *DefaultMeta) GetAll() map[string]interface{} {
+	return dm.Properties
+}
+
+func (dm *DefaultMeta) Set(key string, value interface{}) {
+	dm.Properties[key] = value
+}
+
+func (dm *DefaultMeta) String() string {
+	var s strings.Builder
+	s.WriteString("{")
+	for k, v := range dm.Properties {
+		s.WriteString(k)
+		s.WriteString(":")
+		s.WriteString(fmt.Sprintf("%#v", v))
+		s.WriteString(",")
+	}
+	s.WriteString("}")
+	return s.String()
 }
 
 type DefaultEvent struct {
 	H map[string]interface{} `json:"header"`
 	B []byte                 `json:"body"`
+	M api.Meta               `json:"meta"`
 }
 
 func NewEvent(header map[string]interface{}, body []byte) *DefaultEvent {
@@ -59,8 +91,8 @@ func newBlankEvent() *DefaultEvent {
 	return &DefaultEvent{}
 }
 
-func (de *DefaultEvent) Source() string {
-	return de.H[SystemSourceKey].(string)
+func (de *DefaultEvent) Meta() api.Meta {
+	return de.M
 }
 
 func (de *DefaultEvent) Header() map[string]interface{} {
@@ -71,19 +103,24 @@ func (de *DefaultEvent) Body() []byte {
 	return de.B
 }
 
-func (de *DefaultEvent) Fill(header map[string]interface{}, body []byte) {
+func (de *DefaultEvent) Fill(meta api.Meta, header map[string]interface{}, body []byte) {
 	de.H = header
 	de.B = body
+	de.M = meta
 }
 
 func (de *DefaultEvent) Release() {
 	// clean event
-	de.H = nil
+	de.H = make(map[string]interface{})
 	de.B = nil
+	de.M = NewDefaultMeta()
 }
 
 func (de *DefaultEvent) String() string {
 	var sb strings.Builder
+	sb.WriteString("meta:")
+	sb.WriteString(de.M.String())
+	sb.WriteString(";")
 	sb.WriteString("header:")
 	sb.WriteString("{")
 	for k, v := range de.Header() {

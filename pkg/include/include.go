@@ -36,7 +36,6 @@ import (
 	_ "loggie.io/loggie/pkg/queue/channel"
 	_ "loggie.io/loggie/pkg/queue/memory"
 	_ "loggie.io/loggie/pkg/sink/codec/json"
-	_ "loggie.io/loggie/pkg/sink/codec/transformer"
 	_ "loggie.io/loggie/pkg/sink/dev"
 	_ "loggie.io/loggie/pkg/sink/elasticsearch"
 	_ "loggie.io/loggie/pkg/sink/grpc"
@@ -46,4 +45,6 @@ import (
 	_ "loggie.io/loggie/pkg/source/grpc"
 	_ "loggie.io/loggie/pkg/source/kafka"
 	_ "loggie.io/loggie/pkg/source/kubernetes_event"
+	_ "loggie.io/loggie/pkg/source/prometheus_exporter"
+	_ "loggie.io/loggie/pkg/source/unix"
 )

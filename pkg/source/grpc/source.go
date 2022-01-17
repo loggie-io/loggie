@@ -142,7 +142,7 @@ func (s *Source) LogStream(ls pb.LogService_LogStreamServer) error {
 			}
 		}
 		e := s.eventPool.Get()
-		e.Fill(header, logMsg.GetRawLog())
+		e.Fill(e.Meta(), header, logMsg.GetRawLog())
 		b.append(e)
 	}
 	if b.size() > 0 {

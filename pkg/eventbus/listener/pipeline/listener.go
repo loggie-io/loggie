@@ -95,6 +95,9 @@ func (l *Listener) consumer(event eventbus.Event) {
 		if !ok {
 			log.Panic("convert eventbus reload failed: %v", event)
 		}
+		if _, exist := l.namePipelineMetric[d.Name]; exist {
+			delete(l.nameComponentMetrics, d.Name)
+		}
 		l.namePipelineMetric[d.Name] = d
 	}
 	if event.Topic == eventbus.ComponentBaseTopic {
@@ -114,7 +117,7 @@ func (l *Listener) consumer(event eventbus.Event) {
 			if d.Config.Type != baseMetricData.Config.Type {
 				continue
 			}
-			if d.Type != baseMetricData.Type {
+			if d.EventType != baseMetricData.EventType {
 				continue
 			}
 			// remove same component event
@@ -136,12 +139,12 @@ func (l *Listener) validate() {
 		pipelineName := pipelineMetricData.Name
 		componentBaseMetricData, exist := l.nameComponentMetrics[pipelineName]
 		if !exist {
-			log.Error("pipeline(%s) %s timeout, because no component event", pipelineName, pipelineMetricData.Type)
+			log.Error("pipeline(%s) %s timeout, because no component event", pipelineName, pipelineMetricData.EventType)
 			continue
 		}
 		reportPipelineComponentConfig := make([]eventbus.ComponentBaseConfig, 0)
 		for _, baseMetricData := range componentBaseMetricData {
-			if baseMetricData.EpochTime.After(pipelineMetricData.Time) && baseMetricData.Type == pipelineMetricData.Type {
+			if baseMetricData.EventType == pipelineMetricData.EventType {
 				reportPipelineComponentConfig = append(reportPipelineComponentConfig, baseMetricData.Config)
 			}
 		}
@@ -152,7 +155,12 @@ func (l *Listener) validate() {
 			}
 		}
 		if len(missComponentConfig) > 0 {
-			log.Error("pipeline(%s) %s timeout, because miss component: %s", pipelineName, pipelineMetricData.Type, componentConfigInfo(missComponentConfig))
+			log.Error("pipeline(%s) %s timeout, because miss component: %s", pipelineName, pipelineMetricData.EventType, componentConfigInfo(missComponentConfig))
+			for _, datum := range componentBaseMetricData {
+				if datum.EventType == pipelineMetricData.EventType {
+					log.Warn("%s pipeline(%s) current metric component: %+v", pipelineMetricData.EventType, pipelineName, datum.Config)
+				}
+			}
 		}
 		// clean data
 		delete(l.namePipelineMetric, pipelineName)

@@ -14,23 +14,25 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package transformer
+package normalize
 
 import (
-	"github.com/bitly/go-simplejson"
-	"loggie.io/loggie/pkg/util"
+	"loggie.io/loggie/pkg/core/api"
+	"loggie.io/loggie/pkg/util/runtime"
 )
+
+const ProcessorUnderRoot = "underRoot"
 
 type UnderRootProcessor struct {
 	config *UnderRootConfig
 }
 
 type UnderRootConfig struct {
-	Target []string `yaml:"target,omitempty"`
+	Keys []string `yaml:"keys,omitempty" validate:"required"`
 }
 
 func init() {
-	register("underRoot", func() Processor {
+	register(ProcessorUnderRoot, func() Processor {
 		return NewUnderRootProcessor()
 	})
 }
@@ -41,25 +43,40 @@ func NewUnderRootProcessor() *UnderRootProcessor {
 	}
 }
 
-func (d *UnderRootProcessor) Config() interface{} {
-	return d.config
+func (r *UnderRootProcessor) Config() interface{} {
+	return r.config
 }
 
-func (d *UnderRootProcessor) Process(jsonObj *simplejson.Json) {
-	if d.config == nil {
-		return
+func (r *UnderRootProcessor) Init() {
+}
+
+func (r *UnderRootProcessor) Process(e api.Event) error {
+	if r.config == nil {
+		return nil
 	}
-	for _, t := range d.config.Target {
-		upperPaths, key := util.GetQueryUpperPaths(t)
-		upperVal := jsonObj.GetPath(upperPaths...)
+	if len(r.config.Keys) == 0 {
+		return nil
+	}
+
+	header := e.Header()
+	if header == nil {
+		header = make(map[string]interface{})
+	}
+
+	obj := runtime.NewObject(header)
+	for _, t := range r.config.Keys {
+		upperPaths, key := runtime.GetQueryUpperPaths(t)
+		upperVal := obj.GetPaths(upperPaths)
 		val := upperVal.Get(key)
 		if valMap, err := val.Map(); err == nil {
 			for k, v := range valMap {
-				jsonObj.Set(k, v)
+				obj.Set(k, v)
 			}
 		} else {
-			jsonObj.Set(key, val)
+			obj.Set(key, val)
 		}
 		upperVal.Del(key)
 	}
+
+	return nil
 }

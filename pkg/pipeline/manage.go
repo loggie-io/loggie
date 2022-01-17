@@ -28,12 +28,16 @@ var codeFactory = map[string]Factory{}
 
 type Factory func(info Info) api.Component
 
-func code(category api.Category, typename api.Type, name ...string) string {
+func codeWithoutName(category api.Category, typename api.Type) string {
+	return code(category, typename, "")
+}
+
+func code(category api.Category, typename api.Type, name string) string {
 	return fmt.Sprintf("%s/%s/%s", category, typename, name)
 }
 
 func Register(category api.Category, typename api.Type, factory Factory) {
-	code := code(category, typename)
+	code := codeWithoutName(category, typename)
 	if codeFactory[code] != nil {
 		panic(fmt.Errorf("component code '%s' exists already", code))
 	}
@@ -41,7 +45,7 @@ func Register(category api.Category, typename api.Type, factory Factory) {
 }
 
 func GetWithType(category api.Category, typename api.Type, info Info) (api.Component, error) {
-	code := code(category, typename)
+	code := codeWithoutName(category, typename)
 	factory, ok := codeFactory[code]
 	if !ok {
 		return nil, fmt.Errorf("component code '%s' is not exists", code)

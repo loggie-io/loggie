@@ -19,6 +19,8 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"loggie.io/loggie/pkg/util"
+	"loggie.io/loggie/pkg/util/runtime"
 
 	"github.com/segmentio/kafka-go"
 
@@ -74,7 +76,7 @@ func (s *Sink) String() string {
 }
 
 func (s *Sink) Init(context api.Context) {
-	s.topicMatcher = codec.InitMatcher(s.config.Topic)
+	s.topicMatcher = util.InitMatcher(s.config.Topic)
 }
 
 func (s *Sink) Start() {
@@ -120,18 +122,20 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	}
 	km := make([]kafka.Message, 0, l)
 	for _, e := range events {
+		topic, err := s.selectTopic(e)
+		if err != nil {
+			log.Error("select kafka topic error: %+v", err)
+			return result.Fail(err)
+		}
+
 		msg, err := s.cod.Encode(e)
 		if err != nil {
 			log.Warn("encode event error: %+v", err)
 			return result.Fail(err)
 		}
-		topic, err := s.selectTopic(msg)
-		if err != nil {
-			log.Error("select kafka topic error: %+v", err)
-			return result.Fail(err)
-		}
+
 		km = append(km, kafka.Message{
-			Value: msg.Raw,
+			Value: msg,
 			Topic: topic,
 		})
 	}
@@ -149,6 +153,6 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	return result.Fail(fmt.Errorf("kafka sink writer not initialized"))
 }
 
-func (s *Sink) selectTopic(res *codec.Result) (string, error) {
-	return codec.PatternSelect(res, s.config.Topic, s.topicMatcher)
+func (s *Sink) selectTopic(e api.Event) (string, error) {
+	return runtime.PatternSelect(runtime.NewObject(e.Header()), s.config.Topic, s.topicMatcher)
 }

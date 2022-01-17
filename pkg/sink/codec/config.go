@@ -22,7 +22,7 @@ import (
 )
 
 type Config struct {
-	Type          string `yaml:"type" default:"json"`
+	Type          string `yaml:"type,omitempty" default:"json"`
 	cfg.CommonCfg `yaml:",inline"`
 }
 

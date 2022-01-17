@@ -91,7 +91,7 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 	// do fire alert
 	labels := map[string]string{
 		"host":   sysconfig.NodeName,
-		"source": ev.Source(),
+		"source": ev.Meta().Source(),
 	}
 	annotations := map[string]string{
 		"reason":  reason,

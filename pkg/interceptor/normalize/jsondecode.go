@@ -21,6 +21,7 @@ import (
 	"loggie.io/loggie/pkg/core/api"
 	"loggie.io/loggie/pkg/core/event"
 	"loggie.io/loggie/pkg/core/log"
+	"loggie.io/loggie/pkg/util/runtime"
 )
 
 const ProcessorJsonDecode = "jsonDecode"
@@ -71,17 +72,17 @@ func (r *JsonDecodeProcessor) Process(e api.Event) error {
 	if target == event.Body {
 		val = e.Body()
 	} else {
-		v, ok := header[target]
-		if !ok {
+		obj := runtime.NewObject(header)
+		v, err := obj.GetPath(target).String()
+		if err != nil {
+			log.Warn("get content from %s failed %v", target, err)
 			return nil
 		}
-		vs, ok := v.(string)
-		if !ok {
-			log.Info("value of the target %s is not string", target)
-			log.Debug("jsonDecode decode failed event: %s", e.String())
+		if v == "" {
 			return nil
 		}
-		val = []byte(vs)
+
+		val = []byte(v)
 	}
 
 	res := make(map[string]interface{})

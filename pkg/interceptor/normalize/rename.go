@@ -18,41 +18,40 @@ package normalize
 
 import (
 	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/event"
 	"loggie.io/loggie/pkg/core/log"
-	"strings"
+	"loggie.io/loggie/pkg/util/runtime"
 )
 
-const ProcessorRename = "rename"
+const ProcessorMove = "move"
 
-type RenameProcessor struct {
-	config *RenameConfig
+type MoveProcessor struct {
+	config *MoveConfig
 }
 
-type RenameConfig struct {
-	Convert []Convert `yaml:"target,omitempty"`
+type MoveConfig struct {
+	Convert []Convert `yaml:"convert,omitempty"`
 }
 
 func init() {
-	register(ProcessorRename, func() Processor {
-		return NewRenameProcessor()
+	register(ProcessorMove, func() Processor {
+		return NewMoveProcessor()
 	})
 }
 
-func NewRenameProcessor() *RenameProcessor {
-	return &RenameProcessor{
-		config: &RenameConfig{},
+func NewMoveProcessor() *MoveProcessor {
+	return &MoveProcessor{
+		config: &MoveConfig{},
 	}
 }
 
-func (r *RenameProcessor) Config() interface{} {
+func (r *MoveProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *RenameProcessor) Init() {
+func (r *MoveProcessor) Init() {
 }
 
-func (r *RenameProcessor) Process(e api.Event) error {
+func (r *MoveProcessor) Process(e api.Event) error {
 	if r.config == nil {
 		return nil
 	}
@@ -64,19 +63,16 @@ func (r *RenameProcessor) Process(e api.Event) error {
 
 	for _, convert := range r.config.Convert {
 		from := convert.From
-		if strings.HasPrefix(from, event.PrivateKeyPrefix) || strings.HasPrefix(from, event.SystemKeyPrefix) {
+
+		obj := runtime.NewObject(header)
+		val := obj.GetPath(from)
+		if val.IsNull() {
+			log.Info("move fields from %s is not exist", from)
+			log.Debug("move event: %s", e.String())
 			continue
 		}
-
-		val, ok := header[from]
-		if !ok {
-			log.Info("rename fields from %s is not exist", from)
-			log.Debug("rename event: %s", e.String())
-			continue
-		}
-
-		delete(header, from)
-		header[convert.To] = val
+		obj.DelPath(from)
+		obj.SetPath(convert.To, val.Value())
 	}
 
 	return nil

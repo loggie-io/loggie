@@ -89,7 +89,7 @@ func (i *Interceptor) reportMetric(batch api.Batch, result api.Result) {
 	isSuccess := result.Status() == api.SUCCESS
 	source2es := make(map[string]int)
 	for _, e := range es {
-		sourceName := e.Source()
+		sourceName := e.Meta().Source()
 		c := source2es[sourceName]
 		c++
 		source2es[sourceName] = c
