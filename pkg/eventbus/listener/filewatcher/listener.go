@@ -46,6 +46,7 @@ func makeListener() *Listener {
 type Config struct {
 	Period            time.Duration `yaml:"period" default:"5m"`
 	UnFinishedTimeout time.Duration `yaml:"checkUnFinishedTimeout" default:"24h"`
+	FieldsRef         []string      `yaml:"fieldsRef"`
 }
 
 type Listener struct {
@@ -61,8 +62,9 @@ type data struct {
 
 	FileInfo []*fileInfo `json:"info,omitempty"` // key=fileName
 
-	TotalFileCount  int `json:"total"`
-	InactiveFdCount int `json:"inactive"`
+	TotalFileCount  int                    `json:"total"`
+	InactiveFdCount int                    `json:"inactive"`
+	SourceFields    map[string]interface{} `json:"sourceFields,omitempty"`
 }
 
 type fileInfo struct {
@@ -105,21 +107,24 @@ func (l *Listener) exportPrometheus() {
 	const FileNameKey = "filename"
 	const FileStatusKey = "status"
 	for _, d := range l.data {
+		labels := prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName}
+		eventbus.InjectFields(labels, d.SourceFields)
+
 		m1 := promeExporter.ExportedMetrics{
 			{
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileWatcherTopic, "total_file_count"),
+					buildFQName("total_file_count"),
 					"file count total",
-					nil, prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName},
+					nil, labels,
 				),
 				Eval:    float64(d.TotalFileCount),
 				ValType: prometheus.GaugeValue,
 			},
 			{
 				Desc: prometheus.NewDesc(
-					prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileWatcherTopic, "inactive_file_count"),
+					buildFQName("inactive_file_count"),
 					"inactive file count",
-					nil, prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName},
+					nil, labels,
 				),
 				Eval:    float64(d.InactiveFdCount),
 				ValType: prometheus.GaugeValue,
@@ -133,34 +138,33 @@ func (l *Listener) exportPrometheus() {
 			if info.IgnoreOlder {
 				status = "ignored"
 			}
+			labels[FileNameKey] = info.FileName
+			labels[FileStatusKey] = status
 
 			m2 := promeExporter.ExportedMetrics{
 				{
 					Desc: prometheus.NewDesc(
-						prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileWatcherTopic, "file_size"),
+						buildFQName("file_size"),
 						"file size",
-						nil, prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName,
-							FileNameKey: info.FileName, FileStatusKey: status},
+						nil, labels,
 					),
 					Eval:    float64(info.FileSize),
 					ValType: prometheus.GaugeValue,
 				},
 				{
 					Desc: prometheus.NewDesc(
-						prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileWatcherTopic, "file_ack_offset"),
+						buildFQName("file_ack_offset"),
 						"file ack offset",
-						nil, prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName,
-							FileNameKey: info.FileName, FileStatusKey: status},
+						nil, labels,
 					),
 					Eval:    float64(info.AckOffset),
 					ValType: prometheus.GaugeValue,
 				},
 				{
 					Desc: prometheus.NewDesc(
-						prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileWatcherTopic, "file_last_modify"),
+						buildFQName("file_last_modify"),
 						"file last modify timestamp",
-						nil, prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName,
-							FileNameKey: info.FileName, FileStatusKey: status},
+						nil, labels,
 					),
 					Eval:    float64(info.LastModifyTime.UnixNano() / 1e6),
 					ValType: prometheus.GaugeValue,
@@ -173,6 +177,10 @@ func (l *Listener) exportPrometheus() {
 		m = append(m, m1...)
 	}
 	promeExporter.Export(eventbus.FileWatcherTopic, m)
+}
+
+func buildFQName(name string) string {
+	return prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileWatcherTopic, name)
 }
 
 func (l *Listener) clean() {
@@ -212,6 +220,7 @@ func (l *Listener) consumer(e eventbus.WatchMetricData) {
 	m := data{
 		PipelineName: e.PipelineName,
 		SourceName:   e.SourceName,
+		SourceFields: eventbus.GetFieldsByRef(l.config.FieldsRef, e.SourceFields),
 	}
 
 	var files []*fileInfo

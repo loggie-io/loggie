@@ -211,6 +211,7 @@ func (w *Watcher) reportMetric(job *Job) {
 		LineNumber: job.currentLineNumber,
 		Lines:      job.currentLines,
 		//FileSize:   fileSize,
+		SourceFields: job.task.sourceFields,
 	}
 	eventbus.PublishOrDrop(eventbus.FileSourceMetricTopic, collectMetricData)
 }
@@ -829,6 +830,7 @@ func (w *Watcher) reportWatchMetricAndCleanFiles() {
 			FileInfos:       fileInfos,
 			TotalFileCount:  activeCount,
 			InactiveFdCount: inActiveFdCount,
+			SourceFields:    watchTask.sourceFields,
 		}
 		eventbus.Publish(eventbus.FileWatcherTopic, watchMetricData)
 

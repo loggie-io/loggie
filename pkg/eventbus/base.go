@@ -21,6 +21,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"strings"
 	"time"
 )
@@ -54,11 +55,12 @@ type BaseMetricData struct {
 
 type CollectMetricData struct {
 	BaseMetric
-	FileName   string // including path
-	Offset     int64
-	LineNumber int64 // file lines count
-	Lines      int64 // current line offset
-	FileSize   int64
+	FileName     string // including path
+	Offset       int64
+	LineNumber   int64 // file lines count
+	Lines        int64 // current line offset
+	FileSize     int64
+	SourceFields map[string]interface{}
 }
 
 type SinkMetricData struct {
@@ -96,6 +98,7 @@ type WatchMetricData struct {
 	FileInfos       []FileInfo
 	TotalFileCount  int
 	InactiveFdCount int
+	SourceFields    map[string]interface{}
 }
 
 type FileInfo struct {
@@ -144,4 +147,31 @@ func (cbc ComponentBaseConfig) Code() string {
 	code.WriteString(":")
 	code.WriteString(cbc.Name)
 	return code.String()
+}
+
+func GetFieldsByRef(fieldsRef []string, fields map[string]interface{}) map[string]interface{} {
+	if fieldsRef == nil {
+		return nil
+	}
+
+	res := make(map[string]interface{})
+	for _, key := range fieldsRef {
+		if val, ok := fields[key]; ok {
+			res[key] = val
+		}
+	}
+	return res
+}
+
+func InjectFields(labels map[string]string, fields map[string]interface{}) {
+	if len(fields) > 0 {
+		for k, v := range fields {
+			vs, ok := v.(string)
+			if !ok {
+				log.Debug("fields %v is not string", v)
+				continue
+			}
+			labels[k] = vs
+		}
+	}
 }

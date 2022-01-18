@@ -22,7 +22,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/sink"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"time"
 )
 
 const Type = "metric"
@@ -45,7 +44,6 @@ type Interceptor struct {
 	name         string
 	config       *Config
 	setting      map[string]interface{}
-	Period       time.Duration // interval
 	topic        string
 }
 
@@ -67,7 +65,6 @@ func (i *Interceptor) String() string {
 
 func (i *Interceptor) Init(context api.Context) {
 	i.name = context.Name()
-	i.Period = i.config.Period
 }
 
 func (i *Interceptor) Start() {

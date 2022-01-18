@@ -18,10 +18,8 @@ package metric
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
-	"time"
 )
 
 type Config struct {
 	interceptor.ExtensionConfig `yaml:",inline"`
-	Period                      time.Duration `yaml:"period,omitempty" default:"10s"`
 }
