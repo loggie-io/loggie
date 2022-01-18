@@ -214,8 +214,7 @@ func (j *Job) Active() (error, bool) {
 			}
 		}
 	}
-	j.status = JobActive
-	j.aStatus.Store(JobActive)
+	j.ChangeStatusTo(JobActive)
 	j.eofCount = 0
 	j.lastActiveTime = time.Now()
 	return nil, fdOpen
