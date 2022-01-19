@@ -53,7 +53,7 @@ func MetaNamespaceKey(namespace string, name string) string {
 	return name
 }
 
-type FuncGetRelatedPod func()([]*corev1.Pod, error)
+type FuncGetRelatedPod func() ([]*corev1.Pod, error)
 
 func GetLogConfigRelatedPod(lgc *logconfigv1beta1.LogConfig, podsLister corev1listers.PodLister) ([]*corev1.Pod, error) {
 

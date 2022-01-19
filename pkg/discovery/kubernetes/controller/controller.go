@@ -44,9 +44,9 @@ import (
 )
 
 const (
-	EventPod     = "pod"
-	EventLogConf = "logConfig"
-	EventNode    = "node"
+	EventPod            = "pod"
+	EventLogConf        = "logConfig"
+	EventNode           = "node"
 	EventClusterLogConf = "clusterLogConfig"
 )
 
@@ -64,18 +64,18 @@ type Controller struct {
 	kubeClientset      kubernetes.Interface
 	logConfigClientset logconfigClientset.Interface
 
-	podsLister        corev1Listers.PodLister
-	podsSynced        cache.InformerSynced
-	logConfigLister   logconfigLister.LogConfigLister
-	logConfigSynced   cache.InformerSynced
+	podsLister             corev1Listers.PodLister
+	podsSynced             cache.InformerSynced
+	logConfigLister        logconfigLister.LogConfigLister
+	logConfigSynced        cache.InformerSynced
 	clusterLogConfigLister logconfigLister.ClusterLogConfigLister
 	clusterLogConfigSynced cache.InformerSynced
-	sinkLister        logconfigLister.SinkLister
-	sinkSynced        cache.InformerSynced
-	interceptorLister logconfigLister.InterceptorLister
-	interceptorSynced cache.InformerSynced
-	nodeLister        corev1Listers.NodeLister
-	nodeSynced        cache.InformerSynced
+	sinkLister             logconfigLister.SinkLister
+	sinkSynced             cache.InformerSynced
+	interceptorLister      logconfigLister.InterceptorLister
+	interceptorSynced      cache.InformerSynced
+	nodeLister             corev1Listers.NodeLister
+	nodeSynced             cache.InformerSynced
 
 	typePodIndex     *index.LogConfigTypePodIndex
 	typeClusterIndex *index.LogConfigTypeClusterIndex
@@ -110,18 +110,18 @@ func NewController(
 		kubeClientset:      kubeClientset,
 		logConfigClientset: logConfigClientset,
 
-		podsLister:        podInformer.Lister(),
-		podsSynced:        podInformer.Informer().HasSynced,
-		logConfigLister:   logConfigInformer.Lister(),
-		logConfigSynced:   logConfigInformer.Informer().HasSynced,
+		podsLister:             podInformer.Lister(),
+		podsSynced:             podInformer.Informer().HasSynced,
+		logConfigLister:        logConfigInformer.Lister(),
+		logConfigSynced:        logConfigInformer.Informer().HasSynced,
 		clusterLogConfigLister: clusterLogConfigInformer.Lister(),
 		clusterLogConfigSynced: clusterLogConfigInformer.Informer().HasSynced,
-		sinkLister:        sinkInformer.Lister(),
-		sinkSynced:        sinkInformer.Informer().HasSynced,
-		interceptorLister: interceptorInformer.Lister(),
-		interceptorSynced: interceptorInformer.Informer().HasSynced,
-		nodeLister:        nodeInformer.Lister(),
-		nodeSynced:        nodeInformer.Informer().HasSynced,
+		sinkLister:             sinkInformer.Lister(),
+		sinkSynced:             sinkInformer.Informer().HasSynced,
+		interceptorLister:      interceptorInformer.Lister(),
+		interceptorSynced:      interceptorInformer.Informer().HasSynced,
+		nodeLister:             nodeInformer.Lister(),
+		nodeSynced:             nodeInformer.Informer().HasSynced,
 
 		typePodIndex:     index.NewLogConfigTypePodIndex(),
 		typeClusterIndex: index.NewLogConfigTypeLoggieIndex(),

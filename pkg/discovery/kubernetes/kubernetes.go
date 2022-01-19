@@ -59,7 +59,6 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 
 	logConfInformerFactory := logconfigInformer.NewSharedInformerFactory(logConfigClient, 0)
 
-
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithTweakListOptions(func(lo *metav1.ListOptions) {
 		lo.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", d.config.NodeName).String()
 	}))
