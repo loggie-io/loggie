@@ -17,14 +17,20 @@ limitations under the License.
 package dev
 
 import (
+	"context"
 	"fmt"
+	"math/rand"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"golang.org/x/time/rate"
 )
 
 const Type = "dev"
+
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func init() {
 	pipeline.Register(api.SOURCE, Type, makeSource)
@@ -33,6 +39,7 @@ func init() {
 func makeSource(info pipeline.Info) api.Component {
 	return &Dev{
 		stop:      info.Stop,
+		config:    &Config{},
 		eventPool: info.EventPool,
 	}
 }
@@ -41,10 +48,13 @@ type Dev struct {
 	name      string
 	stop      bool
 	eventPool *event.Pool
+	config    *Config
+	limiter   *rate.Limiter
+	content   []byte
 }
 
 func (d *Dev) Config() interface{} {
-	return nil
+	return d.config
 }
 
 func (d *Dev) Category() api.Category {
@@ -64,7 +74,11 @@ func (d *Dev) Init(context api.Context) {
 }
 
 func (d *Dev) Start() {
-
+	d.limiter = rate.NewLimiter(rate.Limit(d.config.Qps), d.config.Qps)
+	d.content = make([]byte, d.config.ByteSize)
+	for i := range d.content {
+		d.content[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
 }
 
 func (d *Dev) Stop() {
@@ -76,16 +90,14 @@ func (d *Dev) Product() api.Event {
 }
 
 func (d *Dev) ProductLoop(productFunc api.ProductFunc) {
+	ctx := context.Background()
 	log.Info("%s start product loop", d.String())
-	// size: 579 bytes
-	content := []byte("sadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasjdfklsadjfklsdfjklsadlfjklajskdljasj")
-	//content := "888"
+	content := d.content
 	for !d.stop {
 		header := make(map[string]interface{})
-		header["offset"] = 888
-		header["topic"] = "log-test"
 		e := d.eventPool.Get()
 		e.Fill(e.Meta(), header, content)
+		d.limiter.Wait(ctx)
 		productFunc(e)
 	}
 }
