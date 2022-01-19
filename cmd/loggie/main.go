@@ -66,6 +66,7 @@ func main() {
 		log.Fatal("set maxprocs error: %v", err)
 	}
 	log.Info("real GOMAXPROCS %d", runtime.GOMAXPROCS(-1))
+	log.Info("node name is %s", nodeName)
 
 	// system config file
 	syscfg := sysconfig.Config{}

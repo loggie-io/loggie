@@ -27,6 +27,10 @@ type FakeLoggieV1beta1 struct {
 	*testing.Fake
 }
 
+func (c *FakeLoggieV1beta1) ClusterLogConfigs() v1beta1.ClusterLogConfigInterface {
+	return &FakeClusterLogConfigs{c}
+}
+
 func (c *FakeLoggieV1beta1) Interceptors() v1beta1.InterceptorInterface {
 	return &FakeInterceptors{c}
 }

@@ -25,6 +25,7 @@ import (
 
 type LoggieV1beta1Interface interface {
 	RESTClient() rest.Interface
+	ClusterLogConfigsGetter
 	InterceptorsGetter
 	LogConfigsGetter
 	SinksGetter
@@ -33,6 +34,10 @@ type LoggieV1beta1Interface interface {
 // LoggieV1beta1Client is used to interact with features provided by the loggie.io group.
 type LoggieV1beta1Client struct {
 	restClient rest.Interface
+}
+
+func (c *LoggieV1beta1Client) ClusterLogConfigs() ClusterLogConfigInterface {
+	return newClusterLogConfigs(c)
 }
 
 func (c *LoggieV1beta1Client) Interceptors() InterceptorInterface {

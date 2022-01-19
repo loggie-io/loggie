@@ -53,6 +53,8 @@ func MetaNamespaceKey(namespace string, name string) string {
 	return name
 }
 
+type FuncGetRelatedPod func()([]*corev1.Pod, error)
+
 func GetLogConfigRelatedPod(lgc *logconfigv1beta1.LogConfig, podsLister corev1listers.PodLister) ([]*corev1.Pod, error) {
 
 	labelSelector := lgc.Spec.Selector.PodSelector.LabelSelector
@@ -80,6 +82,25 @@ func GetPodRelatedLogConfigs(pod *corev1.Pod, lgcLister logconfigLister.LogConfi
 
 	ret := make([]*logconfigv1beta1.LogConfig, 0)
 	for _, lgc := range lgcList {
+		if lgc.Spec.Selector == nil || lgc.Spec.Selector.Type != logconfigv1beta1.SelectorTypePod {
+			continue
+		}
+
+		if LabelsSubset(lgc.Spec.Selector.LabelSelector, pod.Labels) {
+			ret = append(ret, lgc)
+		}
+	}
+	return ret, nil
+}
+
+func GetPodRelatedClusterLogConfigs(pod *corev1.Pod, clgcLister logconfigLister.ClusterLogConfigLister) ([]*logconfigv1beta1.ClusterLogConfig, error) {
+	clgcList, err := clgcLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*logconfigv1beta1.ClusterLogConfig, 0)
+	for _, lgc := range clgcList {
 		if lgc.Spec.Selector == nil || lgc.Spec.Selector.Type != logconfigv1beta1.SelectorTypePod {
 			continue
 		}

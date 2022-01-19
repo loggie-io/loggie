@@ -47,6 +47,7 @@ const (
 	EventPod     = "pod"
 	EventLogConf = "logConfig"
 	EventNode    = "node"
+	EventClusterLogConf = "clusterLogConfig"
 )
 
 // Element the item add to queue
@@ -67,6 +68,8 @@ type Controller struct {
 	podsSynced        cache.InformerSynced
 	logConfigLister   logconfigLister.LogConfigLister
 	logConfigSynced   cache.InformerSynced
+	clusterLogConfigLister logconfigLister.ClusterLogConfigLister
+	clusterLogConfigSynced cache.InformerSynced
 	sinkLister        logconfigLister.SinkLister
 	sinkSynced        cache.InformerSynced
 	interceptorLister logconfigLister.InterceptorLister
@@ -74,9 +77,9 @@ type Controller struct {
 	nodeLister        corev1Listers.NodeLister
 	nodeSynced        cache.InformerSynced
 
-	typePodIndex    *index.LogConfigTypePodIndex
-	typeLoggieIndex *index.LogConfigTypeLoggieIndex
-	typeNodeIndex   *index.LogConfigTypeNodeIndex
+	typePodIndex     *index.LogConfigTypePodIndex
+	typeClusterIndex *index.LogConfigTypeClusterIndex
+	typeNodeIndex    *index.LogConfigTypeNodeIndex
 
 	nodeLabels map[string]string
 
@@ -89,6 +92,7 @@ func NewController(
 	logConfigClientset logconfigClientset.Interface,
 	podInformer corev1Informers.PodInformer,
 	logConfigInformer logconfigInformers.LogConfigInformer,
+	clusterLogConfigInformer logconfigInformers.ClusterLogConfigInformer,
 	sinkInformer logconfigInformers.SinkInformer,
 	interceptorInformer logconfigInformers.InterceptorInformer,
 	nodeInformer corev1Informers.NodeInformer,
@@ -110,6 +114,8 @@ func NewController(
 		podsSynced:        podInformer.Informer().HasSynced,
 		logConfigLister:   logConfigInformer.Lister(),
 		logConfigSynced:   logConfigInformer.Informer().HasSynced,
+		clusterLogConfigLister: clusterLogConfigInformer.Lister(),
+		clusterLogConfigSynced: clusterLogConfigInformer.Informer().HasSynced,
 		sinkLister:        sinkInformer.Lister(),
 		sinkSynced:        sinkInformer.Informer().HasSynced,
 		interceptorLister: interceptorInformer.Lister(),
@@ -117,15 +123,62 @@ func NewController(
 		nodeLister:        nodeInformer.Lister(),
 		nodeSynced:        nodeInformer.Informer().HasSynced,
 
-		typePodIndex:    index.NewLogConfigTypePodIndex(),
-		typeLoggieIndex: index.NewLogConfigTypeLoggieIndex(),
-		typeNodeIndex:   index.NewLogConfigTypeNodeIndex(),
+		typePodIndex:     index.NewLogConfigTypePodIndex(),
+		typeClusterIndex: index.NewLogConfigTypeLoggieIndex(),
+		typeNodeIndex:    index.NewLogConfigTypeNodeIndex(),
 
 		record: recorder,
 	}
 
 	log.Info("Setting up event handlers")
 	utilruntime.Must(logconfigSchema.AddToScheme(scheme.Scheme))
+
+	clusterLogConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			config := obj.(*logconfigv1beta1.ClusterLogConfig)
+			if config.Spec.Selector == nil {
+				return
+			}
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+				return
+			}
+
+			controller.enqueue(obj, EventClusterLogConf, config.Spec.Selector.Type)
+		},
+		UpdateFunc: func(new, old interface{}) {
+			newConfig := new.(*logconfigv1beta1.ClusterLogConfig)
+			oldConfig := old.(*logconfigv1beta1.ClusterLogConfig)
+			if newConfig.ResourceVersion == oldConfig.ResourceVersion {
+				return
+			}
+			if newConfig.Generation == oldConfig.Generation {
+				return
+			}
+			if newConfig.Spec.Selector == nil {
+				return
+			}
+			if !controller.belongOfCluster(newConfig.Spec.Selector.Cluster) {
+				return
+			}
+
+			controller.enqueue(new, EventClusterLogConf, newConfig.Spec.Selector.Type)
+		},
+		DeleteFunc: func(obj interface{}) {
+			config, ok := obj.(*logconfigv1beta1.ClusterLogConfig)
+			if !ok {
+				return
+			}
+			if config.Spec.Selector == nil {
+				return
+			}
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+				return
+			}
+
+			controller.enqueueForDelete(obj, EventClusterLogConf, config.Spec.Selector.Type)
+		},
+	})
+
 	logConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			config := obj.(*logconfigv1beta1.LogConfig)
@@ -341,6 +394,11 @@ func (c *Controller) syncHandler(element Element) error {
 	case EventPod:
 		if err = c.reconcilePod(element.Key); err != nil {
 			log.Warn("reconcile pod %s err: %+v", element.Key, err)
+		}
+
+	case EventClusterLogConf:
+		if err = c.reconcileClusterLogConfig(element); err != nil {
+			log.Warn("reconcile logConfig %s err: %+v", element.Key, err)
 		}
 
 	case EventLogConf:

@@ -19,6 +19,7 @@ package kubernetes
 import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 	logconfigclientset "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
+
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/controller"
 	"k8s.io/apimachinery/pkg/fields"
 	kubeclientset "k8s.io/client-go/kubernetes"
@@ -58,6 +59,7 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 
 	logConfInformerFactory := logconfigInformer.NewSharedInformerFactory(logConfigClient, 0)
 
+
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithTweakListOptions(func(lo *metav1.ListOptions) {
 		lo.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", d.config.NodeName).String()
 	}))
@@ -67,7 +69,7 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 	}))
 
 	ctrl := controller.NewController(d.config, kubeClient, logConfigClient, kubeInformerFactory.Core().V1().Pods(),
-		logConfInformerFactory.Loggie().V1beta1().LogConfigs(), logConfInformerFactory.Loggie().V1beta1().Sinks(),
+		logConfInformerFactory.Loggie().V1beta1().LogConfigs(), logConfInformerFactory.Loggie().V1beta1().ClusterLogConfigs(), logConfInformerFactory.Loggie().V1beta1().Sinks(),
 		logConfInformerFactory.Loggie().V1beta1().Interceptors(), nodeInformerFactory.Core().V1().Nodes())
 
 	logConfInformerFactory.Start(stopCh)

@@ -26,7 +26,7 @@ CODEGEN_PKG=${CODEGEN_PKG:-$(cd "${SCRIPT_ROOT}"; ls -d -1 ./vendor/k8s.io/code-
 #                  k8s.io/kubernetes. The output-base is needed for the generators to output into the vendor dir
 #                  instead of the $GOPATH directly. For normal projects this can be dropped.
 bash "${CODEGEN_PKG}"/generate-groups.sh all \
-  loggie.io/loggie/pkg/discovery/kubernetes/client loggie.io/loggie/pkg/discovery/kubernetes/apis \
+  github.com/loggie-io/loggie/pkg/discovery/kubernetes/client github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis \
   loggie:v1beta1 \
-  --output-base "$(dirname "${BASH_SOURCE[0]}")/../../../../../.." \
+  --output-base "$(dirname "${BASH_SOURCE[0]}")/../../../../../../.." \
   --go-header-file "${SCRIPT_ROOT}"/pkg/discovery/kubernetes/hack/boilerplate.go.txt
