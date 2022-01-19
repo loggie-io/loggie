@@ -17,6 +17,10 @@ limitations under the License.
 
 package v1beta1
 
+// ClusterLogConfigListerExpansion allows custom methods to be added to
+// ClusterLogConfigLister.
+type ClusterLogConfigListerExpansion interface{}
+
 // InterceptorListerExpansion allows custom methods to be added to
 // InterceptorLister.
 type InterceptorListerExpansion interface{}

@@ -21,22 +21,22 @@ import (
 	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
-type LogConfigTypeLoggieIndex struct {
+type LogConfigTypeClusterIndex struct {
 	pipeConfigs map[string][]pipeline.ConfigRaw // key: logConfigNamespace/Name, value: pipeline configs
 }
 
-func NewLogConfigTypeLoggieIndex() *LogConfigTypeLoggieIndex {
-	return &LogConfigTypeLoggieIndex{
+func NewLogConfigTypeLoggieIndex() *LogConfigTypeClusterIndex {
+	return &LogConfigTypeClusterIndex{
 		pipeConfigs: make(map[string][]pipeline.ConfigRaw),
 	}
 }
 
-func (index *LogConfigTypeLoggieIndex) GetConfig(logConfigKey string) ([]pipeline.ConfigRaw, bool) {
+func (index *LogConfigTypeClusterIndex) GetConfig(logConfigKey string) ([]pipeline.ConfigRaw, bool) {
 	cfg, ok := index.pipeConfigs[logConfigKey]
 	return cfg, ok
 }
 
-func (index *LogConfigTypeLoggieIndex) DeleteConfig(logConfigKey string) bool {
+func (index *LogConfigTypeClusterIndex) DeleteConfig(logConfigKey string) bool {
 	_, ok := index.GetConfig(logConfigKey)
 	if !ok {
 		return false
@@ -45,11 +45,11 @@ func (index *LogConfigTypeLoggieIndex) DeleteConfig(logConfigKey string) bool {
 	return true
 }
 
-func (index *LogConfigTypeLoggieIndex) SetConfig(logConfigKey string, p []pipeline.ConfigRaw) {
+func (index *LogConfigTypeClusterIndex) SetConfig(logConfigKey string, p []pipeline.ConfigRaw) {
 	index.pipeConfigs[logConfigKey] = p
 }
 
-func (index *LogConfigTypeLoggieIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.ConfigRaw) error {
+func (index *LogConfigTypeClusterIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.ConfigRaw) error {
 	index.SetConfig(logConfigKey, p)
 	if err := index.GetAll().Validate(); err != nil {
 		index.DeleteConfig(logConfigKey)
@@ -58,7 +58,7 @@ func (index *LogConfigTypeLoggieIndex) ValidateAndSetConfig(logConfigKey string,
 	return nil
 }
 
-func (index *LogConfigTypeLoggieIndex) GetAll() *control.PipelineRawConfig {
+func (index *LogConfigTypeClusterIndex) GetAll() *control.PipelineRawConfig {
 	var cfgRaws []pipeline.ConfigRaw
 	for _, v := range index.pipeConfigs {
 		cfgRaws = append(cfgRaws, v...)

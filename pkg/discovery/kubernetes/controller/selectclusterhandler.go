@@ -23,7 +23,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (c *Controller) handleLogConfigTypeLoggie(lgc *logconfigv1beta1.LogConfig) error {
+func (c *Controller) handleLogConfigTypeCluster(lgc *logconfigv1beta1.LogConfig) error {
 
 	pipRaws, err := helper.ToPipeline(lgc, c.sinkLister, c.interceptorLister)
 	if err != nil {
@@ -40,11 +40,11 @@ func (c *Controller) handleLogConfigTypeLoggie(lgc *logconfigv1beta1.LogConfig) 
 	}
 
 	lgcKey := helper.MetaNamespaceKey(lgc.Namespace, lgc.Name)
-	if err := c.typeLoggieIndex.ValidateAndSetConfig(lgcKey, pipRaws.Pipelines); err != nil {
+	if err := c.typeClusterIndex.ValidateAndSetConfig(lgcKey, pipRaws.Pipelines); err != nil {
 		return err
 	}
 
-	if err = c.syncConfigToFile(logconfigv1beta1.SelectorTypeLoggie); err != nil {
+	if err = c.syncConfigToFile(logconfigv1beta1.SelectorTypeCluster); err != nil {
 		return errors.WithMessage(err, "failed to sync config to file")
 	}
 	log.Info("handle logConfig %s/%s addOrUpdate event and sync config file success", lgc.Namespace, lgc.Name)

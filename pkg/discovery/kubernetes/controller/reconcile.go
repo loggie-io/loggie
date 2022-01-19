@@ -38,8 +38,33 @@ const (
 	MessageSyncFailed  = "Sync type %s %v failed: %s"
 )
 
-func (c *Controller) reconcileLogConfig(element Element) error {
+func (c *Controller) reconcileClusterLogConfig(element Element) error {
+	_, name, err := cache.SplitMetaNamespaceKey(element.Key)
+	if err != nil {
+		runtime.HandleError(fmt.Errorf("invalid resource key: %s", element.Key))
+		return err
+	}
 
+	clusterLogConfig, err := c.clusterLogConfigLister.Get(name)
+	if kerrors.IsNotFound(err) {
+		return c.reconcileLogConfigDelete(element.Key, element.SelectorType)
+	} else if err != nil {
+		runtime.HandleError(fmt.Errorf("failed to get logconfig %s by lister", name))
+		return err
+	}
+
+	err, keys := c.reconcileLogConfigAddOrUpdate(clusterLogConfig.ToLogConfig())
+	if err != nil {
+		msg := fmt.Sprintf(MessageSyncFailed, clusterLogConfig.Spec.Selector.Type, keys, err.Error())
+		c.record.Event(clusterLogConfig, corev1.EventTypeWarning, ReasonFailed, msg)
+	} else if len(keys) != 0 {
+		msg := fmt.Sprintf(MessageSyncSuccess, clusterLogConfig.Spec.Selector.Type, keys)
+		c.record.Event(clusterLogConfig, corev1.EventTypeNormal, ReasonSuccess, msg)
+	}
+	return err
+}
+
+func (c *Controller) reconcileLogConfig(element Element) error {
 	namespace, name, err := cache.SplitMetaNamespaceKey(element.Key)
 	if err != nil {
 		runtime.HandleError(fmt.Errorf("invalid resource key: %s", element.Key))
@@ -51,7 +76,7 @@ func (c *Controller) reconcileLogConfig(element Element) error {
 	if kerrors.IsNotFound(err) {
 		return c.reconcileLogConfigDelete(element.Key, element.SelectorType)
 	} else if err != nil {
-		runtime.HandleError(fmt.Errorf("{crd: %s/%s} failed to get logconfig by lister", namespace, name))
+		runtime.HandleError(fmt.Errorf("[crd: %s/%s] failed to get logconfig by lister", namespace, name))
 		return err
 	}
 
@@ -81,9 +106,7 @@ func (c *Controller) reconcilePod(key string) error {
 		return err
 	}
 
-	err = c.reconcilePodAddOrUpdate(pod)
-
-	return err
+	return c.reconcilePodAddOrUpdate(pod)
 }
 
 func (c *Controller) reconcileNode(name string) error {
@@ -117,8 +140,8 @@ func (c *Controller) reconcileLogConfigAddOrUpdate(lgc *logconfigv1beta1.LogConf
 	case logconfigv1beta1.SelectorTypeNode:
 		err := c.handleLogConfigTypeNode(lgc)
 		return err, nil
-	case logconfigv1beta1.SelectorTypeLoggie:
-		err := c.handleLogConfigTypeLoggie(lgc)
+	case logconfigv1beta1.SelectorTypeCluster:
+		err := c.handleLogConfigTypeCluster(lgc)
 		return err, nil
 	default:
 		log.Warn("logConfig %s/%s selector type is not supported", lgc.Namespace, lgc.Name)
@@ -135,8 +158,8 @@ func (c *Controller) reconcileLogConfigDelete(key string, selectorType string) e
 			return nil
 		}
 
-	case logconfigv1beta1.SelectorTypeLoggie:
-		if ok := c.typeLoggieIndex.DeleteConfig(key); !ok {
+	case logconfigv1beta1.SelectorTypeCluster:
+		if ok := c.typeClusterIndex.DeleteConfig(key); !ok {
 			return nil
 		}
 
@@ -190,8 +213,8 @@ func (c *Controller) syncConfigToFile(selectorType string) error {
 	case logconfigv1beta1.SelectorTypePod:
 		cfgRaws = c.typePodIndex.GetAllGroupByLogConfig()
 
-	case logconfigv1beta1.SelectorTypeLoggie:
-		cfgRaws = c.typeLoggieIndex.GetAll()
+	case logconfigv1beta1.SelectorTypeCluster:
+		cfgRaws = c.typeClusterIndex.GetAll()
 		fileName = GenerateTypeLoggieConfigName
 
 	case logconfigv1beta1.SelectorTypeNode:
