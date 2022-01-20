@@ -82,7 +82,9 @@ func (s *Sink) Start() {
 }
 
 func (s *Sink) Stop() {
-	s.cli.Stop()
+	if s.cli != nil {
+		s.cli.Stop()
+	}
 }
 
 func (s *Sink) Consume(batch api.Batch) api.Result {
