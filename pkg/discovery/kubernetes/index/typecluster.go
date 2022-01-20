@@ -51,7 +51,7 @@ func (index *LogConfigTypeClusterIndex) SetConfig(logConfigKey string, p []pipel
 
 func (index *LogConfigTypeClusterIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.ConfigRaw) error {
 	index.SetConfig(logConfigKey, p)
-	if err := index.GetAll().Validate(); err != nil {
+	if err := index.GetAll().ValidateUniquePipeName(); err != nil {
 		index.DeleteConfig(logConfigKey)
 		return err
 	}
