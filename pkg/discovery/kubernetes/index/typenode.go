@@ -48,7 +48,7 @@ func (index *LogConfigTypeNodeIndex) SetConfig(logConfigKey string, p []pipeline
 
 func (index *LogConfigTypeNodeIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.ConfigRaw) error {
 	index.SetConfig(logConfigKey, p)
-	if err := index.GetAll().Validate(); err != nil {
+	if err := index.GetAll().ValidateUniquePipeName(); err != nil {
 		index.DeleteConfig(logConfigKey)
 		return err
 	}

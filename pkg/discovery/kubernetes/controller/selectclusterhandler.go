@@ -35,7 +35,7 @@ func (c *Controller) handleLogConfigTypeCluster(lgc *logconfigv1beta1.LogConfig)
 		return errors.WithMessage(err, "deep copy pipeline config error")
 	}
 	pipCopy.SetDefaults()
-	if err := pipCopy.ValidateDive(); err != nil {
+	if err := pipCopy.Validate(); err != nil {
 		return err
 	}
 

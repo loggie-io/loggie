@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"os"
 	"path/filepath"
 )
@@ -45,7 +46,7 @@ func (pr *PipelineRawConfig) SetDefaults() {
 	}
 }
 
-func (pr *PipelineRawConfig) Validate() error {
+func (pr *PipelineRawConfig) ValidateUniquePipeName() error {
 	unique := make(map[string]struct{})
 	for _, p := range pr.Pipelines {
 		if _, ok := unique[p.Name]; ok {
@@ -57,18 +58,44 @@ func (pr *PipelineRawConfig) Validate() error {
 	return nil
 }
 
-func (pr *PipelineRawConfig) ValidateDive() error {
-	err := pr.Validate()
-	if err != nil {
-		return err
-	}
+func (pr *PipelineRawConfig) Validate() error {
+	unique := make(map[string]struct{})
 	for _, p := range pr.Pipelines {
-		err = p.Validate()
+		if _, ok := unique[p.Name]; ok {
+			return errors.WithMessagef(ErrPipeNameUniq, "invalidate pipeline name %s", p.Name)
+		}
+		unique[p.Name] = struct{}{}
+
+		err := p.Validate()
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (pr *PipelineRawConfig) ValidateAndRemove() (*PipelineConfig, error) {
+	validPipes := &PipelineConfig{}
+
+	var errs []error
+	unique := make(map[string]struct{})
+	for _, p := range pr.Pipelines {
+		if _, ok := unique[p.Name]; ok {
+			errs = append(errs, errors.WithMessagef(ErrPipeNameUniq, "invalidate pipeline name %s", p.Name))
+			continue
+		}
+		unique[p.Name] = struct{}{}
+
+		pip, err := p.ValidateAndToConfig()
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		validPipes.Pipelines = append(validPipes.Pipelines, *pip)
+	}
+
+	return validPipes, utilerrors.NewAggregate(errs)
 }
 
 func (pr *PipelineRawConfig) DeepCopy() (dest *PipelineRawConfig, err error) {
@@ -96,15 +123,6 @@ func (pr *PipelineRawConfig) ToConfig() (*PipelineConfig, error) {
 	}
 
 	return ret, nil
-}
-
-func (c *PipelineConfig) Validate() error {
-	for _, pConfig := range c.Pipelines {
-		if err := pConfig.Validate(); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (c *PipelineConfig) AddPipelines(cfg []pipeline.Config) {
@@ -153,28 +171,23 @@ func ReadPipelineConfig(path string, ignore FileIgnore) (*PipelineConfig, error)
 			return nil, err
 		}
 
-		pipes, err := defaultsAndValidate(content)
+		pipes, err := defaultsValidateAndRemove(content)
 		if err != nil {
-			return nil, errors.WithMessagef(err, "\ninvalidate pipeline configs:\n%s\n", content)
+			// ignore invalid pipeline
+			log.Info("invalidate pipeline configs: %v, \n%s", err, content)
 		}
 		pipecfgs.AddPipelines(pipes.Pipelines)
 	}
 	return pipecfgs, nil
 }
 
-func defaultsAndValidate(content []byte) (*PipelineConfig, error) {
+// set defaults, validate pipelines, and remove invalid pipeline configs, so the invalid pipeline wouldn't start
+func defaultsValidateAndRemove(content []byte) (*PipelineConfig, error) {
 	pipraw := PipelineRawConfig{}
-	err := cfg.UnpackRawDefaultsAndValidate(content, &pipraw)
+	err := cfg.UnpackRawAndDefaults(content, &pipraw)
 	if err != nil {
 		return nil, err
 	}
-	pipc, err := pipraw.ToConfig()
-	if err != nil {
-		return nil, err
-	}
-	err = pipc.Validate()
-	if err != nil {
-		return nil, err
-	}
-	return pipc, nil
+
+	return pipraw.ValidateAndRemove()
 }

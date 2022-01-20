@@ -137,6 +137,18 @@ func (cr *ConfigRaw) Validate() error {
 	return c.Validate()
 }
 
+func (cr *ConfigRaw) ValidateAndToConfig() (*Config, error) {
+	c, err := cr.ToConfig()
+	if err != nil {
+		return nil, err
+	}
+	err = c.Validate()
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 func (c *Config) Validate() error {
 	return NewPipeline().validate(c)
 }
