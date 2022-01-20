@@ -109,19 +109,24 @@ func (k *KubeEvent) Stop() {
 func (k *KubeEvent) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", k.String())
 
-	for obj := range k.event {
-		jsonBytes, err := json.Marshal(obj)
-		if err != nil {
-			log.Warn("json parse error: %s", err.Error())
+	for {
+		select {
+		case <-k.stop:
 			return
+
+		case obj := <-k.event:
+			jsonBytes, err := json.Marshal(obj)
+			if err != nil {
+				log.Warn("json parse error: %s", err.Error())
+				return
+			}
+
+			e := k.eventPool.Get()
+			e.Fill(e.Meta(), e.Header(), jsonBytes)
+
+			productFunc(e)
 		}
-
-		e := k.eventPool.Get()
-		e.Fill(e.Meta(), e.Header(), jsonBytes)
-
-		productFunc(e)
 	}
-
 }
 
 func (k *KubeEvent) Commit(events []api.Event) {
