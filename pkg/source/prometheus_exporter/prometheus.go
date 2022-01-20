@@ -160,8 +160,8 @@ func promToJson(in io.Reader) ([]byte, error) {
 		return nil, errors.WithMessage(err, "reading text format failed")
 	}
 
-	family := make(map[string]*prom2json.Family)
-	for name, val := range metricFamilies {
+	family := make([]*prom2json.Family, 0)
+	for _, val := range metricFamilies {
 		// add timestamp in metrics
 		for _, m := range val.Metric {
 			timeMs := util.UnixMilli(time.Now())
@@ -169,7 +169,7 @@ func promToJson(in io.Reader) ([]byte, error) {
 		}
 
 		f := prom2json.NewFamily(val)
-		family[name] = f
+		family = append(family, f)
 	}
 	out, err := json.Marshal(family)
 	if err != nil {
