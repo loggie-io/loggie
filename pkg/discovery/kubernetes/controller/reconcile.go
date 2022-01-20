@@ -47,13 +47,13 @@ func (c *Controller) reconcileClusterLogConfig(element Element) error {
 
 	clusterLogConfig, err := c.clusterLogConfigLister.Get(name)
 	if kerrors.IsNotFound(err) {
-		return c.reconcileLogConfigDelete(element.Key, element.SelectorType)
+		return c.reconcileClusterLogConfigDelete(element.Key, element.SelectorType)
 	} else if err != nil {
 		runtime.HandleError(fmt.Errorf("failed to get logconfig %s by lister", name))
 		return err
 	}
 
-	err, keys := c.reconcileLogConfigAddOrUpdate(clusterLogConfig.ToLogConfig())
+	err, keys := c.reconcileClusterLogConfigAddOrUpdate(clusterLogConfig)
 	if err != nil {
 		msg := fmt.Sprintf(MessageSyncFailed, clusterLogConfig.Spec.Selector.Type, keys, err.Error())
 		c.record.Event(clusterLogConfig, corev1.EventTypeWarning, ReasonFailed, msg)
@@ -126,6 +126,16 @@ func (c *Controller) reconcileNode(name string) error {
 	return nil
 }
 
+func (c *Controller) reconcileClusterLogConfigAddOrUpdate(clgc *logconfigv1beta1.ClusterLogConfig) (err error, keys []string) {
+	log.Info("clusterLogConfig: %s add or update event received", clgc.Name)
+
+	if err := clgc.Validate(); err != nil {
+		return err, nil
+	}
+
+	return c.handleAllTypesAddOrUpdate(clgc.ToLogConfig())
+}
+
 func (c *Controller) reconcileLogConfigAddOrUpdate(lgc *logconfigv1beta1.LogConfig) (err error, keys []string) {
 	log.Info("logConfig: %s/%s add or update event received", lgc.Namespace, lgc.Name)
 
@@ -133,6 +143,10 @@ func (c *Controller) reconcileLogConfigAddOrUpdate(lgc *logconfigv1beta1.LogConf
 		return err, nil
 	}
 
+	return c.handleAllTypesAddOrUpdate(lgc)
+}
+
+func (c *Controller) handleAllTypesAddOrUpdate(lgc *logconfigv1beta1.LogConfig) (err error, keys []string) {
 	switch lgc.Spec.Selector.Type {
 	case logconfigv1beta1.SelectorTypePod:
 		return c.handleLogConfigTypePodAddOrUpdate(lgc)
@@ -149,9 +163,17 @@ func (c *Controller) reconcileLogConfigAddOrUpdate(lgc *logconfigv1beta1.LogConf
 	}
 }
 
+func (c *Controller) reconcileClusterLogConfigDelete(key string, selectorType string) error {
+	log.Info("clusterLogConfig: %s delete event received", key)
+	return c.handleAllTypesDelete(key, selectorType)
+}
+
 func (c *Controller) reconcileLogConfigDelete(key string, selectorType string) error {
 	log.Info("logConfig: %s delete event received", key)
+	return c.handleAllTypesDelete(key, selectorType)
+}
 
+func (c *Controller) handleAllTypesDelete(key string, selectorType string) error {
 	switch selectorType {
 	case logconfigv1beta1.SelectorTypePod:
 		if ok := c.typePodIndex.DeletePipeConfigsByLogConfigKey(key); !ok {
