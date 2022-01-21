@@ -18,14 +18,12 @@ package dev
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/source/abstract"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"loggie.io/loggie/pkg/core/source/abstract"
 	"golang.org/x/time/rate"
 )
 
@@ -41,57 +39,28 @@ func makeSource(info pipeline.Info) abstract.SourceConvert {
 	return &Dev{
 		Source: abstract.ExtendsAbstractSource(info, Type),
 		stop:   info.Stop,
-		stop:      info.Stop,
-		config:    &Config{},
-		eventPool: info.EventPool,
+		config: &Config{},
 	}
 }
 
 type Dev struct {
 	*abstract.Source
-	stop bool
-	name      string
-	stop      bool
-	eventPool *event.Pool
-	config    *Config
-	limiter   *rate.Limiter
-	content   []byte
+	stop    bool
+	config  *Config
+	limiter *rate.Limiter
+	content []byte
 }
 
 func (d *Dev) Config() interface{} {
 	return d.config
 }
 
-func (d *Dev) Category() api.Category {
-	return api.SOURCE
-}
-
-func (d *Dev) Type() api.Type {
-	return Type
-}
-
-func (d *Dev) String() string {
-	return fmt.Sprintf("%s/%s", api.SOURCE, Type)
-}
-
-func (d *Dev) Init(context api.Context) {
-	d.name = context.Name()
-}
-
-func (d *Dev) Start() {
+func (d *Dev) DoStart() {
 	d.limiter = rate.NewLimiter(rate.Limit(d.config.Qps), d.config.Qps)
 	d.content = make([]byte, d.config.ByteSize)
 	for i := range d.content {
 		d.content[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
-}
-
-func (d *Dev) Stop() {
-
-}
-
-func (d *Dev) Product() api.Event {
-	return nil
 }
 
 func (d *Dev) ProductLoop(productFunc api.ProductFunc) {
@@ -100,13 +69,9 @@ func (d *Dev) ProductLoop(productFunc api.ProductFunc) {
 	content := d.content
 	for !d.stop {
 		header := make(map[string]interface{})
-		e := d.eventPool.Get()
+		e := d.Event()
 		e.Fill(e.Meta(), header, content)
 		d.limiter.Wait(ctx)
 		productFunc(e)
 	}
-}
-
-func (d *Dev) DoStart(context api.Context) {
-	log.Info("%s override start!", d.String())
 }

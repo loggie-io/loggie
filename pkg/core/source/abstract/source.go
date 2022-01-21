@@ -2,10 +2,10 @@ package abstract
 
 import (
 	"fmt"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/event"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
 type Source struct {
@@ -18,7 +18,7 @@ type Source struct {
 
 	EventProvider func() api.Event
 
-	startFunc  func(context api.Context)
+	startFunc  func()
 	stopFunc   func()
 	commitFunc func(events []api.Event)
 }
@@ -83,7 +83,7 @@ func (as *Source) Init(context api.Context) {
 func (as *Source) Start() {
 	log.Info("start source: %s", as.String())
 	if as.startFunc != nil {
-		as.startFunc(as.context)
+		as.startFunc()
 	}
 	log.Info("source has started: %s", as.String())
 }
@@ -120,7 +120,7 @@ func (as *Source) Config() interface{} {
 func (as *Source) ProductLoop(productFunc api.ProductFunc) {
 }
 
-func (as *Source) DoStart(context api.Context) {
+func (as *Source) DoStart() {
 
 }
 
@@ -145,7 +145,7 @@ type SourceConvert interface {
 	api.Component
 	AbstractSource() *Source
 
-	DoStart(context api.Context)
+	DoStart()
 	DoStop()
 	DoCommit(events []api.Event)
 }

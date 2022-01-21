@@ -17,15 +17,10 @@ limitations under the License.
 package file
 
 import (
-	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/source/abstract"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/core/source/abstract"
-	"loggie.io/loggie/pkg/pipeline"
 	"time"
 )
 
@@ -63,7 +58,7 @@ type Source struct {
 //  override methods
 // ------------------------------------------------------------------------
 
-func (s *Source) DoStart(context api.Context) {
+func (s *Source) DoStart() {
 	s.ackEnable = s.config.AckConfig.Enable
 	// init default multi agg timeout
 	mutiTimeout := s.config.ReaderConfig.MultiConfig.Timeout
@@ -137,12 +132,8 @@ func (s *Source) DoCommit(events []api.Event) {
 	}
 }
 
-func (s *Source) Product() api.Event {
-	return <-s.out
-}
-
 func (s *Source) ProductLoop(productFunc api.ProductFunc) {
-	log.Info("%s start product loop", s.String())
+	log.Info("[%s] start product loop", s.String())
 	s.productFunc = productFunc
 	if s.config.ReaderConfig.MultiConfig.Active {
 		s.mTask = NewMultiTask(s.Epoch(), s.Name(), s.config.ReaderConfig.MultiConfig, s.PipelineInfo().EventPool, s.productFunc)
@@ -155,8 +146,7 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 		})
 		s.ackChainHandler.StartTask(s.ackTask)
 	}
-	s.watchTask = NewWatchTask(s.Epoch(), s.PipelineName(), s.Name(), s.config.CollectConfig, s.PipelineInfo().EventPool, s.productFunc, s.r.jobChan)
-	s.watchTask = NewWatchTask(s.epoch, s.pipelineName, s.name, s.config.CollectConfig, s.eventPool, s.productFunc, s.r.jobChan, s.config.Fields)
+	s.watchTask = NewWatchTask(s.Epoch(), s.PipelineName(), s.Name(), s.config.CollectConfig, s.PipelineInfo().EventPool, s.productFunc, s.r.jobChan, s.config.Fields)
 	// start watch source paths
 	s.watcher.StartWatchTask(s.watchTask)
 }
