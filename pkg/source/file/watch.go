@@ -19,9 +19,9 @@ package file
 import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/eventbus"
-	"loggie.io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/util"
 	"os"
 	"path/filepath"
 	"sync"
@@ -211,6 +211,7 @@ func (w *Watcher) reportMetric(job *Job) {
 		LineNumber: job.currentLineNumber,
 		Lines:      job.currentLines,
 		//FileSize:   fileSize,
+		SourceFields: job.task.sourceFields,
 	}
 	eventbus.PublishOrDrop(eventbus.FileSourceMetricTopic, collectMetricData)
 }
@@ -238,6 +239,9 @@ func (w *Watcher) eventBus(e jobEvent) {
 	case WRITE:
 		// only care about zombie job write event
 		watchJobId := job.WatchUid()
+		if existJob, ok := w.allJobs[watchJobId]; ok && existJob.status == JobStop {
+			return
+		}
 		if job, ok := w.zombieJobs[watchJobId]; ok {
 			err, fdOpen := job.Active()
 			if fdOpen {
@@ -497,7 +501,7 @@ func (w *Watcher) scanActiveJob() {
 //  4. truncated file
 func (w *Watcher) scanZombieJob() {
 	for _, job := range w.zombieJobs {
-		if job.IsDelete() {
+		if job.IsDelete() || job.status == JobStop {
 			w.finalizeJob(job)
 			continue
 		}
@@ -505,10 +509,6 @@ func (w *Watcher) scanZombieJob() {
 		var stat os.FileInfo
 		var err error
 		if job.file == nil {
-			if job.status == JobStop {
-				w.finalizeJob(job)
-				continue
-			}
 			// check remove
 			stat, err = os.Stat(filename)
 			if err != nil {
@@ -550,16 +550,6 @@ func (w *Watcher) scanZombieJob() {
 				}
 			}
 		} else {
-			if job.status == JobStop {
-				if job.Release() {
-					w.currentOpenFds--
-				}
-				if job.IsRename() {
-					w.handleRenameJobs(job)
-				}
-				// waiting for next round process,because rename or remove decide
-				continue
-			}
 			// release fd
 			if time.Since(job.lastActiveTime) > w.config.FdHoldTimeoutWhenInactive {
 				if job.Release() {
@@ -638,38 +628,9 @@ func (w *Watcher) run() {
 		case <-w.done:
 			return
 		case watchTask := <-w.watchTaskChan:
-			key := watchTask.WatchTaskKey()
-			if watchTask.watchTaskType == START {
-				w.sourceWatchTasks[key] = watchTask
-				w.cleanWatchTaskRegistry(watchTask)
-			} else if watchTask.watchTaskType == STOP {
-				log.Info("try to stop watch task: %s", watchTask.String())
-				delete(w.sourceWatchTasks, key)
-				// Delete the jobs of the corresponding source
-				waitForStopJobs := make(map[string]*Job)
-				for _, job := range w.allJobs {
-					if watchTask.isParentOf(job) {
-						job.Stop()
-					}
-					if w.isZombieJob(job) {
-						w.finalizeJob(job)
-						continue
-					}
-					waitForStopJobs[job.WatchUid()] = job
-				}
-				if len(waitForStopJobs) > 0 {
-					watchTask.waiteForStopJobs = waitForStopJobs
-					w.waiteForStopWatchTasks[watchTask.WatchTaskKey()] = watchTask
-				} else {
-					watchTask.countDown.Done()
-				}
-			}
+			w.handleWatchTaskEvent(watchTask)
 		case job := <-w.zombieJobChan:
-			watchJobId := job.WatchUid()
-			if !w.isZombieJob(job) {
-				w.zombieJobs[watchJobId] = job
-				w.addOsNotify(job.filename)
-			}
+			w.decideZombieJob(job)
 		case e := <-osEvents:
 			//log.Info("os event: %v", e)
 			w.osNotify(e)
@@ -678,6 +639,47 @@ func (w *Watcher) run() {
 		case <-maintenanceTicker.C:
 			w.maintenance()
 		}
+	}
+}
+
+func (w *Watcher) handleWatchTaskEvent(watchTask *WatchTask) {
+	key := watchTask.WatchTaskKey()
+	if watchTask.watchTaskType == START {
+		w.sourceWatchTasks[key] = watchTask
+		w.cleanWatchTaskRegistry(watchTask)
+	} else if watchTask.watchTaskType == STOP {
+		log.Info("try to stop watch task: %s", watchTask.String())
+		delete(w.sourceWatchTasks, key)
+		// Delete the jobs of the corresponding source
+		waitForStopJobs := make(map[string]*Job)
+		for _, job := range w.allJobs {
+			if watchTask.isParentOf(job) {
+				job.Stop()
+			}
+			if w.isZombieJob(job) {
+				w.finalizeJob(job)
+				continue
+			}
+			waitForStopJobs[job.WatchUid()] = job
+		}
+		if len(waitForStopJobs) > 0 {
+			watchTask.waiteForStopJobs = waitForStopJobs
+			w.waiteForStopWatchTasks[watchTask.WatchTaskKey()] = watchTask
+		} else {
+			watchTask.countDown.Done()
+		}
+	}
+}
+
+func (w *Watcher) decideZombieJob(job *Job) {
+	watchJobId := job.WatchUid()
+	if existJob, ok := w.allJobs[watchJobId]; ok && existJob.status == JobStop {
+		w.finalizeJob(job)
+		return
+	}
+	if !w.isZombieJob(job) {
+		w.zombieJobs[watchJobId] = job
+		w.addOsNotify(job.filename)
 	}
 }
 
@@ -829,6 +831,7 @@ func (w *Watcher) reportWatchMetricAndCleanFiles() {
 			FileInfos:       fileInfos,
 			TotalFileCount:  activeCount,
 			InactiveFdCount: inActiveFdCount,
+			SourceFields:    watchTask.sourceFields,
 		}
 		eventbus.Publish(eventbus.FileWatcherTopic, watchMetricData)
 

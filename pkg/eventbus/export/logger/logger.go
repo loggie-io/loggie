@@ -18,7 +18,7 @@ package logger
 
 import (
 	"encoding/json"
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"time"
 )
 

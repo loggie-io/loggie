@@ -17,10 +17,10 @@ limitations under the License.
 package file
 
 import (
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/event"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 	"os"
 	"regexp"
 	"strings"
@@ -47,10 +47,11 @@ type WatchTask struct {
 	countDown        *sync.WaitGroup
 	waiteForStopJobs map[string]*Job
 	stopTime         time.Time
+	sourceFields     map[string]interface{}
 }
 
 func NewWatchTask(epoch pipeline.Epoch, pipelineName string, sourceName string, config CollectConfig,
-	eventPool *event.Pool, productFunc api.ProductFunc, activeChan chan *Job) *WatchTask {
+	eventPool *event.Pool, productFunc api.ProductFunc, activeChan chan *Job, sourceFields map[string]interface{}) *WatchTask {
 	w := &WatchTask{
 		epoch:        epoch,
 		pipelineName: pipelineName,
@@ -60,6 +61,7 @@ func NewWatchTask(epoch pipeline.Epoch, pipelineName string, sourceName string, 
 		productFunc:  productFunc,
 		activeChan:   activeChan,
 		countDown:    &sync.WaitGroup{},
+		sourceFields: sourceFields,
 	}
 	// init excludeFilePatterns
 	l := len(w.config.ExcludeFiles)

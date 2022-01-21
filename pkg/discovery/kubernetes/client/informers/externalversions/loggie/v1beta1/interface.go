@@ -18,11 +18,13 @@ limitations under the License.
 package v1beta1
 
 import (
-	internalinterfaces "loggie.io/loggie/pkg/discovery/kubernetes/client/informers/externalversions/internalinterfaces"
+	internalinterfaces "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/informers/externalversions/internalinterfaces"
 )
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
+	// ClusterLogConfigs returns a ClusterLogConfigInformer.
+	ClusterLogConfigs() ClusterLogConfigInformer
 	// Interceptors returns a InterceptorInformer.
 	Interceptors() InterceptorInformer
 	// LogConfigs returns a LogConfigInformer.
@@ -40,6 +42,11 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
+}
+
+// ClusterLogConfigs returns a ClusterLogConfigInformer.
+func (v *version) ClusterLogConfigs() ClusterLogConfigInformer {
+	return &clusterLogConfigInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // Interceptors returns a InterceptorInformer.

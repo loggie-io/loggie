@@ -53,6 +53,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		SchemeGroupVersion,
 		&LogConfig{},
 		&LogConfigList{},
+		&ClusterLogConfig{},
+		&ClusterLogConfigList{},
 		&Sink{},
 		&SinkList{},
 		&Interceptor{},

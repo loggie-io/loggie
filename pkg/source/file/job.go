@@ -19,9 +19,9 @@ package file
 import (
 	"crypto/md5"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/util"
 	"io"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/util"
 	"os"
 	"strconv"
 	"strings"
@@ -214,8 +214,7 @@ func (j *Job) Active() (error, bool) {
 			}
 		}
 	}
-	j.status = JobActive
-	j.aStatus.Store(JobActive)
+	j.ChangeStatusTo(JobActive)
 	j.eofCount = 0
 	j.lastActiveTime = time.Now()
 	return nil, fdOpen

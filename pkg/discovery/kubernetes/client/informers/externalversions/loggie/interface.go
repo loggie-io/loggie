@@ -18,8 +18,8 @@ limitations under the License.
 package loggie
 
 import (
-	internalinterfaces "loggie.io/loggie/pkg/discovery/kubernetes/client/informers/externalversions/internalinterfaces"
-	v1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/client/informers/externalversions/loggie/v1beta1"
+	internalinterfaces "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/informers/externalversions/internalinterfaces"
+	v1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/informers/externalversions/loggie/v1beta1"
 )
 
 // Interface provides access to each of this group's versions.

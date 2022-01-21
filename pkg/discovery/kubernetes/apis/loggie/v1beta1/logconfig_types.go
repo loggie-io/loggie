@@ -22,10 +22,6 @@ import (
 )
 
 const (
-	SelectorTypePod    = "pod"
-	SelectorTypeNode   = "node"
-	SelectorTypeLoggie = "loggie"
-
 	PathStdout = "stdout"
 )
 
@@ -36,45 +32,8 @@ type LogConfig struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   LogConfigSpec   `json:"spec"`
-	Status LogConfigStatus `json:"status"`
-}
-
-type LogConfigSpec struct {
-	Selector *Selector `json:"selector,omitempty"`
-	Pipeline *Pipeline `json:"pipeline,omitempty"`
-}
-
-type Selector struct {
-	Cluster      string `json:"cluster,omitempty"`
-	Type         string `json:"type,omitempty"`
-	PodSelector  `json:",inline"`
-	NodeSelector `json:",inline"`
-}
-
-type PodSelector struct {
-	LabelSelector map[string]string `json:"labelSelector,omitempty"`
-}
-
-type NodeSelector struct {
-	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
-}
-
-type Pipeline struct {
-	Name           string `json:"name,omitempty"`
-	Sources        string `json:"sources,omitempty"`
-	SinkRef        string `json:"sinkRef,omitempty"`
-	InterceptorRef string `json:"interceptorRef,omitempty"`
-}
-
-type LogConfigStatus struct {
-	Message Message `json:"message,omitempty"`
-}
-
-type Message struct {
-	Reason             string `json:"reason,omitempty"`
-	LastTransitionTime string `json:"lastTransitionTime,omitempty"`
-	ObservedGeneration int64  `json:"observedGeneration,omitempty"`
+	Spec   Spec   `json:"spec"`
+	Status Status `json:"status"`
 }
 
 func (in *LogConfig) Validate() error {
@@ -86,16 +45,12 @@ func (in *LogConfig) Validate() error {
 	}
 
 	tp := in.Spec.Selector.Type
-	if tp != SelectorTypePod && tp != SelectorTypeNode && tp != SelectorTypeLoggie {
-		return errors.New("spec.selector.type is invalidate")
+	if tp != SelectorTypePod {
+		return errors.New("only selector.type:pod is supported in LogConfig")
 	}
 
 	if tp == SelectorTypePod && len(in.Spec.Selector.LabelSelector) == 0 {
 		return errors.New("selector.labelSelector is required when selector.type=pod")
-	}
-
-	if tp == SelectorTypeLoggie && in.Spec.Selector.Cluster == "" {
-		return errors.New("selector.cluster is required when selector.type=loggie")
 	}
 
 	if in.Spec.Pipeline.Sources == "" {

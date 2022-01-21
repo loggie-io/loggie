@@ -19,20 +19,20 @@ package controller
 import (
 	"fmt"
 	"github.com/google/go-cmp/cmp"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/source"
+	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/index"
+	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/source/file"
+	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"loggie.io/loggie/pkg/core/cfg"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/core/source"
-	logconfigv1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
-	"loggie.io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
-	"loggie.io/loggie/pkg/discovery/kubernetes/helper"
-	"loggie.io/loggie/pkg/discovery/kubernetes/index"
-	"loggie.io/loggie/pkg/pipeline"
-	"loggie.io/loggie/pkg/source/file"
-	"loggie.io/loggie/pkg/util"
 	"strings"
 )
 
@@ -119,10 +119,18 @@ func (c *Controller) handlePodAddOrUpdate(pod *corev1.Pod) error {
 		return nil
 	}
 
-	// find pod related logConfigs
+	c.handlePodAddOrUpdateOfLogConfig(pod)
+
+	c.handlePodAddOrUpdateOfClusterLogConfig(pod)
+
+	return nil
+}
+
+func (c *Controller) handlePodAddOrUpdateOfLogConfig(pod *corev1.Pod) {
+	// label selected logConfigs
 	lgcList, err := helper.GetPodRelatedLogConfigs(pod, c.logConfigLister)
 	if err != nil || len(lgcList) == 0 {
-		return nil
+		return
 	}
 
 	for _, lgc := range lgcList {
@@ -138,14 +146,40 @@ func (c *Controller) handlePodAddOrUpdate(pod *corev1.Pod) error {
 		if err := c.handleLogConfigPerPod(lgc, pod); err != nil {
 			msg := fmt.Sprintf(MessageSyncFailed, lgc.Spec.Selector.Type, pod.Name, err.Error())
 			c.record.Event(lgc, corev1.EventTypeWarning, ReasonFailed, msg)
-			return err
+			return
 		}
 		log.Info("handle pod %s/%s addOrUpdate event and sync config file success, related logConfig is %s", pod.Namespace, pod.Name, lgc.Name)
 		msg := fmt.Sprintf(MessageSyncSuccess, lgc.Spec.Selector.Type, pod.Name)
 		c.record.Event(lgc, corev1.EventTypeNormal, ReasonSuccess, msg)
 	}
+}
 
-	return nil
+func (c *Controller) handlePodAddOrUpdateOfClusterLogConfig(pod *corev1.Pod) {
+	// label selected clusterLogConfigs
+	clgcList, err := helper.GetPodRelatedClusterLogConfigs(pod, c.clusterLogConfigLister)
+	if err != nil || len(clgcList) == 0 {
+		return
+	}
+
+	for _, clgc := range clgcList {
+
+		if !c.belongOfCluster(clgc.Spec.Selector.Cluster) {
+			continue
+		}
+
+		if err := clgc.Validate(); err != nil {
+			continue
+		}
+
+		if err := c.handleLogConfigPerPod(clgc.ToLogConfig(), pod); err != nil {
+			msg := fmt.Sprintf(MessageSyncFailed, clgc.Spec.Selector.Type, pod.Name, err.Error())
+			c.record.Event(clgc, corev1.EventTypeWarning, ReasonFailed, msg)
+			return
+		}
+		log.Info("handle pod %s/%s addOrUpdate event and sync config file success, related clusterLogConfig is %s", pod.Namespace, pod.Name, clgc.Name)
+		msg := fmt.Sprintf(MessageSyncSuccess, clgc.Spec.Selector.Type, pod.Name)
+		c.record.Event(clgc, corev1.EventTypeNormal, ReasonSuccess, msg)
+	}
 }
 
 func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod) error {
@@ -170,7 +204,7 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 	}
 
 	// get pod related pipeline configs from index
-	cfgsInIndex := c.typePodIndex.GetPipeConfigs(pod.Namespace, pod.Name, lgc.Name)
+	cfgsInIndex := c.typePodIndex.GetPipeConfigs(pod.Namespace, pod.Name, lgc.Namespace, lgc.Name)
 
 	// compare and check if we should update
 	// FIXME Array order may causes inequality
@@ -179,7 +213,7 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 	}
 
 	// update index
-	if err := c.typePodIndex.ValidateAndSetConfigs(pod.Namespace, pod.Name, lgc.Name, pipeRaw); err != nil {
+	if err := c.typePodIndex.ValidateAndSetConfigs(pod.Namespace, pod.Name, lgc.Namespace, lgc.Name, pipeRaw); err != nil {
 		return err
 	}
 
@@ -394,7 +428,11 @@ func injectFields(config *Config, match *matchFields, src *source.Config, pod *c
 func toPipeConfig(lgcNamespace string, lgcName string, lgcPipe *logconfigv1beta1.Pipeline, filesources []fileSource, sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.ConfigRaw, error) {
 	pipecfg := &pipeline.ConfigRaw{}
 
-	pipecfg.Name = fmt.Sprintf("%s/%s", lgcNamespace, lgcName)
+	if lgcNamespace == "" {
+		pipecfg.Name = lgcName
+	} else {
+		pipecfg.Name = fmt.Sprintf("%s/%s", lgcNamespace, lgcName)
+	}
 
 	src, err := toPipelineSource(filesources)
 	if err != nil {

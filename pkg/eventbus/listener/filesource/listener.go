@@ -18,12 +18,12 @@ package filesource
 
 import (
 	"encoding/json"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/eventbus/export/logger"
+	promeExporter "github.com/loggie-io/loggie/pkg/eventbus/export/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/eventbus"
-	"loggie.io/loggie/pkg/eventbus/export/logger"
-	promeExporter "loggie.io/loggie/pkg/eventbus/export/prometheus"
 	"os"
 	"strings"
 	"time"
@@ -44,7 +44,8 @@ func makeListener() *Listener {
 }
 
 type Config struct {
-	Period time.Duration `yaml:"period" default:"10s"`
+	Period    time.Duration `yaml:"period" default:"10s"`
+	FieldsRef []string      `yaml:"fieldsRef"`
 }
 
 type Listener struct {
@@ -55,8 +56,9 @@ type Listener struct {
 }
 
 type data struct {
-	PipelineName string `json:"pipeline"`
-	SourceName   string `json:"source"`
+	PipelineName string                 `json:"pipeline"`
+	SourceName   string                 `json:"source"`
+	SourceFields map[string]interface{} `json:"sourceFields,omitempty"`
 
 	FileHarvester map[string]*fileHarvester `json:"harvester,omitempty"` // key=fileName
 }
@@ -101,44 +103,44 @@ func (l *Listener) exportPrometheus() {
 	m := promeExporter.ExportedMetrics{}
 	const FileNameKey = "filename"
 	for _, d := range l.data {
+		labels := prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName}
+		eventbus.InjectFields(labels, d.SourceFields)
+
 		for _, harvester := range d.FileHarvester {
+			labels[FileNameKey] = harvester.FileName
 			m1 := promeExporter.ExportedMetrics{
 				{
 					Desc: prometheus.NewDesc(
-						prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileSourceMetricTopic, "file_size"),
+						buildFQName("file_size"),
 						"file size",
-						nil, prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName,
-							FileNameKey: harvester.FileName},
+						nil, labels,
 					),
 					Eval:    float64(harvester.FileSize),
 					ValType: prometheus.GaugeValue,
 				},
 				{
 					Desc: prometheus.NewDesc(
-						prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileSourceMetricTopic, "file_offset"),
+						buildFQName("file_offset"),
 						"file offset",
-						nil, prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName,
-							FileNameKey: harvester.FileName},
+						nil, labels,
 					),
 					Eval:    float64(harvester.Offset),
 					ValType: prometheus.GaugeValue,
 				},
 				{
 					Desc: prometheus.NewDesc(
-						prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileSourceMetricTopic, "line_number"),
+						buildFQName("line_number"),
 						"current read line number",
-						nil, prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName,
-							FileNameKey: harvester.FileName},
+						nil, labels,
 					),
 					Eval:    float64(harvester.LineNumber),
 					ValType: prometheus.GaugeValue,
 				},
 				{
 					Desc: prometheus.NewDesc(
-						prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileSourceMetricTopic, "line_qps"),
+						buildFQName("line_qps"),
 						"current read line qps",
-						nil, prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName,
-							FileNameKey: harvester.FileName},
+						nil, labels,
 					),
 					Eval:    harvester.LineQps,
 					ValType: prometheus.GaugeValue,
@@ -151,6 +153,11 @@ func (l *Listener) exportPrometheus() {
 	}
 	promeExporter.Export(eventbus.FileSourceMetricTopic, m)
 }
+
+func buildFQName(name string) string {
+	return prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileSourceMetricTopic, name)
+}
+
 func (l *Listener) compute() {
 	for _, d := range l.data {
 		// set file size
@@ -208,6 +215,7 @@ func (l *Listener) consumer(e eventbus.CollectMetricData) {
 		m := data{
 			PipelineName: e.PipelineName,
 			SourceName:   e.SourceName,
+			SourceFields: eventbus.GetFieldsByRef(l.config.FieldsRef, e.SourceFields),
 		}
 
 		h := map[string]*fileHarvester{

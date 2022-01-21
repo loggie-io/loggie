@@ -17,13 +17,13 @@ limitations under the License.
 package index
 
 import (
+	"github.com/loggie-io/loggie/pkg/control"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"loggie.io/loggie/pkg/control"
-	"loggie.io/loggie/pkg/core/cfg"
-	"loggie.io/loggie/pkg/core/interceptor"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/discovery/kubernetes/helper"
-	"loggie.io/loggie/pkg/pipeline"
 )
 
 type LogConfigTypePodIndex struct {
@@ -40,9 +40,9 @@ func NewLogConfigTypePodIndex() *LogConfigTypePodIndex {
 	}
 }
 
-func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string, lgcName string) *pipeline.ConfigRaw {
+func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string, lgcNamespace string, lgcName string) *pipeline.ConfigRaw {
 	podKey := helper.MetaNamespaceKey(namespace, podName)
-	lgcKey := helper.MetaNamespaceKey(namespace, lgcName)
+	lgcKey := helper.MetaNamespaceKey(lgcNamespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
 	cfgs, ok := p.pipeConfigs[podAndLgc]
 	if !ok {
@@ -77,9 +77,9 @@ func (p *LogConfigTypePodIndex) GetPipeConfigsByPod(namespace string, podName st
 	return pipcfgs
 }
 
-func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgcName string, cfg *pipeline.ConfigRaw) {
+func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgcNamespace string, lgcName string, cfg *pipeline.ConfigRaw) {
 	podKey := helper.MetaNamespaceKey(namespace, podName)
-	lgcKey := helper.MetaNamespaceKey(namespace, lgcName)
+	lgcKey := helper.MetaNamespaceKey(lgcNamespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
 
 	p.pipeConfigs[podAndLgc] = cfg
@@ -96,9 +96,10 @@ func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgc
 	}
 }
 
-func (p *LogConfigTypePodIndex) ValidateAndSetConfigs(namespace string, podName string, lgcName string, cfg *pipeline.ConfigRaw) error {
-	p.SetConfigs(namespace, podName, lgcName, cfg)
-	if err := p.GetAllGroupByLogConfig().Validate(); err != nil {
+func (p *LogConfigTypePodIndex) ValidateAndSetConfigs(namespace string, podName string, lgcNamespace string, lgcName string, cfg *pipeline.ConfigRaw) error {
+	p.SetConfigs(namespace, podName, lgcNamespace, lgcName, cfg)
+	if err := p.GetAllGroupByLogConfig().ValidateUniquePipeName(); err != nil {
+		log.Warn("validate logConfig error: %v", err)
 		lgcKey := helper.MetaNamespaceKey(namespace, lgcName)
 		p.DeletePipeConfigsByLogConfigKey(lgcKey)
 		return err

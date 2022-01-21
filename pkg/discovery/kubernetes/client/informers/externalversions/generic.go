@@ -20,9 +20,9 @@ package externalversions
 import (
 	"fmt"
 
+	v1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	cache "k8s.io/client-go/tools/cache"
-	v1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 )
 
 // GenericInformer is type of SharedIndexInformer which will locate and delegate to other
@@ -52,6 +52,8 @@ func (f *genericInformer) Lister() cache.GenericLister {
 func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource) (GenericInformer, error) {
 	switch resource {
 	// Group=loggie.io, Version=v1beta1
+	case v1beta1.SchemeGroupVersion.WithResource("clusterlogconfigs"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Loggie().V1beta1().ClusterLogConfigs().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("interceptors"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Loggie().V1beta1().Interceptors().Informer()}, nil
 	case v1beta1.SchemeGroupVersion.WithResource("logconfigs"):

@@ -19,13 +19,13 @@ package grpc
 import (
 	"fmt"
 	jsoniter "github.com/json-iterator/go"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/pipeline"
+	pb "github.com/loggie-io/loggie/pkg/sink/grpc/pb"
 	"google.golang.org/grpc"
 	"io"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/event"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/pipeline"
-	pb "loggie.io/loggie/pkg/sink/grpc/pb"
 	"net"
 )
 

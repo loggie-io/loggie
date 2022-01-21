@@ -18,8 +18,8 @@ package sink
 
 import (
 	"fmt"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"sort"
 )
 

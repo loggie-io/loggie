@@ -17,7 +17,7 @@ limitations under the License.
 package util
 
 import (
-	"loggie.io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"time"
 )
 

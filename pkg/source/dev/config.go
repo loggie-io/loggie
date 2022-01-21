@@ -14,12 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package metric
-
-import (
-	"github.com/loggie-io/loggie/pkg/core/interceptor"
-)
+package dev
 
 type Config struct {
-	interceptor.ExtensionConfig `yaml:",inline"`
+	Qps      int `yaml:"qps,omitempty" default:"1000"`
+	ByteSize int `yaml:"byteSize,omitempty" default:"1024"`
 }

@@ -24,44 +24,44 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-// SinkLister helps list Sinks.
+// ClusterLogConfigLister helps list ClusterLogConfigs.
 // All objects returned here must be treated as read-only.
-type SinkLister interface {
-	// List lists all Sinks in the indexer.
+type ClusterLogConfigLister interface {
+	// List lists all ClusterLogConfigs in the indexer.
 	// Objects returned here must be treated as read-only.
-	List(selector labels.Selector) (ret []*v1beta1.Sink, err error)
-	// Get retrieves the Sink from the index for a given name.
+	List(selector labels.Selector) (ret []*v1beta1.ClusterLogConfig, err error)
+	// Get retrieves the ClusterLogConfig from the index for a given name.
 	// Objects returned here must be treated as read-only.
-	Get(name string) (*v1beta1.Sink, error)
-	SinkListerExpansion
+	Get(name string) (*v1beta1.ClusterLogConfig, error)
+	ClusterLogConfigListerExpansion
 }
 
-// sinkLister implements the SinkLister interface.
-type sinkLister struct {
+// clusterLogConfigLister implements the ClusterLogConfigLister interface.
+type clusterLogConfigLister struct {
 	indexer cache.Indexer
 }
 
-// NewSinkLister returns a new SinkLister.
-func NewSinkLister(indexer cache.Indexer) SinkLister {
-	return &sinkLister{indexer: indexer}
+// NewClusterLogConfigLister returns a new ClusterLogConfigLister.
+func NewClusterLogConfigLister(indexer cache.Indexer) ClusterLogConfigLister {
+	return &clusterLogConfigLister{indexer: indexer}
 }
 
-// List lists all Sinks in the indexer.
-func (s *sinkLister) List(selector labels.Selector) (ret []*v1beta1.Sink, err error) {
+// List lists all ClusterLogConfigs in the indexer.
+func (s *clusterLogConfigLister) List(selector labels.Selector) (ret []*v1beta1.ClusterLogConfig, err error) {
 	err = cache.ListAll(s.indexer, selector, func(m interface{}) {
-		ret = append(ret, m.(*v1beta1.Sink))
+		ret = append(ret, m.(*v1beta1.ClusterLogConfig))
 	})
 	return ret, err
 }
 
-// Get retrieves the Sink from the index for a given name.
-func (s *sinkLister) Get(name string) (*v1beta1.Sink, error) {
+// Get retrieves the ClusterLogConfig from the index for a given name.
+func (s *clusterLogConfigLister) Get(name string) (*v1beta1.ClusterLogConfig, error) {
 	obj, exists, err := s.indexer.GetByKey(name)
 	if err != nil {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(v1beta1.Resource("sink"), name)
+		return nil, errors.NewNotFound(v1beta1.Resource("clusterlogconfig"), name)
 	}
-	return obj.(*v1beta1.Sink), nil
+	return obj.(*v1beta1.ClusterLogConfig), nil
 }

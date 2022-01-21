@@ -17,6 +17,8 @@ limitations under the License.
 
 package v1beta1
 
+type ClusterLogConfigExpansion interface{}
+
 type InterceptorExpansion interface{}
 
 type LogConfigExpansion interface{}

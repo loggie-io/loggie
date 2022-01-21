@@ -17,7 +17,7 @@ limitations under the License.
 package queue
 
 import (
-	"loggie.io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
 )
 
 type Config struct {

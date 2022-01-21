@@ -16,7 +16,7 @@ limitations under the License.
 
 package spi
 
-import "loggie.io/loggie/pkg/core/api"
+import "github.com/loggie-io/loggie/pkg/core/api"
 
 type ComponentListener interface {
 	Name() string

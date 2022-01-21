@@ -17,10 +17,10 @@ limitations under the License.
 package controller
 
 import (
+	"github.com/loggie-io/loggie/pkg/core/log"
+	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/pkg/errors"
-	"loggie.io/loggie/pkg/core/log"
-	logconfigv1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
-	"loggie.io/loggie/pkg/discovery/kubernetes/helper"
 )
 
 func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) error {
@@ -34,7 +34,7 @@ func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) er
 		return errors.WithMessage(err, "deep copy pipeline config error")
 	}
 	pipCopy.SetDefaults()
-	if err := pipCopy.ValidateDive(); err != nil {
+	if err := pipCopy.Validate(); err != nil {
 		return err
 	}
 

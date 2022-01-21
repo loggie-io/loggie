@@ -18,13 +18,17 @@ limitations under the License.
 package fake
 
 import (
+	v1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/typed/loggie/v1beta1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
-	v1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/typed/loggie/v1beta1"
 )
 
 type FakeLoggieV1beta1 struct {
 	*testing.Fake
+}
+
+func (c *FakeLoggieV1beta1) ClusterLogConfigs() v1beta1.ClusterLogConfigInterface {
+	return &FakeClusterLogConfigs{c}
 }
 
 func (c *FakeLoggieV1beta1) Interceptors() v1beta1.InterceptorInterface {

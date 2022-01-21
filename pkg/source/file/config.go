@@ -17,20 +17,21 @@ limitations under the License.
 package file
 
 import (
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/util"
 	"os"
 	"regexp"
 	"time"
 )
 
 type Config struct {
-	AckConfig     AckConfig     `yaml:"ack,omitempty"`
-	DbConfig      DbConfig      `yaml:"db,omitempty"`
-	WatchConfig   WatchConfig   `yaml:"watcher,omitempty"`
-	ReaderConfig  ReaderConfig  `yaml:",inline,omitempty"`
-	CollectConfig CollectConfig `yaml:",inline,omitempty" validate:"required,dive"`
-	Isolation     string        `yaml:"isolation,omitempty" default:"pipeline"`
+	AckConfig     AckConfig              `yaml:"ack,omitempty"`
+	DbConfig      DbConfig               `yaml:"db,omitempty"`
+	WatchConfig   WatchConfig            `yaml:"watcher,omitempty"`
+	ReaderConfig  ReaderConfig           `yaml:",inline,omitempty"`
+	CollectConfig CollectConfig          `yaml:",inline,omitempty" validate:"required,dive"`
+	Isolation     string                 `yaml:"isolation,omitempty" default:"pipeline"`
+	Fields        map[string]interface{} `yaml:"fields,omitempty"`
 }
 
 type CollectConfig struct {

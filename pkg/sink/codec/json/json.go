@@ -18,9 +18,9 @@ package json
 
 import (
 	jsoniter "github.com/json-iterator/go"
-	"loggie.io/loggie/pkg/core/api"
-	eventer "loggie.io/loggie/pkg/core/event"
-	"loggie.io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	eventer "github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/sink/codec"
 	"time"
 )
 

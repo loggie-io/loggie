@@ -17,13 +17,13 @@ limitations under the License.
 package controller
 
 import (
+	"github.com/loggie-io/loggie/pkg/core/log"
+	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/pkg/errors"
-	"loggie.io/loggie/pkg/core/log"
-	logconfigv1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
-	"loggie.io/loggie/pkg/discovery/kubernetes/helper"
 )
 
-func (c *Controller) handleLogConfigTypeLoggie(lgc *logconfigv1beta1.LogConfig) error {
+func (c *Controller) handleLogConfigTypeCluster(lgc *logconfigv1beta1.LogConfig) error {
 
 	pipRaws, err := helper.ToPipeline(lgc, c.sinkLister, c.interceptorLister)
 	if err != nil {
@@ -35,16 +35,16 @@ func (c *Controller) handleLogConfigTypeLoggie(lgc *logconfigv1beta1.LogConfig) 
 		return errors.WithMessage(err, "deep copy pipeline config error")
 	}
 	pipCopy.SetDefaults()
-	if err := pipCopy.ValidateDive(); err != nil {
+	if err := pipCopy.Validate(); err != nil {
 		return err
 	}
 
 	lgcKey := helper.MetaNamespaceKey(lgc.Namespace, lgc.Name)
-	if err := c.typeLoggieIndex.ValidateAndSetConfig(lgcKey, pipRaws.Pipelines); err != nil {
+	if err := c.typeClusterIndex.ValidateAndSetConfig(lgcKey, pipRaws.Pipelines); err != nil {
 		return err
 	}
 
-	if err = c.syncConfigToFile(logconfigv1beta1.SelectorTypeLoggie); err != nil {
+	if err = c.syncConfigToFile(logconfigv1beta1.SelectorTypeCluster); err != nil {
 		return errors.WithMessage(err, "failed to sync config to file")
 	}
 	log.Info("handle logConfig %s/%s addOrUpdate event and sync config file success", lgc.Namespace, lgc.Name)

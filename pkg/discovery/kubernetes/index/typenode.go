@@ -14,8 +14,8 @@ limitations under the License.
 package index
 
 import (
-	"loggie.io/loggie/pkg/control"
-	"loggie.io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/control"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
 type LogConfigTypeNodeIndex struct {
@@ -48,7 +48,7 @@ func (index *LogConfigTypeNodeIndex) SetConfig(logConfigKey string, p []pipeline
 
 func (index *LogConfigTypeNodeIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.ConfigRaw) error {
 	index.SetConfig(logConfigKey, p)
-	if err := index.GetAll().Validate(); err != nil {
+	if err := index.GetAll().ValidateUniquePipeName(); err != nil {
 		index.DeleteConfig(logConfigKey)
 		return err
 	}

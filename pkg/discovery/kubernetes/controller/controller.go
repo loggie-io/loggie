@@ -18,35 +18,36 @@ package controller
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	logconfigClientset "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
+	logconfigSchema "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/scheme"
+	logconfigInformers "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/informers/externalversions/loggie/v1beta1"
+	logconfigLister "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/index"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"loggie.io/loggie/pkg/core/log"
-	logconfigClientset "loggie.io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
-	logconfigSchema "loggie.io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/scheme"
-	logconfigInformers "loggie.io/loggie/pkg/discovery/kubernetes/client/informers/externalversions/loggie/v1beta1"
-	logconfigLister "loggie.io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
-	"loggie.io/loggie/pkg/discovery/kubernetes/helper"
-	"loggie.io/loggie/pkg/discovery/kubernetes/index"
 	"reflect"
 	"time"
 
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
 
+	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	corev1Informers "k8s.io/client-go/informers/core/v1"
 	corev1Listers "k8s.io/client-go/listers/core/v1"
-	logconfigv1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 )
 
 const (
-	EventPod     = "pod"
-	EventLogConf = "logConfig"
-	EventNode    = "node"
+	EventPod            = "pod"
+	EventLogConf        = "logConfig"
+	EventNode           = "node"
+	EventClusterLogConf = "clusterLogConfig"
 )
 
 // Element the item add to queue
@@ -63,20 +64,22 @@ type Controller struct {
 	kubeClientset      kubernetes.Interface
 	logConfigClientset logconfigClientset.Interface
 
-	podsLister        corev1Listers.PodLister
-	podsSynced        cache.InformerSynced
-	logConfigLister   logconfigLister.LogConfigLister
-	logConfigSynced   cache.InformerSynced
-	sinkLister        logconfigLister.SinkLister
-	sinkSynced        cache.InformerSynced
-	interceptorLister logconfigLister.InterceptorLister
-	interceptorSynced cache.InformerSynced
-	nodeLister        corev1Listers.NodeLister
-	nodeSynced        cache.InformerSynced
+	podsLister             corev1Listers.PodLister
+	podsSynced             cache.InformerSynced
+	logConfigLister        logconfigLister.LogConfigLister
+	logConfigSynced        cache.InformerSynced
+	clusterLogConfigLister logconfigLister.ClusterLogConfigLister
+	clusterLogConfigSynced cache.InformerSynced
+	sinkLister             logconfigLister.SinkLister
+	sinkSynced             cache.InformerSynced
+	interceptorLister      logconfigLister.InterceptorLister
+	interceptorSynced      cache.InformerSynced
+	nodeLister             corev1Listers.NodeLister
+	nodeSynced             cache.InformerSynced
 
-	typePodIndex    *index.LogConfigTypePodIndex
-	typeLoggieIndex *index.LogConfigTypeLoggieIndex
-	typeNodeIndex   *index.LogConfigTypeNodeIndex
+	typePodIndex     *index.LogConfigTypePodIndex
+	typeClusterIndex *index.LogConfigTypeClusterIndex
+	typeNodeIndex    *index.LogConfigTypeNodeIndex
 
 	nodeLabels map[string]string
 
@@ -89,6 +92,7 @@ func NewController(
 	logConfigClientset logconfigClientset.Interface,
 	podInformer corev1Informers.PodInformer,
 	logConfigInformer logconfigInformers.LogConfigInformer,
+	clusterLogConfigInformer logconfigInformers.ClusterLogConfigInformer,
 	sinkInformer logconfigInformers.SinkInformer,
 	interceptorInformer logconfigInformers.InterceptorInformer,
 	nodeInformer corev1Informers.NodeInformer,
@@ -106,26 +110,75 @@ func NewController(
 		kubeClientset:      kubeClientset,
 		logConfigClientset: logConfigClientset,
 
-		podsLister:        podInformer.Lister(),
-		podsSynced:        podInformer.Informer().HasSynced,
-		logConfigLister:   logConfigInformer.Lister(),
-		logConfigSynced:   logConfigInformer.Informer().HasSynced,
-		sinkLister:        sinkInformer.Lister(),
-		sinkSynced:        sinkInformer.Informer().HasSynced,
-		interceptorLister: interceptorInformer.Lister(),
-		interceptorSynced: interceptorInformer.Informer().HasSynced,
-		nodeLister:        nodeInformer.Lister(),
-		nodeSynced:        nodeInformer.Informer().HasSynced,
+		podsLister:             podInformer.Lister(),
+		podsSynced:             podInformer.Informer().HasSynced,
+		logConfigLister:        logConfigInformer.Lister(),
+		logConfigSynced:        logConfigInformer.Informer().HasSynced,
+		clusterLogConfigLister: clusterLogConfigInformer.Lister(),
+		clusterLogConfigSynced: clusterLogConfigInformer.Informer().HasSynced,
+		sinkLister:             sinkInformer.Lister(),
+		sinkSynced:             sinkInformer.Informer().HasSynced,
+		interceptorLister:      interceptorInformer.Lister(),
+		interceptorSynced:      interceptorInformer.Informer().HasSynced,
+		nodeLister:             nodeInformer.Lister(),
+		nodeSynced:             nodeInformer.Informer().HasSynced,
 
-		typePodIndex:    index.NewLogConfigTypePodIndex(),
-		typeLoggieIndex: index.NewLogConfigTypeLoggieIndex(),
-		typeNodeIndex:   index.NewLogConfigTypeNodeIndex(),
+		typePodIndex:     index.NewLogConfigTypePodIndex(),
+		typeClusterIndex: index.NewLogConfigTypeLoggieIndex(),
+		typeNodeIndex:    index.NewLogConfigTypeNodeIndex(),
 
 		record: recorder,
 	}
 
 	log.Info("Setting up event handlers")
 	utilruntime.Must(logconfigSchema.AddToScheme(scheme.Scheme))
+
+	clusterLogConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			config := obj.(*logconfigv1beta1.ClusterLogConfig)
+			if config.Spec.Selector == nil {
+				return
+			}
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+				return
+			}
+
+			controller.enqueue(obj, EventClusterLogConf, config.Spec.Selector.Type)
+		},
+		UpdateFunc: func(new, old interface{}) {
+			newConfig := new.(*logconfigv1beta1.ClusterLogConfig)
+			oldConfig := old.(*logconfigv1beta1.ClusterLogConfig)
+			if newConfig.ResourceVersion == oldConfig.ResourceVersion {
+				return
+			}
+			if newConfig.Generation == oldConfig.Generation {
+				return
+			}
+			if newConfig.Spec.Selector == nil {
+				return
+			}
+			if !controller.belongOfCluster(newConfig.Spec.Selector.Cluster) {
+				return
+			}
+
+			controller.enqueue(new, EventClusterLogConf, newConfig.Spec.Selector.Type)
+		},
+		DeleteFunc: func(obj interface{}) {
+			config, ok := obj.(*logconfigv1beta1.ClusterLogConfig)
+			if !ok {
+				return
+			}
+			if config.Spec.Selector == nil {
+				return
+			}
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+				return
+			}
+
+			controller.enqueueForDelete(obj, EventClusterLogConf, config.Spec.Selector.Type)
+		},
+	})
+
 	logConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			config := obj.(*logconfigv1beta1.LogConfig)
@@ -341,6 +394,11 @@ func (c *Controller) syncHandler(element Element) error {
 	case EventPod:
 		if err = c.reconcilePod(element.Key); err != nil {
 			log.Warn("reconcile pod %s err: %+v", element.Key, err)
+		}
+
+	case EventClusterLogConf:
+		if err = c.reconcileClusterLogConfig(element); err != nil {
+			log.Warn("reconcile logConfig %s err: %+v", element.Key, err)
 		}
 
 	case EventLogConf:

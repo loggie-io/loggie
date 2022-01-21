@@ -18,12 +18,12 @@ limitations under the License.
 package fake
 
 import (
+	loggiev1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	serializer "k8s.io/apimachinery/pkg/runtime/serializer"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	loggiev1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 )
 
 var scheme = runtime.NewScheme()

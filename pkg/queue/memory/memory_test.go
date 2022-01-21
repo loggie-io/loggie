@@ -18,10 +18,10 @@ package memory
 
 import (
 	"fmt"
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/context"
-	"loggie.io/loggie/pkg/core/event"
-	"loggie.io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/context"
+	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 	"testing"
 	"time"
 )

@@ -19,17 +19,17 @@ package helper
 import (
 	"bytes"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"loggie.io/loggie/pkg/core/log"
 	"path/filepath"
 	"strings"
 
+	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	logconfigLister "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
 	corev1listers "k8s.io/client-go/listers/core/v1"
-	logconfigv1beta1 "loggie.io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
-	logconfigLister "loggie.io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
 )
 
 func IsPodReady(pod *corev1.Pod) bool {
@@ -52,6 +52,8 @@ func MetaNamespaceKey(namespace string, name string) string {
 	}
 	return name
 }
+
+type FuncGetRelatedPod func() ([]*corev1.Pod, error)
 
 func GetLogConfigRelatedPod(lgc *logconfigv1beta1.LogConfig, podsLister corev1listers.PodLister) ([]*corev1.Pod, error) {
 
@@ -80,6 +82,25 @@ func GetPodRelatedLogConfigs(pod *corev1.Pod, lgcLister logconfigLister.LogConfi
 
 	ret := make([]*logconfigv1beta1.LogConfig, 0)
 	for _, lgc := range lgcList {
+		if lgc.Spec.Selector == nil || lgc.Spec.Selector.Type != logconfigv1beta1.SelectorTypePod {
+			continue
+		}
+
+		if LabelsSubset(lgc.Spec.Selector.LabelSelector, pod.Labels) {
+			ret = append(ret, lgc)
+		}
+	}
+	return ret, nil
+}
+
+func GetPodRelatedClusterLogConfigs(pod *corev1.Pod, clgcLister logconfigLister.ClusterLogConfigLister) ([]*logconfigv1beta1.ClusterLogConfig, error) {
+	clgcList, err := clgcLister.List(labels.Everything())
+	if err != nil {
+		return nil, err
+	}
+
+	ret := make([]*logconfigv1beta1.ClusterLogConfig, 0)
+	for _, lgc := range clgcList {
 		if lgc.Spec.Selector == nil || lgc.Spec.Selector.Type != logconfigv1beta1.SelectorTypePod {
 			continue
 		}

@@ -31,59 +31,58 @@ import (
 	cache "k8s.io/client-go/tools/cache"
 )
 
-// LogConfigInformer provides access to a shared informer and lister for
-// LogConfigs.
-type LogConfigInformer interface {
+// ClusterLogConfigInformer provides access to a shared informer and lister for
+// ClusterLogConfigs.
+type ClusterLogConfigInformer interface {
 	Informer() cache.SharedIndexInformer
-	Lister() v1beta1.LogConfigLister
+	Lister() v1beta1.ClusterLogConfigLister
 }
 
-type logConfigInformer struct {
+type clusterLogConfigInformer struct {
 	factory          internalinterfaces.SharedInformerFactory
 	tweakListOptions internalinterfaces.TweakListOptionsFunc
-	namespace        string
 }
 
-// NewLogConfigInformer constructs a new informer for LogConfig type.
+// NewClusterLogConfigInformer constructs a new informer for ClusterLogConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewLogConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
-	return NewFilteredLogConfigInformer(client, namespace, resyncPeriod, indexers, nil)
+func NewClusterLogConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers) cache.SharedIndexInformer {
+	return NewFilteredClusterLogConfigInformer(client, resyncPeriod, indexers, nil)
 }
 
-// NewFilteredLogConfigInformer constructs a new informer for LogConfig type.
+// NewFilteredClusterLogConfigInformer constructs a new informer for ClusterLogConfig type.
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
-func NewFilteredLogConfigInformer(client versioned.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+func NewFilteredClusterLogConfigInformer(client versioned.Interface, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options v1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.LoggieV1beta1().LogConfigs(namespace).List(context.TODO(), options)
+				return client.LoggieV1beta1().ClusterLogConfigs().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.LoggieV1beta1().LogConfigs(namespace).Watch(context.TODO(), options)
+				return client.LoggieV1beta1().ClusterLogConfigs().Watch(context.TODO(), options)
 			},
 		},
-		&loggiev1beta1.LogConfig{},
+		&loggiev1beta1.ClusterLogConfig{},
 		resyncPeriod,
 		indexers,
 	)
 }
 
-func (f *logConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-	return NewFilteredLogConfigInformer(client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
+func (f *clusterLogConfigInformer) defaultInformer(client versioned.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return NewFilteredClusterLogConfigInformer(client, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, f.tweakListOptions)
 }
 
-func (f *logConfigInformer) Informer() cache.SharedIndexInformer {
-	return f.factory.InformerFor(&loggiev1beta1.LogConfig{}, f.defaultInformer)
+func (f *clusterLogConfigInformer) Informer() cache.SharedIndexInformer {
+	return f.factory.InformerFor(&loggiev1beta1.ClusterLogConfig{}, f.defaultInformer)
 }
 
-func (f *logConfigInformer) Lister() v1beta1.LogConfigLister {
-	return v1beta1.NewLogConfigLister(f.Informer().GetIndexer())
+func (f *clusterLogConfigInformer) Lister() v1beta1.ClusterLogConfigLister {
+	return v1beta1.NewClusterLogConfigLister(f.Informer().GetIndexer())
 }

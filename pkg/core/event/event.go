@@ -18,7 +18,7 @@ package event
 
 import (
 	"fmt"
-	"loggie.io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/api"
 	"strings"
 	"sync"
 )

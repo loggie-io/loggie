@@ -22,12 +22,12 @@ import (
 	"sync"
 	"time"
 
-	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/batch"
-	"loggie.io/loggie/pkg/core/log"
-	"loggie.io/loggie/pkg/core/spi"
-	"loggie.io/loggie/pkg/eventbus"
-	"loggie.io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/batch"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/spi"
+	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
 const (
