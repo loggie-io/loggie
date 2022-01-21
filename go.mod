@@ -24,6 +24,7 @@ require (
 	github.com/xhit/go-str2duration/v2 v2.0.0
 	go.uber.org/automaxprocs v0.0.0-20200415073007-b685be8c1c23
 	golang.org/x/net v0.0.0-20220111093109-d55c255bac03
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	google.golang.org/grpc v1.33.2
 	google.golang.org/protobuf v1.26.0-rc.1
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

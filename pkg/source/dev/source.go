@@ -20,8 +20,6 @@ import (
 	"context"
 	"math/rand"
 
-	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/source/abstract"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"golang.org/x/time/rate"
@@ -63,15 +61,11 @@ func (d *Dev) DoStart() {
 	}
 }
 
-func (d *Dev) ProductLoop(productFunc api.ProductFunc) {
+func (d *Dev) DoProduct() {
 	ctx := context.Background()
-	log.Info("%s start product loop", d.String())
 	content := d.content
 	for !d.stop {
-		header := make(map[string]interface{})
-		e := d.Event()
-		e.Fill(e.Meta(), header, content)
 		d.limiter.Wait(ctx)
-		productFunc(e)
+		d.SendWithBody(content)
 	}
 }

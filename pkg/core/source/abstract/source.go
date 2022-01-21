@@ -9,18 +9,17 @@ import (
 )
 
 type Source struct {
-	done         chan struct{}
 	name         string
 	typeName     api.Type
 	eventPool    *event.Pool
 	pipelineInfo pipeline.Info
 	context      api.Context
+	productFunc  api.ProductFunc
 
-	EventProvider func() api.Event
-
-	startFunc  func()
-	stopFunc   func()
-	commitFunc func(events []api.Event)
+	startFunc           func()
+	stopFunc            func()
+	commitFunc          func(events []api.Event)
+	internalProductFunc func()
 }
 
 func ExtendsAbstractSource(info pipeline.Info, typeName api.Type) *Source {
@@ -28,9 +27,6 @@ func ExtendsAbstractSource(info pipeline.Info, typeName api.Type) *Source {
 		typeName:     typeName,
 		eventPool:    info.EventPool,
 		pipelineInfo: info,
-		EventProvider: func() api.Event {
-			return info.EventPool.Get()
-		},
 	}
 }
 
@@ -54,8 +50,25 @@ func (as *Source) PipelineInfo() pipeline.Info {
 	return as.pipelineInfo
 }
 
-func (as *Source) Event() api.Event {
+func (as *Source) NewEvent() api.Event {
 	return as.eventPool.Get()
+}
+
+// ProductFunc only use in DoProduct()
+func (as *Source) ProductFunc() api.ProductFunc {
+	return as.productFunc
+}
+
+// Send only use in DoProduct()
+func (as *Source) Send(e api.Event) api.Result {
+	return as.productFunc(e)
+}
+
+// SendWithBody only use in DoProduct()
+func (as *Source) SendWithBody(body []byte) api.Result {
+	e := as.NewEvent()
+	e.Fill(e.Meta(), e.Header(), body)
+	return as.Send(e)
 }
 
 // ------------------------------------------------------------------------
@@ -90,7 +103,6 @@ func (as *Source) Start() {
 
 func (as *Source) Stop() {
 	log.Info("start stop source: %s", as.String())
-	close(as.done)
 	if as.stopFunc != nil {
 		as.stopFunc()
 	}
@@ -108,6 +120,14 @@ func (as *Source) Commit(events []api.Event) {
 	as.eventPool.PutAll(events)
 }
 
+func (as *Source) ProductLoop(productFunc api.ProductFunc) {
+	as.productFunc = productFunc
+	log.Info("[%s] start product loop", as.String())
+	if as.internalProductFunc != nil {
+		go as.internalProductFunc()
+	}
+}
+
 // ------------------------------------------------------------------------
 //  optional override methods
 // ------------------------------------------------------------------------
@@ -117,19 +137,16 @@ func (as *Source) Config() interface{} {
 	return nil
 }
 
-func (as *Source) ProductLoop(productFunc api.ProductFunc) {
-}
-
 func (as *Source) DoStart() {
-
 }
 
 func (as *Source) DoStop() {
+}
 
+func (as *Source) DoProduct() {
 }
 
 func (as *Source) DoCommit(events []api.Event) {
-
 }
 
 // ------------------------------------------------------------------------
@@ -147,6 +164,7 @@ type SourceConvert interface {
 
 	DoStart()
 	DoStop()
+	DoProduct()
 	DoCommit(events []api.Event)
 }
 
@@ -158,6 +176,7 @@ func SourceRegister(t api.Type, factory SourceRegisterFactory) {
 		source := convert.AbstractSource()
 		source.startFunc = convert.DoStart
 		source.stopFunc = convert.DoStop
+		source.internalProductFunc = convert.DoProduct
 		source.commitFunc = convert.DoCommit
 		return convert
 	})

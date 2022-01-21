@@ -31,17 +31,15 @@ func init() {
 }
 
 func makeSource(info pipeline.Info) abstract.SourceConvert {
-	s := &Source{
+	return &Source{
 		Source: abstract.ExtendsAbstractSource(info, Type),
 		config: &Config{},
 	}
-	return s
 }
 
 type Source struct {
 	*abstract.Source
 	config             *Config
-	productFunc        api.ProductFunc
 	r                  *Reader
 	ackEnable          bool
 	ackChainHandler    *AckChainHandler
@@ -57,6 +55,10 @@ type Source struct {
 // ------------------------------------------------------------------------
 //  override methods
 // ------------------------------------------------------------------------
+
+func (s *Source) Config() interface{} {
+	return s.config
+}
 
 func (s *Source) DoStart() {
 	s.ackEnable = s.config.AckConfig.Enable
@@ -132,13 +134,12 @@ func (s *Source) DoCommit(events []api.Event) {
 	}
 }
 
-func (s *Source) ProductLoop(productFunc api.ProductFunc) {
-	log.Info("[%s] start product loop", s.String())
-	s.productFunc = productFunc
+func (s *Source) DoProduct() {
+	productFunc := s.ProductFunc()
 	if s.config.ReaderConfig.MultiConfig.Active {
-		s.mTask = NewMultiTask(s.Epoch(), s.Name(), s.config.ReaderConfig.MultiConfig, s.PipelineInfo().EventPool, s.productFunc)
+		s.mTask = NewMultiTask(s.Epoch(), s.Name(), s.config.ReaderConfig.MultiConfig, s.PipelineInfo().EventPool, productFunc)
 		s.multilineProcessor.StartTask(s.mTask)
-		s.productFunc = s.multilineProcessor.Process
+		productFunc = s.multilineProcessor.Process
 	}
 	if s.config.AckConfig.Enable {
 		s.ackTask = NewAckTask(s.Epoch(), s.PipelineName(), s.Name(), func(state *State) {
@@ -146,7 +147,7 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 		})
 		s.ackChainHandler.StartTask(s.ackTask)
 	}
-	s.watchTask = NewWatchTask(s.Epoch(), s.PipelineName(), s.Name(), s.config.CollectConfig, s.PipelineInfo().EventPool, s.productFunc, s.r.jobChan, s.config.Fields)
+	s.watchTask = NewWatchTask(s.Epoch(), s.PipelineName(), s.Name(), s.config.CollectConfig, s.PipelineInfo().EventPool, productFunc, s.r.jobChan, s.config.Fields)
 	// start watch source paths
 	s.watcher.StartWatchTask(s.watchTask)
 }
