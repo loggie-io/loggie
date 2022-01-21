@@ -17,62 +17,28 @@ limitations under the License.
 package dev
 
 import (
-	"fmt"
 	"loggie.io/loggie/pkg/core/api"
-	"loggie.io/loggie/pkg/core/event"
 	"loggie.io/loggie/pkg/core/log"
+	"loggie.io/loggie/pkg/core/source/abstract"
 	"loggie.io/loggie/pkg/pipeline"
 )
 
 const Type = "dev"
 
 func init() {
-	pipeline.Register(api.SOURCE, Type, makeSource)
+	abstract.SourceRegister(Type, makeSource)
 }
 
-func makeSource(info pipeline.Info) api.Component {
+func makeSource(info pipeline.Info) abstract.SourceConvert {
 	return &Dev{
-		stop:      info.Stop,
-		eventPool: info.EventPool,
+		Source: abstract.ExtendsAbstractSource(info, Type),
+		stop:   info.Stop,
 	}
 }
 
 type Dev struct {
-	name      string
-	stop      bool
-	eventPool *event.Pool
-}
-
-func (d *Dev) Config() interface{} {
-	return nil
-}
-
-func (d *Dev) Category() api.Category {
-	return api.SOURCE
-}
-
-func (d *Dev) Type() api.Type {
-	return Type
-}
-
-func (d *Dev) String() string {
-	return fmt.Sprintf("%s/%s", api.SOURCE, Type)
-}
-
-func (d *Dev) Init(context api.Context) {
-	d.name = context.Name()
-}
-
-func (d *Dev) Start() {
-
-}
-
-func (d *Dev) Stop() {
-
-}
-
-func (d *Dev) Product() api.Event {
-	return nil
+	*abstract.Source
+	stop bool
 }
 
 func (d *Dev) ProductLoop(productFunc api.ProductFunc) {
@@ -84,12 +50,12 @@ func (d *Dev) ProductLoop(productFunc api.ProductFunc) {
 		header := make(map[string]interface{})
 		header["offset"] = 888
 		header["topic"] = "log-test"
-		e := d.eventPool.Get()
+		e := d.Event()
 		e.Fill(e.Meta(), header, content)
 		productFunc(e)
 	}
 }
 
-func (d *Dev) Commit(events []api.Event) {
-	d.eventPool.PutAll(events)
+func (d *Dev) DoStart(context api.Context) {
+	log.Info("%s override start!", d.String())
 }
