@@ -62,6 +62,7 @@ type Job struct {
 	lastActiveTime    time.Time
 	deleteTime        atomic.Value
 	renameTime        atomic.Value
+	stopTime          atomic.Value
 	identifier        string
 
 	task *WatchTask
@@ -131,6 +132,18 @@ func (j *Job) IsDeleteTimeout(timeout time.Duration) bool {
 
 func (j *Job) Stop() {
 	j.ChangeStatusTo(JobStop)
+	j.stopTime.Store(time.Now())
+}
+
+func (j *Job) IsStop() bool {
+	if j.status == JobStop {
+		return true
+	}
+	st := j.stopTime.Load()
+	if st == nil {
+		return false
+	}
+	return !st.(time.Time).IsZero()
 }
 
 func (j *Job) ChangeStatusTo(status JobStatus) {

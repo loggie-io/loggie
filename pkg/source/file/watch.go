@@ -183,7 +183,7 @@ func (w *Watcher) decideJob(job *Job) {
 	w.reportMetric(job)
 
 	// Stopped jobs are directly put into the zombie queue for release
-	if job.status == JobStop {
+	if job.IsStop() {
 		w.zombieJobChan <- job
 		return
 	}
@@ -237,11 +237,11 @@ func (w *Watcher) eventBus(e jobEvent) {
 		}
 		// waiting to write to registry
 	case WRITE:
-		// only care about zombie job write event
-		watchJobId := job.WatchUid()
-		if existJob, ok := w.allJobs[watchJobId]; ok && existJob.status == JobStop {
+		if job.IsStop() {
 			return
 		}
+		// only care about zombie job write event
+		watchJobId := job.WatchUid()
 		if job, ok := w.zombieJobs[watchJobId]; ok {
 			err, fdOpen := job.Active()
 			if fdOpen {
@@ -481,7 +481,7 @@ func (w *Watcher) isIgnoreTime() bool {
 func (w *Watcher) scanActiveJob() {
 	fdHoldTimeoutWhenRemove := w.config.FdHoldTimeoutWhenRemove
 	for _, job := range w.allJobs {
-		if job.status == JobStop || w.isZombieJob(job) {
+		if job.IsStop() || w.isZombieJob(job) {
 			continue
 		}
 		// check FdHoldTimeoutWhenRemove
@@ -501,7 +501,7 @@ func (w *Watcher) scanActiveJob() {
 //  4. truncated file
 func (w *Watcher) scanZombieJob() {
 	for _, job := range w.zombieJobs {
-		if job.IsDelete() || job.status == JobStop {
+		if job.IsDelete() || job.IsStop() {
 			w.finalizeJob(job)
 			continue
 		}
@@ -673,7 +673,7 @@ func (w *Watcher) handleWatchTaskEvent(watchTask *WatchTask) {
 
 func (w *Watcher) decideZombieJob(job *Job) {
 	watchJobId := job.WatchUid()
-	if existJob, ok := w.allJobs[watchJobId]; ok && existJob.status == JobStop {
+	if job.IsStop() {
 		w.finalizeJob(job)
 		return
 	}
@@ -715,7 +715,7 @@ func (w *Watcher) osNotify(e fsnotify.Event) {
 
 	if e.Op == fsnotify.Remove {
 		for _, job := range w.allJobs {
-			if job.status == JobDelete || job.status == JobStop {
+			if job.IsDelete() || job.IsStop() {
 				continue
 			}
 			if fileName == job.filename {
