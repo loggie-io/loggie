@@ -242,21 +242,21 @@ func (w *Watcher) eventBus(e jobEvent) {
 		}
 		// only care about zombie job write event
 		watchJobId := job.WatchUid()
-		if job, ok := w.zombieJobs[watchJobId]; ok {
-			err, fdOpen := job.Active()
+		if existJob, ok := w.zombieJobs[watchJobId]; ok {
+			err, fdOpen := existJob.Active()
 			if fdOpen {
 				w.currentOpenFds++
 			}
 			if err != nil {
 				log.Error("active job fileName(%s) fail: %s", filename, err)
-				if job.Release() {
+				if existJob.Release() {
 					w.currentOpenFds--
 				}
 				return
 			}
-			job.Read()
+			existJob.Read()
 			// zombie job change to active, so without os notify
-			w.removeOsNotify(job.filename)
+			w.removeOsNotify(existJob.filename)
 			delete(w.zombieJobs, watchJobId)
 		}
 	case CREATE:
@@ -655,12 +655,12 @@ func (w *Watcher) handleWatchTaskEvent(watchTask *WatchTask) {
 		for _, job := range w.allJobs {
 			if watchTask.isParentOf(job) {
 				job.Stop()
+				if w.isZombieJob(job) {
+					w.finalizeJob(job)
+					continue
+				}
+				waitForStopJobs[job.WatchUid()] = job
 			}
-			if w.isZombieJob(job) {
-				w.finalizeJob(job)
-				continue
-			}
-			waitForStopJobs[job.WatchUid()] = job
 		}
 		if len(waitForStopJobs) > 0 {
 			watchTask.waiteForStopJobs = waitForStopJobs
