@@ -18,7 +18,10 @@ package file
 
 import (
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/util/consistent"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -44,7 +47,10 @@ type Sink struct {
 	writer *MultiFileWriter
 	cod    codec.Codec
 
-	filenameMatcher [][]string
+	consistent *consistent.Consistent
+
+	dirHashKeyMatcher [][]string
+	filenameMatcher   [][]string
 }
 
 func NewSink() *Sink {
@@ -74,6 +80,14 @@ func (s *Sink) String() string {
 }
 
 func (s *Sink) Init(context api.Context) {
+	if len(s.config.BaseDirs) > 0 || len(s.config.DirHashKey) > 0 {
+		s.consistent = consistent.New()
+		for i := range s.config.BaseDirs {
+			s.consistent.Add(s.config.BaseDirs[i])
+		}
+	}
+
+	s.dirHashKeyMatcher = util.InitMatcher(s.config.DirHashKey)
 	s.filenameMatcher = util.InitMatcher(s.config.Filename)
 }
 
@@ -130,5 +144,26 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 }
 
 func (s *Sink) selectFilename(e api.Event) (string, error) {
-	return runtime.PatternSelect(runtime.NewObject(e.Header()), s.config.Filename, s.filenameMatcher)
+	var dir string
+	if s.consistent != nil {
+		dirHashKey, err := runtime.PatternSelect(runtime.NewObject(e.Header()), s.config.DirHashKey, s.dirHashKeyMatcher)
+		if err != nil {
+			return "", err
+		}
+		dir, err = s.consistent.Get(dirHashKey)
+		if err != nil {
+			return "", err
+		}
+	}
+	filename, err := runtime.PatternSelect(runtime.NewObject(e.Header()), s.config.Filename, s.filenameMatcher)
+	if err != nil {
+		return "", err
+	}
+	if len(dir) == 0 {
+		return filename, nil
+	}
+	var sb strings.Builder
+	sb.WriteString(dir)
+	sb.WriteString(filename)
+	return sb.String(), nil
 }

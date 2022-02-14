@@ -17,7 +17,13 @@ limitations under the License.
 package file
 
 type Config struct {
+	// WorkerCount is the number of concurrent goroutines writing files
 	WorkerCount int `yaml:"workerCount,omitempty" default:"1"`
+	// BaseDirs is a collection of directories that specify which directories to
+	// write to, usually used when mounting a disk, and can be empty
+	BaseDirs []string `yaml:"baseDirs,omitempty"`
+	// DirHashKey
+	DirHashKey string `yaml:"dirHashKey,omitempty"`
 	// Filename is the file to write logs to.  Backup log files will be retained
 	// in the same directory.
 	Filename string `yaml:"filename,omitempty" validate:"required"`
