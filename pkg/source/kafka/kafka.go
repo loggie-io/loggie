@@ -183,7 +183,6 @@ func (k *Source) consume(productFunc api.ProductFunc) error {
 	for _, h := range msg.Headers {
 		header[h.Key] = string(h.Value)
 	}
-	header["@timestamp"] = time.Now().Format(time.RFC3339)
 	e.Fill(e.Meta(), header, msg.Value)
 	productFunc(e)
 	return nil
