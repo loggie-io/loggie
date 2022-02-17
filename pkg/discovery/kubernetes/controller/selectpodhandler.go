@@ -282,12 +282,8 @@ func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfig
 		if err := util.Clone(s, &filesrc); err != nil {
 			return nil, err
 		}
-		statusContainerId := strings.Split(status.ContainerID, "//")
-		if len(statusContainerId) < 2 {
-			return nil, errors.Errorf("parse containerId in pod status err, status.ContainerID: %s", status.ContainerID)
-		}
-		containerId := statusContainerId[1]
 
+		containerId := helper.ExtractContainerId(status.ContainerID)
 		src, err := filesrc.getSource()
 		if err != nil {
 			return nil, err

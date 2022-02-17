@@ -411,3 +411,11 @@ func GetMatchedPodEnv(envKeys []string, pod *corev1.Pod, containerName string) m
 	}
 	return matchedEnvMap
 }
+
+func ExtractContainerId(containerID string) string {
+	statusContainerId := strings.Split(containerID, "//")
+	if len(statusContainerId) < 2 {
+		return ""
+	}
+	return statusContainerId[1]
+}

@@ -39,11 +39,11 @@ func GetQueryUpperPaths(query string) ([]string, string) {
 	return upper, lastQuery
 }
 
-// PatternSelect
+// PatternFormat
 // eg: pattern: aa-${field.bb}-${+YYYY.MM.DD}
 // field.bb in event is xx
 // would be format to: aa-xx-2021.07.04
-func PatternSelect(obj *Object, pattern string, matcher [][]string) (string, error) {
+func PatternFormat(obj *Object, pattern string, matcher [][]string) (string, error) {
 	if len(matcher) == 0 {
 		return pattern, nil
 	}
