@@ -154,5 +154,5 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 }
 
 func (s *Sink) selectTopic(e api.Event) (string, error) {
-	return runtime.PatternSelect(runtime.NewObject(e.Header()), s.config.Topic, s.topicMatcher)
+	return runtime.PatternFormat(runtime.NewObject(e.Header()), s.config.Topic, s.topicMatcher)
 }

@@ -82,7 +82,7 @@ func (c *ClientSet) BulkCreate(batch api.Batch, index string) error {
 	req := c.cli.Bulk()
 	for _, event := range batch.Events() {
 		// select index
-		idx, err := runtime.PatternSelect(runtime.NewObject(event.Header()), index, c.indexMatcher)
+		idx, err := runtime.PatternFormat(runtime.NewObject(event.Header()), index, c.indexMatcher)
 		if err != nil {
 			return errors.WithMessagef(err, "select index pattern error: %+v", err)
 		}

@@ -19,8 +19,8 @@ package kubernetes
 import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 	logconfigclientset "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
-
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/controller"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
 	"k8s.io/apimachinery/pkg/fields"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -74,6 +74,8 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 	logConfInformerFactory.Start(stopCh)
 	kubeInformerFactory.Start(stopCh)
 	nodeInformerFactory.Start(stopCh)
+
+	external.InitGlobalPodIndexer(kubeInformerFactory.Core().V1().Pods().Informer().GetIndexer(), kubeInformerFactory.Core().V1().Pods().Lister())
 
 	if err := ctrl.Run(stopCh); err != nil {
 		log.Panic("Error running controller: %s", err.Error())
