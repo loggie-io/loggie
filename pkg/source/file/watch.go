@@ -595,10 +595,11 @@ func (w *Watcher) finalizeJob(job *Job) {
 		w.handleRemoveJobs(job)
 	}
 
-	for _, task := range w.waiteForStopWatchTasks {
+	for k, task := range w.waiteForStopWatchTasks {
 		delete(task.waiteForStopJobs, job.WatchUid())
-		if len(task.waiteForStopJobs) <= 0 {
+		if len(task.waiteForStopJobs) == 0 {
 			task.countDown.Done()
+			delete(w.waiteForStopWatchTasks, k)
 		}
 	}
 }
