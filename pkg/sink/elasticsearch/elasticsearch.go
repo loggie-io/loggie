@@ -18,6 +18,7 @@ package elasticsearch
 
 import (
 	"fmt"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
@@ -27,6 +28,8 @@ import (
 )
 
 const Type = "elasticsearch"
+
+var clientNotInitError = fmt.Errorf("elasticsearch client not initialized yet")
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)
@@ -88,12 +91,16 @@ func (s *Sink) Stop() {
 }
 
 func (s *Sink) Consume(batch api.Batch) api.Result {
+	if s.cli != nil {
+		err := s.cli.BulkCreate(batch, s.config.Index)
+		if err != nil {
+			log.Error("write to elasticsearch error: %+v", err)
+			return result.Fail(err)
+		}
 
-	err := s.cli.BulkCreate(batch, s.config.Index)
-	if err != nil {
-		log.Error("write to elasticsearch error: %+v", err)
-		return result.Fail(err)
+		return result.Success()
 	}
 
-	return result.Success()
+	log.Error("%v", clientNotInitError)
+	return result.Fail(clientNotInitError)
 }
