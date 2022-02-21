@@ -104,8 +104,11 @@ func (c *ClientSet) BulkCreate(batch api.Batch, index string) error {
 			}
 		}
 
-		doc := es.NewBulkCreateRequest().Index(idx).Doc(json.RawMessage(data))
-		req.Add(doc)
+		bulkCreateRequest := es.NewBulkCreateRequest().Index(idx).Doc(json.RawMessage(data))
+		if len(c.config.Etype) > 0 {
+			bulkCreateRequest.Type(c.config.Etype)
+		}
+		req.Add(bulkCreateRequest)
 	}
 	ret, err := req.Do(context.Background())
 	if err != nil {
