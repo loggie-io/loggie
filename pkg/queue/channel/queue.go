@@ -77,7 +77,7 @@ func (c *Queue) String() string {
 	return fmt.Sprintf("%s/%s", api.QUEUE, Type)
 }
 
-func (c *Queue) Init(context api.Context) {
+func (c *Queue) Init(context api.Context) error {
 	c.done = make(chan struct{})
 	c.name = context.Name()
 	c.countDown = &sync.WaitGroup{}
@@ -94,9 +94,10 @@ func (c *Queue) Init(context api.Context) {
 	c.out = make(chan api.Batch, c.sinkCount)
 	//c.in = make(chan api.Event, c.config.BatchSize*c.config.BatchBufferFactor)
 	c.in = make(chan api.Event, 16)
+	return nil
 }
 
-func (c *Queue) Start() {
+func (c *Queue) Start() error {
 	var listeners strings.Builder
 	for _, listener := range c.listeners {
 		listeners.WriteString(listener.Name())
@@ -104,6 +105,7 @@ func (c *Queue) Start() {
 	}
 	log.Info("queue listeners: %s", listeners.String())
 	go c.worker()
+	return nil
 }
 
 func (c *Queue) worker() {

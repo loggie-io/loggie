@@ -75,16 +75,17 @@ func (s *Sink) String() string {
 	return fmt.Sprintf("%s/%s", api.SINK, Type)
 }
 
-func (s *Sink) Init(context api.Context) {
+func (s *Sink) Init(context api.Context) error {
 	s.topicMatcher = util.InitMatcher(s.config.Topic)
+	return nil
 }
 
-func (s *Sink) Start() {
+func (s *Sink) Start() error {
 	c := s.config
 	mechanism, err := mechanism(c.SASL.Type, c.SASL.UserName, c.SASL.Password, c.SASL.Algorithm)
 	if err != nil {
 		log.Error("kafka sink sasl mechanism with error: %s", err.Error())
-		return
+		return err
 	}
 
 	w := &kafka.Writer{
@@ -103,9 +104,9 @@ func (s *Sink) Start() {
 		},
 	}
 
-	s.writer = w
-
 	log.Info("kafka-sink start,topic: %s,broker: %v", s.config.Topic, s.config.Brokers)
+	s.writer = w
+	return nil
 }
 
 func (s *Sink) Stop() {

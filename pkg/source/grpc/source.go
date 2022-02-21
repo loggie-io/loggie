@@ -71,11 +71,13 @@ func (s *Source) String() string {
 	return fmt.Sprintf("%s/%s", api.SOURCE, Type)
 }
 
-func (s *Source) Init(context api.Context) {
+func (s *Source) Init(context api.Context) error {
 	s.name = context.Name()
+	return nil
 }
 
-func (s *Source) Start() {
+func (s *Source) Start() error {
+	return nil
 }
 
 func (s *Source) Stop() {

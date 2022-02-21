@@ -67,11 +67,13 @@ func (l *Listener) Name() string {
 	return "sink"
 }
 
-func (l *Listener) Init(ctx api.Context) {
+func (l *Listener) Init(context api.Context) error {
+	return nil
 }
 
-func (l *Listener) Start() {
+func (l *Listener) Start() error {
 	go l.run()
+	return nil
 }
 
 func (l *Listener) Stop() {

@@ -52,11 +52,13 @@ func (k *unix) String() string {
 	return fmt.Sprintf("%s/%s", api.SOURCE, Type)
 }
 
-func (k *unix) Init(context api.Context) {
+func (k *unix) Init(context api.Context) error {
 	k.name = context.Name()
+	return nil
 }
 
-func (k *unix) Start() {
+func (k *unix) Start() error {
+	return nil
 }
 
 func (k *unix) Stop() {

@@ -55,7 +55,8 @@ type Listener struct {
 	alertCli *alertmanager.AlertManager
 }
 
-func (l *Listener) Init(ctx api.Context) {
+func (l *Listener) Init(context api.Context) error {
+	return nil
 }
 
 func (l *Listener) Name() string {
@@ -66,7 +67,7 @@ func (l *Listener) Config() interface{} {
 	return l.config
 }
 
-func (l *Listener) Start() {
+func (l *Listener) Start() error {
 	l.bufferChan = make(chan *eventbus.Event, l.config.BufferSize)
 	l.SendBatch = make([]*eventbus.Event, 0)
 
@@ -78,6 +79,7 @@ func (l *Listener) Start() {
 
 	log.Info("starting logAlert listener")
 	go l.run()
+	return nil
 }
 
 func (l *Listener) Stop() {

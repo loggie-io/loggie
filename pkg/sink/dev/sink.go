@@ -67,12 +67,14 @@ func (s *Sink) String() string {
 	return fmt.Sprintf("%s/%s", api.SINK, Type)
 }
 
-func (s *Sink) Init(context api.Context) {
+func (s *Sink) Init(context api.Context) error {
 	s.name = context.Name()
+	return nil
 }
 
-func (s *Sink) Start() {
+func (s *Sink) Start() error {
 	log.Info("%s start", s.String())
+	return nil
 }
 
 func (s *Sink) Stop() {
