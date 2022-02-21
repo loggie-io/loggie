@@ -31,14 +31,12 @@ func init() {
 
 func makeInterceptor(info pipeline.Info) api.Component {
 	return &Interceptor{
-		done:         make(chan struct{}),
 		pipelineName: info.PipelineName,
 		config:       &Config{},
 	}
 }
 
 type Interceptor struct {
-	done         chan struct{}
 	pipelineName string
 	name         string
 	config       *Config
@@ -68,7 +66,6 @@ func (i *Interceptor) Start() {
 }
 
 func (i *Interceptor) Stop() {
-	close(i.done)
 }
 
 func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invocation) api.Result {

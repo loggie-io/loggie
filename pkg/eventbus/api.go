@@ -35,6 +35,8 @@ func NewEvent(topic string, data interface{}) Event {
 	}
 }
 
+type ListenerFactory func() Listener
+
 type Listener interface {
 	api.Lifecycle
 	Name() string
@@ -43,16 +45,19 @@ type Listener interface {
 }
 
 type Subscribe struct {
-	listener Listener
-	async    bool
-	topics   []string
+	factory      ListenerFactory
+	listener     Listener
+	async        bool
+	topics       []string
+	listenerName string
 }
 
 type SubscribeOpt func(s *Subscribe)
 
-func NewSubscribe(listener Listener, opts ...SubscribeOpt) *Subscribe {
+func NewSubscribe(listenerName string, factory ListenerFactory, opts ...SubscribeOpt) *Subscribe {
 	s := &Subscribe{
-		listener: listener,
+		factory:      factory,
+		listenerName: listenerName,
 	}
 	for _, opt := range opts {
 		opt(s)

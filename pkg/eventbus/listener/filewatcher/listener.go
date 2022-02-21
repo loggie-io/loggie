@@ -29,11 +29,13 @@ import (
 	"time"
 )
 
+const name = "filewatcher"
+
 func init() {
-	eventbus.Registry(makeListener(), eventbus.WithTopics([]string{eventbus.FileWatcherTopic}))
+	eventbus.Registry(name, makeListener, eventbus.WithTopics([]string{eventbus.FileWatcherTopic}))
 }
 
-func makeListener() *Listener {
+func makeListener() eventbus.Listener {
 	l := &Listener{
 		done:      make(chan struct{}),
 		data:      make(map[string]data),
@@ -76,7 +78,7 @@ type fileInfo struct {
 }
 
 func (l *Listener) Name() string {
-	return "filewatcher"
+	return name
 }
 
 func (l *Listener) Init(ctx api.Context) {

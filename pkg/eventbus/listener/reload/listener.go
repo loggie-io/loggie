@@ -27,11 +27,13 @@ import (
 	"time"
 )
 
+const name = "reload"
+
 func init() {
-	eventbus.Registry(makeListener(), eventbus.WithTopic(eventbus.ReloadTopic))
+	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.ReloadTopic))
 }
 
-func makeListener() *Listener {
+func makeListener() eventbus.Listener {
 	l := &Listener{
 		done: make(chan struct{}),
 		data: data{
@@ -57,7 +59,7 @@ type data struct {
 }
 
 func (l *Listener) Name() string {
-	return "reload"
+	return name
 }
 
 func (l *Listener) Init(ctx api.Context) {
