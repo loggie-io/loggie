@@ -49,10 +49,6 @@ func (in *LogConfig) Validate() error {
 		return errors.New("only selector.type:pod is supported in LogConfig")
 	}
 
-	if tp == SelectorTypePod && len(in.Spec.Selector.LabelSelector) == 0 {
-		return errors.New("selector.labelSelector is required when selector.type=pod")
-	}
-
 	if in.Spec.Pipeline.Sources == "" {
 		return errors.New("pipeline sources is empty")
 	}

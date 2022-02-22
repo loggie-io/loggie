@@ -19,17 +19,18 @@ package helper
 import (
 	"bytes"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/log"
+	"path/filepath"
+	"strings"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"path/filepath"
-	"strings"
+	corev1listers "k8s.io/client-go/listers/core/v1"
 
+	"github.com/loggie-io/loggie/pkg/core/log"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	logconfigLister "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
-	corev1listers "k8s.io/client-go/listers/core/v1"
 )
 
 func IsPodReady(pod *corev1.Pod) bool {
@@ -56,17 +57,9 @@ func MetaNamespaceKey(namespace string, name string) string {
 type FuncGetRelatedPod func() ([]*corev1.Pod, error)
 
 func GetLogConfigRelatedPod(lgc *logconfigv1beta1.LogConfig, podsLister corev1listers.PodLister) ([]*corev1.Pod, error) {
-
-	labelSelector := lgc.Spec.Selector.PodSelector.LabelSelector
-	namespace := lgc.Namespace
-
-	if len(labelSelector) == 0 {
-		return nil, errors.New("cannot find labelSelector pods, label is null")
-	}
-
-	ret, err := podsLister.Pods(namespace).List(labels.SelectorFromSet(labelSelector))
+	ret, err := podsLister.Pods(lgc.Namespace).List(labels.SelectorFromSet(lgc.Spec.Selector.PodSelector.LabelSelector))
 	if err != nil {
-		log.Info("%s/%s cannot find pod by labelSelector %#v: %s", namespace, lgc.Name, labelSelector, err.Error())
+		log.Info("%s/%s cannot find pod by labelSelector %#v: %s", lgc.Namespace, lgc.Name, lgc.Spec.Selector.PodSelector.LabelSelector, err.Error())
 		return nil, nil
 	}
 
@@ -114,12 +107,16 @@ func GetPodRelatedClusterLogConfigs(pod *corev1.Pod, clgcLister logconfigLister.
 
 // LabelsSubset checks if i is subset of j
 func LabelsSubset(i map[string]string, j map[string]string) bool {
-	if i == nil || j == nil {
+	if len(i) <= 0 {
+		return true
+	}
+
+	if len(j) <= 0 {
 		return false
 	}
 
-	for ikey, ival := range i {
-		if j[ikey] != ival {
+	for key, val := range i {
+		if j[key] != val {
 			return false
 		}
 	}
