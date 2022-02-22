@@ -34,8 +34,8 @@ func PublishOrDrop(topic string, data interface{}) {
 	defaultEventCenter.publishOrDrop(NewEvent(topic, data))
 }
 
-func Registry(listener Listener, opts ...SubscribeOpt) {
-	RegistrySubscribe(NewSubscribe(listener, opts...))
+func Registry(listenerName string, listenerFactory ListenerFactory, opts ...SubscribeOpt) {
+	RegistrySubscribe(NewSubscribe(listenerName, listenerFactory, opts...))
 }
 
 func RegistrySubscribe(subscribe *Subscribe) {
@@ -49,21 +49,21 @@ func AfterErrorFunc(errorMsg string) {
 }
 
 type EventCenter struct {
-	done               chan struct{}
-	subscribes         map[string][]*Subscribe
-	listeners          map[string]Listener
-	asyncConsumerSize  int
-	asyncConsumerCount int32
-	eventChan          chan Event
+	done                   chan struct{}
+	name2Subscribe         map[string]*Subscribe
+	activeTopic2Subscribes map[string][]*Subscribe
+	asyncConsumerSize      int
+	asyncConsumerCount     int32
+	eventChan              chan Event
 }
 
 func NewEventCenter(bufferSize int64, asyncConsumerSize int) *EventCenter {
 	ec := &EventCenter{
-		done:              make(chan struct{}),
-		subscribes:        make(map[string][]*Subscribe),
-		listeners:         make(map[string]Listener),
-		asyncConsumerSize: asyncConsumerSize,
-		eventChan:         make(chan Event, bufferSize),
+		done:                   make(chan struct{}),
+		name2Subscribe:         make(map[string]*Subscribe),
+		activeTopic2Subscribes: make(map[string][]*Subscribe),
+		asyncConsumerSize:      asyncConsumerSize,
+		eventChan:              make(chan Event, bufferSize),
 	}
 
 	return ec
@@ -83,19 +83,10 @@ func (ec *EventCenter) Stop() {
 }
 
 func (ec *EventCenter) registry(subscribe *Subscribe) {
-	ec.listeners[subscribe.listener.Name()] = subscribe.listener
-
-	subscribe.listener.Init(&context.DefaultContext{})
-
-	for _, topic := range subscribe.topics {
-		if subscribes, ok := ec.subscribes[topic]; ok {
-			subscribes = append(subscribes, subscribe)
-		} else {
-			subscribes := make([]*Subscribe, 0)
-			subscribes = append(subscribes, subscribe)
-			ec.subscribes[topic] = subscribes
-		}
+	if _, ok := ec.name2Subscribe[subscribe.listenerName]; ok {
+		log.Panic("listener name(%s) repeat!")
 	}
+	ec.name2Subscribe[subscribe.listenerName] = subscribe
 }
 
 func (ec *EventCenter) publish(event Event) {
@@ -110,15 +101,17 @@ func (ec *EventCenter) publishOrDrop(event Event) {
 }
 
 func (ec *EventCenter) start(config Config) {
-
 	logger.Run(config.LoggerConfig)
 
 	for name, conf := range config.ListenerConfigs {
-		listener, ok := ec.listeners[name]
+		subscribe, ok := ec.name2Subscribe[name]
 		if !ok {
 			log.Info("unable to find listener: %s", name)
 			continue
 		}
+		subscribe.listener = subscribe.factory()
+		listener := subscribe.listener
+		listener.Init(&context.DefaultContext{})
 
 		if conf == nil {
 			conf = cfg.NewCommonCfg()
@@ -129,6 +122,21 @@ func (ec *EventCenter) start(config Config) {
 		}
 		config.ListenerConfigs[name] = conf
 		listener.Start()
+		log.Info("listener(%s) start", listener.Name())
+
+		ec.activeSubscribe(subscribe)
+	}
+}
+
+func (ec *EventCenter) activeSubscribe(subscribe *Subscribe) {
+	for _, topic := range subscribe.topics {
+		if subscribes, ok := ec.activeTopic2Subscribes[topic]; ok {
+			subscribes = append(subscribes, subscribe)
+		} else {
+			subscribes := make([]*Subscribe, 0)
+			subscribes = append(subscribes, subscribe)
+			ec.activeTopic2Subscribes[topic] = subscribes
+		}
 	}
 }
 
@@ -139,7 +147,7 @@ func (ec *EventCenter) run() {
 			return
 		case e := <-ec.eventChan:
 			topic := e.Topic
-			if metas, ok := ec.subscribes[topic]; ok {
+			if metas, ok := ec.activeTopic2Subscribes[topic]; ok {
 				for _, subscribe := range metas {
 					subscribe.listener.Subscribe(e)
 				}

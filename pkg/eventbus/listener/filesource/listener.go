@@ -29,11 +29,13 @@ import (
 	"time"
 )
 
+const name = "filesource"
+
 func init() {
-	eventbus.Registry(makeListener(), eventbus.WithTopics([]string{eventbus.FileSourceMetricTopic}))
+	eventbus.Registry(name, makeListener, eventbus.WithTopics([]string{eventbus.FileSourceMetricTopic}))
 }
 
-func makeListener() *Listener {
+func makeListener() eventbus.Listener {
 	l := &Listener{
 		eventChan: make(chan eventbus.CollectMetricData),
 		done:      make(chan struct{}),
@@ -73,7 +75,7 @@ type fileHarvester struct {
 }
 
 func (l *Listener) Name() string {
-	return "filesource"
+	return name
 }
 
 func (l *Listener) Init(ctx api.Context) {

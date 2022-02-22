@@ -28,11 +28,13 @@ import (
 	"time"
 )
 
+const name = "sink"
+
 func init() {
-	eventbus.Registry(makeListener(), eventbus.WithTopic(eventbus.SinkMetricTopic))
+	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.SinkMetricTopic))
 }
 
-func makeListener() *Listener {
+func makeListener() eventbus.Listener {
 	l := &Listener{
 		data:      make(map[string]*data),
 		done:      make(chan struct{}),
@@ -64,7 +66,7 @@ type data struct {
 }
 
 func (l *Listener) Name() string {
-	return "sink"
+	return name
 }
 
 func (l *Listener) Init(ctx api.Context) {

@@ -24,11 +24,13 @@ import (
 	"time"
 )
 
+const name = "pipeline"
+
 func init() {
-	eventbus.Registry(makeListener(), eventbus.WithTopics([]string{eventbus.PipelineTopic, eventbus.ComponentBaseTopic}))
+	eventbus.Registry(name, makeListener, eventbus.WithTopics([]string{eventbus.PipelineTopic, eventbus.ComponentBaseTopic}))
 }
 
-func makeListener() *Listener {
+func makeListener() eventbus.Listener {
 	l := &Listener{
 		done:                 make(chan struct{}),
 		config:               &Config{},
@@ -53,7 +55,7 @@ type Listener struct {
 }
 
 func (l *Listener) Name() string {
-	return "pipeline"
+	return name
 }
 
 func (l *Listener) Init(ctx api.Context) {

@@ -30,11 +30,13 @@ import (
 	promeExporter "github.com/loggie-io/loggie/pkg/eventbus/export/prometheus"
 )
 
+const name = "queue"
+
 func init() {
-	eventbus.Registry(makeListener(), eventbus.WithTopic(eventbus.QueueMetricTopic))
+	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.QueueMetricTopic))
 }
 
-func makeListener() *Listener {
+func makeListener() eventbus.Listener {
 	l := &Listener{
 		eventChan: make(chan eventbus.QueueMetricData),
 		data:      make(map[string]metricData),
@@ -65,7 +67,7 @@ type metricData struct {
 }
 
 func (l *Listener) Name() string {
-	return "queue"
+	return name
 }
 
 func (l *Listener) Init(ctx api.Context) {

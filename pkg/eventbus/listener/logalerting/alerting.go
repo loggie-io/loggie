@@ -25,11 +25,13 @@ import (
 	"time"
 )
 
+const name = "logAlert"
+
 func init() {
-	eventbus.Registry(makeListener(), eventbus.WithTopic(eventbus.LogAlertTopic))
+	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.LogAlertTopic))
 }
 
-func makeListener() *Listener {
+func makeListener() eventbus.Listener {
 	l := &Listener{
 		config: &Config{},
 		done:   make(chan struct{}),
@@ -59,7 +61,7 @@ func (l *Listener) Init(ctx api.Context) {
 }
 
 func (l *Listener) Name() string {
-	return "logAlert"
+	return name
 }
 
 func (l *Listener) Config() interface{} {
