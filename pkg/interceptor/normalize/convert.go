@@ -30,7 +30,6 @@ const (
 	typeBoolean = "bool"
 	typeInteger = "integer"
 	typeFloat   = "float"
-	typeDefault = "string"
 )
 
 type ConvertProcessor struct {
