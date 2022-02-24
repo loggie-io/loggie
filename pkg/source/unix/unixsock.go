@@ -145,7 +145,11 @@ func (k *unix) handleConn(ctx context.Context, conn net.Conn, productFunc api.Pr
 
 func checkBind(path string) error {
 	_, err := os.Lstat(path)
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+
 		return errors.WithMessagef(err, "stat path %s failed", path)
 	}
 
