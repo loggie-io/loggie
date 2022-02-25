@@ -136,8 +136,12 @@ func (k *unix) handleConn(ctx context.Context, conn net.Conn, productFunc api.Pr
 		}
 
 		body := scan.Bytes()
+
+		// scan.Bytes() is not thread-safe
+		copyBody := make([]byte, len(body))
+		copy(copyBody, body)
 		e := k.eventPool.Get()
-		e.Fill(e.Meta(), e.Header(), body)
+		e.Fill(e.Meta(), e.Header(), copyBody)
 
 		productFunc(e)
 	}
