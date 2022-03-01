@@ -12,6 +12,7 @@ import (
 	"golang.org/x/net/netutil"
 	"net"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -77,6 +78,12 @@ func (k *unix) ProductLoop(productFunc api.ProductFunc) {
 		log.Error("setup unix listener failed: %v", err)
 		return
 	}
+
+	if err := chmod(k.config.Path, k.config.Mode); err != nil {
+		log.Error("chmod unix path %s with %s failed: %v", k.config.Path, k.config.Mode, err)
+		return
+	}
+
 	if k.config.MaxConnections > 0 {
 		listener = netutil.LimitListener(listener, k.config.MaxConnections)
 	}
@@ -159,6 +166,19 @@ func checkBind(path string) error {
 
 	if err := os.Remove(path); err != nil {
 		return errors.WithMessagef(err, "remove path %s failed", path)
+	}
+
+	return nil
+}
+
+func chmod(path string, mode string) error {
+	parsed, err := strconv.ParseUint(mode, 8, 32)
+	if err != nil {
+		return err
+	}
+
+	if err = os.Chmod(path, os.FileMode(parsed)); err != nil {
+		return err
 	}
 
 	return nil
