@@ -18,7 +18,6 @@ linters:
     - golint        # Carry out the stylistic conventions put forth in Effective Go and CodeReviewComments
     - asciicheck
     - depguard
-    - errorlint
     - gosec
     - importas
     - prealloc
