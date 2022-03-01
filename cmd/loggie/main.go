@@ -87,9 +87,8 @@ func main() {
 		return false
 	})
 	if pipecfgs != nil {
-		out, err := yaml.Marshal(pipecfgs)
-		if err == nil {
-			log.Info("initial pipelines config:\n%s", string(out))
+		if out, yamlErr := yaml.Marshal(pipecfgs); yamlErr != nil {
+			log.Fatal("initial pipelines config:\n%s", string(out))
 		}
 	}
 

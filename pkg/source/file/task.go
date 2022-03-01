@@ -94,10 +94,6 @@ func (wt *WatchTask) newJob(filename string, info os.FileInfo) *Job {
 	return NewJob(wt, filename, info)
 }
 
-func (wt *WatchTask) newJobWithUid(filename string, jobUid string) *Job {
-	return newJobWithUid(wt, filename, jobUid)
-}
-
 func (wt *WatchTask) WatchTaskKey() string {
 	var watchTaskKey strings.Builder
 	watchTaskKey.WriteString(wt.pipelineName)

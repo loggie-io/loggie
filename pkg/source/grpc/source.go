@@ -24,6 +24,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	pb "github.com/loggie-io/loggie/pkg/sink/grpc/pb"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"io"
 	"net"
@@ -113,7 +114,7 @@ func (s *Source) LogStream(ls pb.LogService_LogStreamServer) error {
 	b := newBatch(s.config.Timeout)
 	for {
 		logMsg, err := ls.Recv()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {

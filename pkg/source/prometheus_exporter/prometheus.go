@@ -138,8 +138,8 @@ func (k *PromExporter) scrape(c ctx.Context, req *http.Request) ([]byte, error) 
 	}
 
 	if k.config.ToJson {
-		out, err := promToJson(resp.Body)
-		if err != nil {
+		out, promErr := promToJson(resp.Body)
+		if promErr != nil {
 			return nil, errors.WithMessage(err, "convert prometheus metrics to json failed")
 		}
 		return out, nil

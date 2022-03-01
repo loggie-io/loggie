@@ -21,6 +21,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/pkg/errors"
 	"io"
 	"sync"
 	"time"
@@ -28,8 +29,6 @@ import (
 
 const (
 	SystemStateKey = event.SystemKeyPrefix + "State"
-
-	TagTimeout = "timeout"
 )
 
 type State struct {
@@ -150,16 +149,15 @@ func (r *Reader) work(index int) {
 			readTotal := int64(0)
 			processed := int64(0)
 			backlogBuffer = backlogBuffer[:0]
-			//readBuffer := make([]byte, readBufferSize)
 			for {
 				readBuffer = readBuffer[:readBufferSize]
-				l, err := file.Read(readBuffer)
-				if err == io.EOF || l == 0 {
+				l, readErr := file.Read(readBuffer)
+				if errors.Is(readErr, io.EOF) || l == 0 {
 					isEOF = true
 					job.eofCount++
 					break
 				}
-				if err != nil {
+				if readErr != nil {
 					log.Error("file(name:%s) read error, err: %v", filename, err)
 					break
 				}

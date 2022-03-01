@@ -369,7 +369,7 @@ func (c *Controller) processNextWorkItem() bool {
 		if err := c.syncHandler(element); err != nil {
 			// Put the item back on the workqueue to handle any transient errors.
 			c.workqueue.AddRateLimited(element)
-			return fmt.Errorf("error syncing '%+v': %s, requeuing", element, err.Error())
+			return fmt.Errorf("error syncing '%+v': %w, requeuing", element, err)
 		}
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.

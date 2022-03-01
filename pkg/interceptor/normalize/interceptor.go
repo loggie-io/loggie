@@ -22,7 +22,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"regexp"
 )
 
 const Type = "normalize"
@@ -46,7 +45,6 @@ type Interceptor struct {
 	pipelineName   string
 	name           string
 	config         *Config
-	r              *regexp.Regexp
 	ProcessorGroup *ProcessorGroup
 }
 

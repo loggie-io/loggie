@@ -19,7 +19,6 @@ package file
 import (
 	"database/sql"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"math/rand"
 	"reflect"
@@ -29,8 +28,7 @@ import (
 
 func TestNewDB(t *testing.T) {
 	type args struct {
-		sourceName string
-		config     DbConfig
+		config DbConfig
 	}
 	tests := []struct {
 		name string
@@ -50,11 +48,9 @@ func TestNewDB(t *testing.T) {
 
 func Test_dbHandler_findAll(t *testing.T) {
 	type fields struct {
-		done       chan struct{}
-		sourceName string
-		config     DbConfig
-		eventChan  chan api.Event
-		db         *sql.DB
+		done   chan struct{}
+		config DbConfig
+		db     *sql.DB
 	}
 	tests := []struct {
 		name   string

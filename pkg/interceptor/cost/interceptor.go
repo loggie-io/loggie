@@ -39,7 +39,6 @@ func makeInterceptor(info pipeline.Info) api.Component {
 }
 
 type Interceptor struct {
-	done   chan struct{}
 	name   string
 	config *Config
 	full   bool

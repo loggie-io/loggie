@@ -24,7 +24,6 @@ import (
 
 type DefaultBatch struct {
 	Es        []api.Event
-	size      int
 	startTime time.Time
 	meta      map[string]interface{}
 }
@@ -39,11 +38,6 @@ func (db *DefaultBatch) Events() []api.Event {
 
 func (db *DefaultBatch) Release() {
 	ReleaseBatch(db)
-}
-
-func (db *DefaultBatch) append(e api.Event) {
-	db.Es = append(db.Es, e)
-	db.size++
 }
 
 var pool = sync.Pool{

@@ -17,6 +17,7 @@ limitations under the License.
 package elasticsearch
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -29,7 +30,7 @@ import (
 
 const Type = "elasticsearch"
 
-var clientNotInitError = fmt.Errorf("elasticsearch client not initialized yet")
+var clientNotInitError = errors.New("elasticsearch client not initialized yet")
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)

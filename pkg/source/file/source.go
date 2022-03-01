@@ -50,7 +50,6 @@ type Source struct {
 	config             *Config
 	sinkCount          int
 	name               string
-	filename           string
 	out                chan api.Event
 	productFunc        api.ProductFunc
 	r                  *Reader

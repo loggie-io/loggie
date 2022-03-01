@@ -87,12 +87,13 @@ func (l *Listener) Config() interface{} {
 }
 
 func (l *Listener) export() {
-	tick := time.Tick(l.config.Period)
+	tick := time.NewTicker(l.config.Period)
+	defer tick.Stop()
 	for {
 		select {
 		case <-l.done:
 			return
-		case <-tick:
+		case <-tick.C:
 			l.exportPrometheus()
 			m, _ := json.Marshal(l.data)
 			logger.Export(eventbus.ReloadTopic, m)

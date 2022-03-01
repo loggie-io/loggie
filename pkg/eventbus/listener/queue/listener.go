@@ -94,7 +94,8 @@ func (l *Listener) Subscribe(event eventbus.Event) {
 }
 
 func (l *Listener) run() {
-	tick := time.Tick(l.config.Period)
+	tick := time.NewTicker(l.config.Period)
+	defer tick.Stop()
 	for {
 		select {
 		case <-l.done:
@@ -103,7 +104,7 @@ func (l *Listener) run() {
 		case e := <-l.eventChan:
 			l.consumer(e)
 
-		case <-tick:
+		case <-tick.C:
 			l.exportPrometheus()
 			m, _ := json.Marshal(l.data)
 			logger.Export(eventbus.QueueMetricTopic, m)

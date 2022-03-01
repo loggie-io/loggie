@@ -619,17 +619,6 @@ func collectComponentDependencySinkInterceptors(component api.Component) []sink.
 	return sis
 }
 
-func collectComponentDependencySourceInterceptors(component api.Component) []source.Interceptor {
-	sis := make([]source.Interceptor, 0)
-	interceptors := collectComponentDependencyInterceptors(component)
-	for _, i := range interceptors {
-		if si, ok := i.(source.Interceptor); ok {
-			sis = append(sis, si)
-		}
-	}
-	return sis
-}
-
 func collectComponentDependencyInterceptors(component api.Component) []api.Interceptor {
 	interceptors := make([]api.Interceptor, 0)
 	if extensionComponent, ok := component.(api.ExtensionComponent); ok {

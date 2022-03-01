@@ -17,7 +17,11 @@ limitations under the License.
 package control
 
 import (
+	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/source"
+	_ "github.com/loggie-io/loggie/pkg/queue/memory"
+	_ "github.com/loggie-io/loggie/pkg/sink/dev"
+	_ "github.com/loggie-io/loggie/pkg/source/file"
 	"github.com/pkg/errors"
 	"testing"
 )
@@ -88,9 +92,9 @@ func Test_defaultsAndValidate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := defaultsAndValidate(tt.args.content)
+			err := cfg.UnpackRawDefaultsAndValidate(tt.args.content, &PipelineRawConfig{})
 			if err != nil {
-				if errors.Cause(err) != tt.wantErr {
+				if !errors.Is(err, tt.wantErr) {
 					t.Errorf("defaultsAndValidate() error = %v, wantErr %v", err, tt.wantErr)
 				}
 				return
