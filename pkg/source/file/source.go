@@ -17,10 +17,9 @@ limitations under the License.
 package file
 
 import (
-	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/source/abstract"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"time"
 )
@@ -28,31 +27,19 @@ import (
 const Type = "file"
 
 func init() {
-	pipeline.Register(api.SOURCE, Type, makeSource)
+	abstract.SourceRegister(Type, makeSource)
 }
 
-func makeSource(info pipeline.Info) api.Component {
+func makeSource(info pipeline.Info) abstract.SourceConvert {
 	return &Source{
-		pipelineName: info.PipelineName,
-		epoch:        info.Epoch,
-		rc:           info.R,
-		eventPool:    info.EventPool,
-		sinkCount:    info.SinkCount,
-		config:       &Config{},
+		Source: abstract.ExtendsAbstractSource(info, Type),
+		config: &Config{},
 	}
 }
 
 type Source struct {
-	pipelineName       string
-	epoch              pipeline.Epoch
-	rc                 *pipeline.RegisterCenter
-	eventPool          *event.Pool
+	*abstract.Source
 	config             *Config
-	sinkCount          int
-	name               string
-	filename           string
-	out                chan api.Event
-	productFunc        api.ProductFunc
 	r                  *Reader
 	ackEnable          bool
 	ackChainHandler    *AckChainHandler
@@ -65,26 +52,15 @@ type Source struct {
 	mTask              *MultiTask
 }
 
+// ------------------------------------------------------------------------
+//  override methods
+// ------------------------------------------------------------------------
+
 func (s *Source) Config() interface{} {
 	return s.config
 }
 
-func (s *Source) Category() api.Category {
-	return api.SOURCE
-}
-
-func (s *Source) Type() api.Type {
-	return Type
-}
-
-func (s *Source) String() string {
-	return fmt.Sprintf("%s/%s/%s", s.Category(), s.Type(), s.name)
-}
-
-func (s *Source) Init(context api.Context) {
-	s.name = context.Name()
-	s.out = make(chan api.Event, s.sinkCount)
-
+func (s *Source) DoStart() {
 	s.ackEnable = s.config.AckConfig.Enable
 	// init default multi agg timeout
 	mutiTimeout := s.config.ReaderConfig.MultiConfig.Timeout
@@ -104,23 +80,20 @@ func (s *Source) Init(context api.Context) {
 	}
 
 	s.isolation = Isolation{
-		PipelineName: s.pipelineName,
-		SourceName:   s.name,
+		PipelineName: s.PipelineName(),
+		SourceName:   s.Name(),
 		Level:        IsolationLevel(s.config.Isolation),
 	}
-}
 
-func (s *Source) Start() {
-	log.Info("start source: %s", s.String())
 	if s.config.ReaderConfig.MultiConfig.Active {
 		s.multilineProcessor = GetOrCreateShareMultilineProcessor()
 	}
 	// register queue listener for ack
 	if s.ackEnable {
 		s.dbHandler = GetOrCreateShareDbHandler(s.config.DbConfig)
-		s.ackChainHandler = GetOrCreateShareAckChainHandler(s.sinkCount, s.config.AckConfig)
-		s.rc.RegisterListener(&AckListener{
-			sourceName:      s.name,
+		s.ackChainHandler = GetOrCreateShareAckChainHandler(s.PipelineInfo().SinkCount, s.config.AckConfig)
+		s.PipelineInfo().R.RegisterListener(&AckListener{
+			sourceName:      s.Name(),
 			ackChainHandler: s.ackChainHandler,
 		})
 	}
@@ -131,10 +104,9 @@ func (s *Source) Start() {
 	s.HandleHttp()
 }
 
-func (s *Source) Stop() {
-	log.Info("start stop source: %s", s.String())
+func (s *Source) DoStop() {
 	// Stop ack
-	if s.config.AckConfig.Enable {
+	if s.ackEnable {
 		// stop append&ack source event
 		s.ackChainHandler.StopTask(s.ackTask)
 		log.Info("[%s] all ack jobs of source exit", s.String())
@@ -149,33 +121,9 @@ func (s *Source) Stop() {
 	if s.config.ReaderConfig.MultiConfig.Active {
 		s.multilineProcessor.StopTask(s.mTask)
 	}
-	log.Info("source has stopped: %s", s.String())
 }
 
-func (s *Source) Product() api.Event {
-	return <-s.out
-}
-
-func (s *Source) ProductLoop(productFunc api.ProductFunc) {
-	log.Info("%s start product loop", s.String())
-	s.productFunc = productFunc
-	if s.config.ReaderConfig.MultiConfig.Active {
-		s.mTask = NewMultiTask(s.epoch, s.name, s.config.ReaderConfig.MultiConfig, s.eventPool, s.productFunc)
-		s.multilineProcessor.StartTask(s.mTask)
-		s.productFunc = s.multilineProcessor.Process
-	}
-	if s.config.AckConfig.Enable {
-		s.ackTask = NewAckTask(s.epoch, s.pipelineName, s.name, func(state *State) {
-			s.dbHandler.state <- state
-		})
-		s.ackChainHandler.StartTask(s.ackTask)
-	}
-	s.watchTask = NewWatchTask(s.epoch, s.pipelineName, s.name, s.config.CollectConfig, s.eventPool, s.productFunc, s.r.jobChan, s.config.Fields)
-	// start watch source paths
-	s.watcher.StartWatchTask(s.watchTask)
-}
-
-func (s *Source) Commit(events []api.Event) {
+func (s *Source) DoCommit(events []api.Event) {
 	// ack events
 	if s.ackEnable {
 		ss := make([]*State, 0, len(events))
@@ -184,6 +132,22 @@ func (s *Source) Commit(events []api.Event) {
 		}
 		s.ackChainHandler.ackChan <- ss
 	}
-	// release events
-	s.eventPool.PutAll(events)
+}
+
+func (s *Source) DoProduct() {
+	productFunc := s.ProductFunc()
+	if s.config.ReaderConfig.MultiConfig.Active {
+		s.mTask = NewMultiTask(s.Epoch(), s.Name(), s.config.ReaderConfig.MultiConfig, s.PipelineInfo().EventPool, productFunc)
+		s.multilineProcessor.StartTask(s.mTask)
+		productFunc = s.multilineProcessor.Process
+	}
+	if s.config.AckConfig.Enable {
+		s.ackTask = NewAckTask(s.Epoch(), s.PipelineName(), s.Name(), func(state *State) {
+			s.dbHandler.state <- state
+		})
+		s.ackChainHandler.StartTask(s.ackTask)
+	}
+	s.watchTask = NewWatchTask(s.Epoch(), s.PipelineName(), s.Name(), s.config.CollectConfig, s.PipelineInfo().EventPool, productFunc, s.r.jobChan, s.config.Fields)
+	// start watch source paths
+	s.watcher.StartWatchTask(s.watchTask)
 }

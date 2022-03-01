@@ -19,6 +19,7 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/source/abstract"
 	"regexp"
 	"sync"
 	"time"
@@ -28,7 +29,6 @@ import (
 	"github.com/segmentio/kafka-go/topics"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 )
@@ -36,47 +36,29 @@ import (
 const Type = "kafka"
 
 func init() {
-	pipeline.Register(api.SOURCE, Type, makeSource)
+	abstract.SourceRegister(Type, makeSource)
 }
 
-func makeSource(info pipeline.Info) api.Component {
+func makeSource(info pipeline.Info) abstract.SourceConvert {
 	return &Source{
-		done:      make(chan struct{}),
-		config:    &Config{},
-		eventPool: info.EventPool,
+		done:   make(chan struct{}),
+		config: &Config{},
 	}
 }
 
 type Source struct {
-	name      string
+	*abstract.Source
 	done      chan struct{}
 	closeOnce sync.Once
 	config    *Config
 	consumer  *kafka.Reader
-	eventPool *event.Pool
 }
 
 func (k *Source) Config() interface{} {
 	return k.config
 }
 
-func (k *Source) Category() api.Category {
-	return api.SOURCE
-}
-
-func (k *Source) Type() api.Type {
-	return Type
-}
-
-func (k *Source) String() string {
-	return fmt.Sprintf("%s/%s", api.SOURCE, Type)
-}
-
-func (k *Source) Init(context api.Context) {
-	k.name = context.Name()
-}
-
-func (k *Source) Start() {
+func (k *Source) DoStart() {
 	topicRegx, err := regexp.Compile(k.config.Topic)
 	if err != nil {
 		log.Error("compile kafka topic regex %s error: %s", k.config.Topic, err.Error())
@@ -119,7 +101,7 @@ func (k *Source) Start() {
 	k.consumer = kafka.NewReader(readerCfg)
 }
 
-func (k *Source) Stop() {
+func (k *Source) DoStop() {
 	k.closeOnce.Do(func() {
 		if k.consumer != nil {
 			err := k.consumer.Close()
@@ -132,7 +114,7 @@ func (k *Source) Stop() {
 	})
 }
 
-func (k *Source) ProductLoop(productFunc api.ProductFunc) {
+func (k *Source) DoProduct() {
 	log.Info("%s start product loop", k.String())
 
 	for {
@@ -141,7 +123,7 @@ func (k *Source) ProductLoop(productFunc api.ProductFunc) {
 			return
 
 		default:
-			err := k.consume(productFunc)
+			err := k.consume()
 			if err != nil {
 				log.Error("%+v", err)
 			}
@@ -149,7 +131,7 @@ func (k *Source) ProductLoop(productFunc api.ProductFunc) {
 	}
 }
 
-func (k *Source) consume(productFunc api.ProductFunc) error {
+func (k *Source) consume() error {
 	if k.consumer == nil {
 		return fmt.Errorf("kakfa consumer not initialized yet")
 	}
@@ -168,11 +150,8 @@ func (k *Source) consume(productFunc api.ProductFunc) error {
 		}
 	}
 
-	e := k.eventPool.Get()
+	e := k.NewEvent()
 	header := e.Header()
-	if header == nil {
-		header = make(map[string]interface{})
-	}
 	header["kafka"] = map[string]interface{}{
 		"offset":    msg.Offset,
 		"partition": msg.Partition,
@@ -184,11 +163,11 @@ func (k *Source) consume(productFunc api.ProductFunc) error {
 		header[h.Key] = string(h.Value)
 	}
 	e.Fill(e.Meta(), header, msg.Value)
-	productFunc(e)
+	k.Send(e)
 	return nil
 }
 
-func (k *Source) Commit(events []api.Event) {
+func (k *Source) DoCommit(events []api.Event) {
 	// commit when sink ack
 	if !k.config.EnableAutoCommit {
 		var msgs []kafka.Message
@@ -223,6 +202,4 @@ func (k *Source) Commit(events []api.Event) {
 			log.Error("consumer manually commit messgage error: %v", err)
 		}
 	}
-
-	k.eventPool.PutAll(events)
 }
