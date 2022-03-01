@@ -19,7 +19,6 @@ linters:
     - asciicheck
     - depguard
     - gosec
-    - importas
     - prealloc
     - revive
     - stylecheck
