@@ -152,20 +152,36 @@ func ReadPipelineConfig(path string, ignore FileIgnore) (*PipelineConfig, error)
 	if err != nil {
 		return nil, err
 	}
+
+	var all []string
+	allIgnored := true
 	for _, m := range matches {
 		s, err := os.Stat(m)
 		if err != nil {
 			return nil, err
 		}
+
 		if s.IsDir() {
 			continue
 		}
 
+		all = append(all, m)
 		if ignore(s) {
 			continue
 		}
 
-		content, err := ioutil.ReadFile(m)
+		// reach here only when there exists a recently modified cfg file
+		allIgnored = false
+	}
+
+	// if all files are ignored, then do not read any file.
+	if allIgnored {
+		return pipecfgs, nil
+	}
+
+	// if any file should not be ignored, then all files are read.
+	for _, fn := range all {
+		content, err := ioutil.ReadFile(fn)
 		if err != nil {
 			log.Warn("read config error. err: %v", err)
 			return nil, err
