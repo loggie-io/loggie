@@ -38,7 +38,7 @@ type MultiTaskType string
 
 type MultiTask struct {
 	mTaskType   MultiTaskType
-	epoch       pipeline.Epoch
+	epoch       *pipeline.Epoch
 	sourceName  string
 	key         string
 	config      MultiConfig
@@ -60,7 +60,7 @@ func (mt *MultiTask) isParentOf(mh *MultiHolder) bool {
 	return mt.sourceName == mh.mTask.sourceName && mt.epoch.PipelineName == mh.mTask.epoch.PipelineName
 }
 
-func NewMultiTask(epoch pipeline.Epoch, sourceName string, config MultiConfig, eventPool *event.Pool, productFunc api.ProductFunc) *MultiTask {
+func NewMultiTask(epoch *pipeline.Epoch, sourceName string, config MultiConfig, eventPool *event.Pool, productFunc api.ProductFunc) *MultiTask {
 	return &MultiTask{
 		epoch:       epoch,
 		sourceName:  sourceName,

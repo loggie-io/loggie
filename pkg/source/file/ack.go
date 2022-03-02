@@ -35,7 +35,7 @@ const (
 type AckTaskType string
 
 type AckTask struct {
-	Epoch           pipeline.Epoch
+	Epoch           *pipeline.Epoch
 	PipelineName    string
 	SourceName      string
 	key             string
@@ -44,7 +44,7 @@ type AckTask struct {
 	persistenceFunc persistenceFunc
 }
 
-func NewAckTask(epoch pipeline.Epoch, pipelineName string, sourceName string, persistenceFunc persistenceFunc) *AckTask {
+func NewAckTask(epoch *pipeline.Epoch, pipelineName string, sourceName string, persistenceFunc persistenceFunc) *AckTask {
 	return &AckTask{
 		Epoch:           epoch,
 		PipelineName:    pipelineName,
@@ -124,7 +124,7 @@ func ReleaseAck(a *ack) {
 }
 
 type JobAckChain struct {
-	Epoch           pipeline.Epoch
+	Epoch           *pipeline.Epoch
 	PipelineName    string
 	SourceName      string
 	JobWatchUid     string
@@ -135,7 +135,7 @@ type JobAckChain struct {
 	allAck          map[string]*ack
 }
 
-func newJobAckChain(epoch pipeline.Epoch, pipelineName string, sourceName string, jobWatchUid string, persistenceFunc persistenceFunc) *JobAckChain {
+func newJobAckChain(epoch *pipeline.Epoch, pipelineName string, sourceName string, jobWatchUid string, persistenceFunc persistenceFunc) *JobAckChain {
 	return &JobAckChain{
 		Epoch:           epoch,
 		PipelineName:    pipelineName,

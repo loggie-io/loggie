@@ -53,7 +53,7 @@ type Pipeline struct {
 	countDown     sync.WaitGroup
 	retryOutFuncs []api.OutFunc
 	index         uint32
-	epoch         Epoch
+	epoch         *Epoch
 }
 
 func NewPipeline() *Pipeline {

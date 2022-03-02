@@ -36,7 +36,7 @@ const (
 type WatchTaskType string
 
 type WatchTask struct {
-	epoch            pipeline.Epoch
+	epoch            *pipeline.Epoch
 	pipelineName     string
 	sourceName       string
 	config           CollectConfig
@@ -50,7 +50,7 @@ type WatchTask struct {
 	sourceFields     map[string]interface{}
 }
 
-func NewWatchTask(epoch pipeline.Epoch, pipelineName string, sourceName string, config CollectConfig,
+func NewWatchTask(epoch *pipeline.Epoch, pipelineName string, sourceName string, config CollectConfig,
 	eventPool *event.Pool, productFunc api.ProductFunc, activeChan chan *Job, sourceFields map[string]interface{}) *WatchTask {
 	w := &WatchTask{
 		epoch:        epoch,
