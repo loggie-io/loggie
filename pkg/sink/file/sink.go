@@ -146,7 +146,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 func (s *Sink) selectFilename(e api.Event) (string, error) {
 	var dir string
 	if s.consistent != nil {
-		dirHashKey, err := runtime.PatternSelect(runtime.NewObject(e.Header()), s.config.DirHashKey, s.dirHashKeyMatcher)
+		dirHashKey, err := runtime.PatternFormat(runtime.NewObject(e.Header()), s.config.DirHashKey, s.dirHashKeyMatcher)
 		if err != nil {
 			return "", err
 		}
@@ -155,7 +155,7 @@ func (s *Sink) selectFilename(e api.Event) (string, error) {
 			return "", err
 		}
 	}
-	filename, err := runtime.PatternSelect(runtime.NewObject(e.Header()), s.config.Filename, s.filenameMatcher)
+	filename, err := runtime.PatternFormat(runtime.NewObject(e.Header()), s.config.Filename, s.filenameMatcher)
 	if err != nil {
 		return "", err
 	}
