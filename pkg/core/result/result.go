@@ -24,44 +24,44 @@ type DefaultResult struct {
 	es     []api.Event
 }
 
-func Success() DefaultResult {
+func Success() *DefaultResult {
 	return NewResult(api.SUCCESS)
 }
 
-func Fail(err error) DefaultResult {
-	return DefaultResult{
+func Fail(err error) *DefaultResult {
+	return &DefaultResult{
 		err:    err,
 		status: api.FAIL,
 	}
 }
 
-func NewResult(state api.Status) DefaultResult {
-	return DefaultResult{
+func NewResult(state api.Status) *DefaultResult {
+	return &DefaultResult{
 		status: state,
 	}
 }
 
-func (dr DefaultResult) WithError(err error) DefaultResult {
+func (dr *DefaultResult) WithError(err error) *DefaultResult {
 	dr.err = err
 	return dr
 }
 
-func (dr DefaultResult) Events() []api.Event {
+func (dr *DefaultResult) Events() []api.Event {
 	return dr.es
 }
 
-func (dr DefaultResult) Status() api.Status {
+func (dr *DefaultResult) Status() api.Status {
 	return dr.status
 }
 
-func (dr DefaultResult) Batch() api.Batch {
+func (dr *DefaultResult) Batch() api.Batch {
 	return nil
 }
 
-func (dr DefaultResult) ChangeStatusTo(status api.Status) {
+func (dr *DefaultResult) ChangeStatusTo(status api.Status) {
 	dr.status = status
 }
 
-func (dr DefaultResult) Error() error {
+func (dr *DefaultResult) Error() error {
 	return dr.err
 }

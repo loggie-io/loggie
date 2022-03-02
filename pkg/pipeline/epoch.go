@@ -28,24 +28,24 @@ type Epoch struct {
 	StartTime    time.Time
 }
 
-func NewEpoch(pipelineName string) Epoch {
-	return Epoch{
+func NewEpoch(pipelineName string) *Epoch {
+	return &Epoch{
 		PipelineName: pipelineName,
 		ReloadCount:  0,
 		StartTime:    time.Now(),
 	}
 }
 
-func (e Epoch) IsEmpty() bool {
-	return e.StartTime.IsZero()
+func (e *Epoch) IsEmpty() bool {
+	return e == nil || e.StartTime.IsZero()
 }
 
-func (e Epoch) Increase() {
+func (e *Epoch) Increase() {
 	e.ReloadCount++
 	e.StartTime = time.Now()
 }
 
-func (e Epoch) Equal(ae Epoch) bool {
+func (e *Epoch) Equal(ae *Epoch) bool {
 	if e.PipelineName != ae.PipelineName {
 		return false
 	}
@@ -55,7 +55,7 @@ func (e Epoch) Equal(ae Epoch) bool {
 	return e.StartTime.Equal(ae.StartTime)
 }
 
-func (e Epoch) String() string {
+func (e *Epoch) String() string {
 	var es strings.Builder
 	es.Grow(64)
 	es.WriteString(e.PipelineName)

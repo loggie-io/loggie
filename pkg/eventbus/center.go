@@ -130,7 +130,7 @@ func (ec *EventCenter) start(config Config) {
 func (ec *EventCenter) activeSubscribe(subscribe *Subscribe) {
 	for _, topic := range subscribe.topics {
 		if subscribes, ok := ec.activeTopic2Subscribes[topic]; ok {
-			subscribes = append(subscribes, subscribe)
+			ec.activeTopic2Subscribes[topic] = append(subscribes, subscribe)
 		} else {
 			var subscribes []*Subscribe
 			subscribes = append(subscribes, subscribe)

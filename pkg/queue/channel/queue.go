@@ -42,7 +42,6 @@ func makeQueue(info pipeline.Info) api.Component {
 	return &Queue{
 		config:       &Config{},
 		pipelineName: info.PipelineName,
-		epoch:        info.Epoch,
 		sinkCount:    info.SinkCount,
 		listeners:    info.R.LoadQueueListeners(),
 	}
@@ -50,7 +49,6 @@ func makeQueue(info pipeline.Info) api.Component {
 
 type Queue struct {
 	pipelineName string
-	epoch        pipeline.Epoch
 	sinkCount    int
 	config       *Config
 	done         chan struct{}

@@ -99,7 +99,7 @@ func (s *Sink) Start() {
 	conn, err := grpc.Dial(
 		fmt.Sprintf("%s:///%s", collectorScheme, collectorServiceName),
 		grpc.WithInsecure(),
-		grpc.WithBalancerName(s.loadBalance),
+		grpc.WithDefaultServiceConfig(fmt.Sprintf(`{"loadBalancingConfig": [{"%s":{}}]}`, s.loadBalance)),
 		grpc.WithInitialWindowSize(256),
 	)
 	if err != nil {

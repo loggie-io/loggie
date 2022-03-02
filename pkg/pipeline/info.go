@@ -123,7 +123,7 @@ type Info struct {
 	Stop         bool // lazy stop signal
 	PipelineName string
 	SurviveChan  chan api.Batch
-	Epoch        Epoch
+	Epoch        *Epoch
 	R            *RegisterCenter
 	SinkCount    int
 	EventPool    *event.Pool

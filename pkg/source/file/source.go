@@ -44,7 +44,7 @@ func makeSource(info pipeline.Info) api.Component {
 
 type Source struct {
 	pipelineName       string
-	epoch              pipeline.Epoch
+	epoch              *pipeline.Epoch
 	rc                 *pipeline.RegisterCenter
 	eventPool          *event.Pool
 	config             *Config
