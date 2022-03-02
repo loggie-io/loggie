@@ -18,7 +18,15 @@ package controller
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
+
 	"github.com/google/go-cmp/cmp"
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/source"
@@ -29,11 +37,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/source/file"
 	"github.com/loggie-io/loggie/pkg/util"
-	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"strings"
 )
 
 const (
@@ -46,6 +49,21 @@ type fileSource struct {
 	ContainerName string       `yaml:"containerName,omitempty"`
 	MatchFields   *matchFields `yaml:"matchFields,omitempty"`
 	cfg.CommonCfg `yaml:",inline"`
+
+	ExcludeContainerPatterns []string `yaml:"excludeContainerPatterns,omitempty"` // regular pattern
+	excludeContainerRegexps  []*regexp.Regexp
+}
+
+func (f *fileSource) IsContainerExcluded(container string) bool {
+	if len(f.excludeContainerRegexps) == 0 {
+		return false
+	}
+	for _, excludeContainerRegexp := range f.excludeContainerRegexps {
+		if excludeContainerRegexp != nil && excludeContainerRegexp.Match([]byte(container)) {
+			return true
+		}
+	}
+	return false
 }
 
 func (f *fileSource) getSource() (*source.Config, error) {
@@ -275,6 +293,18 @@ func updateSources(sourceConfList []fileSource, config *Config, pod *corev1.Pod,
 }
 
 func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfigName string) ([]fileSource, error) {
+	if len(s.ExcludeContainerPatterns) > 0 {
+		regexps := make([]*regexp.Regexp, len(s.ExcludeContainerPatterns))
+		for i, containerPattern := range s.ExcludeContainerPatterns {
+			reg, err := regexp.Compile(containerPattern)
+			if err != nil {
+				log.Error("compile exclude container pattern(%s) fail: %v", containerPattern, err)
+				continue
+			}
+			regexps[i] = reg
+		}
+		s.excludeContainerRegexps = regexps
+	}
 
 	filesrcList := make([]fileSource, 0)
 	for _, status := range pod.Status.ContainerStatuses {
@@ -290,6 +320,10 @@ func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfig
 		}
 		if src.Type != file.Type {
 			return nil, errors.New("only source type=file is supported when selector.type=pod")
+		}
+
+		if s.IsContainerExcluded(status.Name) {
+			continue
 		}
 
 		if s.ContainerName != "" && s.ContainerName != status.Name {
