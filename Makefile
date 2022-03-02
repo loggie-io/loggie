@@ -55,7 +55,7 @@ fmt-check: ## Check the fmt of .go files
 ##@ Lint
 
 lint: golangci-lint ## Run golangci-lint
-	$(GOLANGCI-LINT) run
+	$(GOLANGCI-LINT) run --timeout=10m
 
 ##@ Images
 
