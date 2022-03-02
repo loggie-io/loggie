@@ -135,12 +135,6 @@ func (de *DefaultEvent) String() string {
 	return sb.String()
 }
 
-func initCommonEventPool(capacity int) *Pool {
-	return NewPool(capacity, func() api.Event {
-		return newBlankEvent()
-	})
-}
-
 type Factory func() api.Event
 
 type Pool struct {

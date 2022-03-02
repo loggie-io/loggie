@@ -70,7 +70,7 @@ func (r *RegexProcessor) Process(e api.Event) error {
 		header = make(map[string]interface{})
 	}
 
-	paramsMap := make(map[string]string)
+	var paramsMap map[string]string
 	if r.config.Target == event.Body {
 		paramsMap = util.MatchGroupWithRegex(r.regex, string(e.Body()))
 	} else {

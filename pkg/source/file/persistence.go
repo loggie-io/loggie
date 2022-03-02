@@ -43,7 +43,6 @@ const (
 		sys_version TEXT NOT NULL
 	);`
 
-	queryBySource                     = `SELECT id,pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version FROM registry WHERE source_name = '%s'`
 	queryAll                          = `SELECT id,pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version FROM registry`
 	insertSql                         = `INSERT INTO registry (pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version) VALUES (?, ?, ?, ?, ?, ?,?)`
 	updateSql                         = `UPDATE registry SET file_offset = ?,collect_time = ? WHERE id = ?`
@@ -51,7 +50,6 @@ const (
 	deleteById                        = `DELETE FROM registry where id = ?`
 	updateNameByJobWatchId            = `UPDATE registry SET filename = ? WHERE job_uid = ? AND source_name = ? AND pipeline_name = ?`
 	deleteByJobWatchId                = `DELETE FROM registry where job_uid = ? AND source_name = ? AND pipeline_name = ?`
-	updateOffsetById                  = `UPDATE registry SET file_offset = ? WHERE id = ?`
 
 	DeleteByIdOpt               = DbOptType(1)
 	DeleteByJobUidOpt           = DbOptType(2)

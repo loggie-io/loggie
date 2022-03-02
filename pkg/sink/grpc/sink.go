@@ -25,6 +25,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	pb "github.com/loggie-io/loggie/pkg/sink/grpc/pb"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/resolver"
 	"io"
@@ -54,7 +55,6 @@ type Sink struct {
 	hosts       []string
 	loadBalance string
 	timeout     time.Duration
-	epoch       int
 	logClient   pb.LogServiceClient
 	conn        *grpc.ClientConn
 }
@@ -160,8 +160,8 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 				log.Error("grpc header must be map[string][]byte: %v", grpcHeader)
 			}
 		} else {
-			packedHeader, err := json.Marshal(eHeader)
-			if err != nil {
+			packedHeader, jsonErr := json.Marshal(eHeader)
+			if jsonErr != nil {
 				log.Warn("Marshal event header error: %s", err)
 				continue
 			}
@@ -169,7 +169,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		}
 
 		err = stream.Send(logMsg)
-		if err != nil && err != io.EOF {
+		if err != nil && errors.Is(err, io.EOF) {
 			ls := logMsg.String()
 			log.Error("%s => grpc sink send error. err: %v; raw log content: %v", s.String(), err, ls)
 			return result.Fail(err)

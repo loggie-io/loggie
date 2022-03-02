@@ -18,8 +18,9 @@ package logger
 
 import (
 	"encoding/json"
-	"github.com/loggie-io/loggie/pkg/core/log"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/log"
 )
 
 var lg = newLogger()
@@ -141,10 +142,6 @@ func (l *logger) print() {
 	} else {
 		l.additionLogger.RawJson("metrics", d, "")
 	}
-}
-
-func (l *logger) stop() {
-	close(l.done)
 }
 
 func (l *logger) clean() {

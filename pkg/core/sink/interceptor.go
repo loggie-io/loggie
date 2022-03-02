@@ -23,10 +23,6 @@ import (
 	"sort"
 )
 
-const (
-	sinkInterceptorCode = "abstract-sink-interceptor"
-)
-
 type Interceptor interface {
 	api.Interceptor
 	Intercept(invoker Invoker, invocation Invocation) api.Result

@@ -34,13 +34,7 @@ import (
 )
 
 const (
-	Type                      = "memory"
-	dependencyInterceptorName = "memory-queue-dependency-sink-interceptor"
-)
-
-var (
-//ringBuffer     api.Event
-//ringBufferMask int64
+	Type = "memory"
 )
 
 func init() {

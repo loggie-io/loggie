@@ -18,13 +18,12 @@ package cfg
 
 import (
 	"fmt"
+	"github.com/creasty/defaults"
+	"github.com/go-playground/validator/v10"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
 
 	"github.com/loggie-io/loggie/pkg/core/log"
-
-	"github.com/creasty/defaults"
-	"github.com/go-playground/validator/v10"
 )
 
 type CommonCfg map[string]interface{}
@@ -130,7 +129,7 @@ func MergeCommonCfgListByType(base []CommonCfg, from []CommonCfg, override bool,
 		typeName := baseCfg.GetType()
 		fromCfg, ok := fromMap[typeName]
 		if ok {
-			baseCfg = MergeCommonCfg(baseCfg, fromCfg, override)
+			MergeCommonCfg(baseCfg, fromCfg, override)
 			delete(fromMap, typeName)
 			continue
 		}
@@ -161,7 +160,7 @@ func MergeCommonCfgListByTypeAndName(base []CommonCfg, from []CommonCfg, overrid
 		baseUID := baseCfg.UID()
 		fromCfg, ok := fromMap[baseUID]
 		if ok {
-			baseCfg = MergeCommonCfg(baseCfg, fromCfg, override)
+			MergeCommonCfg(baseCfg, fromCfg, override)
 			delete(fromMap, baseUID)
 			continue
 		}

@@ -53,7 +53,6 @@ type EventCenter struct {
 	name2Subscribe         map[string]*Subscribe
 	activeTopic2Subscribes map[string][]*Subscribe
 	asyncConsumerSize      int
-	asyncConsumerCount     int32
 	eventChan              chan Event
 }
 
@@ -84,7 +83,7 @@ func (ec *EventCenter) Stop() {
 
 func (ec *EventCenter) registry(subscribe *Subscribe) {
 	if _, ok := ec.name2Subscribe[subscribe.listenerName]; ok {
-		log.Panic("listener name(%s) repeat!")
+		log.Panic("listener name(%s) repeat!", subscribe.listenerName)
 	}
 	ec.name2Subscribe[subscribe.listenerName] = subscribe
 }
@@ -133,7 +132,7 @@ func (ec *EventCenter) activeSubscribe(subscribe *Subscribe) {
 		if subscribes, ok := ec.activeTopic2Subscribes[topic]; ok {
 			subscribes = append(subscribes, subscribe)
 		} else {
-			subscribes := make([]*Subscribe, 0)
+			var subscribes []*Subscribe
 			subscribes = append(subscribes, subscribe)
 			ec.activeTopic2Subscribes[topic] = subscribes
 		}

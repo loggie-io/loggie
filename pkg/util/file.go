@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/mattn/go-zglob"
+	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"os"
@@ -31,10 +32,10 @@ import (
 // LineCountTo calculates the number of lines to the offset
 func LineCountTo(offset int64, fileName string) (int, error) {
 	r, err := os.Open(fileName)
-	defer r.Close()
 	if err != nil {
 		return 0, err
 	}
+	defer r.Close()
 	buf := make([]byte, 64*1024)
 	count := 0
 	lineSep := []byte{'\n'}
@@ -49,7 +50,7 @@ func LineCountTo(offset int64, fileName string) (int, error) {
 		count += bytes.Count(buf[:c], lineSep)
 
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return count, nil
 			}
 			return count, err
@@ -71,7 +72,7 @@ func LineCount(r io.Reader) (int, error) {
 		count += bytes.Count(buf[:c], lineSep)
 
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return count, nil
 			}
 			return count, err

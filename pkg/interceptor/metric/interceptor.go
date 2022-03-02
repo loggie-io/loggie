@@ -43,8 +43,6 @@ type Interceptor struct {
 	pipelineName string
 	name         string
 	config       *Config
-	setting      map[string]interface{}
-	topic        string
 }
 
 func (i *Interceptor) Config() interface{} {

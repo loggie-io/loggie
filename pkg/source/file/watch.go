@@ -29,12 +29,10 @@ import (
 )
 
 const (
-	CREATE  = Operation(0)
-	WRITE   = Operation(1)
-	REMOVE  = Operation(2)
-	RENAME  = Operation(3)
-	CHMOD   = Operation(4)
-	RELEASE = Operation(5)
+	CREATE = Operation(0)
+	WRITE  = Operation(1)
+	REMOVE = Operation(2)
+	RENAME = Operation(3)
 )
 
 type Operation int
@@ -365,11 +363,11 @@ func (w *Watcher) scanTaskNewFiles(watchTask *WatchTask) {
 }
 
 func (w *Watcher) createOrRename(filename string, watchTask *WatchTask) {
-	if legal, filename, fileInfo := w.legalFile(filename, watchTask, true); legal {
-		job := watchTask.newJob(filename, fileInfo)
+	if legal, name, fileInfo := w.legalFile(filename, watchTask, true); legal {
+		job := watchTask.newJob(name, fileInfo)
 		err := job.GenerateIdentifier()
 		if err != nil {
-			log.Info("file(%s) ignored because generate id fail: %s", filename, err)
+			log.Info("file(%s) ignored because generate id fail: %s", name, err)
 			return
 		}
 		existJob, ok := w.allJobs[job.WatchUid()]
@@ -382,7 +380,7 @@ func (w *Watcher) createOrRename(filename string, watchTask *WatchTask) {
 			return
 		}
 		// job exist
-		if filename == existJob.filename {
+		if name == existJob.filename {
 			return
 		}
 		// FD is in hold, ignore
@@ -394,7 +392,7 @@ func (w *Watcher) createOrRename(filename string, watchTask *WatchTask) {
 			w.eventBus(jobEvent{
 				opt:         RENAME,
 				job:         existJob,
-				newFilename: filename,
+				newFilename: name,
 			})
 			return
 		}
@@ -457,25 +455,12 @@ func (w *Watcher) legalFile(filename string, watchTask *WatchTask, withIgnoreOld
 }
 
 func (w *Watcher) scan() {
-	//if w.isIgnoreTime() {
-	//	return
-	//}
 	// check any new files
 	w.scanNewFiles()
 	// active job
 	w.scanActiveJob()
 	// zombie job
 	w.scanZombieJob()
-}
-
-func (w *Watcher) isIgnoreTime() bool {
-	ignoreScanTime := w.config.IgnoreScanTime
-	if ignoreScanTime == 0 {
-		return false
-	}
-	timeStr := time.Now().Format("2006-01-02")
-	dayOfStart, _ := time.ParseInLocation("2006-01-02", timeStr, time.Local)
-	return time.Since(dayOfStart) < ignoreScanTime
 }
 
 func (w *Watcher) scanActiveJob() {

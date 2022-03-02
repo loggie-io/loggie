@@ -199,7 +199,7 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 		return errors.WithMessage(err, "deep copy pipeline config error")
 	}
 	pipeCopy.SetDefaults()
-	if err := pipeCopy.Validate(); err != nil {
+	if err = pipeCopy.Validate(); err != nil {
 		return err
 	}
 
@@ -213,7 +213,7 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 	}
 
 	// update index
-	if err := c.typePodIndex.ValidateAndSetConfigs(pod.Namespace, pod.Name, lgc.Namespace, lgc.Name, pipeRaw); err != nil {
+	if err = c.typePodIndex.ValidateAndSetConfigs(pod.Namespace, pod.Name, lgc.Namespace, lgc.Name, pipeRaw); err != nil {
 		return err
 	}
 
@@ -302,7 +302,7 @@ func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfig
 		if err = injectFields(config, s.MatchFields, src, pod, logconfigName, status.Name); err != nil {
 			return nil, err
 		}
-		if err := filesrc.setSource(src); err != nil {
+		if err = filesrc.setSource(src); err != nil {
 			return nil, err
 		}
 

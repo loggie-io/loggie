@@ -34,8 +34,6 @@ const (
 	JobActive = JobStatus(1)
 	JobDelete = JobStatus(2)
 	JobStop   = JobStatus(3)
-
-	defaultIdentifier = "BLANK"
 )
 
 var NilOfTime, _ = time.ParseInLocation("2006-01-02 15:04:05", "2008-08-08 08:08:08", time.Local)
@@ -253,10 +251,10 @@ func (j *Job) GenerateIdentifier() error {
 		return fmt.Errorf("file size is smaller than firstNBytesForIdentifier: %d < %d", fileSize, readSize)
 	}
 	file, err := os.Open(j.filename)
-	defer file.Close()
 	if err != nil {
 		return err
 	}
+	defer file.Close()
 	readBuffer := make([]byte, readSize)
 	l, err := file.Read(readBuffer)
 	if err != nil {

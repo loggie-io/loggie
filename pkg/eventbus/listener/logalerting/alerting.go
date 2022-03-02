@@ -91,7 +91,8 @@ func (l *Listener) Subscribe(event eventbus.Event) {
 }
 
 func (l *Listener) run() {
-	timeout := time.Tick(l.config.BatchTimeout)
+	timeout := time.NewTicker(l.config.BatchTimeout)
+	defer timeout.Stop()
 
 	for {
 		select {
@@ -101,7 +102,7 @@ func (l *Listener) run() {
 		case d := <-l.bufferChan:
 			l.process(d)
 
-		case <-timeout:
+		case <-timeout.C:
 			l.flush()
 		}
 	}

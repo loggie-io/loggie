@@ -27,7 +27,6 @@ import (
 
 const (
 	largeAckSize = 10 * 4096
-	longTime     = 2 * time.Minute
 
 	AckStart = AckTaskType("start")
 	AckStop  = AckTaskType("stop")
@@ -117,6 +116,9 @@ func newAck() *ack {
 }
 
 func ReleaseAck(a *ack) {
+	if a == nil {
+		return
+	}
 	a = &ack{}
 	ackPool.Put(a)
 }
@@ -155,10 +157,6 @@ func (ac *JobAckChain) Release() {
 
 func (ac *JobAckChain) Key() string {
 	return ac.JobWatchUid
-}
-
-func (ac *JobAckChain) isParentOf(s *State) bool {
-	return ac.SourceName == s.SourceName && ac.Epoch.Equal(s.Epoch)
 }
 
 func (ac *JobAckChain) Append(s *State) {

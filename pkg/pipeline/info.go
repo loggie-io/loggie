@@ -77,7 +77,7 @@ func (cr *ConfigRaw) ToConfig() (*Config, error) {
 
 	for _, in := range cr.Interceptors {
 		interConfig := interceptor.Config{}
-		err := cfg.UnpackDefaultsAndValidate(in, &interConfig)
+		err = cfg.UnpackDefaultsAndValidate(in, &interConfig)
 		if err != nil {
 			return nil, err
 		}
