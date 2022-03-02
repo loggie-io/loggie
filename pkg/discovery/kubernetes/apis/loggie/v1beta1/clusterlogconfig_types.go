@@ -89,12 +89,8 @@ func (in *ClusterLogConfig) Validate() error {
 		return errors.New("spec.selector.type is invalidate")
 	}
 
-	if tp == SelectorTypePod && len(in.Spec.Selector.LabelSelector) == 0 {
-		return errors.New("selector.labelSelector is required when selector.type=pod")
-	}
-
 	if tp == SelectorTypeCluster && in.Spec.Selector.Cluster == "" {
-		return errors.New("selector.cluster is required when selector.type=loggie")
+		return errors.New("selector.cluster is required when selector.type=cluster")
 	}
 
 	if in.Spec.Pipeline.Sources == "" {
