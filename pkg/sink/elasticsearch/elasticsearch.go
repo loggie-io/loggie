@@ -93,7 +93,7 @@ func (s *Sink) Stop() {
 
 func (s *Sink) Consume(batch api.Batch) api.Result {
 	if s.cli != nil {
-		err := s.cli.BulkCreate(batch, s.config.Index)
+		err := s.cli.BulkIndex(batch, s.config.Index)
 		if err != nil {
 			log.Error("write to elasticsearch error: %+v", err)
 			return result.Fail(err)

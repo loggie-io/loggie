@@ -78,7 +78,7 @@ func NewClient(config *Config, cod codec.Codec, indexMatcher [][]string) (*Clien
 	}, nil
 }
 
-func (c *ClientSet) BulkCreate(batch api.Batch, index string) error {
+func (c *ClientSet) BulkIndex(batch api.Batch, index string) error {
 	req := c.cli.Bulk()
 	for _, event := range batch.Events() {
 		// select index
@@ -104,8 +104,11 @@ func (c *ClientSet) BulkCreate(batch api.Batch, index string) error {
 			}
 		}
 
-		doc := es.NewBulkCreateRequest().Index(idx).Doc(json.RawMessage(data))
-		req.Add(doc)
+		bulkIndexRequest := es.NewBulkIndexRequest().Index(idx).Doc(json.RawMessage(data))
+		if len(c.config.Etype) > 0 {
+			bulkIndexRequest.Type(c.config.Etype)
+		}
+		req.Add(bulkIndexRequest)
 	}
 	ret, err := req.Do(context.Background())
 	if err != nil {

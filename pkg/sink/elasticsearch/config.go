@@ -21,6 +21,7 @@ type Config struct {
 	UserName string   `yaml:"username,omitempty"`
 	Password string   `yaml:"password,omitempty"`
 	Index    string   `yaml:"index,omitempty" validate:"required"`
+	Etype    string   `yaml:"etype,omitempty"` // elasticsearch type, for v5.* backward compatibility
 	Schema   string   `yaml:"schema,omitempty"`
 	Sniff    *bool    `yaml:"sniff,omitempty"`
 	Gzip     *bool    `yaml:"gzip,omitempty"`
