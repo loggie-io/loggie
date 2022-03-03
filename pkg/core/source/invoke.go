@@ -38,6 +38,15 @@ func (ai *AbstractInvoker) Invoke(invocation Invocation) api.Result {
 	return ai.DoInvoke(invocation)
 }
 
+// NewFakeInvoker usually used by unit test or benchmark
+func NewFakeInvoker() *AbstractInvoker {
+	return &AbstractInvoker{
+		DoInvoke: func(invocation Invocation) api.Result {
+			return result.Success()
+		},
+	}
+}
+
 // publish event to queue
 type PublishInvoker struct {
 }

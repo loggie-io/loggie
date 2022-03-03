@@ -119,7 +119,9 @@ func (de *DefaultEvent) Release() {
 func (de *DefaultEvent) String() string {
 	var sb strings.Builder
 	sb.WriteString("meta:")
-	sb.WriteString(de.M.String())
+	if de.M != nil {
+		sb.WriteString(de.M.String())
+	}
 	sb.WriteString(";")
 	sb.WriteString("header:")
 	sb.WriteString("{")

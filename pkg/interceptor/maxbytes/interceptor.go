@@ -30,16 +30,17 @@ func init() {
 }
 
 func makeInterceptor(info pipeline.Info) api.Component {
+	return NewInterceptor()
+}
+
+func NewInterceptor() *Interceptor {
 	return &Interceptor{
-		pipelineName: info.PipelineName,
-		config:       &Config{},
+		config: &Config{},
 	}
 }
 
 type Interceptor struct {
-	pipelineName string
-	name         string
-	config       *Config
+	config *Config
 }
 
 func (i *Interceptor) Config() interface{} {
@@ -59,7 +60,6 @@ func (i *Interceptor) String() string {
 }
 
 func (i *Interceptor) Init(context api.Context) {
-	i.name = context.Name()
 }
 
 func (i *Interceptor) Start() {
