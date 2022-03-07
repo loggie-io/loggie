@@ -19,6 +19,7 @@ package consistent
 import (
 	"bufio"
 	"encoding/base64"
+	"errors"
 	"math/rand"
 	"os"
 	"runtime"
@@ -38,10 +39,9 @@ func checkNum(num, expected int, t *testing.T) {
 
 func TestNew(t *testing.T) {
 	x := New()
-	if x == nil {
-		t.Errorf("expected obj")
+	if x != nil {
+		checkNum(x.NumberOfReplicas, 20, t)
 	}
-	checkNum(x.NumberOfReplicas, 20, t)
 }
 
 func TestAdd(t *testing.T) {
@@ -81,7 +81,7 @@ func TestGetEmpty(t *testing.T) {
 	if err == nil {
 		t.Errorf("expected error")
 	}
-	if err != ErrEmptyCircle {
+	if !errors.Is(err, ErrEmptyCircle) {
 		t.Errorf("expected empty circle error")
 	}
 }

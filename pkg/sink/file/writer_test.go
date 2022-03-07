@@ -2,6 +2,7 @@ package file
 
 import (
 	"io"
+	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -57,7 +58,7 @@ func TestWriter_Write(t *testing.T) {
 
 func BenchmarkWriter_Write(b *testing.B) {
 	w := &Writer{
-		W: io.Discard,
+		W: ioutil.Discard,
 	}
 	defer w.Stop()
 	bytes := []byte("hello world")
