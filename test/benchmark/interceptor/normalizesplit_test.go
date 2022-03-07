@@ -26,10 +26,11 @@ func BenchmarkSplitProcess(b *testing.B) {
 				conf.Target = "body"
 				conf.Separator = " "
 				conf.Max = -1
-				conf.Keys = []string{"ip", "time", "method", "status", "bytes"}
+				conf.Keys = []string{"ip", "time", "method", "status", "bytes", "content"}
 				return proc
 			},
-			event: event.NewEvent(map[string]interface{}{"a": "b"}, []byte(`10.244.0.1 [13/Dec/2021:12:40:48] GET 404 683`)),
+			event: event.NewEvent(map[string]interface{}{"a": "b"},
+				[]byte(`10.244.0.1 [13/Dec/2021:12:40:48] GET 404 683 go_memstats_gc_cpu_fractiongo_memstats_lookups_totalgo_memstats_sys_bytesloggie_filesource_file_sizego_memstats_mallocs_totalgo_memstats_mcache_sys_bytesgo_memstats_stack_sys_bytesgo_gc_duration_seconds`)),
 		},
 		{
 			name: "splitHeader",

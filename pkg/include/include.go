@@ -25,6 +25,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/queue"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/reload"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/sink"
+	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/sys"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/addk8smeta"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/cost"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/json_decode"

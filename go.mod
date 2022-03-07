@@ -10,7 +10,7 @@ require (
 	github.com/go-playground/validator/v10 v10.4.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v0.0.2
-	github.com/google/go-cmp v0.5.6
+	github.com/google/go-cmp v0.5.7
 	github.com/hpcloud/tail v1.0.0
 	github.com/json-iterator/go v1.1.12
 	github.com/mattn/go-sqlite3 v1.14.6
@@ -25,6 +25,7 @@ require (
 	github.com/prometheus/prometheus v1.8.2-0.20201028100903-3245b3267b24
 	github.com/rs/zerolog v1.20.0
 	github.com/segmentio/kafka-go v0.4.23
+	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/smartystreets-prototypes/go-disruptor v0.0.0-20200316140655-c96477fd7a6a
 	go.uber.org/automaxprocs v0.0.0-20200415073007-b685be8c1c23
 	golang.org/x/net v0.0.0-20220111093109-d55c255bac03
@@ -50,6 +51,7 @@ require (
 	github.com/go-kit/kit v0.10.0 // indirect
 	github.com/go-logfmt/logfmt v0.5.0 // indirect
 	github.com/go-logr/logr v0.4.0 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-openapi/jsonpointer v0.19.5 // indirect
 	github.com/go-openapi/jsonreference v0.19.5 // indirect
 	github.com/go-openapi/swag v0.19.14 // indirect
@@ -64,22 +66,27 @@ require (
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/klauspost/compress v1.9.8 // indirect
 	github.com/leodido/go-urn v1.2.0 // indirect
+	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
+	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/procfs v0.6.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/tklauser/go-sysconf v0.3.9 // indirect
+	github.com/tklauser/numcpus v0.3.0 // indirect
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
+	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c // indirect
-	golang.org/x/sys v0.0.0-20210616094352-59db8d763f22 // indirect
+	golang.org/x/sys v0.0.0-20220111092808-5a964db01320 // indirect
 	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.2 // indirect
