@@ -19,8 +19,6 @@ package file
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/loggie-io/loggie/pkg/util"
 	"io"
 	"os"
 	"strconv"
@@ -28,6 +26,9 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/util"
 )
 
 const (
@@ -69,7 +70,7 @@ type Job struct {
 func JobUid(fileInfo os.FileInfo) string {
 	stat := fileInfo.Sys().(*syscall.Stat_t)
 	inode := stat.Ino
-	device := uint64(stat.Dev)
+	device := stat.Dev
 	var buf [64]byte
 	current := strconv.AppendUint(buf[:0], inode, 10)
 	current = append(current, '-')
