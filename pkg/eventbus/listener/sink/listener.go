@@ -130,7 +130,7 @@ func (l *Listener) exportPrometheus() {
 			{
 				Desc: prometheus.NewDesc(
 					prometheus.BuildFQName(promeExporter.Loggie, eventbus.SinkMetricTopic, "failed_event"),
-					"send success event failed count",
+					"send event failed count",
 					nil, prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName},
 				),
 				Eval:    float64(d.FailEventCount),

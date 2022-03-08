@@ -22,7 +22,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 )
 
-const ProcessorMove = "move"
+const ProcessorMove = "rename"
 
 type MoveProcessor struct {
 	config *MoveConfig

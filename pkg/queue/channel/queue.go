@@ -81,16 +81,9 @@ func (c *Queue) Init(context api.Context) {
 	c.countDown = &sync.WaitGroup{}
 
 	log.Info("sinCount: %d", c.sinkCount)
-	if c.config.BatchBufferFactor <= 0 {
-		c.config.BatchBufferFactor = c.sinkCount
-	}
-	if c.config.BatchBufferFactor <= 0 {
-		c.config.BatchBufferFactor = 3
-	}
-	log.Info("%s batch size: %d; batch buffer factor: %d", c.String(),
-		c.config.BatchSize, c.config.BatchBufferFactor)
+	log.Info("%s batch size: %d", c.String(),
+		c.config.BatchSize)
 	c.out = make(chan api.Batch, c.sinkCount)
-	//c.in = make(chan api.Event, c.config.BatchSize*c.config.BatchBufferFactor)
 	c.in = make(chan api.Event, 16)
 }
 
