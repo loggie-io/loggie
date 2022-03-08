@@ -38,7 +38,7 @@ type Config struct {
 	MaxReadWait        time.Duration `yaml:"maxPollWait" default:"10s"`
 	ReadBackoffMin     time.Duration `yaml:"readBackoffMin" default:"100ms"`
 	ReadBackoffMax     time.Duration `yaml:"readBackoffMax" default:"1s"`
-	EnableAutoCommit   bool          `yaml:"enableAutoCommit" default:"true"`
+	EnableAutoCommit   bool          `yaml:"enableAutoCommit"`
 	AutoCommitInterval time.Duration `yaml:"autoCommitInterval" default:"1s"`
 	AutoOffsetReset    string        `yaml:"autoOffsetReset" default:"latest" validate:"oneof=earliest latest"`
 }

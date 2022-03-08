@@ -5,7 +5,6 @@ run:
 linters:
   enable:
     - deadcode      # Finds unused code
-    - govet         # Vet examines Go source code and reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
     - ineffassign   # Detects when assignments to existing variables are not used
     - staticcheck   # Staticcheck is a go vet on steroids, applying a ton of static analysis checks
     - structcheck   # Finds unused struct fields
@@ -24,6 +23,7 @@ linters:
   disable:
     - errcheck      # Errcheck is a program for checking for unchecked errors in go programs. These unchecked errors can be critical bugs in some cases
     - gosimple
+    - govet         # Vet examines Go source code and reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
 
 linters-settings:
   govet:

@@ -1,16 +1,14 @@
 pipelines:
-  - name: "xxx"
+  - name: local
     sources:
-      - type: "file"
-        name: "a"
+      - type: file
+        name: demo
         paths:
-          - "/tmp/filesource/*.log"
+          - /tmp/log/*.log
         fields:
-          topic: "lpt_topic_log_conf_service_pressure_access_1_wz_960"
-          ip: "10.159.129.28"
-          headType: 1
+          topic: "loggie"
     sink:
-      type: "dev"
+      type: dev
       printEvents: true
       codec:
         pretty: true
