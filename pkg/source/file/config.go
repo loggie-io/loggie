@@ -77,7 +77,6 @@ func (cc CollectConfig) IsFileExcluded(file string) bool {
 }
 
 type DbConfig struct {
-	Async                bool          `yaml:"async,omitempty" default:"true"`
 	File                 string        `yaml:"file,omitempty" default:"./data/loggie.db"`
 	FlushTimeout         time.Duration `yaml:"flushTimeout,omitempty" default:"2s"`
 	BufferSize           int           `yaml:"bufferSize,omitempty" default:"2048"`
@@ -88,7 +87,6 @@ type DbConfig struct {
 
 type AckConfig struct {
 	Enable              bool          `yaml:"enable,omitempty" default:"true"`
-	CleanDataTimeout    time.Duration `yaml:"cleanDataTimeout,omitempty" default:"5s"`
 	MaintenanceInterval time.Duration `yaml:"maintenanceInterval,omitempty" default:"20h"`
 }
 
@@ -103,7 +101,6 @@ type WatchConfig struct {
 	MaxEofCount               int           `yaml:"maxEofCount,omitempty" default:"3"`
 	CleanWhenRemoved          bool          `yaml:"cleanWhenRemoved,omitempty" default:"true"`
 	ReadFromTail              bool          `yaml:"readFromTail,omitempty" default:"false"`
-	IgnoreScanTime            time.Duration `yaml:"ignoreScanTimeMinute,omitempty" default:"2m"`
 	TaskStopTimeout           time.Duration `yaml:"taskStopTimeout,omitempty" default:"30s"`
 }
 

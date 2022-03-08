@@ -76,7 +76,6 @@ func Test_dbHandler_findAll(t *testing.T) {
 func Test_dbHandler_write(t *testing.T) {
 	log.InitDefaultLogger()
 	handler := GetOrCreateShareDbHandler(DbConfig{
-		Async:        true,
 		File:         "./data/loggie.db",
 		FlushTimeout: 2 * time.Second,
 		BufferSize:   1024,
@@ -107,7 +106,6 @@ func Test_dbHandler_write(t *testing.T) {
 func Benchmark_dbHandler_write(b *testing.B) {
 	log.InitDefaultLogger()
 	handler := GetOrCreateShareDbHandler(DbConfig{
-		Async:        true,
 		File:         "./data/loggie.db",
 		FlushTimeout: 2 * time.Second,
 		BufferSize:   1024,
