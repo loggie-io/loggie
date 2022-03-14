@@ -39,6 +39,13 @@ Loggie是一个基于Golang的轻量级、高性能、云原生日志采集Agent
   - interceptor: [normalize](https://loggie-io.github.io/docs/reference/pipelines/interceptor/normalize/), [limit](https://loggie-io.github.io/docs/reference/pipelines/interceptor/limit/), [logAlert](https://loggie-io.github.io/docs/reference/pipelines/interceptor/logalert/), [maxbytes](https://loggie-io.github.io/docs/reference/pipelines/interceptor/maxbytes/)..
 - CRD([logConfig](https://loggie-io.github.io/docs/reference/discovery/kubernetes/logconfig/), [sink](https://loggie-io.github.io/docs/reference/discovery/kubernetes/sink/), [interceptor](https://loggie-io.github.io/docs/reference/discovery/kubernetes/interceptors/))
 
+## 交流讨论
+在使用Loggie的时候遇到问题？ 请提issues或者联系我们。
+
+微信扫码加入Loggie讨论群：
+
+![loggie-bot](https://loggie-io.github.io/docs/getting-started/imgs/loggie-bot.png)
+
 ## License
 
 [Apache-2.0](https://choosealicense.com/licenses/apache-2.0/)
