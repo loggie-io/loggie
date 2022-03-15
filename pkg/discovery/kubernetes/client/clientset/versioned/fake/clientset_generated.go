@@ -73,7 +73,10 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 	return c.tracker
 }
 
-var _ clientset.Interface = &Clientset{}
+var (
+	_ clientset.Interface = &Clientset{}
+	_ testing.FakeClient  = &Clientset{}
+)
 
 // LoggieV1beta1 retrieves the LoggieV1beta1Client
 func (c *Clientset) LoggieV1beta1() loggiev1beta1.LoggieV1beta1Interface {
