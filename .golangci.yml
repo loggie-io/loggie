@@ -1,6 +1,7 @@
 run:
   skip-dirs:
     - vendor
+    - pkg/discovery/kubernetes/client
 
 linters:
   enable:
@@ -16,7 +17,6 @@ linters:
     - errorlint
     - importas
     - tparallel
-    - unconvert
     - gofmt
     - bodyclose
 
