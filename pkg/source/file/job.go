@@ -70,7 +70,7 @@ type Job struct {
 func JobUid(fileInfo os.FileInfo) string {
 	stat := fileInfo.Sys().(*syscall.Stat_t)
 	inode := stat.Ino
-	device := stat.Dev
+	device := uint64(stat.Dev)
 	var buf [64]byte
 	current := strconv.AppendUint(buf[:0], inode, 10)
 	current = append(current, '-')
