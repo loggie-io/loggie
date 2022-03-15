@@ -22,18 +22,18 @@ require (
 	github.com/rs/zerolog v1.20.0
 	github.com/segmentio/kafka-go v0.4.23
 	github.com/smartystreets-prototypes/go-disruptor v0.0.0-20200316140655-c96477fd7a6a
-	github.com/xhit/go-str2duration/v2 v2.0.0
 	go.uber.org/automaxprocs v0.0.0-20200415073007-b685be8c1c23
 	golang.org/x/net v0.0.0-20220111093109-d55c255bac03
-	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
+	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/time v0.0.0-20210723032227-1f47c861a9ac
 	google.golang.org/grpc v1.33.2
-	google.golang.org/protobuf v1.26.0-rc.1
+	google.golang.org/protobuf v1.26.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.19.8
-	k8s.io/apimachinery v0.19.8
-	k8s.io/client-go v0.19.8
-	k8s.io/code-generator v0.19.8
+	k8s.io/api v0.22.2
+	k8s.io/apimachinery v0.22.2
+	k8s.io/client-go v0.22.2
+	k8s.io/code-generator v0.22.2
 )
 
 replace gopkg.in/natefinch/lumberjack.v2 v2.0.0 => github.com/machine3/lumberjack v0.1.0
