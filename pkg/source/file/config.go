@@ -110,7 +110,7 @@ type CleanFiles struct {
 
 type ReaderConfig struct {
 	WorkerCount            int           `yaml:"workerCount,omitempty" default:"1"`
-	ReadChanSize           int           `yaml:"readChanSize,omitempty" default:"64"`
+	ReadChanSize           int           `yaml:"readChanSize,omitempty" default:"512"`
 	ReadBufferSize         int           `yaml:"readBufferSize,omitempty" default:"65536"` // The buffer size used for the file reading. default 65536 = 64k = 16*PAGE_SIZE
 	MaxContinueRead        int           `yaml:"maxContinueRead,omitempty" default:"16"`
 	MaxContinueReadTimeout time.Duration `yaml:"maxContinueReadTimeout,omitempty" default:"3s"`
