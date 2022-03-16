@@ -130,7 +130,7 @@ func (mh *MultiHolder) appendContent(content []byte, state State) {
 
 	if mh.currentLines >= mh.mTask.config.MaxLines || mh.currentSize >= mh.mTask.config.MaxBytes {
 		// flush immediately when (line maximum) or (the first line size exceed)
-		log.Warn("task(%s) multiline log exceeds limit: currentLines(%d),maxLines(%d);currentBytes(%d),maxBytes(%d)",
+		log.Error("task(%s) multiline log exceeds limit: currentLines(%d),maxLines(%d);currentBytes(%d),maxBytes(%d)",
 			mh.mTask.String(), mh.currentLines, mh.mTask.config.MaxLines, mh.currentSize, mh.mTask.config.MaxBytes)
 		mh.flush()
 	}
