@@ -57,6 +57,17 @@ fmt-check: ## Check the fmt of .go files
 lint: golangci-lint ## Run golangci-lint
 	$(GOLANGCI-LINT) run --timeout=10m
 
+GOLANGCI-LINT = ./bin/golangci-lint
+golangci-lint: ## Download golangci-lint locally if necessary.
+	$(call get-golangci-lint,$(GOLANGCI-LINT))
+
+define get-golangci-lint
+@[ -f $(1) ] || { \
+set -e ;\
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.44.2 ;\
+}
+endef
+
 ##@ Benchmark
 
 benchmark: ## Run benchmark
@@ -70,13 +81,3 @@ docker-build: ## Docker build -t ${REPO}:${TAG}, try make build-image REPO=<Your
 docker-push: ## Docker push ${REPO}:${TAG}
 	docker push ${REPO}:${TAG}
 
-GOLANGCI-LINT = ./bin/golangci-lint
-golangci-lint: ## Download golangci-lint locally if necessary.
-	$(call get-golangci-lint,$(GOLANGCI-LINT))
-
-define get-golangci-lint
-@[ -f $(1) ] || { \
-set -e ;\
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.44.2 ;\
-}
-endef
