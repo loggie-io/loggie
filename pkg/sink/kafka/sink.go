@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
+	"github.com/pkg/errors"
 
 	"github.com/segmentio/kafka-go"
 
@@ -143,14 +144,13 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	if s.writer != nil {
 		err := s.writer.WriteMessages(context.Background(), km...)
 		if err != nil {
-			log.Error("write to kafka error: %v", err)
-			return result.Fail(err)
+			return result.Fail(errors.WithMessage(err, "write to kafka"))
 		}
 
 		return result.Success()
 	}
 
-	return result.Fail(fmt.Errorf("kafka sink writer not initialized"))
+	return result.Fail(errors.New("kafka sink writer not initialized"))
 }
 
 func (s *Sink) selectTopic(e api.Event) (string, error) {

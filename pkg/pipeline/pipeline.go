@@ -264,7 +264,7 @@ func (p *Pipeline) afterSinkConsumer(b api.Batch, result api.Result) {
 		p.finalizeBatch(b)
 	}
 	if result.Status() == api.FAIL {
-		log.Error("consumer batch fail,err: %s", result.Error())
+		log.Error("consumer batch failed: %s", result.Error())
 	}
 }
 
