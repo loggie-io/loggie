@@ -41,13 +41,13 @@ func ToPipeline(lgc *logconfigv1beta1.LogConfig, sinkLister v1beta1.SinkLister, 
 	}
 	pipRaw.Sources = src
 
-	inter, err := ToPipelineInterceptor(pip.InterceptorRef, interceptorLister)
+	inter, err := ToPipelineInterceptor(lgc.Spec.Pipeline.Interceptors, pip.InterceptorRef, interceptorLister)
 	if err != nil {
 		return nil, err
 	}
 	pipRaw.Interceptors = inter
 
-	sink, err := ToPipelineSink(pip.SinkRef, sinkLister)
+	sink, err := ToPipelineSink(lgc.Spec.Pipeline.Sink, pip.SinkRef, sinkLister)
 	if err != nil {
 		return nil, err
 	}
@@ -69,35 +69,52 @@ func ToPipelineSources(sources string) ([]cfg.CommonCfg, error) {
 	return sourceCfg, nil
 }
 
-func ToPipelineSink(sinkRef string, sinkLister v1beta1.SinkLister) (cfg.CommonCfg, error) {
-	lgcSink, err := sinkLister.Get(sinkRef)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil, nil
+func ToPipelineSink(sinkRaw string, sinkRef string, sinkLister v1beta1.SinkLister) (cfg.CommonCfg, error) {
+
+	// we use the sink in logConfig other than sinkRef if sink content is not empty
+	var sink string
+	if sinkRaw != "" {
+		sink = sinkRaw
+	} else {
+		lgcSink, err := sinkLister.Get(sinkRef)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
-		return nil, err
+
+		sink = lgcSink.Spec.Sink
 	}
 
-	sinkConfList := cfg.NewCommonCfg()
-	err = cfg.UnpackRaw([]byte(lgcSink.Spec.Sink), &sinkConfList)
+	sinkConf := cfg.NewCommonCfg()
+	err := cfg.UnpackRaw([]byte(sink), &sinkConf)
 	if err != nil {
 		return nil, err
 	}
 
-	return sinkConfList, nil
+	return sinkConf, nil
 }
 
-func ToPipelineInterceptor(interceptorRef string, interceptorLister v1beta1.InterceptorLister) ([]cfg.CommonCfg, error) {
-	lgcInterceptor, err := interceptorLister.Get(interceptorRef)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil, nil
+func ToPipelineInterceptor(interceptorsRaw string, interceptorRef string, interceptorLister v1beta1.InterceptorLister) ([]cfg.CommonCfg, error) {
+
+	var interceptor string
+	if interceptorsRaw != "" {
+		interceptor = interceptorsRaw
+	} else {
+		lgcInterceptor, err := interceptorLister.Get(interceptorRef)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
-		return nil, err
+
+		interceptor = lgcInterceptor.Spec.Interceptors
 	}
 
 	interConfList := make([]cfg.CommonCfg, 0)
-	err = cfg.UnpackRaw([]byte(lgcInterceptor.Spec.Interceptors), &interConfList)
+	err := cfg.UnpackRaw([]byte(interceptor), &interConfList)
 	if err != nil {
 		return nil, err
 	}
