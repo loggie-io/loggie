@@ -89,7 +89,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	events := batch.Events()
 	l := len(events)
 	if l == 0 {
-		return nil
+		return result.Success()
 	}
 
 	return s.sendBatch(context.Background(), batch)
