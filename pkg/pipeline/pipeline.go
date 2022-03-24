@@ -260,17 +260,23 @@ func (p *Pipeline) startWithComponent(component api.Component, ctx api.Context) 
 
 func (p *Pipeline) afterSinkConsumer(b api.Batch, result api.Result) {
 	// commit to source and release batch
-	if result.Status() == api.SUCCESS || result.Status() == api.DROP {
+	switch result.Status() {
+	case api.DROP:
+		if result.Error() != nil {
+			log.Error("drop batch due to: %s", result.Error())
+		}
 		p.finalizeBatch(b)
-	}
-	if result.Status() == api.FAIL {
+
+	case api.SUCCESS:
+		p.finalizeBatch(b)
+
+	case api.FAIL:
 		log.Error("consumer batch failed: %s", result.Error())
 	}
 }
 
 // commit to source and release batch
 func (p *Pipeline) finalizeBatch(batch api.Batch) {
-	//p.s.Commit(batch)
 
 	nes := make(map[string][]api.Event)
 	events := batch.Events()

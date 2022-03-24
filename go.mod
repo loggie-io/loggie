@@ -7,6 +7,8 @@ require (
 	github.com/creasty/defaults v1.5.1
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-playground/validator/v10 v10.4.1
+	github.com/gogo/protobuf v1.3.2
+	github.com/golang/snappy v0.0.2
 	github.com/google/go-cmp v0.5.6
 	github.com/hpcloud/tail v1.0.0
 	github.com/json-iterator/go v1.1.11
@@ -17,8 +19,9 @@ require (
 	github.com/panjf2000/ants/v2 v2.4.7
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
-	github.com/prometheus/common v0.26.0
+	github.com/prometheus/common v0.32.1
 	github.com/prometheus/prom2json v1.3.0
+	github.com/prometheus/prometheus v1.8.2-0.20201028100903-3245b3267b24
 	github.com/rs/zerolog v1.20.0
 	github.com/segmentio/kafka-go v0.4.23
 	github.com/smartystreets-prototypes/go-disruptor v0.0.0-20200316140655-c96477fd7a6a
