@@ -33,7 +33,7 @@ type Config struct {
 	GroupId            string        `yaml:"groupId,omitempty" default:"loggie"`
 	QueueCapacity      int           `yaml:"queueCapacity" default:"100"`
 	MinAcceptedBytes   int           `yaml:"minAcceptedBytes" default:"1"`
-	MaxAcceptedBytes   int           `yaml:"maxAcceptedBytes" default:"1e6"`
+	MaxAcceptedBytes   int           `yaml:"maxAcceptedBytes" default:"1024000"`
 	ReadMaxAttempts    int           `yaml:"readMaxAttempts" default:"3"`
 	MaxReadWait        time.Duration `yaml:"maxPollWait" default:"10s"`
 	ReadBackoffMin     time.Duration `yaml:"readBackoffMin" default:"100ms"`

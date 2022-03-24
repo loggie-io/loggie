@@ -284,3 +284,47 @@ func TestObject_GetPath(t *testing.T) {
 		})
 	}
 }
+
+func TestObject_FlatKeyValue(t *testing.T) {
+	type fields struct {
+		data interface{}
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    map[string]interface{}
+		wantErr bool
+	}{
+		{
+			name: "ok",
+			fields: fields{
+				data: map[string]interface{}{
+					"a": "f",
+					"b": map[string]interface{}{
+						"c": "g",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"a":   "f",
+				"b.c": "g",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			obj := &Object{
+				data: tt.fields.data,
+			}
+			got, err := obj.FlatKeyValue()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FlatKeyValue() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("FlatKeyValue() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

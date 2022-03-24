@@ -124,7 +124,7 @@ func (k *Source) Stop() {
 		if k.consumer != nil {
 			err := k.consumer.Close()
 			if err != nil {
-				log.Panic("close kafka consumer error: %+v", err)
+				log.Error("close kafka consumer error: %+v", err)
 			}
 		}
 
@@ -134,6 +134,11 @@ func (k *Source) Stop() {
 
 func (k *Source) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", k.String())
+
+	if k.consumer == nil {
+		log.Error("kakfa consumer not initialized yet")
+		return
+	}
 
 	for {
 		select {
@@ -150,9 +155,6 @@ func (k *Source) ProductLoop(productFunc api.ProductFunc) {
 }
 
 func (k *Source) consume(productFunc api.ProductFunc) error {
-	if k.consumer == nil {
-		return fmt.Errorf("kakfa consumer not initialized yet")
-	}
 
 	ctx := context.Background()
 	msg, err := k.consumer.FetchMessage(ctx)
@@ -220,7 +222,9 @@ func (k *Source) Commit(events []api.Event) {
 		}
 		if len(msgs) > 0 {
 			err := k.consumer.CommitMessages(context.Background(), msgs...)
-			log.Error("consumer manually commit messgage error: %v", err)
+			if err != nil {
+				log.Error("consumer manually commit messgage error: %v", err)
+			}
 		}
 	}
 

@@ -114,7 +114,7 @@ func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.Log
 		return err, nil
 	}
 	if len(podList) == 0 {
-		log.Info("logConfig %s/%s matched pods is null", lgc.Namespace, lgc.Name)
+		log.Info("The pods which logConfig %s/%s matching is null", lgc.Namespace, lgc.Name)
 		return nil, nil
 	}
 
@@ -329,7 +329,7 @@ func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfig
 		if s.ContainerName != "" && s.ContainerName != status.Name {
 			continue
 		}
-		// change the source name, add pod.Name-containerName as prefix
+		// change the source name, add pod.Name-containerName as prefix, since there maybe multiple containers in pod
 		src.Name = genTypePodSourceName(pod.Name, status.Name, src.Name)
 
 		// inject default pod metadata
@@ -470,13 +470,13 @@ func toPipeConfig(lgcNamespace string, lgcName string, lgcPipe *logconfigv1beta1
 	}
 	pipecfg.Sources = src
 
-	sink, err := helper.ToPipelineSink(lgcPipe.SinkRef, sinkLister)
+	sink, err := helper.ToPipelineSink(lgcPipe.Sink, lgcPipe.SinkRef, sinkLister)
 	if err != nil {
 		return pipecfg, err
 	}
 	pipecfg.Sink = sink
 
-	interceptors, err := toPipelineInterceptorWithPodInject(lgcPipe.InterceptorRef, interceptorLister, filesources)
+	interceptors, err := toPipelineInterceptorWithPodInject(lgcPipe.Interceptors, lgcPipe.InterceptorRef, interceptorLister, filesources)
 	if err != nil {
 		return pipecfg, err
 	}
@@ -500,13 +500,21 @@ func toPipelineSource(filesources []fileSource) ([]cfg.CommonCfg, error) {
 	return sourceConfList, nil
 }
 
-func toPipelineInterceptorWithPodInject(interceptorRef string, interceptorLister v1beta1.InterceptorLister, filesources []fileSource) ([]cfg.CommonCfg, error) {
-	lgcInterceptor, err := interceptorLister.Get(interceptorRef)
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			return nil, nil
+// Since the source name is auto-generated in LogConfig, the interceptor param `belongTo` is also need to be changed
+func toPipelineInterceptorWithPodInject(interceptorRaw string, interceptorRef string, interceptorLister v1beta1.InterceptorLister, filesources []fileSource) ([]cfg.CommonCfg, error) {
+	var interceptor string
+	if interceptorRaw != "" {
+		interceptor = interceptorRaw
+	} else {
+		lgcInterceptor, err := interceptorLister.Get(interceptorRef)
+		if err != nil {
+			if kerrors.IsNotFound(err) {
+				return nil, nil
+			}
+			return nil, err
 		}
-		return nil, err
+
+		interceptor = lgcInterceptor.Spec.Interceptors
 	}
 
 	// key: originSourceName, multi value: podName/containerName/originSourceName
@@ -523,7 +531,7 @@ func toPipelineInterceptorWithPodInject(interceptorRef string, interceptorLister
 	}
 
 	icpConfList := make([]index.ExtInterceptorConfig, 0)
-	err = cfg.UnpackRaw([]byte(lgcInterceptor.Spec.Interceptors), &icpConfList)
+	err := cfg.UnpackRaw([]byte(interceptor), &icpConfList)
 	if err != nil {
 		return nil, err
 	}

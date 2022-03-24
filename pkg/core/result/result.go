@@ -35,6 +35,12 @@ func Fail(err error) *DefaultResult {
 	}
 }
 
+func Drop() *DefaultResult {
+	return &DefaultResult{
+		status: api.DROP,
+	}
+}
+
 func NewResult(state api.Status) *DefaultResult {
 	return &DefaultResult{
 		status: state,
