@@ -22,6 +22,11 @@ github.com/evanphx/json-patch
 # github.com/fsnotify/fsnotify v1.4.9
 ## explicit
 github.com/fsnotify/fsnotify
+# github.com/go-kit/kit v0.10.0
+github.com/go-kit/kit/log
+github.com/go-kit/kit/log/level
+# github.com/go-logfmt/logfmt v0.5.0
+github.com/go-logfmt/logfmt
 # github.com/go-logr/logr v0.4.0
 github.com/go-logr/logr
 # github.com/go-openapi/jsonpointer v0.19.5
@@ -39,8 +44,12 @@ github.com/go-playground/universal-translator
 ## explicit
 github.com/go-playground/validator/v10
 # github.com/gogo/protobuf v1.3.2
+## explicit
+github.com/gogo/protobuf/gogoproto
 github.com/gogo/protobuf/proto
+github.com/gogo/protobuf/protoc-gen-gogo/descriptor
 github.com/gogo/protobuf/sortkeys
+github.com/gogo/protobuf/types
 # github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da
 github.com/golang/groupcache/lru
 # github.com/golang/protobuf v1.5.2
@@ -49,7 +58,8 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/golang/snappy v0.0.1
+# github.com/golang/snappy v0.0.2
+## explicit
 github.com/golang/snappy
 # github.com/google/go-cmp v0.5.6
 ## explicit
@@ -77,6 +87,8 @@ github.com/hpcloud/tail/winfile
 github.com/imdario/mergo
 # github.com/josharian/intern v1.0.0
 github.com/josharian/intern
+# github.com/jpillora/backoff v1.0.0
+github.com/jpillora/backoff
 # github.com/json-iterator/go v1.1.11
 ## explicit
 github.com/json-iterator/go
@@ -109,6 +121,8 @@ github.com/mmaxiaolei/backoff
 github.com/modern-go/concurrent
 # github.com/modern-go/reflect2 v1.0.1
 github.com/modern-go/reflect2
+# github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f
+github.com/mwitkow/go-conntrack
 # github.com/olivere/elastic/v7 v7.0.28
 ## explicit
 github.com/olivere/elastic/v7
@@ -131,8 +145,9 @@ github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.2.0
 github.com/prometheus/client_model/go
-# github.com/prometheus/common v0.26.0
+# github.com/prometheus/common v0.32.1
 ## explicit
+github.com/prometheus/common/config
 github.com/prometheus/common/expfmt
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
 github.com/prometheus/common/model
@@ -143,6 +158,18 @@ github.com/prometheus/procfs/internal/util
 # github.com/prometheus/prom2json v1.3.0
 ## explicit
 github.com/prometheus/prom2json
+# github.com/prometheus/prometheus v1.8.2-0.20201028100903-3245b3267b24
+## explicit
+github.com/prometheus/prometheus/pkg/labels
+github.com/prometheus/prometheus/pkg/value
+github.com/prometheus/prometheus/promql/parser
+github.com/prometheus/prometheus/storage
+github.com/prometheus/prometheus/tsdb/chunkenc
+github.com/prometheus/prometheus/tsdb/chunks
+github.com/prometheus/prometheus/tsdb/errors
+github.com/prometheus/prometheus/tsdb/fileutil
+github.com/prometheus/prometheus/tsdb/tsdbutil
+github.com/prometheus/prometheus/util/strutil
 # github.com/rs/zerolog v1.20.0
 ## explicit
 github.com/rs/zerolog
@@ -196,6 +223,8 @@ github.com/spf13/pflag
 github.com/xdg/scram
 # github.com/xdg/stringprep v1.0.0
 github.com/xdg/stringprep
+# go.uber.org/atomic v1.7.0
+go.uber.org/atomic
 # go.uber.org/automaxprocs v0.0.0-20200415073007-b685be8c1c23
 ## explicit
 go.uber.org/automaxprocs/internal/cgroups
@@ -218,8 +247,9 @@ golang.org/x/net/idna
 golang.org/x/net/internal/timeseries
 golang.org/x/net/netutil
 golang.org/x/net/trace
-# golang.org/x/oauth2 v0.0.0-20200107190931-bf48bf16ab8d
+# golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
 golang.org/x/oauth2
+golang.org/x/oauth2/clientcredentials
 golang.org/x/oauth2/internal
 # golang.org/x/sys v0.0.0-20210616094352-59db8d763f22
 golang.org/x/sys/cpu
@@ -254,7 +284,7 @@ golang.org/x/tools/internal/imports
 # golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
-# google.golang.org/appengine v1.6.5
+# google.golang.org/appengine v1.6.6
 google.golang.org/appengine/internal
 google.golang.org/appengine/internal/base
 google.golang.org/appengine/internal/datastore

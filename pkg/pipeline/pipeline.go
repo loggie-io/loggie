@@ -260,17 +260,29 @@ func (p *Pipeline) startWithComponent(component api.Component, ctx api.Context) 
 
 func (p *Pipeline) afterSinkConsumer(b api.Batch, result api.Result) {
 	// commit to source and release batch
-	if result.Status() == api.SUCCESS || result.Status() == api.DROP {
+	// we use the if/else instead of switch/case cause of performance in golang
+	status := result.Status()
+	if status == api.SUCCESS {
 		p.finalizeBatch(b)
+		return
 	}
-	if result.Status() == api.FAIL {
+
+	if status == api.FAIL {
 		log.Error("consumer batch failed: %s", result.Error())
+		return
+	}
+
+	if status == api.DROP {
+		if result.Error() != nil {
+			log.Error("drop batch due to: %s", result.Error())
+		}
+		p.finalizeBatch(b)
+		return
 	}
 }
 
 // commit to source and release batch
 func (p *Pipeline) finalizeBatch(batch api.Batch) {
-	//p.s.Commit(batch)
 
 	nes := make(map[string][]api.Event)
 	events := batch.Events()
