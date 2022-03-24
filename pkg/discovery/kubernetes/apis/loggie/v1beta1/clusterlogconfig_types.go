@@ -62,6 +62,8 @@ type NodeSelector struct {
 type Pipeline struct {
 	Name           string `json:"name,omitempty"`
 	Sources        string `json:"sources,omitempty"`
+	Sink           string `json:"sink,omitempty"`
+	Interceptors   string `json:"interceptors,omitempty"`
 	SinkRef        string `json:"sinkRef,omitempty"`
 	InterceptorRef string `json:"interceptorRef,omitempty"`
 }
