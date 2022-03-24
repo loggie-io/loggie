@@ -37,12 +37,14 @@ func (ai *AbstractInterceptor) Intercept(invoker Invoker, invocation Invocation)
 	return ai.DoIntercept(invoker, invocation)
 }
 
-func (ai *AbstractInterceptor) Init(context api.Context) {
+func (ai *AbstractInterceptor) Init(context api.Context) error {
 	// ignore
+	return nil
 }
 
-func (ai *AbstractInterceptor) Start() {
+func (ai *AbstractInterceptor) Start() error {
 	// ignore
+	return nil
 }
 
 func (ai *AbstractInterceptor) Stop() {

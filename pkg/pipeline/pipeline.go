@@ -252,8 +252,16 @@ func (p *Pipeline) startWithComponent(component api.Component, ctx api.Context) 
 		log.Panic("unpack component %s/%s error: %v", component.Category(), component.Type(), err)
 	}
 
-	component.Init(ctx)
-	component.Start()
+	err = component.Init(ctx)
+	if err != nil {
+		log.Panic("init component %s/%s error: %v", component.Category(), component.Type(), err)
+	}
+
+	err = component.Start()
+	if err != nil {
+		log.Panic("start component %s/%s error: %v", component.Category(), component.Type(), err)
+	}
+
 	p.r.Register(component, ctx.Name())
 	p.reportMetric(ctx.Name(), component, eventbus.ComponentStart)
 }

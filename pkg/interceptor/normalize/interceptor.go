@@ -64,14 +64,16 @@ func (i *Interceptor) String() string {
 	return fmt.Sprintf("%s/%s", i.Category(), i.Type())
 }
 
-func (i *Interceptor) Init(context api.Context) {
+func (i *Interceptor) Init(context api.Context) error {
 	i.name = context.Name()
 	pg := NewProcessorGroup(i.config.Processors)
 	pg.InitAll()
 	i.ProcessorGroup = pg
+	return nil
 }
 
-func (i *Interceptor) Start() {
+func (i *Interceptor) Start() error {
+	return nil
 }
 
 func (i *Interceptor) Stop() {

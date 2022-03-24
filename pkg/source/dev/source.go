@@ -69,16 +69,18 @@ func (d *Dev) String() string {
 	return fmt.Sprintf("%s/%s", api.SOURCE, Type)
 }
 
-func (d *Dev) Init(context api.Context) {
+func (d *Dev) Init(context api.Context) error {
 	d.name = context.Name()
+	return nil
 }
 
-func (d *Dev) Start() {
+func (d *Dev) Start() error {
 	d.limiter = rate.NewLimiter(rate.Limit(d.config.Qps), d.config.Qps)
 	d.content = make([]byte, d.config.ByteSize)
 	for i := range d.content {
 		d.content[i] = letterBytes[rand.Intn(len(letterBytes))]
 	}
+	return nil
 }
 
 func (d *Dev) Stop() {

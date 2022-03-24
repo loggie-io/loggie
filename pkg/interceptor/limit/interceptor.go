@@ -59,14 +59,16 @@ func (i *Interceptor) String() string {
 	return fmt.Sprintf("%s/%s", i.Category(), i.Type())
 }
 
-func (i *Interceptor) Init(context api.Context) {
+func (i *Interceptor) Init(context api.Context) error {
 	i.name = context.Name()
 	i.qps = i.config.Qps
+	return nil
 }
 
-func (i *Interceptor) Start() {
+func (i *Interceptor) Start() error {
 	log.Info("rate limit: qps->%d", i.qps)
 	i.l = newUnsafeBased(i.qps, WithoutLock())
+	return nil
 }
 
 func (i *Interceptor) Stop() {

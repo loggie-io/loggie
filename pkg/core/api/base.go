@@ -45,8 +45,8 @@ type Context interface {
 }
 
 type Lifecycle interface {
-	Init(context Context)
-	Start() // nonblock
+	Init(context Context) error
+	Start() error // nonblock
 	Stop()
 }
 

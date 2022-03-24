@@ -82,7 +82,7 @@ func (s *Sink) String() string {
 	return fmt.Sprintf("%s/%s: target host(%s)", api.SINK, Type, s.config.Host)
 }
 
-func (s *Sink) Init(context api.Context) {
+func (s *Sink) Init(context api.Context) error {
 	s.name = context.Name()
 	s.setting = context.Properties()
 
@@ -90,9 +90,10 @@ func (s *Sink) Init(context api.Context) {
 	s.hosts = strings.Split(hosts, ",")
 	s.loadBalance = s.config.LoadBalance
 	s.timeout = s.config.Timeout
+	return nil
 }
 
-func (s *Sink) Start() {
+func (s *Sink) Start() error {
 	// register grpc name resolver
 	resolver.Register(NewBuilder(s.hosts))
 	// init grpc client
@@ -103,11 +104,13 @@ func (s *Sink) Start() {
 		grpc.WithInitialWindowSize(256),
 	)
 	if err != nil {
-		log.Panic("grpc client connect error. err: %v. server hosts: %s", err, s.hosts)
+		log.Error("grpc client connect error. err: %v. server hosts: %s", err, s.hosts)
+		return err
 	}
 	s.conn = conn
 	s.logClient = pb.NewLogServiceClient(conn)
 	log.Info("%s start, hosts: %v, load balance: %s", s.String(), s.hosts, s.loadBalance)
+	return nil
 }
 
 func (s *Sink) Stop() {

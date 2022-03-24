@@ -80,7 +80,7 @@ func (s *Source) String() string {
 	return fmt.Sprintf("%s/%s/%s", s.Category(), s.Type(), s.name)
 }
 
-func (s *Source) Init(context api.Context) {
+func (s *Source) Init(context api.Context) error {
 	s.name = context.Name()
 	s.out = make(chan api.Event, s.sinkCount)
 
@@ -107,9 +107,10 @@ func (s *Source) Init(context api.Context) {
 		SourceName:   s.name,
 		Level:        IsolationLevel(s.config.Isolation),
 	}
+	return nil
 }
 
-func (s *Source) Start() {
+func (s *Source) Start() error {
 	log.Info("start source: %s", s.String())
 	if s.config.ReaderConfig.MultiConfig.Active {
 		s.multilineProcessor = GetOrCreateShareMultilineProcessor()
@@ -128,6 +129,7 @@ func (s *Source) Start() {
 	s.r = GetOrCreateReader(s.isolation, s.config.ReaderConfig, s.watcher)
 
 	s.HandleHttp()
+	return nil
 }
 
 func (s *Source) Stop() {

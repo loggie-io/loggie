@@ -62,7 +62,7 @@ func (i *Interceptor) String() string {
 	return fmt.Sprintf("%s/%s", i.Category(), i.Type())
 }
 
-func (i *Interceptor) Init(context api.Context) {
+func (i *Interceptor) Init(context api.Context) error {
 
 	if len(i.config.Matcher.Regexp) != 0 {
 		for _, r := range i.config.Matcher.Regexp {
@@ -71,9 +71,11 @@ func (i *Interceptor) Init(context api.Context) {
 			i.regex = append(i.regex, regex)
 		}
 	}
+	return nil
 }
 
-func (i *Interceptor) Start() {
+func (i *Interceptor) Start() error {
+	return nil
 }
 
 func (i *Interceptor) Stop() {

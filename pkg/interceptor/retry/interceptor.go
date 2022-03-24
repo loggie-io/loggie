@@ -89,7 +89,7 @@ func (i *Interceptor) String() string {
 	return fmt.Sprintf("%s/%s", i.Category(), i.Type())
 }
 
-func (i *Interceptor) Init(context api.Context) {
+func (i *Interceptor) Init(context api.Context) error {
 	i.name = context.Name()
 	i.done = make(chan struct{})
 	i.countDown = &sync.WaitGroup{}
@@ -99,6 +99,7 @@ func (i *Interceptor) Init(context api.Context) {
 	i.pauseSign.Store(false)
 	i.signChan = make(chan Opt)
 	i.initBackOff()
+	return nil
 }
 
 func (i *Interceptor) initBackOff() {
@@ -107,9 +108,10 @@ func (i *Interceptor) initBackOff() {
 	i.bo = bo
 }
 
-func (i *Interceptor) Start() {
+func (i *Interceptor) Start() error {
 	go i.run()
 	log.Info("%s start", i.String())
+	return nil
 }
 
 func (i *Interceptor) Stop() {

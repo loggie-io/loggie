@@ -66,14 +66,16 @@ func (icp *Interceptor) String() string {
 	return fmt.Sprintf("%s/%s", icp.Category(), icp.Type())
 }
 
-func (icp *Interceptor) Init(context api.Context) {
+func (icp *Interceptor) Init(context api.Context) error {
 	splits, matchers := pattern.GetSplits(icp.config.Pattern)
 	icp.Splits = splits
 	icp.Matchers = matchers
 	log.Info("pattern splits: %v", splits)
+	return nil
 }
 
-func (icp *Interceptor) Start() {
+func (icp *Interceptor) Start() error {
+	return nil
 }
 
 func (icp *Interceptor) Stop() {

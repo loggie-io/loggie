@@ -72,17 +72,19 @@ func (s *Sink) SetCodec(c codec.Codec) {
 	s.codec = c
 }
 
-func (s *Sink) Init(context api.Context) {
+func (s *Sink) Init(context api.Context) error {
+	return nil
 }
 
-func (s *Sink) Start() {
+func (s *Sink) Start() error {
 	indexMatchers := util.InitMatcher(s.config.Index)
 	cli, err := NewClient(s.config, s.codec, indexMatchers)
 	if err != nil {
 		log.Error("start elasticsearch connection fail, err: %+v", err)
-		return
+		return err
 	}
 	s.cli = cli
+	return nil
 }
 
 func (s *Sink) Stop() {
