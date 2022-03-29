@@ -64,6 +64,10 @@ func (r *Reloader) Run(stopCh <-chan struct{}) {
 			return
 
 		case <-t.C:
+
+			// If there is at least one pipeline not running, we will not ignore the configuration, and always try to restart the pipeline
+			r.controller.RetryNotRunningPipeline()
+
 			// read and validate config files
 			newConfig, err := control.ReadPipelineConfig(r.config.ConfigPath, func(s os.FileInfo) bool {
 				if time.Since(s.ModTime()) > 6*r.config.ReloadPeriod {

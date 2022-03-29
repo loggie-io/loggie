@@ -150,5 +150,5 @@ func (cr *ConfigRaw) ValidateAndToConfig() (*Config, error) {
 }
 
 func (c *Config) Validate() error {
-	return NewPipeline().validate(c)
+	return NewPipeline(c).validate()
 }

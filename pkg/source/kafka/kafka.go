@@ -89,8 +89,7 @@ func (k *Source) Start() error {
 	}
 	kts, err := topics.ListRe(context.Background(), client, topicRegx)
 	if err != nil {
-		log.Error("list kafka topics that match a regex error: %s", err.Error())
-		return err
+		return errors.WithMessage(err, "list kafka topics that match a regex error")
 	}
 
 	var groupTopics []string
@@ -98,8 +97,7 @@ func (k *Source) Start() error {
 		groupTopics = append(groupTopics, t.Name)
 	}
 	if len(groupTopics) <= 0 {
-		log.Error("regex %s matched zero kafka topics", k.config.Topic)
-		return fmt.Errorf("regex %s matched zero kafka topics", k.config.Topic)
+		return errors.Errorf("regex %s matched zero kafka topics", k.config.Topic)
 	}
 
 	readerCfg := kafka.ReaderConfig{

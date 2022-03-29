@@ -17,6 +17,8 @@ limitations under the License.
 package kafka
 
 import (
+	"github.com/pkg/errors"
+	"regexp"
 	"time"
 
 	"github.com/segmentio/kafka-go"
@@ -52,4 +54,15 @@ func getAutoOffset(autoOffsetReset string) int64 {
 	}
 
 	return kafka.LastOffset
+}
+
+func (c *Config) Validate() error {
+	if c.Topic != "" {
+		_, err := regexp.Compile(c.Topic)
+		if err != nil {
+			return errors.WithMessagef(err, "compile kafka topic regex %s error", c.Topic)
+		}
+	}
+
+	return nil
 }

@@ -79,7 +79,7 @@ func (s *Sink) String() string {
 	return fmt.Sprintf("%s/%s", api.SINK, Type)
 }
 
-func (s *Sink) Init(context api.Context) {
+func (s *Sink) Init(context api.Context) error {
 	if len(s.config.BaseDirs) > 0 || len(s.config.DirHashKey) > 0 {
 		s.consistent = consistent.New()
 		for i := range s.config.BaseDirs {
@@ -89,9 +89,10 @@ func (s *Sink) Init(context api.Context) {
 
 	s.dirHashKeyMatcher = util.InitMatcher(s.config.DirHashKey)
 	s.filenameMatcher = util.InitMatcher(s.config.Filename)
+	return nil
 }
 
-func (s *Sink) Start() {
+func (s *Sink) Start() error {
 	c := s.config
 	w, err := NewMultiFileWriter(&Options{
 		WorkerCount: c.WorkerCount,
@@ -109,6 +110,7 @@ func (s *Sink) Start() {
 	s.writer = w
 
 	log.Info("file-sink start,filename: %s", s.config.Filename)
+	return nil
 }
 
 func (s *Sink) Stop() {

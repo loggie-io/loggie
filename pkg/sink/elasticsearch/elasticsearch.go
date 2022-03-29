@@ -80,7 +80,7 @@ func (s *Sink) Start() error {
 	indexMatchers := util.InitMatcher(s.config.Index)
 	cli, err := NewClient(s.config, s.codec, indexMatchers)
 	if err != nil {
-		log.Error("start elasticsearch connection fail, err: %+v", err)
+		log.Error("start elasticsearch connection fail, err: %v", err)
 		return err
 	}
 	s.cli = cli

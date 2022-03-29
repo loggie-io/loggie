@@ -110,7 +110,7 @@ func (i *Interceptor) initBackOff() {
 
 func (i *Interceptor) Start() error {
 	go i.run()
-	log.Info("%s start", i.String())
+	log.Debug("%s start", i.String())
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (i *Interceptor) Stop() {
 	close(i.done)
 	i.countDown.Wait()
 	i.wakeUp()
-	log.Info("%s stop", i.String())
+	log.Debug("%s stop", i.String())
 }
 
 func (i *Interceptor) Intercept(invoker sink.Invoker, invocation sink.Invocation) api.Result {
@@ -235,7 +235,7 @@ func (i *Interceptor) wakeUp() {
 }
 
 func (i *Interceptor) signAll() {
-	log.Info("consumers will be awake")
+	log.Debug("consumers will be awake")
 	i.lock.Lock()
 	i.cond.Broadcast()
 	i.lock.Unlock()
