@@ -65,7 +65,7 @@ func (r *Reloader) Run(stopCh <-chan struct{}) {
 
 		case <-t.C:
 			// read and validate config files
-			newConfig, err := control.ReadPipelineConfig(r.config.ConfigPath, func(s os.FileInfo) bool {
+			newConfig, err := control.ReadPipelineConfigFromFile(r.config.ConfigPath, func(s os.FileInfo) bool {
 				if time.Since(s.ModTime()) > 6*r.config.ReloadPeriod {
 					return true
 				}

@@ -35,11 +35,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 var (
 	globalConfigFile   string
 	pipelineConfigPath string
+	configType         string
 	nodeName           string
 )
 
@@ -47,7 +49,8 @@ func init() {
 	hostName, _ := os.Hostname()
 
 	flag.StringVar(&globalConfigFile, "config.system", "loggie.yml", "global config file")
-	flag.StringVar(&pipelineConfigPath, "config.pipeline", "pipelines.yml", "reloadable config file path")
+	flag.StringVar(&pipelineConfigPath, "config.pipeline", "pipelines.yml", "reloadable config file")
+	flag.StringVar(&configType, "config.from", "file", "config from file or env")
 	flag.StringVar(&nodeName, "meta.nodeName", hostName, "override nodeName")
 
 	sysconfig.NodeName = nodeName
@@ -65,15 +68,13 @@ func main() {
 	if _, err := maxprocs.Set(maxprocs.Logger(log.Debug)); err != nil {
 		log.Fatal("set maxprocs error: %v", err)
 	}
+	configType = strings.ToLower(configType)
 	log.Info("real GOMAXPROCS %d", runtime.GOMAXPROCS(-1))
 	log.Info("node name is %s", nodeName)
 
 	// system config file
 	syscfg := sysconfig.Config{}
-	err := cfg.UnpackFromFileDefaultsAndValidate(globalConfigFile, &syscfg)
-	if err != nil {
-		log.Fatal("unpack global config file error: %+v", err)
-	}
+	cfg.UnpackTypeDefaultsAndValidate(configType, globalConfigFile, &syscfg)
 
 	setDefaultPipelines(syscfg.Loggie.Defaults)
 
@@ -83,7 +84,7 @@ func main() {
 	log.AfterError = eventbus.AfterErrorFunc
 
 	// pipeline config file
-	pipecfgs, err := control.ReadPipelineConfig(pipelineConfigPath, func(s os.FileInfo) bool {
+	pipecfgs, err := control.ReadPipelineConfig(pipelineConfigPath, configType, func(s os.FileInfo) bool {
 		return false
 	})
 	if pipecfgs != nil {

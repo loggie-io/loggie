@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"gopkg.in/yaml.v2"
 	"io/ioutil"
-
-	"github.com/loggie-io/loggie/pkg/core/log"
+	"os"
 )
 
 type CommonCfg map[string]interface{}
@@ -182,6 +182,23 @@ func UnpackFromFileDefaultsAndValidate(path string, config interface{}) error {
 	}
 
 	return UnpackRawDefaultsAndValidate(content, config)
+}
+
+func UnpackFromEnvDefaultsAndValidate(key string, config interface{}) error {
+	return UnpackRawDefaultsAndValidate([]byte(os.Getenv(key)), config)
+}
+
+func UnpackTypeDefaultsAndValidate(configType string, key string, config interface{}) {
+	var err error
+	switch configType {
+	case "env":
+		err = UnpackFromEnvDefaultsAndValidate(key, config)
+	default:
+		err = UnpackFromFileDefaultsAndValidate(key, config)
+	}
+	if err != nil {
+		log.Fatal("unpack global config file error: %+v", err)
+	}
 }
 
 func UnpackFromFileDefaults(path string, config interface{}) error {
