@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,21 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package codec
+package raw
 
 import (
-	"github.com/loggie-io/loggie/pkg/core/cfg"
-	"github.com/pkg/errors"
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/sink/codec"
 )
 
-type Config struct {
-	Type          string `yaml:"type,omitempty" default:"json"`
-	cfg.CommonCfg `yaml:",inline"`
+const (
+	Type = "raw"
+)
+
+func init() {
+	codec.Register(Type, makeRawCodec)
 }
 
-func (c *Config) Validate() error {
-	if c.Type != "json" && c.Type != "raw" {
-		return errors.Errorf("codec %s is not supported", c.Type)
-	}
-	return nil
+type Raw struct {
+}
+
+func makeRawCodec() codec.Codec {
+	return NewRaw()
+}
+
+func NewRaw() *Raw {
+	return &Raw{}
+}
+
+func (j *Raw) Init() {
+}
+
+func (j *Raw) Encode(e api.Event) ([]byte, error) {
+	return e.Body(), nil
 }
