@@ -54,12 +54,15 @@ type Pipeline struct {
 	retryOutFuncs []api.OutFunc
 	index         uint32
 	epoch         *Epoch
+
+	Running bool
 }
 
-func NewPipeline() *Pipeline {
+func NewPipeline(pipelineConfig *Config) *Pipeline {
 	registerCenter := NewRegisterCenter()
 	return &Pipeline{
-		done: make(chan struct{}),
+		config: *pipelineConfig,
+		done:   make(chan struct{}),
 		info: Info{
 			Stop:        false,
 			R:           registerCenter,
@@ -70,6 +73,10 @@ func NewPipeline() *Pipeline {
 }
 
 func (p *Pipeline) Stop() {
+	if p.info.Stop == true {
+		return
+	}
+
 	p.info.Stop = true
 	// 0. stop source product
 	p.stopSourceProduct()
@@ -113,7 +120,7 @@ func (p *Pipeline) stopQueue() {
 }
 
 func (p *Pipeline) stopComponents() {
-	log.Info("start stopComponents,timeout: %ds", p.config.CleanDataTimeout/time.Second)
+	log.Debug("stopping components of pipeline %s", p.name)
 	for name, v := range p.r.nameComponents {
 		// async stop with timeout
 		n := name
@@ -175,24 +182,26 @@ func (p *Pipeline) consumerOutChanAndDrop(out chan api.Batch) {
 	}
 }
 
-func (p *Pipeline) Start(pipelineConfig Config) {
+func (p *Pipeline) Start() error {
+	pipelineConfig := p.config
 	p.init(pipelineConfig)
-	// 0. check:
-	// 		1. pipeline name check
-	// 		2. mark unused interceptor
-	// 		3. mark unused queue
-	// 		4. check sink: sink can only consumer one queue...
-	// 		5. check queue
-	// 		6. check source
 
 	// 1. start interceptor
-	p.startInterceptor(pipelineConfig.Interceptors)
+	if err := p.startInterceptor(pipelineConfig.Interceptors); err != nil {
+		return err
+	}
 	// 2. start sink
-	p.startSink(pipelineConfig.Sink)
+	if err := p.startSink(pipelineConfig.Sink); err != nil {
+		return err
+	}
 	// 3. start source
-	p.startSource(pipelineConfig.Sources)
+	if err := p.startSource(pipelineConfig.Sources); err != nil {
+		return err
+	}
 	// 4. start queue
-	p.startQueue(*pipelineConfig.Queue)
+	if err := p.startQueue(*pipelineConfig.Queue); err != nil {
+		return err
+	}
 	// 5. start sink consumer
 	p.startSinkConsumer(pipelineConfig.Sink)
 	// 6. start source product
@@ -200,6 +209,7 @@ func (p *Pipeline) Start(pipelineConfig Config) {
 
 	go p.survive()
 	log.Info("pipeline start with epoch: %+v", p.epoch)
+	return nil
 }
 
 func (p *Pipeline) init(pipelineConfig Config) {
@@ -225,37 +235,58 @@ func (p *Pipeline) init(pipelineConfig Config) {
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
 }
 
-func (p *Pipeline) startInterceptor(interceptorConfigs []interceptor.Config) {
+func (p *Pipeline) startInterceptor(interceptorConfigs []interceptor.Config) error {
 	for _, iConfig := range interceptorConfigs {
 		ctx := context.NewContext(iConfig.Name, api.Type(iConfig.Type), api.INTERCEPTOR, iConfig.Properties)
-		p.startComponent(ctx)
+		err := p.startComponent(ctx)
+		if err != nil {
+			return errors.WithMessage(err, "start interceptor failed")
+		}
 	}
+	return nil
 }
 
-func (p *Pipeline) startQueue(queueConfig queue.Config) {
+func (p *Pipeline) startQueue(queueConfig queue.Config) error {
 	ctx := context.NewContext(queueConfig.Name, api.Type(queueConfig.Type), api.QUEUE, queueConfig.Properties)
-	p.startComponent(ctx)
+	err := p.startComponent(ctx)
+	if err != nil {
+		return errors.WithMessage(err, "start queue failed")
+	}
 	q := p.r.LoadQueue(api.Type(queueConfig.Type), queueConfig.Name)
 	p.nq[queueConfig.Name] = q
 	p.outChans = append(p.outChans, q.OutChan())
+	return nil
 }
 
-func (p *Pipeline) startComponent(ctx api.Context) {
+func (p *Pipeline) startComponent(ctx api.Context) error {
 	component, _ := GetWithType(ctx.Category(), ctx.Type(), p.info)
-	p.startWithComponent(component, ctx)
+	if err := p.startWithComponent(component, ctx); err != nil {
+		//log.Error("start component failed: %v", err)
+		return err
+	}
+	return nil
 }
 
-func (p *Pipeline) startWithComponent(component api.Component, ctx api.Context) {
+func (p *Pipeline) startWithComponent(component api.Component, ctx api.Context) error {
 	// unpack config from properties
 	err := cfg.UnpackAndDefaults(ctx.Properties(), component.Config())
 	if err != nil {
-		log.Panic("unpack component %s/%s error: %v", component.Category(), component.Type(), err)
+		return errors.WithMessagef(err, "unpack component %s/%s", component.Category(), component.Type())
 	}
 
-	component.Init(ctx)
-	component.Start()
+	err = component.Init(ctx)
+	if err != nil {
+		return errors.WithMessagef(err, "init component %s/%s", component.Category(), component.Type())
+	}
+
+	err = component.Start()
+	if err != nil {
+		return errors.WithMessagef(err, "start component %s/%s", component.Category(), component.Type())
+	}
+
 	p.r.Register(component, ctx.Name())
 	p.reportMetric(ctx.Name(), component, eventbus.ComponentStart)
+	return nil
 }
 
 func (p *Pipeline) afterSinkConsumer(b api.Batch, result api.Result) {
@@ -311,7 +342,8 @@ func (p *Pipeline) validateComponent(ctx api.Context) error {
 	return cfg.UnpackDefaultsAndValidate(ctx.Properties(), component.Config())
 }
 
-func (p *Pipeline) validate(pipelineConfig *Config) error {
+func (p *Pipeline) validate() error {
+	pipelineConfig := &p.config
 	for _, iConfig := range pipelineConfig.Interceptors {
 		ctx := context.NewContext(iConfig.Name, api.Type(iConfig.Type), api.INTERCEPTOR, iConfig.Properties)
 		if err := p.validateComponent(ctx); err != nil {
@@ -345,7 +377,7 @@ func (p *Pipeline) validate(pipelineConfig *Config) error {
 	return nil
 }
 
-func (p *Pipeline) startSink(sinkConfigs *sink.Config) {
+func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 	p.retryOutFuncs = make([]api.OutFunc, 0)
 	ctx := context.NewContext(sinkConfigs.Name, api.Type(sinkConfigs.Type), api.SINK, sinkConfigs.Properties)
 
@@ -355,12 +387,13 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) {
 	// init codec
 	cod, ok := codec.Get(codecConf.Type)
 	if !ok {
-		log.Panic("codec %s cannot be found", codecConf.Type)
+		return errors.Errorf("codec %s cannot be found", codecConf.Type)
 	}
 	if conf, ok := cod.(api.Config); ok {
 		err := cfg.UnpackAndDefaults(codecConf.CommonCfg, conf.Config())
 		if err != nil {
-			log.Panic("unpack codec config error: %+v", err)
+			// since Loggie has validate the configuration before start, we would never reach here
+			return errors.WithMessage(err, "unpack codec config error")
 		}
 	}
 	cod.Init()
@@ -371,7 +404,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) {
 		si.SetCodec(cod)
 	}
 
-	p.startWithComponent(component, ctx)
+	return p.startWithComponent(component, ctx)
 }
 
 func (p *Pipeline) startSinkConsumer(sinkConfig *sink.Config) {
@@ -477,11 +510,16 @@ func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor
 	return last
 }
 
-func (p *Pipeline) startSource(sourceConfigs []source.Config) {
+func (p *Pipeline) startSource(sourceConfigs []source.Config) error {
 	for _, sourceConfig := range sourceConfigs {
 		ctx := context.NewContext(sourceConfig.Name, api.Type(sourceConfig.Type), api.SOURCE, sourceConfig.Properties)
-		p.startComponent(ctx)
+		err := p.startComponent(ctx)
+		if err != nil {
+			return err
+		}
 	}
+
+	return nil
 }
 
 func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {

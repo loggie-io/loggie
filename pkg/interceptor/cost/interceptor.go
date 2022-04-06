@@ -61,7 +61,7 @@ func (i *Interceptor) String() string {
 	return fmt.Sprintf("%s/%s", i.Category(), i.Type())
 }
 
-func (i *Interceptor) Init(context api.Context) {
+func (i *Interceptor) Init(context api.Context) error {
 	i.name = context.Name()
 
 	i.enable = true
@@ -72,9 +72,11 @@ func (i *Interceptor) Init(context api.Context) {
 		i.enable = false
 	}
 	log.Info("%s sampling: %d", i.String(), i.config.Sampling)
+	return nil
 }
 
-func (i *Interceptor) Start() {
+func (i *Interceptor) Start() error {
+	return nil
 }
 
 func (i *Interceptor) Stop() {

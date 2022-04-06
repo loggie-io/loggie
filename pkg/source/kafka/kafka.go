@@ -72,15 +72,16 @@ func (k *Source) String() string {
 	return fmt.Sprintf("%s/%s", api.SOURCE, Type)
 }
 
-func (k *Source) Init(context api.Context) {
+func (k *Source) Init(context api.Context) error {
 	k.name = context.Name()
+	return nil
 }
 
-func (k *Source) Start() {
+func (k *Source) Start() error {
 	topicRegx, err := regexp.Compile(k.config.Topic)
 	if err != nil {
 		log.Error("compile kafka topic regex %s error: %s", k.config.Topic, err.Error())
-		return
+		return err
 	}
 
 	client := &kafka.Client{
@@ -88,8 +89,7 @@ func (k *Source) Start() {
 	}
 	kts, err := topics.ListRe(context.Background(), client, topicRegx)
 	if err != nil {
-		log.Error("list kafka topics that match a regex error: %s", err.Error())
-		return
+		return errors.WithMessage(err, "list kafka topics that match a regex error")
 	}
 
 	var groupTopics []string
@@ -97,8 +97,7 @@ func (k *Source) Start() {
 		groupTopics = append(groupTopics, t.Name)
 	}
 	if len(groupTopics) <= 0 {
-		log.Error("regex %s matched zero kafka topics", k.config.Topic)
-		return
+		return errors.Errorf("regex %s matched zero kafka topics", k.config.Topic)
 	}
 
 	readerCfg := kafka.ReaderConfig{
@@ -117,6 +116,7 @@ func (k *Source) Start() {
 	}
 
 	k.consumer = kafka.NewReader(readerCfg)
+	return nil
 }
 
 func (k *Source) Stop() {

@@ -62,20 +62,23 @@ func (s *Sink) String() string {
 	return fmt.Sprintf("%s/%s", api.SINK, Type)
 }
 
-func (s *Sink) Init(context api.Context) {
+func (s *Sink) Init(context api.Context) error {
 	s.name = context.Name()
 
 	cli, err := config.NewClientFromConfig(config.DefaultHTTPClientConfig, "loggie")
 	if err != nil {
 		log.Error("init loki default client failed: %v", err)
-		return
+		return nil
 	}
 
 	s.client = cli
+	return nil
 }
 
-func (s *Sink) Start() {
+func (s *Sink) Start() error {
 	log.Info("%s started", s.String())
+
+	return nil
 }
 
 func (s *Sink) Stop() {

@@ -60,7 +60,7 @@ func (k *PromExporter) String() string {
 
 const acceptHeader = `application/openmetrics-text; version=0.0.1,text/plain;version=0.0.4;q=0.5,*/*;q=0.1`
 
-func (k *PromExporter) Init(context api.Context) {
+func (k *PromExporter) Init(context api.Context) error {
 	k.name = context.Name()
 
 	k.client = &http.Client{}
@@ -76,9 +76,11 @@ func (k *PromExporter) Init(context api.Context) {
 
 		k.requestPool = append(k.requestPool, req)
 	}
+	return nil
 }
 
-func (k *PromExporter) Start() {
+func (k *PromExporter) Start() error {
+	return nil
 }
 
 func (k *PromExporter) Stop() {

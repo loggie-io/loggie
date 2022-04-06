@@ -56,11 +56,18 @@ func (c *Controller) StartPipelines(configs []pipeline.Config) {
 
 	// start new pipelines
 	for _, pConfig := range configs {
-		p := pipeline.NewPipeline()
+		p := pipeline.NewPipeline(&pConfig)
 		log.Info("starting pipeline: %s", pConfig.Name)
 		c.reportMetric(pConfig, eventbus.ComponentStart)
-		p.Start(pConfig)
+		if err := p.Start(); err != nil {
+			log.Error("start pipeline error: %v", err)
+			c.pipelineRunner[pConfig.Name] = p
+			p.Stop()
+			// We will retry when reload
+			return
+		}
 
+		p.Running = true
 		c.pipelineRunner[pConfig.Name] = p
 	}
 }
@@ -79,6 +86,23 @@ func (c *Controller) StopPipelines(configs []pipeline.Config) {
 		log.Info("stopping pipeline: %s", pConfig.Name)
 		c.reportMetric(pConfig, eventbus.ComponentStop)
 		p.Stop()
+		delete(c.pipelineRunner, pConfig.Name)
+	}
+}
+
+func (c *Controller) RetryNotRunningPipeline() {
+	for _, p := range c.pipelineRunner {
+		if p.Running {
+			continue
+		}
+
+		if err := p.Start(); err != nil {
+			log.Error("retry starting pipeline error: %v", err)
+			p.Stop()
+			continue
+		}
+
+		p.Running = true
 	}
 }
 

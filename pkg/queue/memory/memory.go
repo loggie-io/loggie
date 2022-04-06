@@ -82,7 +82,7 @@ func (c *Queue) String() string {
 	return fmt.Sprintf("%s/%s", api.QUEUE, Type)
 }
 
-func (c *Queue) Init(context api.Context) {
+func (c *Queue) Init(context api.Context) error {
 	c.done = make(chan struct{})
 	c.name = context.Name()
 	c.countDown = &sync.WaitGroup{}
@@ -108,9 +108,10 @@ func (c *Queue) Init(context api.Context) {
 		disruptor.WithConsumerGroup(newConsumer(c)),
 	)
 	c.d = &d
+	return nil
 }
 
-func (c *Queue) Start() {
+func (c *Queue) Start() error {
 	var listeners strings.Builder
 	for _, listener := range c.listeners {
 		listeners.WriteString(listener.Name())
@@ -118,6 +119,7 @@ func (c *Queue) Start() {
 	}
 	log.Info("queue listeners: %s", listeners.String())
 	go c.startInnerConsumer()
+	return nil
 }
 
 func (c *Queue) startInnerConsumer() {

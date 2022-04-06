@@ -67,21 +67,22 @@ func (k *KubeEvent) String() string {
 	return fmt.Sprintf("%s/%s", api.SOURCE, Type)
 }
 
-func (k *KubeEvent) Init(context api.Context) {
+func (k *KubeEvent) Init(context api.Context) error {
 	k.name = context.Name()
 	k.event = make(chan interface{}, k.config.BufferSize)
+	return nil
 }
 
-func (k *KubeEvent) Start() {
+func (k *KubeEvent) Start() error {
 	config, err := clientcmd.BuildConfigFromFlags(k.config.Master, k.config.KubeConfig)
 	if err != nil {
 		log.Error("cannot build config: %v", err)
-		return
+		return err
 	}
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		log.Error("cannot build clientSet: %v", err)
-		return
+		return err
 	}
 
 	informerFactory := informers.NewSharedInformerFactory(clientset, 0)
@@ -100,6 +101,7 @@ func (k *KubeEvent) Start() {
 
 	informerFactory.Start(k.stop)
 	informerFactory.WaitForCacheSync(k.stop)
+	return nil
 }
 
 func (k *KubeEvent) Stop() {
