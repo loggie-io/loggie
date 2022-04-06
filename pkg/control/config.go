@@ -146,7 +146,7 @@ func (c *PipelineConfig) RemovePipelines(cfg []pipeline.Config) {
 
 type FileIgnore func(s os.FileInfo) bool
 
-func ReadPipelineConfig(path string, ignore FileIgnore) (*PipelineConfig, error) {
+func ReadPipelineConfigFromFile(path string, ignore FileIgnore) (*PipelineConfig, error) {
 	pipecfgs := &PipelineConfig{}
 	matches, err := filepath.Glob(path)
 	if err != nil {
@@ -206,4 +206,28 @@ func defaultsValidateAndRemove(content []byte) (*PipelineConfig, error) {
 	}
 
 	return pipraw.ValidateAndRemove()
+}
+
+func ReadPipelineConfigFromEnv(key string, _ FileIgnore) (*PipelineConfig, error) {
+	pipecfg := os.Getenv(key)
+	pipecfgs := &PipelineConfig{}
+	pipes, err := defaultsValidateAndRemove([]byte(pipecfg))
+	if err != nil {
+		// ignore invalid pipeline
+		log.Error("invalidate pipeline configs: %v, \n%s", err, key)
+		return nil, err
+	}
+	pipecfgs.AddPipelines(pipes.Pipelines)
+	return pipecfgs, err
+}
+
+func ReadPipelineConfig(path string, configType string, ignore FileIgnore) (*PipelineConfig, error) {
+	switch configType {
+	case "file":
+		return ReadPipelineConfigFromFile(path, ignore)
+	case "env":
+		return ReadPipelineConfigFromEnv(path, ignore)
+	default:
+		return ReadPipelineConfigFromFile(path, ignore)
+	}
 }
