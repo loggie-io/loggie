@@ -15,22 +15,28 @@ package index
 
 import (
 	"github.com/loggie-io/loggie/pkg/control"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
 type LogConfigTypeNodeIndex struct {
-	pipeConfigs map[string][]pipeline.ConfigRaw // key: logConfigNamespace/Name, value: pipeline configs
+	pipeConfigs map[string]*TypeNodePipeConfig // key: logConfigNamespace/Name, value: pipeline configs
+}
+
+type TypeNodePipeConfig struct {
+	Raw []pipeline.ConfigRaw
+	Lgc *v1beta1.LogConfig
 }
 
 func NewLogConfigTypeNodeIndex() *LogConfigTypeNodeIndex {
 	return &LogConfigTypeNodeIndex{
-		pipeConfigs: make(map[string][]pipeline.ConfigRaw),
+		pipeConfigs: make(map[string]*TypeNodePipeConfig),
 	}
 }
 
 func (index *LogConfigTypeNodeIndex) GetConfig(logConfigKey string) ([]pipeline.ConfigRaw, bool) {
 	cfg, ok := index.pipeConfigs[logConfigKey]
-	return cfg, ok
+	return cfg.Raw, ok
 }
 
 func (index *LogConfigTypeNodeIndex) DeleteConfig(logConfigKey string) bool {
@@ -42,12 +48,15 @@ func (index *LogConfigTypeNodeIndex) DeleteConfig(logConfigKey string) bool {
 	return true
 }
 
-func (index *LogConfigTypeNodeIndex) SetConfig(logConfigKey string, p []pipeline.ConfigRaw) {
-	index.pipeConfigs[logConfigKey] = p
+func (index *LogConfigTypeNodeIndex) SetConfig(logConfigKey string, p []pipeline.ConfigRaw, lgc *v1beta1.LogConfig) {
+	index.pipeConfigs[logConfigKey] = &TypeNodePipeConfig{
+		Raw: p,
+		Lgc: lgc,
+	}
 }
 
-func (index *LogConfigTypeNodeIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.ConfigRaw) error {
-	index.SetConfig(logConfigKey, p)
+func (index *LogConfigTypeNodeIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.ConfigRaw, lgc *v1beta1.LogConfig) error {
+	index.SetConfig(logConfigKey, p, lgc)
 	if err := index.GetAll().ValidateUniquePipeName(); err != nil {
 		index.DeleteConfig(logConfigKey)
 		return err
@@ -58,10 +67,14 @@ func (index *LogConfigTypeNodeIndex) ValidateAndSetConfig(logConfigKey string, p
 func (index *LogConfigTypeNodeIndex) GetAll() *control.PipelineRawConfig {
 	var cfgRaws []pipeline.ConfigRaw
 	for _, v := range index.pipeConfigs {
-		cfgRaws = append(cfgRaws, v...)
+		cfgRaws = append(cfgRaws, v.Raw...)
 	}
 	all := &control.PipelineRawConfig{
 		Pipelines: cfgRaws,
 	}
 	return all
+}
+
+func (index *LogConfigTypeNodeIndex) GetAllConfigMap() map[string]*TypeNodePipeConfig {
+	return index.pipeConfigs
 }

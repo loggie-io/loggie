@@ -39,7 +39,7 @@ func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) er
 	}
 
 	lgcKey := helper.MetaNamespaceKey(lgc.Namespace, lgc.Name)
-	if err = c.typeNodeIndex.ValidateAndSetConfig(lgcKey, pipRaws.Pipelines); err != nil {
+	if err = c.typeNodeIndex.ValidateAndSetConfig(lgcKey, pipRaws.Pipelines, lgc); err != nil {
 		return err
 	}
 

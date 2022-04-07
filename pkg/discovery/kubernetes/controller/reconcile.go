@@ -126,6 +126,98 @@ func (c *Controller) reconcileNode(name string) error {
 	return nil
 }
 
+func (c *Controller) reconcileInterceptor(name string) error {
+	log.Info("start reconcile interceptor %s")
+
+	_, err := c.interceptorLister.Get(name)
+	if kerrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		runtime.HandleError(fmt.Errorf("failed to get interceptor %s by lister", name))
+		return err
+	}
+
+	reconcile := func(lgc *logconfigv1beta1.LogConfig) error {
+		if lgc == nil {
+			return nil
+		}
+
+		if lgc.Spec.Pipeline.InterceptorRef == name {
+			// flush pipeline config
+			err, _ := c.reconcileLogConfigAddOrUpdate(lgc)
+			return err
+		}
+
+		return nil
+	}
+
+	for lgcKey, pip := range c.typePodIndex.GetAllConfigMap() {
+		if err := reconcile(pip.Lgc); err != nil {
+			log.Info("reconcile interceptor %s and update logConfig %s error: %v", name, lgcKey, err)
+		}
+	}
+
+	for lgcKey, pip := range c.typeClusterIndex.GetAllConfigMap() {
+		if err := reconcile(pip.Lgc); err != nil {
+			log.Info("reconcile interceptor %s and update logConfig %s error: %v", name, lgcKey, err)
+		}
+	}
+
+	for lgcKey, pip := range c.typeNodeIndex.GetAllConfigMap() {
+		if err := reconcile(pip.Lgc); err != nil {
+			log.Info("reconcile interceptor %s and update logConfig %s error: %v", name, lgcKey, err)
+		}
+	}
+
+	return nil
+}
+
+func (c *Controller) reconcileSink(name string) error {
+	log.Info("start reconcile sink %s")
+
+	_, err := c.sinkLister.Get(name)
+	if kerrors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		runtime.HandleError(fmt.Errorf("failed to get sink %s by lister", name))
+		return err
+	}
+
+	reconcile := func(lgc *logconfigv1beta1.LogConfig) error {
+		if lgc == nil {
+			return nil
+		}
+
+		if lgc.Spec.Pipeline.SinkRef == name {
+			// flush pipeline config
+			err, _ := c.reconcileLogConfigAddOrUpdate(lgc)
+			return err
+		}
+
+		return nil
+	}
+
+	for lgcKey, pip := range c.typePodIndex.GetAllConfigMap() {
+		if err := reconcile(pip.Lgc); err != nil {
+			log.Info("reconcile sink %s and update logConfig %s error: %v", name, lgcKey, err)
+		}
+	}
+
+	for lgcKey, pip := range c.typeClusterIndex.GetAllConfigMap() {
+		if err := reconcile(pip.Lgc); err != nil {
+			log.Info("reconcile sink %s and update logConfig %s error: %v", name, lgcKey, err)
+		}
+	}
+
+	for lgcKey, pip := range c.typeNodeIndex.GetAllConfigMap() {
+		if err := reconcile(pip.Lgc); err != nil {
+			log.Info("reconcile sink %s and update logConfig %s error: %v", name, lgcKey, err)
+		}
+	}
+
+	return nil
+}
+
 func (c *Controller) reconcileClusterLogConfigAddOrUpdate(clgc *logconfigv1beta1.ClusterLogConfig) (err error, keys []string) {
 	log.Info("clusterLogConfig: %s add or update event received", clgc.Name)
 

@@ -25,6 +25,7 @@ const (
 	SelectorTypePod     = "pod"
 	SelectorTypeNode    = "node"
 	SelectorTypeCluster = "cluster"
+	SelectorTypeAll     = "all"
 )
 
 // +genclient

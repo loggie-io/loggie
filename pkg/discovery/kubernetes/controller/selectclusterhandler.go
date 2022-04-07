@@ -40,7 +40,7 @@ func (c *Controller) handleLogConfigTypeCluster(lgc *logconfigv1beta1.LogConfig)
 	}
 
 	lgcKey := helper.MetaNamespaceKey(lgc.Namespace, lgc.Name)
-	if err = c.typeClusterIndex.ValidateAndSetConfig(lgcKey, pipRaws.Pipelines); err != nil {
+	if err = c.typeClusterIndex.ValidateAndSetConfig(lgcKey, pipRaws.Pipelines, lgc); err != nil {
 		return err
 	}
 

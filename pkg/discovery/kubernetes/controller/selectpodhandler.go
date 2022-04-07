@@ -231,7 +231,7 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 	}
 
 	// update index
-	if err = c.typePodIndex.ValidateAndSetConfigs(pod.Namespace, pod.Name, lgc.Namespace, lgc.Name, pipeRaw); err != nil {
+	if err = c.typePodIndex.ValidateAndSetConfigs(pod.Namespace, pod.Name, lgc.Namespace, lgc.Name, pipeRaw, lgc); err != nil {
 		return err
 	}
 
