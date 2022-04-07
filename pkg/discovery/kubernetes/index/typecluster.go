@@ -18,22 +18,28 @@ package index
 
 import (
 	"github.com/loggie-io/loggie/pkg/control"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
 type LogConfigTypeClusterIndex struct {
-	pipeConfigs map[string][]pipeline.ConfigRaw // key: logConfigNamespace/Name, value: pipeline configs
+	pipeConfigs map[string]*TypeClusterPipeConfig // key: logConfigNamespace/Name, value: pipeline configs
+}
+
+type TypeClusterPipeConfig struct {
+	Raw []pipeline.ConfigRaw
+	Lgc *v1beta1.LogConfig
 }
 
 func NewLogConfigTypeLoggieIndex() *LogConfigTypeClusterIndex {
 	return &LogConfigTypeClusterIndex{
-		pipeConfigs: make(map[string][]pipeline.ConfigRaw),
+		pipeConfigs: make(map[string]*TypeClusterPipeConfig),
 	}
 }
 
 func (index *LogConfigTypeClusterIndex) GetConfig(logConfigKey string) ([]pipeline.ConfigRaw, bool) {
 	cfg, ok := index.pipeConfigs[logConfigKey]
-	return cfg, ok
+	return cfg.Raw, ok
 }
 
 func (index *LogConfigTypeClusterIndex) DeleteConfig(logConfigKey string) bool {
@@ -45,12 +51,15 @@ func (index *LogConfigTypeClusterIndex) DeleteConfig(logConfigKey string) bool {
 	return true
 }
 
-func (index *LogConfigTypeClusterIndex) SetConfig(logConfigKey string, p []pipeline.ConfigRaw) {
-	index.pipeConfigs[logConfigKey] = p
+func (index *LogConfigTypeClusterIndex) SetConfig(logConfigKey string, p []pipeline.ConfigRaw, lgc *v1beta1.LogConfig) {
+	index.pipeConfigs[logConfigKey] = &TypeClusterPipeConfig{
+		Raw: p,
+		Lgc: lgc,
+	}
 }
 
-func (index *LogConfigTypeClusterIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.ConfigRaw) error {
-	index.SetConfig(logConfigKey, p)
+func (index *LogConfigTypeClusterIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.ConfigRaw, lgc *v1beta1.LogConfig) error {
+	index.SetConfig(logConfigKey, p, lgc)
 	if err := index.GetAll().ValidateUniquePipeName(); err != nil {
 		index.DeleteConfig(logConfigKey)
 		return err
@@ -61,10 +70,14 @@ func (index *LogConfigTypeClusterIndex) ValidateAndSetConfig(logConfigKey string
 func (index *LogConfigTypeClusterIndex) GetAll() *control.PipelineRawConfig {
 	var cfgRaws []pipeline.ConfigRaw
 	for _, v := range index.pipeConfigs {
-		cfgRaws = append(cfgRaws, v...)
+		cfgRaws = append(cfgRaws, v.Raw...)
 	}
 	all := &control.PipelineRawConfig{
 		Pipelines: cfgRaws,
 	}
 	return all
+}
+
+func (index *LogConfigTypeClusterIndex) GetAllConfigMap() map[string]*TypeClusterPipeConfig {
+	return index.pipeConfigs
 }

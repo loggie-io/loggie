@@ -21,20 +21,26 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 type LogConfigTypePodIndex struct {
-	pipeConfigs  map[string]*pipeline.ConfigRaw // key: podKey/lgcKey, value: related pipeline configs
-	lgcToPodSets map[string]sets.String         // key: lgcKey(namespace/lgcName) , value: podKey(namespace/podName)
-	podToLgcSets map[string]sets.String         // key: podKey(namespace/podName), value: lgcKey(namespace/lgcName)
+	pipeConfigs  map[string]*TypePodPipeConfig // key: podKey/lgcKey, value: related pipeline configs
+	lgcToPodSets map[string]sets.String        // key: lgcKey(namespace/lgcName) , value: podKey(namespace/podName)
+	podToLgcSets map[string]sets.String        // key: podKey(namespace/podName), value: lgcKey(namespace/lgcName)
+}
+
+type TypePodPipeConfig struct {
+	Raw *pipeline.ConfigRaw
+	Lgc *v1beta1.LogConfig
 }
 
 func NewLogConfigTypePodIndex() *LogConfigTypePodIndex {
 	return &LogConfigTypePodIndex{
-		pipeConfigs:  make(map[string]*pipeline.ConfigRaw),
+		pipeConfigs:  make(map[string]*TypePodPipeConfig),
 		lgcToPodSets: make(map[string]sets.String),
 		podToLgcSets: make(map[string]sets.String),
 	}
@@ -49,7 +55,7 @@ func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string,
 		return nil
 	}
 
-	return cfgs
+	return cfgs.Raw
 }
 
 func (p *LogConfigTypePodIndex) IsPodExist(namespace string, podName string) bool {
@@ -72,17 +78,20 @@ func (p *LogConfigTypePodIndex) GetPipeConfigsByPod(namespace string, podName st
 	}
 	for _, lgcKey := range lgcSets.List() {
 		podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
-		pipcfgs = append(pipcfgs, *p.pipeConfigs[podAndLgc])
+		pipcfgs = append(pipcfgs, *p.pipeConfigs[podAndLgc].Raw)
 	}
 	return pipcfgs
 }
 
-func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgcNamespace string, lgcName string, cfg *pipeline.ConfigRaw) {
+func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgcNamespace string, lgcName string, cfg *pipeline.ConfigRaw, lgc *v1beta1.LogConfig) {
 	podKey := helper.MetaNamespaceKey(namespace, podName)
 	lgcKey := helper.MetaNamespaceKey(lgcNamespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
 
-	p.pipeConfigs[podAndLgc] = cfg
+	p.pipeConfigs[podAndLgc] = &TypePodPipeConfig{
+		Raw: cfg,
+		Lgc: lgc,
+	}
 	if _, ok := p.lgcToPodSets[lgcKey]; !ok {
 		p.lgcToPodSets[lgcKey] = sets.NewString(podKey)
 	} else {
@@ -96,8 +105,9 @@ func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgc
 	}
 }
 
-func (p *LogConfigTypePodIndex) ValidateAndSetConfigs(namespace string, podName string, lgcNamespace string, lgcName string, cfg *pipeline.ConfigRaw) error {
-	p.SetConfigs(namespace, podName, lgcNamespace, lgcName, cfg)
+func (p *LogConfigTypePodIndex) ValidateAndSetConfigs(namespace string, podName string, lgcNamespace string, lgcName string,
+	cfg *pipeline.ConfigRaw, lgc *v1beta1.LogConfig) error {
+	p.SetConfigs(namespace, podName, lgcNamespace, lgcName, cfg, lgc)
 	if err := p.GetAllGroupByLogConfig().ValidateUniquePipeName(); err != nil {
 		log.Warn("validate logConfig error: %v", err)
 		lgcKey := helper.MetaNamespaceKey(namespace, lgcName)
@@ -161,10 +171,14 @@ func (p *LogConfigTypePodIndex) GetAll() *control.PipelineRawConfig {
 	conf := control.PipelineRawConfig{}
 	var pipeConfigs []pipeline.ConfigRaw
 	for _, c := range p.pipeConfigs {
-		pipeConfigs = append(pipeConfigs, *c)
+		pipeConfigs = append(pipeConfigs, *c.Raw)
 	}
 	conf.Pipelines = pipeConfigs
 	return &conf
+}
+
+func (p *LogConfigTypePodIndex) GetAllConfigMap() map[string]*TypePodPipeConfig {
+	return p.pipeConfigs
 }
 
 type ExtInterceptorConfig struct {
@@ -187,12 +201,12 @@ func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineRawCon
 				log.Error("%s/%s is not in logConfigTypePodIndex", lgcKey, podKey)
 				continue
 			}
-			aggCfg.Name = cfgRaw.Name
-			aggCfg.Sources = append(aggCfg.Sources, cfgRaw.Sources...)
-			aggCfg.Sink = cfgRaw.Sink
+			aggCfg.Name = cfgRaw.Raw.Name
+			aggCfg.Sources = append(aggCfg.Sources, cfgRaw.Raw.Sources...)
+			aggCfg.Sink = cfgRaw.Raw.Sink
 
 			// merge interceptor.belongTo
-			mergeInterceptors(icpSets, cfgRaw.Interceptors)
+			mergeInterceptors(icpSets, cfgRaw.Raw.Interceptors)
 		}
 		icpList := extInterceptorToCommonCfg(icpSets)
 		aggCfg.Interceptors = icpList

@@ -48,6 +48,8 @@ const (
 	EventLogConf        = "logConfig"
 	EventNode           = "node"
 	EventClusterLogConf = "clusterLogConfig"
+	EventSink           = "sink"
+	EventInterceptor    = "interceptor"
 )
 
 // Element the item add to queue
@@ -272,6 +274,36 @@ func NewController(
 		},
 	})
 
+	interceptorInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			controller.enqueue(obj, EventInterceptor, logconfigv1beta1.SelectorTypeAll)
+		},
+		UpdateFunc: func(old, new interface{}) {
+			newConfig := new.(*logconfigv1beta1.Interceptor)
+			oldConfig := old.(*logconfigv1beta1.Interceptor)
+			if newConfig.ResourceVersion == oldConfig.ResourceVersion {
+				return
+			}
+
+			controller.enqueue(new, EventInterceptor, logconfigv1beta1.SelectorTypeAll)
+		},
+	})
+
+	sinkInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			controller.enqueue(obj, EventSink, logconfigv1beta1.SelectorTypeAll)
+		},
+		UpdateFunc: func(old, new interface{}) {
+			newConfig := new.(*logconfigv1beta1.Sink)
+			oldConfig := old.(*logconfigv1beta1.Sink)
+			if newConfig.ResourceVersion == oldConfig.ResourceVersion {
+				return
+			}
+
+			controller.enqueue(new, EventSink, logconfigv1beta1.SelectorTypeAll)
+		},
+	})
+
 	return controller
 }
 
@@ -409,6 +441,16 @@ func (c *Controller) syncHandler(element Element) error {
 	case EventNode:
 		if err = c.reconcileNode(element.Key); err != nil {
 			log.Warn("reconcile node %s err: %v", element.Key, err)
+		}
+
+	case EventSink:
+		if err = c.reconcileSink(element.Key); err != nil {
+			log.Warn("reconcile sink %s err: %v", element.Key, err)
+		}
+
+	case EventInterceptor:
+		if err = c.reconcileInterceptor(element.Key); err != nil {
+			log.Warn("reconcile interceptor %s err: %v", element.Key, err)
 		}
 
 	default:
