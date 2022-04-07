@@ -51,12 +51,12 @@ func NewClient(config *Config, cod codec.Codec, indexMatcher [][]string) (*Clien
 	opts = append(opts, es.SetURL(config.Hosts...))
 	if config.Sniff != nil {
 		opts = append(opts, es.SetSniff(*config.Sniff))
+	} else {
+		// disable sniff by default
+		es.SetSniff(false)
 	}
 	if config.Password != "" && config.UserName != "" {
 		opts = append(opts, es.SetBasicAuth(config.UserName, config.Password))
-	}
-	if config.Sniff != nil {
-		opts = append(opts, es.SetSniff(*config.Sniff))
 	}
 	if config.Schema != "" {
 		opts = append(opts, es.SetScheme(config.Schema))
