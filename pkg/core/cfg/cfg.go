@@ -29,6 +29,7 @@ import (
 type CommonCfg map[string]interface{}
 
 type ComponentBaseConfig struct {
+	Enabled    *bool     `yaml:"enabled"`
 	Name       string    `yaml:"name"`
 	Type       string    `yaml:"type" validate:"required"`
 	Properties CommonCfg `yaml:",inline"`
@@ -63,16 +64,6 @@ func (c CommonCfg) UID() string {
 	tp := c.Get("type")
 	name := c.Get("name")
 	return fmt.Sprintf("%s/%s", tp, name)
-}
-
-// Enabled
-// return false: get key 'enabled' is null or 'false'
-// return true: get key 'enabled' is 'true'
-func (c CommonCfg) Enabled() bool {
-	if c["enabled"] == "true" {
-		return true
-	}
-	return false
 }
 
 func (c CommonCfg) GetType() string {

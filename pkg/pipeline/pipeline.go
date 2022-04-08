@@ -237,6 +237,10 @@ func (p *Pipeline) init(pipelineConfig Config) {
 
 func (p *Pipeline) startInterceptor(interceptorConfigs []interceptor.Config) error {
 	for _, iConfig := range interceptorConfigs {
+		if iConfig.Enabled != nil && *iConfig.Enabled == false {
+			log.Info("interceptor %s is disabled", iConfig.Type)
+			continue
+		}
 		ctx := context.NewContext(iConfig.Name, api.Type(iConfig.Type), api.INTERCEPTOR, iConfig.Properties)
 		err := p.startComponent(ctx)
 		if err != nil {
@@ -512,6 +516,11 @@ func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor
 
 func (p *Pipeline) startSource(sourceConfigs []source.Config) error {
 	for _, sourceConfig := range sourceConfigs {
+		if sourceConfig.Enabled != nil && *sourceConfig.Enabled == false {
+			log.Info("source %s/%s is disabled", sourceConfig.Type, sourceConfig.Name)
+			continue
+		}
+
 		ctx := context.NewContext(sourceConfig.Name, api.Type(sourceConfig.Type), api.SOURCE, sourceConfig.Properties)
 		err := p.startComponent(ctx)
 		if err != nil {
@@ -524,6 +533,10 @@ func (p *Pipeline) startSource(sourceConfigs []source.Config) error {
 
 func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
 	for _, sc := range sourceConfigs {
+		if sc.Enabled != nil && *sc.Enabled == false {
+			continue
+		}
+
 		sourceConfig := sc
 		interceptors := make([]source.Interceptor, 0)
 		for _, inter := range p.r.LoadInterceptors() {
