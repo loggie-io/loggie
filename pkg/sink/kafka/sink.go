@@ -19,7 +19,7 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/pkg/errors"
 
@@ -77,7 +77,7 @@ func (s *Sink) String() string {
 }
 
 func (s *Sink) Init(context api.Context) error {
-	s.topicMatcher = util.InitMatcher(s.config.Topic)
+	s.topicMatcher = pattern.MustInitMatcher(s.config.Topic)
 	return nil
 }
 

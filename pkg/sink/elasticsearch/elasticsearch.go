@@ -19,13 +19,13 @@ package elasticsearch
 import (
 	"errors"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
-	"github.com/loggie-io/loggie/pkg/util"
 )
 
 const Type = "elasticsearch"
@@ -77,7 +77,7 @@ func (s *Sink) Init(context api.Context) error {
 }
 
 func (s *Sink) Start() error {
-	indexMatchers := util.InitMatcher(s.config.Index)
+	indexMatchers := pattern.MustInitMatcher(s.config.Index)
 	cli, err := NewClient(s.config, s.codec, indexMatchers)
 	if err != nil {
 		log.Error("start elasticsearch connection fail, err: %v", err)

@@ -17,6 +17,7 @@ limitations under the License.
 package pattern
 
 import (
+	"regexp"
 	"strings"
 )
 
@@ -93,4 +94,20 @@ func Extract(input string, splitsStr []string) []string {
 	}
 
 	return ret
+}
+
+const matchExpr = `\${(.+?)}`
+
+func InitMatcher(pattern string) ([][]string, error) {
+	reg, err := regexp.Compile(matchExpr)
+	if err != nil {
+		return nil, err
+	}
+	return reg.FindAllStringSubmatch(pattern, -1), nil
+}
+
+func MustInitMatcher(pattern string) [][]string {
+	// TODO regexp optimize
+	reg := regexp.MustCompile(matchExpr)
+	return reg.FindAllStringSubmatch(pattern, -1)
 }

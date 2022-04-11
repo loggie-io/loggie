@@ -18,6 +18,7 @@ package file
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"strings"
 	"time"
 
@@ -28,7 +29,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
-	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 )
 
@@ -87,8 +87,8 @@ func (s *Sink) Init(context api.Context) error {
 		}
 	}
 
-	s.dirHashKeyMatcher = util.InitMatcher(s.config.DirHashKey)
-	s.filenameMatcher = util.InitMatcher(s.config.Filename)
+	s.dirHashKeyMatcher = pattern.MustInitMatcher(s.config.DirHashKey)
+	s.filenameMatcher = pattern.MustInitMatcher(s.config.Filename)
 	return nil
 }
 

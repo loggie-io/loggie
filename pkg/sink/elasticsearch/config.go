@@ -16,6 +16,8 @@ limitations under the License.
 
 package elasticsearch
 
+import "github.com/loggie-io/loggie/pkg/util/pattern"
+
 type Config struct {
 	Hosts    []string `yaml:"hosts,omitempty" validate:"required"`
 	UserName string   `yaml:"username,omitempty"`
@@ -25,4 +27,11 @@ type Config struct {
 	Schema   string   `yaml:"schema,omitempty"`
 	Sniff    *bool    `yaml:"sniff,omitempty"`
 	Gzip     *bool    `yaml:"gzip,omitempty"`
+}
+
+func (c *Config) Validate() error {
+	if _, err := pattern.InitMatcher(c.Index); err != nil {
+		return err
+	}
+	return nil
 }
