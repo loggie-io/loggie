@@ -19,14 +19,14 @@ package util
 import (
 	"bufio"
 	"bytes"
+	xglob "github.com/bmatcuk/doublestar/v4"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/mattn/go-zglob"
 	"github.com/pkg/errors"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 // LineCountTo calculates the number of lines to the offset
@@ -107,21 +107,16 @@ func WriteFileOrCreate(dir string, filename string, content []byte) error {
 }
 
 func GlobWithRecursive(pattern string) (matches []string, err error) {
-	if strings.Contains(pattern, "**") {
-		// recursive lookup
-		matches, err = zglob.Glob(pattern)
-	} else {
-		matches, err = filepath.Glob(pattern)
-	}
+	dir, pattern := xglob.SplitPattern(pattern)
+	basePath := os.DirFS(dir)
+	matches = make([]string, 0)
+	err = xglob.GlobWalk(basePath, pattern, func(path string, d fs.DirEntry) error {
+		matches = append(matches, filepath.Join(dir, path))
+		return nil
+	})
 	return matches, err
 }
 
 func MatchWithRecursive(pattern, name string) (matched bool, err error) {
-	if strings.Contains(pattern, "**") {
-		// recursive lookup
-		matched, err = zglob.Match(pattern, name)
-	} else {
-		matched, err = filepath.Match(pattern, name)
-	}
-	return matched, err
+	return xglob.Match(pattern, name)
 }

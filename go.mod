@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129
+	github.com/bmatcuk/doublestar/v4 v4.0.2
 	github.com/creasty/defaults v1.5.1
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-playground/validator/v10 v10.4.1
