@@ -17,16 +17,23 @@ limitations under the License.
 package kubernetes_event
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/sysconfig"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"sync"
+	"time"
 )
 
 const Type = "kubeEvent"
@@ -37,18 +44,25 @@ func init() {
 
 func makeSource(info pipeline.Info) api.Component {
 	return &KubeEvent{
-		config:    &Config{},
-		stop:      make(chan struct{}),
-		eventPool: info.EventPool,
+		config:              &Config{},
+		eventPool:           info.EventPool,
+		blackListNamespaces: make(map[string]struct{}),
 	}
 }
 
 type KubeEvent struct {
 	name      string
 	config    *Config
-	event     chan interface{}
-	stop      chan struct{}
 	eventPool *event.Pool
+
+	event     chan interface{}
+	ctx       context.Context
+	cancel    context.CancelFunc
+	closeOnce sync.Once
+
+	startTime           time.Time
+	blackListNamespaces map[string]struct{}
+	blacklistEnabled    bool
 }
 
 func (k *KubeEvent) Config() interface{} {
@@ -70,28 +84,98 @@ func (k *KubeEvent) String() string {
 func (k *KubeEvent) Init(context api.Context) error {
 	k.name = context.Name()
 	k.event = make(chan interface{}, k.config.BufferSize)
+
+	if k.config.LatestEventsEnabled {
+		k.startTime = time.Now().UTC()
+	}
+
+	for _, ns := range k.config.BlackListNamespaces {
+		k.blackListNamespaces[ns] = struct{}{}
+	}
+	if len(k.blackListNamespaces) > 0 {
+		k.blacklistEnabled = true
+	}
+
 	return nil
 }
 
 func (k *KubeEvent) Start() error {
+	k.ctx, k.cancel = context.WithCancel(context.Background())
+
 	config, err := clientcmd.BuildConfigFromFlags(k.config.Master, k.config.KubeConfig)
 	if err != nil {
 		log.Error("cannot build config: %v", err)
 		return err
 	}
-	clientset, err := kubernetes.NewForConfig(config)
+	client, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		log.Error("cannot build clientSet: %v", err)
 		return err
 	}
 
-	informerFactory := informers.NewSharedInformerFactory(clientset, 0)
+	rl, err := resourcelock.New(resourcelock.LeasesResourceLock,
+		k.config.LeaderElectionNamespace,
+		k.config.LeaderElectionKey,
+		client.CoreV1(),
+		client.CoordinationV1(),
+		resourcelock.ResourceLockConfig{
+			Identity: sysconfig.NodeName,
+		})
+	if err != nil {
+		log.Error("error creating lock: %v", err)
+	}
+
+	le, err := leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
+		Lock:          rl,
+		LeaseDuration: 15 * time.Second,
+		RenewDeadline: 10 * time.Second,
+		RetryPeriod:   2 * time.Second,
+		Callbacks: leaderelection.LeaderCallbacks{
+			OnStartedLeading: func(ctx context.Context) {
+				k.run(ctx, client)
+			},
+			OnStoppedLeading: func() {
+				log.Info("leader election lost")
+			},
+		},
+	})
+	if err != nil {
+		log.Error("leader election failed, it would be member")
+		return nil
+	}
+
+	go le.Run(k.ctx)
+
+	return nil
+}
+
+func (k *KubeEvent) run(ctx context.Context, cli kubernetes.Interface) {
+	log.Info("starting kubernetes events informer")
+	informerFactory := informers.NewSharedInformerFactory(cli, 0)
 	eventInformer := informerFactory.Core().V1().Events()
 	eventInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
+			ev := obj.(*corev1.Event)
+			if ev.ResourceVersion == "" {
+				return
+			}
+			if k.filter(ev) {
+				return
+			}
 			k.event <- obj
 		},
-		UpdateFunc: func(oldObj, newObj interface{}) {
+		UpdateFunc: func(old, new interface{}) {
+			oldObj := old.(*corev1.Event)
+			newObj := new.(*corev1.Event)
+			if newObj.ResourceVersion == "" {
+				return
+			}
+			if oldObj.ResourceVersion == newObj.ResourceVersion {
+				return
+			}
+			if k.filter(newObj) {
+				return
+			}
 			k.event <- newObj
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -99,13 +183,12 @@ func (k *KubeEvent) Start() error {
 		},
 	})
 
-	informerFactory.Start(k.stop)
-	informerFactory.WaitForCacheSync(k.stop)
-	return nil
+	informerFactory.Start(ctx.Done())
+	informerFactory.WaitForCacheSync(ctx.Done())
 }
 
 func (k *KubeEvent) Stop() {
-	close(k.stop)
+	k.cancel()
 }
 
 func (k *KubeEvent) ProductLoop(productFunc api.ProductFunc) {
@@ -113,7 +196,7 @@ func (k *KubeEvent) ProductLoop(productFunc api.ProductFunc) {
 
 	for {
 		select {
-		case <-k.stop:
+		case <-k.ctx.Done():
 			return
 
 		case obj := <-k.event:
@@ -133,4 +216,20 @@ func (k *KubeEvent) ProductLoop(productFunc api.ProductFunc) {
 
 func (k *KubeEvent) Commit(events []api.Event) {
 	k.eventPool.PutAll(events)
+}
+
+func (k *KubeEvent) filter(ev *corev1.Event) bool {
+	if k.config.LatestEventsEnabled {
+		if !ev.CreationTimestamp.After(k.startTime) {
+			return true
+		}
+	}
+
+	if k.blacklistEnabled {
+		if _, ok := k.blackListNamespaces[ev.Namespace]; ok {
+			return true
+		}
+	}
+
+	return false
 }
