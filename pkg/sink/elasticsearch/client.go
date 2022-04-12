@@ -29,11 +29,12 @@ import (
 )
 
 type ClientSet struct {
-	Version      string
-	config       *Config
-	cli          *es.Client
-	codec        codec.Codec
-	indexMatcher [][]string
+	Version           string
+	config            *Config
+	cli               *es.Client
+	codec             codec.Codec
+	indexMatcher      [][]string
+	documentIdMatcher [][]string
 }
 
 type Client interface {
@@ -41,7 +42,7 @@ type Client interface {
 	Stop()
 }
 
-func NewClient(config *Config, cod codec.Codec, indexMatcher [][]string) (*ClientSet, error) {
+func NewClient(config *Config, cod codec.Codec, indexMatcher [][]string, documentIdMatcher [][]string) (*ClientSet, error) {
 	for i, h := range config.Hosts {
 		if !strings.HasPrefix(h, "http") && !strings.HasPrefix(h, "https") {
 			config.Hosts[i] = fmt.Sprintf("http://%s", h)
@@ -53,7 +54,7 @@ func NewClient(config *Config, cod codec.Codec, indexMatcher [][]string) (*Clien
 		opts = append(opts, es.SetSniff(*config.Sniff))
 	} else {
 		// disable sniff by default
-		es.SetSniff(false)
+		opts = append(opts, es.SetSniff(false))
 	}
 	if config.Password != "" && config.UserName != "" {
 		opts = append(opts, es.SetBasicAuth(config.UserName, config.Password))
@@ -71,20 +72,24 @@ func NewClient(config *Config, cod codec.Codec, indexMatcher [][]string) (*Clien
 	}
 
 	return &ClientSet{
-		cli:          cli,
-		config:       config,
-		codec:        cod,
-		indexMatcher: indexMatcher,
+		cli:               cli,
+		config:            config,
+		codec:             cod,
+		indexMatcher:      indexMatcher,
+		documentIdMatcher: documentIdMatcher,
 	}, nil
 }
 
-func (c *ClientSet) BulkIndex(batch api.Batch, index string) error {
+func (c *ClientSet) BulkIndex(ctx context.Context, batch api.Batch) error {
 	req := c.cli.Bulk()
 	for _, event := range batch.Events() {
+		header := event.Header()
+		headerObj := runtime.NewObject(header)
+
 		// select index
-		idx, err := runtime.PatternFormat(runtime.NewObject(event.Header()), index, c.indexMatcher)
+		idx, err := runtime.PatternFormat(headerObj, c.config.Index, c.indexMatcher)
 		if err != nil {
-			return errors.WithMessagef(err, "select index pattern error: %+v", err)
+			return errors.WithMessagef(err, "select index pattern error")
 		}
 
 		data, err := c.codec.Encode(event)
@@ -92,25 +97,21 @@ func (c *ClientSet) BulkIndex(batch api.Batch, index string) error {
 			return errors.WithMessagef(err, "codec encode event: %s error", event.String())
 		}
 
-		// TODO cache the index
-		exist, err := c.cli.IndexExists(idx).Do(context.Background())
-		if err != nil {
-			return errors.WithMessagef(err, "check index %s exists failed", idx)
-		}
-		if !exist {
-			_, err = c.cli.CreateIndex(idx).Do(context.Background())
-			if err != nil {
-				return errors.WithMessagef(err, "create index %s failed", idx)
-			}
-		}
-
 		bulkIndexRequest := es.NewBulkIndexRequest().Index(idx).Doc(json.RawMessage(data))
 		if len(c.config.Etype) > 0 {
 			bulkIndexRequest.Type(c.config.Etype)
 		}
+		if c.config.DocumentId != "" {
+			id, err := runtime.PatternFormat(headerObj, c.config.DocumentId, c.documentIdMatcher)
+			if err != nil {
+				return errors.WithMessagef(err, "format documentId %s failed", c.config.DocumentId)
+			}
+			bulkIndexRequest.Id(id)
+		}
+
 		req.Add(bulkIndexRequest)
 	}
-	ret, err := req.Do(context.Background())
+	ret, err := req.Do(ctx)
 	if err != nil {
 		return err
 	}
@@ -123,5 +124,7 @@ func (c *ClientSet) BulkIndex(batch api.Batch, index string) error {
 }
 
 func (c *ClientSet) Stop() {
-	c.cli.Stop()
+	if c.cli != nil {
+		c.cli.Stop()
+	}
 }
