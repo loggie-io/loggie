@@ -346,7 +346,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers
 	log.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.podsSynced, c.logConfigSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, c.podsSynced, c.logConfigSynced, c.clusterLogConfigSynced, c.sinkSynced, c.interceptorSynced); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 

@@ -53,7 +53,6 @@ func init() {
 	flag.StringVar(&configType, "config.from", "file", "config from file or env")
 	flag.StringVar(&nodeName, "meta.nodeName", hostName, "override nodeName")
 
-	sysconfig.NodeName = nodeName
 }
 
 func main() {
@@ -70,7 +69,9 @@ func main() {
 	}
 	configType = strings.ToLower(configType)
 	log.Info("real GOMAXPROCS %d", runtime.GOMAXPROCS(-1))
-	log.Info("node name is %s", nodeName)
+
+	sysconfig.NodeName = nodeName
+	log.Info("node name: %s", nodeName)
 
 	// system config file
 	syscfg := sysconfig.Config{}
