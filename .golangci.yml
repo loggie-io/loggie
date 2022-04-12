@@ -1,4 +1,5 @@
 run:
+  go: '1.17'
   skip-dirs:
     - vendor
     - pkg/discovery/kubernetes/client
