@@ -41,6 +41,7 @@ type TimestampConvert struct {
 	FromLayout string `yaml:"fromLayout,omitempty" validate:"required"`
 	ToLayout   string `yaml:"toLayout,omitempty" validate:"required"`
 	ToType     string `yaml:"toType,omitempty"`
+	local      bool   `yaml:"local,omitempty"`
 }
 
 func init() {
@@ -93,6 +94,10 @@ func (r *TimestampProcessor) Process(e api.Event) error {
 		if err != nil {
 			log.Info("parse time: %s by layout %s error", timeStr, target.FromLayout)
 			continue
+		}
+
+		if target.local {
+			timeVal = timeVal.Local()
 		}
 
 		switch target.ToLayout {
