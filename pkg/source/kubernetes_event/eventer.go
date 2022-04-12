@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/loggie-io/loggie/pkg/core/sysconfig"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	"sync"
 	"time"
 )
 
@@ -55,10 +54,9 @@ type KubeEvent struct {
 	config    *Config
 	eventPool *event.Pool
 
-	event     chan interface{}
-	ctx       context.Context
-	cancel    context.CancelFunc
-	closeOnce sync.Once
+	event  chan interface{}
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	startTime           time.Time
 	blackListNamespaces map[string]struct{}
@@ -119,7 +117,7 @@ func (k *KubeEvent) Start() error {
 		client.CoreV1(),
 		client.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
-			Identity: sysconfig.NodeName,
+			Identity: global.NodeName,
 		})
 	if err != nil {
 		log.Error("error creating lock: %v", err)

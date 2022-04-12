@@ -9,9 +9,9 @@ import (
 	"github.com/golang/snappy"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	eventer "github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
-	"github.com/loggie-io/loggie/pkg/core/sysconfig"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/loki/logproto"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
@@ -167,7 +167,7 @@ func event2stream(event api.Event) (*logproto.Stream, error) {
 
 	// At least one label pair is required per stream in loki
 	if len(labelSet) == 0 {
-		labelSet[model.LabelName("loggie_host")] = model.LabelValue(sysconfig.NodeName)
+		labelSet[model.LabelName("loggie_host")] = model.LabelValue(global.NodeName)
 	}
 
 	stream := logproto.Stream{

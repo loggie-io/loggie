@@ -19,9 +19,9 @@ package addk8smeta
 import (
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/source"
-	"github.com/loggie-io/loggie/pkg/core/sysconfig"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/source/file"
@@ -180,7 +180,7 @@ func getFieldsValue(fieldsIndex string, pod *corev1.Pod) string {
 
 	switch fieldsIndex {
 	case "${node.name}":
-		return sysconfig.NodeName
+		return global.NodeName
 
 	case "${namespace}":
 		return pod.Namespace
