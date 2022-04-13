@@ -32,7 +32,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	"sync"
 	"time"
 )
 
@@ -55,10 +54,9 @@ type KubeEvent struct {
 	config    *Config
 	eventPool *event.Pool
 
-	event     chan interface{}
-	ctx       context.Context
-	cancel    context.CancelFunc
-	closeOnce sync.Once
+	event  chan interface{}
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	startTime           time.Time
 	blackListNamespaces map[string]struct{}
