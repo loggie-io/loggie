@@ -38,8 +38,10 @@ type Config struct {
 
 type Fields struct {
 	NodeName      string `yaml:"node.name"`
+	NodeIP        string `yaml:"node.ip"`
 	Namespace     string `yaml:"namespace"`
 	PodName       string `yaml:"pod.name"`
+	PodIP         string `yaml:"pod.ip"`
 	ContainerName string `yaml:"container.name"`
 	LogConfig     string `yaml:"logConfig"`
 }

@@ -424,8 +424,14 @@ func injectFields(config *Config, match *matchFields, src *source.Config, pod *c
 	if m.NodeName != "" {
 		src.Fields[m.NodeName] = pod.Spec.NodeName
 	}
+	if m.NodeIP != "" {
+		src.Fields[m.NodeIP] = pod.Status.HostIP
+	}
 	if m.PodName != "" {
 		src.Fields[m.PodName] = pod.Name
+	}
+	if m.PodIP != "" {
+		src.Fields[m.PodIP] = pod.Status.PodIP
 	}
 	if m.ContainerName != "" {
 		src.Fields[m.ContainerName] = containerName
