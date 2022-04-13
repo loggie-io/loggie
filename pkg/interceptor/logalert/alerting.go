@@ -19,9 +19,9 @@ package logalert
 import (
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/source"
-	"github.com/loggie-io/loggie/pkg/core/sysconfig"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"regexp"
@@ -92,7 +92,7 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 
 	// do fire alert
 	labels := map[string]string{
-		"host":   sysconfig.NodeName,
+		"host":   global.NodeName,
 		"source": ev.Meta().Source(),
 	}
 	annotations := map[string]string{

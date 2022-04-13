@@ -42,6 +42,7 @@ type CollectConfig struct {
 	IgnoreSymlink            bool          `yaml:"ignoreSymlink,omitempty" default:"false"`
 	RereadTruncated          bool          `yaml:"rereadTruncated,omitempty" default:"true"`                           // Read from the beginning when the file is truncated
 	FirstNBytesForIdentifier int           `yaml:"firstNBytesForIdentifier,omitempty" default:"128" validate:"gte=10"` // If the file size is smaller than `firstNBytesForIdentifier`, it will not be collected
+	AddonMeta                bool          `yaml:"addonMeta,omitempty"`
 	excludeFilePatterns      []*regexp.Regexp
 }
 

@@ -22,8 +22,8 @@ import (
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/loggie-io/loggie/pkg/core/sysconfig"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/informers"
@@ -117,7 +117,7 @@ func (k *KubeEvent) Start() error {
 		client.CoreV1(),
 		client.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
-			Identity: sysconfig.NodeName,
+			Identity: global.NodeName,
 		})
 	if err != nil {
 		log.Error("error creating lock: %v", err)

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/reloader"
 	"github.com/loggie-io/loggie/pkg/core/signals"
@@ -70,7 +71,7 @@ func main() {
 	configType = strings.ToLower(configType)
 	log.Info("real GOMAXPROCS %d", runtime.GOMAXPROCS(-1))
 
-	sysconfig.NodeName = nodeName
+	global.NodeName = nodeName
 	log.Info("node name: %s", nodeName)
 
 	// system config file
