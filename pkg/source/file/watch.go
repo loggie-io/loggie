@@ -449,7 +449,7 @@ func (w *Watcher) legalFile(filename string, watchTask *WatchTask, withIgnoreOld
 
 	// Ignores all files which fall under ignore_older
 	if withIgnoreOlder && watchTask.config.IsIgnoreOlder(fileInfo) {
-		log.Debug("[pipeline(%s)-source(%s)]: ignore file(%s) because ignore_older(%d second) reached", pipelineName, sourceName, filename, time.Duration(watchTask.config.IgnoreOlder)/time.Second)
+		log.Debug("[pipeline(%s)-source(%s)]: ignore file(%s) because ignore_older(%d second) reached", pipelineName, sourceName, filename, watchTask.config.IgnoreOlder.Duration()/time.Second)
 		return false, "", nil
 	}
 	return true, filename, fileInfo
