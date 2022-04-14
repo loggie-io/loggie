@@ -18,12 +18,13 @@ package cfg
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
-	"os"
 )
 
 type CommonCfg map[string]interface{}

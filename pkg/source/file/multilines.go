@@ -18,15 +18,16 @@ package file
 
 import (
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/util"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -156,8 +157,8 @@ func (mh *MultiHolder) flush() {
 		LineNumber:   mh.state.LineNumber,
 		watchUid:     mh.state.watchUid,
 	}
-	//contentBuffer := make([]byte, mh.currentSize)
-	//copy(contentBuffer, mh.content)
+	// contentBuffer := make([]byte, mh.currentSize)
+	// copy(contentBuffer, mh.content)
 	contentBuffer := mh.content
 
 	e := mh.mTask.eventPool.Get()

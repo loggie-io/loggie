@@ -19,11 +19,12 @@ package file
 import (
 	"database/sql"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/log"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/log"
 )
 
 func TestNewDB(t *testing.T) {

@@ -18,6 +18,7 @@ package grpc
 
 import (
 	"fmt"
+
 	"google.golang.org/grpc/resolver"
 )
 

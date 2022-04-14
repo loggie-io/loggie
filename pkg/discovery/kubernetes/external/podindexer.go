@@ -17,13 +17,14 @@ limitations under the License.
 package external
 
 import (
+	"sync"
+
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/client-go/listers/core/v1"
 	"k8s.io/client-go/tools/cache"
-	"sync"
 )
 
 const (

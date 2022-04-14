@@ -17,8 +17,9 @@ limitations under the License.
 package util
 
 import (
-	"github.com/loggie-io/loggie/pkg/core/log"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/log"
 )
 
 func AsyncRunWithTimeout(f func(), timeout time.Duration) {

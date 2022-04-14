@@ -18,14 +18,15 @@ package file
 
 import (
 	"fmt"
-	"github.com/fsnotify/fsnotify"
-	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/loggie-io/loggie/pkg/eventbus"
-	"github.com/loggie-io/loggie/pkg/util"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/util"
 )
 
 const (
@@ -190,7 +191,7 @@ func (w *Watcher) decideJob(job *Job) {
 		w.zombieJobChan <- job
 		return
 	}
-	//w.activeChan <- job
+	// w.activeChan <- job
 	job.Read()
 }
 
@@ -208,7 +209,7 @@ func (w *Watcher) reportMetric(job *Job) {
 		Offset:     job.endOffset,
 		LineNumber: job.currentLineNumber,
 		Lines:      job.currentLines,
-		//FileSize:   fileSize,
+		// FileSize:   fileSize,
 		SourceFields: job.task.sourceFields,
 	}
 	eventbus.PublishOrDrop(eventbus.FileSourceMetricTopic, collectMetricData)
@@ -448,7 +449,7 @@ func (w *Watcher) legalFile(filename string, watchTask *WatchTask, withIgnoreOld
 
 	// Ignores all files which fall under ignore_older
 	if withIgnoreOlder && watchTask.config.IsIgnoreOlder(fileInfo) {
-		log.Debug("[pipeline(%s)-source(%s)]: ignore file(%s) because ignore_older(%d second) reached", pipelineName, sourceName, filename, watchTask.config.IgnoreOlder/time.Second)
+		log.Debug("[pipeline(%s)-source(%s)]: ignore file(%s) because ignore_older(%d second) reached", pipelineName, sourceName, filename, time.Duration(watchTask.config.IgnoreOlder)/time.Second)
 		return false, "", nil
 	}
 	return true, filename, fileInfo
@@ -618,7 +619,7 @@ func (w *Watcher) run() {
 		case job := <-w.zombieJobChan:
 			w.decideZombieJob(job)
 		case e := <-osEvents:
-			//log.Info("os event: %v", e)
+			// log.Info("os event: %v", e)
 			w.osNotify(e)
 		case <-scanFileTicker.C:
 			w.scan()

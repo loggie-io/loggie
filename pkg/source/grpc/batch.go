@@ -17,13 +17,14 @@ limitations under the License.
 package grpc
 
 import (
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	pb "github.com/loggie-io/loggie/pkg/sink/grpc/pb"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const (

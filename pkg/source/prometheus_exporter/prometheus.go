@@ -4,6 +4,12 @@ import (
 	ctx "context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"strconv"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -12,11 +18,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/prom2json"
-	"io"
-	"io/ioutil"
-	"net/http"
-	"strconv"
-	"time"
 )
 
 const Type = "prometheusExporter"

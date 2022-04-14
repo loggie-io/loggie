@@ -18,10 +18,11 @@ package pipeline
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/spi"
-	"sync"
 )
 
 var codeFactory = map[string]Factory{}
@@ -165,7 +166,7 @@ func (r *RegisterCenter) RegisterListener(listener spi.ComponentListener) {
 	name := listener.Name()
 	_, ok := r.nameListeners[name]
 	if ok {
-		//panic(fmt.Sprintf("component listener[%s] is exist", name))
+		// panic(fmt.Sprintf("component listener[%s] is exist", name))
 		log.Warn("component listener[%s] is exist", name)
 		return
 	}

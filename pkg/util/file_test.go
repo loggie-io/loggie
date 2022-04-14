@@ -18,7 +18,6 @@ package util
 
 import (
 	"fmt"
-	xglob "github.com/bmatcuk/doublestar/v4"
 	"io"
 	"io/fs"
 	"os"
@@ -27,6 +26,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	xglob "github.com/bmatcuk/doublestar/v4"
 )
 
 func TestLineCountTo(t *testing.T) {

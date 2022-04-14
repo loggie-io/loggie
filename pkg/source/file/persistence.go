@@ -19,13 +19,14 @@ package file
 import (
 	"database/sql"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/log"
-	_ "github.com/mattn/go-sqlite3"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
@@ -244,11 +245,11 @@ func (d *dbHandler) delete(r registry) {
 
 // only one thread invoke,without lock
 func (d *dbHandler) write(stats []*State) {
-	//start := time.Now()
-	//defer func() {
+	// start := time.Now()
+	// defer func() {
 	//	cost := time.Since(start).Milliseconds()
 	//	log.Info("write cost: %dms", cost)
-	//}()
+	// }()
 
 	css := compressStats(stats)
 
@@ -386,11 +387,11 @@ func (d *dbHandler) txWrapper(sqlString string, f func(stmt *sql.Stmt)) {
 }
 
 func (d *dbHandler) findAll() []registry {
-	//start := time.Now()
-	//defer func() {
+	// start := time.Now()
+	// defer func() {
 	//	cost := time.Since(start).Milliseconds()
 	//	log.Info("find by source cost: %dms", cost)
-	//}()
+	// }()
 	return d.findBySql(queryAll)
 }
 

@@ -1,11 +1,12 @@
 package interceptor
 
 import (
+	"testing"
+
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/interceptor/maxbytes"
-	"testing"
 )
 
 func BenchmarkMaxBytes(b *testing.B) {
