@@ -17,6 +17,7 @@ limitations under the License.
 package elasticsearch
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
@@ -78,7 +79,8 @@ func (s *Sink) Init(context api.Context) error {
 
 func (s *Sink) Start() error {
 	indexMatchers := pattern.MustInitMatcher(s.config.Index)
-	cli, err := NewClient(s.config, s.codec, indexMatchers)
+	documentIdMatchers := pattern.MustInitMatcher(s.config.DocumentId)
+	cli, err := NewClient(s.config, s.codec, indexMatchers, documentIdMatchers)
 	if err != nil {
 		log.Error("start elasticsearch connection fail, err: %v", err)
 		return err
@@ -95,7 +97,7 @@ func (s *Sink) Stop() {
 
 func (s *Sink) Consume(batch api.Batch) api.Result {
 	if s.cli != nil {
-		err := s.cli.BulkIndex(batch, s.config.Index)
+		err := s.cli.BulkIndex(context.TODO(), batch)
 		if err != nil {
 			log.Error("write to elasticsearch error: %+v", err)
 			return result.Fail(err)

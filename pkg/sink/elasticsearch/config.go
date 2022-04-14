@@ -19,19 +19,24 @@ package elasticsearch
 import "github.com/loggie-io/loggie/pkg/util/pattern"
 
 type Config struct {
-	Hosts    []string `yaml:"hosts,omitempty" validate:"required"`
-	UserName string   `yaml:"username,omitempty"`
-	Password string   `yaml:"password,omitempty"`
-	Index    string   `yaml:"index,omitempty" validate:"required"`
-	Etype    string   `yaml:"etype,omitempty"` // elasticsearch type, for v5.* backward compatibility
-	Schema   string   `yaml:"schema,omitempty"`
-	Sniff    *bool    `yaml:"sniff,omitempty"`
-	Gzip     *bool    `yaml:"gzip,omitempty"`
+	Hosts      []string `yaml:"hosts,omitempty" validate:"required"`
+	UserName   string   `yaml:"username,omitempty"`
+	Password   string   `yaml:"password,omitempty"`
+	Index      string   `yaml:"index,omitempty" validate:"required"`
+	Etype      string   `yaml:"etype,omitempty"` // elasticsearch type, for v5.* backward compatibility
+	DocumentId string   `yaml:"documentId,omitempty"`
+	Schema     string   `yaml:"schema,omitempty"`
+	Sniff      *bool    `yaml:"sniff,omitempty"`
+	Gzip       *bool    `yaml:"gzip,omitempty"`
 }
 
 func (c *Config) Validate() error {
 	if _, err := pattern.InitMatcher(c.Index); err != nil {
 		return err
 	}
+	if _, err := pattern.InitMatcher(c.DocumentId); err != nil {
+		return err
+	}
+
 	return nil
 }
