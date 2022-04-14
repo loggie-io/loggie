@@ -17,14 +17,15 @@ limitations under the License.
 package control
 
 import (
+	"net/http"
+	_ "net/http/pprof"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"gopkg.in/yaml.v2"
-	"net/http"
-	_ "net/http/pprof"
-	"time"
 )
 
 const handleCurrentPipelines = "/api/v1/controller/pipelines"

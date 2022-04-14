@@ -19,14 +19,15 @@ package util
 import (
 	"bufio"
 	"bytes"
-	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/mattn/go-zglob"
-	"github.com/pkg/errors"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/mattn/go-zglob"
+	"github.com/pkg/errors"
 )
 
 // LineCountTo calculates the number of lines to the offset

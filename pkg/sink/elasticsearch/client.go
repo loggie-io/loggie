@@ -20,12 +20,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 	es "github.com/olivere/elastic/v7"
 	"github.com/pkg/errors"
-	"strings"
 )
 
 type ClientSet struct {

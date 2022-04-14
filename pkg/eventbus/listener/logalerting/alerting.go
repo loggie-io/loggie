@@ -18,11 +18,12 @@ package logalerting
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/eventbus/export/alertmanager"
-	"time"
 )
 
 const name = "logAlert"

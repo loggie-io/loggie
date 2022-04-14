@@ -17,6 +17,9 @@ limitations under the License.
 package reloader
 
 import (
+	"os"
+	"time"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/loggie-io/loggie/pkg/control"
@@ -27,8 +30,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"gopkg.in/yaml.v2"
-	"os"
-	"time"
 )
 
 type Reloader struct {

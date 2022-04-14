@@ -18,11 +18,12 @@ package file
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"sync"
-	"time"
 )
 
 const (

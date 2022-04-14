@@ -17,8 +17,9 @@ limitations under the License.
 package limit
 
 import (
-	"github.com/andres-erbsen/clock"
 	"time"
+
+	"github.com/andres-erbsen/clock"
 )
 
 // Limiter is used to rate-limit some process, possibly across goroutines.

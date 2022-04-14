@@ -18,15 +18,16 @@ package filesource
 
 import (
 	"encoding/json"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/eventbus/export/logger"
 	promeExporter "github.com/loggie-io/loggie/pkg/eventbus/export/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
-	"os"
-	"strings"
-	"time"
 )
 
 const name = "filesource"

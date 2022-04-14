@@ -18,9 +18,10 @@ package event
 
 import (
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/api"
 	"strings"
 	"sync"
+
+	"github.com/loggie-io/loggie/pkg/core/api"
 )
 
 const (

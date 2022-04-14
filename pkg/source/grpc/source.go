@@ -18,6 +18,9 @@ package grpc
 
 import (
 	"fmt"
+	"io"
+	"net"
+
 	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
@@ -26,8 +29,6 @@ import (
 	pb "github.com/loggie-io/loggie/pkg/sink/grpc/pb"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
-	"io"
-	"net"
 )
 
 const Type = "grpc"

@@ -18,12 +18,13 @@ package memory
 
 import (
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/context"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"testing"
-	"time"
 )
 
 func TestQueue_Consume(t *testing.T) {

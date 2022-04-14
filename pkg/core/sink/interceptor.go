@@ -18,9 +18,10 @@ package sink
 
 import (
 	"fmt"
+	"sort"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
-	"sort"
 )
 
 type Interceptor interface {

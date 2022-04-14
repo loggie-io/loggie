@@ -17,6 +17,9 @@ limitations under the License.
 package pipeline
 
 import (
+	"log"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/event"
@@ -25,8 +28,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/sink"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"gopkg.in/yaml.v2"
-	"log"
-	"time"
 )
 
 type Config struct {

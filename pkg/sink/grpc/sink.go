@@ -19,6 +19,10 @@ package grpc
 import (
 	"context"
 	"fmt"
+	"io"
+	"strings"
+	"time"
+
 	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -28,9 +32,6 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/resolver"
-	"io"
-	"strings"
-	"time"
 )
 
 const Type = "grpc"

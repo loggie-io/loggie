@@ -17,11 +17,12 @@ limitations under the License.
 package json_decode
 
 import (
+	"strings"
+	"testing"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	"strings"
-	"testing"
 )
 
 func init() {

@@ -19,13 +19,14 @@ package file
 import (
 	"database/sql"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/log"
-	_ "github.com/mattn/go-sqlite3"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 const (

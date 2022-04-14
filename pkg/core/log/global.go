@@ -19,11 +19,12 @@ package log
 import (
 	"flag"
 	"fmt"
-	"github.com/rs/zerolog"
-	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
 	"path"
+
+	"github.com/rs/zerolog"
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/loggie-io/loggie/pkg/core/log/spi"
 )

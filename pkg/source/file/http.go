@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/hpcloud/tail"
-	"github.com/loggie-io/loggie/pkg/core/log"
 	"io"
 	"net/http"
 	"os"
 	"strconv"
 	"sync"
+
+	"github.com/hpcloud/tail"
+	"github.com/loggie-io/loggie/pkg/core/log"
 )
 
 var once sync.Once

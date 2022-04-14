@@ -17,11 +17,12 @@ limitations under the License.
 package normalize
 
 import (
+	"strconv"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
-	"strconv"
-	"time"
 )
 
 const ProcessorTimestamp = "timestamp"

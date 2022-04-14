@@ -19,10 +19,11 @@ package util
 import (
 	"bytes"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/log"
 	"regexp"
 	"regexp/syntax"
 	"strings"
+
+	"github.com/loggie-io/loggie/pkg/core/log"
 )
 
 type trans func(*syntax.Regexp) (bool, *syntax.Regexp)

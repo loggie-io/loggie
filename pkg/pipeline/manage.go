@@ -18,10 +18,11 @@ package pipeline
 
 import (
 	"fmt"
+	"sync"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/spi"
-	"sync"
 )
 
 var codeFactory = map[string]Factory{}

@@ -4,16 +4,17 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"net"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/pkg/errors"
 	"golang.org/x/net/netutil"
-	"net"
-	"os"
-	"strconv"
-	"time"
 )
 
 const Type = "unix"

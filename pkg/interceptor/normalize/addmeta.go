@@ -17,13 +17,14 @@ limitations under the License.
 package normalize
 
 import (
+	"reflect"
+	"strings"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	eventer "github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/pkg/errors"
-	"reflect"
-	"strings"
-	"time"
 )
 
 const ProcessorAddMeta = "addMeta"

@@ -18,11 +18,12 @@ package file
 
 import (
 	"fmt"
-	"github.com/mattn/go-zglob"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mattn/go-zglob"
 )
 
 func TestWatcher_scanNewFiles(t *testing.T) {

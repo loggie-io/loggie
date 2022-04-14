@@ -18,13 +18,14 @@ package file
 
 import (
 	"bytes"
+	"io"
+	"sync"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/pkg/errors"
-	"io"
-	"sync"
-	"time"
 )
 
 const (

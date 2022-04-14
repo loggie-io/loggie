@@ -18,10 +18,11 @@ package cfg
 
 import (
 	"fmt"
+	"io/ioutil"
+
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
 
 	"github.com/loggie-io/loggie/pkg/core/log"
 )
@@ -69,10 +70,7 @@ func (c CommonCfg) UID() string {
 // return false: get key 'enabled' is null or 'false'
 // return true: get key 'enabled' is 'true'
 func (c CommonCfg) Enabled() bool {
-	if c["enabled"] == "true" {
-		return true
-	}
-	return false
+	return c["enabled"] == "true"
 }
 
 func (c CommonCfg) GetType() string {
