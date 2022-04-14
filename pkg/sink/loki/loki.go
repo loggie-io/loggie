@@ -104,7 +104,7 @@ func (s *Sink) sendBatch(c context.Context, batch api.Batch) api.Result {
 
 	var streams []logproto.Stream
 	for _, event := range batch.Events() {
-		stream, err := event2stream(event)
+		stream, err := s.event2stream(event)
 		if err != nil {
 			return result.Drop().WithError(errors.WithMessage(err, "convert event to loki stream error"))
 		}
@@ -114,7 +114,7 @@ func (s *Sink) sendBatch(c context.Context, batch api.Batch) api.Result {
 
 	var req *http.Request
 	var err error
-	if s.config.EncodeJson {
+	if s.config.ContentType == "json" {
 		req, err = genJsonRequest(streams, s.config.URL, s.config.TenantId)
 	} else {
 		req, err = genProtoRequest(streams, s.config.URL, s.config.TenantId)
@@ -142,7 +142,7 @@ func (s *Sink) sendBatch(c context.Context, batch api.Batch) api.Result {
 	return result.Success()
 }
 
-func event2stream(event api.Event) (*logproto.Stream, error) {
+func (s *Sink) event2stream(event api.Event) (*logproto.Stream, error) {
 	t, ok := event.Meta().Get(eventer.SystemProductTimeKey)
 	if !ok {
 		t = time.Now()
@@ -170,12 +170,23 @@ func event2stream(event api.Event) (*logproto.Stream, error) {
 		labelSet[model.LabelName("loggie_host")] = model.LabelValue(global.NodeName)
 	}
 
+	var line string
+	if s.config.EntryLine == "" {
+		line = string(event.Body())
+	} else {
+		str, err := obj.GetPath(s.config.EntryLine).String()
+		if err != nil {
+			return nil, errors.WithMessage(err, "get lineKey from event failed")
+		}
+		line = str
+	}
+
 	stream := logproto.Stream{
 		Labels: labelSet.String(),
 		Entries: []logproto.Entry{
 			{
 				Timestamp: t.(time.Time),
-				Line:      string(event.Body()), // TODO optimize: bytes to string
+				Line:      line,
 			},
 		},
 	}
