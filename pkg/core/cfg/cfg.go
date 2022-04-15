@@ -29,9 +29,9 @@ import (
 type CommonCfg map[string]interface{}
 
 type ComponentBaseConfig struct {
-	Enabled    *bool     `yaml:"enabled"`
-	Name       string    `yaml:"name"`
-	Type       string    `yaml:"type" validate:"required"`
+	Enabled    *bool     `yaml:"enabled,omitempty"`
+	Name       string    `yaml:"name,omitempty"`
+	Type       string    `yaml:"type,omitempty" validate:"required"`
 	Properties CommonCfg `yaml:",inline"`
 }
 
