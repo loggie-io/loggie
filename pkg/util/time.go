@@ -48,6 +48,11 @@ type Duration struct {
 	duration model.Duration
 }
 
+// MarshalYAML implements the yaml.Marshaler interface.
+func (d Duration) MarshalYAML() (interface{}, error) {
+	return d.String(), nil
+}
+
 // UnmarshalYAML implements the yaml.Unmarshaler interface.
 func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
 	var s string
