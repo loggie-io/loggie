@@ -18,6 +18,7 @@ package addk8smeta
 
 import (
 	"fmt"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/log"

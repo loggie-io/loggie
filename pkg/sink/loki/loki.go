@@ -5,6 +5,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"time"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/golang/snappy"
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -19,9 +23,6 @@ import (
 	"github.com/prometheus/common/config"
 	"github.com/prometheus/common/model"
 	"golang.org/x/net/context"
-	"io"
-	"net/http"
-	"time"
 )
 
 const Type = "loki"

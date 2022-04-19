@@ -19,6 +19,8 @@ package util
 import (
 	"strings"
 	"time"
+
+	"github.com/prometheus/common/model"
 )
 
 const (
@@ -40,4 +42,36 @@ func TimeFormatNow(pattern string) string {
 
 func UnixMilli(t time.Time) int64 {
 	return t.Unix()*1e3 + int64(t.Nanosecond())/1e6
+}
+
+type Duration struct {
+	duration model.Duration
+}
+
+// MarshalYAML implements the yaml.Marshaler interface.
+func (d Duration) MarshalYAML() (interface{}, error) {
+	return d.String(), nil
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface.
+func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+	dur, err := model.ParseDuration(s)
+	if err != nil {
+		return err
+	}
+	d.duration = dur
+	return nil
+}
+
+func (d *Duration) String() string {
+	return d.duration.String()
+}
+
+// Duration return time.duration struct
+func (d *Duration) Duration() time.Duration {
+	return time.Duration(d.duration)
 }

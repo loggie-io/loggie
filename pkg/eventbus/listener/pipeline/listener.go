@@ -17,11 +17,12 @@ limitations under the License.
 package pipeline
 
 import (
+	"strings"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
-	"strings"
-	"time"
 )
 
 const name = "pipeline"

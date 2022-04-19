@@ -18,13 +18,14 @@ package file
 
 import (
 	"bytes"
+	"io"
+	"sync"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/pkg/errors"
-	"io"
-	"sync"
-	"time"
 )
 
 const (
@@ -192,10 +193,10 @@ func (r *Reader) work(index int) {
 					backlogBuffer = append(backlogBuffer, readBuffer[processed:]...)
 
 					// TODO check whether it is too long to avoid bursting the memory
-					//if len(backlogBuffer)>max_bytes{
+					// if len(backlogBuffer)>max_bytes{
 					//	log.Error
 					//	break
-					//}
+					// }
 				}
 
 				wasSend = processed != 0

@@ -17,11 +17,12 @@ limitations under the License.
 package reloader
 
 import (
-	"github.com/loggie-io/loggie/pkg/core/log"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/loggie-io/loggie/pkg/core/log"
 )
 
 const handleReadPipelineConfigPath = "/api/v1/reload/config"

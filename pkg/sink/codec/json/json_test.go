@@ -17,10 +17,11 @@ limitations under the License.
 package json
 
 import (
-	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/event"
 	"reflect"
 	"testing"
+
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/event"
 )
 
 func TestJson_Encode(t *testing.T) {

@@ -17,13 +17,14 @@ limitations under the License.
 package control
 
 import (
+	"testing"
+
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	_ "github.com/loggie-io/loggie/pkg/queue/memory"
 	_ "github.com/loggie-io/loggie/pkg/sink/dev"
 	_ "github.com/loggie-io/loggie/pkg/source/file"
 	"github.com/pkg/errors"
-	"testing"
 )
 
 var (

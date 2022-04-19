@@ -18,15 +18,16 @@ package retry
 
 import (
 	"fmt"
+	"sync"
+	"sync/atomic"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/sink"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/mmaxiaolei/backoff"
-	"sync"
-	"sync/atomic"
-	"time"
 )
 
 const Type = "retry"
@@ -104,7 +105,7 @@ func (i *Interceptor) Init(context api.Context) error {
 
 func (i *Interceptor) initBackOff() {
 	bo := backoff.NewExponentialBackoff()
-	//bo.MaxElapsedTime = 0
+	// bo.MaxElapsedTime = 0
 	i.bo = bo
 }
 

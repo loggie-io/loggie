@@ -17,15 +17,16 @@ limitations under the License.
 package control
 
 import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/pkg/errors"
 	"gopkg.in/yaml.v2"
-	"io/ioutil"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"os"
-	"path/filepath"
 )
 
 var (

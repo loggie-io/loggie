@@ -17,10 +17,11 @@ limitations under the License.
 package logalert
 
 import (
-	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/event"
 	"regexp"
 	"testing"
+
+	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/event"
 )
 
 func TestInterceptor_match(t *testing.T) {

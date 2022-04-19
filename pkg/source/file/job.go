@@ -19,7 +19,6 @@ package file
 import (
 	"crypto/md5"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/global"
 	"io"
 	"os"
 	"strconv"
@@ -27,6 +26,8 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/global"
 
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util"

@@ -18,11 +18,12 @@ package file
 
 import (
 	"fmt"
-	"github.com/mattn/go-zglob"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/mattn/go-zglob"
 )
 
 func TestWatcher_scanNewFiles(t *testing.T) {
@@ -41,7 +42,7 @@ func TestWatcher_scanNewFiles(t *testing.T) {
 func TestMach(t *testing.T) {
 	path := "/tmp/loggie/**/"
 	file := "/tmp/loggie/test/loggie.log"
-	//match, err := filepath.Match(path, file)
+	// match, err := filepath.Match(path, file)
 	if strings.HasSuffix(path, "**") {
 		path += "/*"
 	}

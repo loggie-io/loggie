@@ -18,11 +18,12 @@ package file
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"time"
 )
 
 const Type = "file"

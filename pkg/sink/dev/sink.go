@@ -18,11 +18,12 @@ package dev
 
 import (
 	"fmt"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	codec "github.com/loggie-io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/sink/codec"
 )
 
 const Type = "dev"

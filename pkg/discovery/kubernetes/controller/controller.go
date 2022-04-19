@@ -18,6 +18,9 @@ package controller
 
 import (
 	"fmt"
+	"reflect"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/log"
 	logconfigClientset "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
 	logconfigSchema "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/scheme"
@@ -30,8 +33,6 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"reflect"
-	"time"
 
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/tools/record"
@@ -406,7 +407,7 @@ func (c *Controller) processNextWorkItem() bool {
 		// Finally, if no error occurs we Forget this item so it does not
 		// get queued again until another change happens.
 		c.workqueue.Forget(obj)
-		//log.Debug("Successfully synced '%s'", element)
+		// log.Debug("Successfully synced '%s'", element)
 		return nil
 	}(obj)
 

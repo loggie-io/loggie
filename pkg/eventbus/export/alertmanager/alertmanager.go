@@ -19,10 +19,11 @@ package alertmanager
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/loggie-io/loggie/pkg/core/log"
 	"io/ioutil"
 	"net/http"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/log"
 )
 
 type AlertManager struct {

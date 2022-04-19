@@ -19,6 +19,7 @@ package kafka
 import (
 	"context"
 	"fmt"
+
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/pkg/errors"

@@ -18,9 +18,10 @@ package file
 
 import (
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"strings"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 
 	"github.com/loggie-io/loggie/pkg/util/consistent"
 

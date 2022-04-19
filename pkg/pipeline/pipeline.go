@@ -17,6 +17,11 @@ limitations under the License.
 package pipeline
 
 import (
+	"os"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/context"
@@ -30,10 +35,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/pkg/errors"
-	"os"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -265,7 +266,7 @@ func (p *Pipeline) startQueue(queueConfig queue.Config) error {
 func (p *Pipeline) startComponent(ctx api.Context) error {
 	component, _ := GetWithType(ctx.Category(), ctx.Type(), p.info)
 	if err := p.startWithComponent(component, ctx); err != nil {
-		//log.Error("start component failed: %v", err)
+		// log.Error("start component failed: %v", err)
 		return err
 	}
 	return nil
@@ -488,7 +489,7 @@ func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor
 	sink.SortableInterceptor(interceptors).Sort()
 	// build chain
 	for _, ic := range interceptors {
-		//filter retry ignore
+		// filter retry ignore
 		if retry {
 			if extension, ok := ic.(interceptor.Extension); ok && extension.IgnoreRetry() {
 				continue
@@ -567,7 +568,7 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
 		}
 		go si.Source.ProductLoop(productFunc)
 	}
-	//go p.sourceInvokeLoop(si)
+	// go p.sourceInvokeLoop(si)
 }
 
 func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {

@@ -17,9 +17,10 @@ limitations under the License.
 package runtime
 
 import (
+	"strings"
+
 	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/pkg/errors"
-	"strings"
 )
 
 func GetQueryPaths(query string) []string {

@@ -17,8 +17,9 @@ limitations under the License.
 package runtime
 
 import (
-	"github.com/pkg/errors"
 	"strconv"
+
+	"github.com/pkg/errors"
 )
 
 const sep = "."

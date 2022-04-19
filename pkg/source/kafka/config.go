@@ -17,9 +17,10 @@ limitations under the License.
 package kafka
 
 import (
-	"github.com/pkg/errors"
 	"regexp"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/segmentio/kafka-go"
 )

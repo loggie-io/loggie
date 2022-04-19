@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 
 	"github.com/loggie-io/loggie/pkg/core/api"

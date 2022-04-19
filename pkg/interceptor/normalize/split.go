@@ -17,12 +17,13 @@ limitations under the License.
 package normalize
 
 import (
+	"strings"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
-	"strings"
 )
 
 const ProcessorSplit = "split"

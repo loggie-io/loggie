@@ -19,14 +19,15 @@ package util
 import (
 	"bufio"
 	"bytes"
-	xglob "github.com/bmatcuk/doublestar/v4"
-	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/pkg/errors"
 	"io"
 	"io/fs"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	xglob "github.com/bmatcuk/doublestar/v4"
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/pkg/errors"
 )
 
 // LineCountTo calculates the number of lines to the offset

@@ -19,6 +19,8 @@ package util
 import (
 	"testing"
 	"time"
+
+	"gopkg.in/yaml.v2"
 )
 
 func TestTimeFormatNow(t *testing.T) {
@@ -52,5 +54,23 @@ func TestTimeFormatNow(t *testing.T) {
 				t.Errorf("TimeFormatNow() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestParseDuration(t *testing.T) {
+	type config struct {
+		Duration Duration `yaml:"duration,omitempty"`
+	}
+
+	configStr := `duration: "1d"`
+	var c config
+	err := yaml.Unmarshal([]byte(configStr), &c)
+	if err != nil {
+		t.Errorf("yaml unmarshal fail, error: %s", err.Error())
+	}
+
+	oneDay, _ := time.ParseDuration("24h")
+	if c.Duration.Duration() != oneDay {
+		t.Errorf("Expected to be equal: %s vs %s", oneDay, c.Duration.Duration())
 	}
 }

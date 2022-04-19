@@ -17,9 +17,10 @@ limitations under the License.
 package batch
 
 import (
-	"github.com/loggie-io/loggie/pkg/core/api"
 	"sync"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/api"
 )
 
 type DefaultBatch struct {

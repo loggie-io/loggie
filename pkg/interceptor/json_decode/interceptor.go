@@ -18,6 +18,8 @@ package json_decode
 
 import (
 	"fmt"
+	"strings"
+
 	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
@@ -25,7 +27,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/pkg/errors"
-	"strings"
 )
 
 const Type = "jsonDecode"

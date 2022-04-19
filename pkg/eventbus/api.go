@@ -17,8 +17,9 @@ limitations under the License.
 package eventbus
 
 import (
-	"github.com/loggie-io/loggie/pkg/core/api"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/api"
 )
 
 type Event struct {
