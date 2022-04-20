@@ -12,7 +12,7 @@ require (
 	github.com/golang/snappy v0.0.2
 	github.com/google/go-cmp v0.5.6
 	github.com/hpcloud/tail v1.0.0
-	github.com/json-iterator/go v1.1.11
+	github.com/json-iterator/go v1.1.12
 	github.com/mattn/go-sqlite3 v1.14.6
 	github.com/mattn/go-zglob v0.0.3
 	github.com/mmaxiaolei/backoff v0.0.0-20210104115436-e015e09efaba
@@ -67,7 +67,7 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.1 // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/mwitkow/go-conntrack v0.0.0-20190716064945-2f068394615f // indirect
 	github.com/pierrec/lz4 v2.6.0+incompatible // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
