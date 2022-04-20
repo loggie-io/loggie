@@ -128,7 +128,7 @@ func (c *Controller) reconcileNode(name string) error {
 }
 
 func (c *Controller) reconcileInterceptor(name string) error {
-	log.Info("start reconcile interceptor %s")
+	log.Info("start reconcile interceptor %s", name)
 
 	_, err := c.interceptorLister.Get(name)
 	if kerrors.IsNotFound(err) {
@@ -174,7 +174,7 @@ func (c *Controller) reconcileInterceptor(name string) error {
 }
 
 func (c *Controller) reconcileSink(name string) error {
-	log.Info("start reconcile sink %s")
+	log.Info("start reconcile sink %s", name)
 
 	_, err := c.sinkLister.Get(name)
 	if kerrors.IsNotFound(err) {
