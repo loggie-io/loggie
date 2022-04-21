@@ -187,7 +187,7 @@ func (w *Watcher) decideJob(job *Job) {
 		return
 	}
 	// inactive
-	if job.eofCount > w.config.MaxEofCount {
+	if job.EofCount > w.config.MaxEofCount {
 		w.zombieJobChan <- job
 		return
 	}
@@ -212,6 +212,7 @@ func (w *Watcher) reportMetric(job *Job) {
 		// FileSize:   fileSize,
 		SourceFields: job.task.sourceFields,
 	}
+	job.currentLines = 0
 	eventbus.PublishOrDrop(eventbus.FileSourceMetricTopic, collectMetricData)
 }
 
@@ -276,7 +277,7 @@ func (w *Watcher) eventBus(e jobEvent) {
 		existAckOffset := existRegistry.Offset
 		fileSize := stat.Size()
 		// check whether the existAckOffset is larger than the file size
-		if existAckOffset > fileSize {
+		if existAckOffset > fileSize+1 {
 			log.Warn("new job(jobUid:%s) fileName(%s) existRegistry(%+v) ackOffset is larger than file size(%d).is inode repeat?", job.Uid(), filename, existRegistry, fileSize)
 			// file was truncated，start from the beginning
 			if job.task.config.RereadTruncated {
@@ -537,7 +538,7 @@ func (w *Watcher) scanZombieJob() {
 			}
 		} else {
 			// release fd
-			if time.Since(job.lastActiveTime) > w.config.FdHoldTimeoutWhenInactive {
+			if time.Since(job.LastActiveTime) > w.config.FdHoldTimeoutWhenInactive {
 				if job.Release() {
 					w.currentOpenFds--
 				}
