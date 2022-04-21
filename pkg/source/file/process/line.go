@@ -7,11 +7,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/source/file"
 )
 
-type LineConfig struct {
-	MaxBytes          int    `yaml:"maxBytes,omitempty" default:"131072" validate:"gt=0"` // default 128k
-	OverBytesStrategy string `yaml:"overBytesStrategy"`                                   // newLine、split
-}
-
 func init() {
 	file.RegisterProcessor(makeLine)
 }
@@ -21,8 +16,6 @@ func makeLine(config file.ReaderConfig) file.Processor {
 }
 
 type LineProcessor struct {
-	config  LineConfig
-	newLine []byte
 }
 
 func (lp *LineProcessor) Order() int {
