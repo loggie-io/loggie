@@ -174,26 +174,14 @@ func (l *Listener) consumer(e eventbus.SinkMetricData) {
 	buf.WriteString(e.SourceName)
 	key := buf.String()
 
-	d, ok := l.data[key]
+	_, ok := l.data[key]
 	if !ok {
-		data := &data{
+		l.data[key] = &data{
 			PipelineName: e.PipelineName,
 			SourceName:   e.SourceName,
 		}
-		if e.FailEventCount != 0 {
-			data.FailEventCount = int64(e.FailEventCount)
-		}
-		if e.SuccessEventCount != 0 {
-			data.SuccessEventCount = int64(e.SuccessEventCount)
-		}
-		l.data[key] = data
-		return
 	}
 
-	if e.FailEventCount != 0 {
-		d.FailEventCount += int64(e.FailEventCount)
-	}
-	if e.SuccessEventCount != 0 {
-		d.SuccessEventCount += int64(e.SuccessEventCount)
-	}
+	l.data[key].SuccessEventCount += int64(e.SuccessEventCount)
+	l.data[key].FailEventCount += int64(e.FailEventCount)
 }
