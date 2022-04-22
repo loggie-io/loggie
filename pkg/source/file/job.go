@@ -59,14 +59,15 @@ type Job struct {
 	nextOffset        int64
 	currentLineNumber int64
 	currentLines      int64
-	eofCount          int
-	lastActiveTime    time.Time
 	deleteTime        atomic.Value
 	renameTime        atomic.Value
 	stopTime          atomic.Value
 	identifier        string
 
 	task *WatchTask
+
+	EofCount       int
+	LastActiveTime time.Time
 }
 
 func JobUid(fileInfo os.FileInfo) string {
@@ -229,8 +230,8 @@ func (j *Job) Active() (error, bool) {
 		}
 	}
 	j.ChangeStatusTo(JobActive)
-	j.eofCount = 0
-	j.lastActiveTime = time.Now()
+	j.EofCount = 0
+	j.LastActiveTime = time.Now()
 	return nil, fdOpen
 }
 
@@ -285,6 +286,10 @@ func (j *Job) IsSame(other *Job) bool {
 
 func (j *Job) Read() {
 	j.task.activeChan <- j
+}
+
+func (j *Job) File() *os.File {
+	return j.file
 }
 
 const tsLayout = "2006-01-02T15:04:05.000Z"
