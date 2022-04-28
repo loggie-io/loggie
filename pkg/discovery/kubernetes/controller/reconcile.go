@@ -258,12 +258,22 @@ func (c *Controller) handleAllTypesAddOrUpdate(lgc *logconfigv1beta1.LogConfig) 
 
 func (c *Controller) reconcileClusterLogConfigDelete(key string, selectorType string) error {
 	log.Info("clusterLogConfig: %s delete event received", key)
-	return c.handleAllTypesDelete(key, selectorType)
+	if err := c.handleAllTypesDelete(key, selectorType); err != nil {
+		return err
+	}
+
+	log.Info("handle clusterLogConfig %s delete event and sync config file success", key)
+	return nil
 }
 
 func (c *Controller) reconcileLogConfigDelete(key string, selectorType string) error {
 	log.Info("logConfig: %s delete event received", key)
-	return c.handleAllTypesDelete(key, selectorType)
+	if err := c.handleAllTypesDelete(key, selectorType); err != nil {
+		return err
+	}
+
+	log.Info("handle logConfig %s delete event and sync config file success", key)
+	return nil
 }
 
 func (c *Controller) handleAllTypesDelete(key string, selectorType string) error {
@@ -293,7 +303,6 @@ func (c *Controller) handleAllTypesDelete(key string, selectorType string) error
 		return errors.WithMessage(err, "sync to config file failed")
 	}
 
-	log.Info("handle logConfig %s delete event and sync config file success", key)
 	return nil
 }
 

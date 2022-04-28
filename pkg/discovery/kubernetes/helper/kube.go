@@ -68,7 +68,7 @@ func GetLogConfigRelatedPod(lgc *logconfigv1beta1.LogConfig, podsLister corev1li
 
 // TODO optimize the performance
 func GetPodRelatedLogConfigs(pod *corev1.Pod, lgcLister logconfigLister.LogConfigLister) ([]*logconfigv1beta1.LogConfig, error) {
-	lgcList, err := lgcLister.List(labels.Everything())
+	lgcList, err := lgcLister.LogConfigs(pod.Namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
 	}
