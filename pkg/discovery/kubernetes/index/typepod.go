@@ -109,7 +109,11 @@ func (p *LogConfigTypePodIndex) ValidateAndSetConfigs(namespace string, podName 
 	cfg *pipeline.ConfigRaw, lgc *v1beta1.LogConfig) error {
 	p.SetConfigs(namespace, podName, lgcNamespace, lgcName, cfg, lgc)
 	if err := p.GetAllGroupByLogConfig().ValidateUniquePipeName(); err != nil {
-		log.Warn("validate logConfig error: %v", err)
+		if namespace == "" {
+			log.Warn("validate clusterLogConfig error: %v", err)
+		} else {
+			log.Warn("validate logConfig error: %v", err)
+		}
 		lgcKey := helper.MetaNamespaceKey(namespace, lgcName)
 		p.DeletePipeConfigsByLogConfigKey(lgcKey)
 		return err

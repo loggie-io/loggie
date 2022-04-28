@@ -251,7 +251,7 @@ func NewController(
 		DeleteFunc: func(obj interface{}) {
 			po := obj.(*corev1.Pod)
 
-			log.Info("pod delete func begin, pod: %s/%s", po.Namespace, po.Name)
+			log.Info("pod: %s/%s is deleting", po.Namespace, po.Name)
 			controller.enqueueForDelete(obj, EventPod, logconfigv1beta1.SelectorTypePod)
 		},
 	})
