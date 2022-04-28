@@ -46,6 +46,18 @@ type Defaults struct {
 	Sinks        cfg.CommonCfg   `yaml:"sink"`
 }
 
+var defaultInterceptors = []cfg.CommonCfg{
+	{
+		"type": metric.Type,
+	},
+	{
+		"type": maxbytes.Type,
+	},
+	{
+		"type": retry.Type,
+	},
+}
+
 func (d *Defaults) SetDefaults() {
 	if d.Queue == nil {
 		d.Queue = cfg.CommonCfg{
@@ -53,18 +65,10 @@ func (d *Defaults) SetDefaults() {
 			"name": "default",
 		}
 	}
-	if d.Interceptors == nil || len(d.Interceptors) == 0 {
-		d.Interceptors = []cfg.CommonCfg{
-			{
-				"type": metric.Type,
-			},
-			{
-				"type": maxbytes.Type,
-			},
-			{
-				"type": retry.Type,
-			},
-		}
+	if len(d.Interceptors) == 0 {
+		d.Interceptors = defaultInterceptors
+	} else {
+		d.Interceptors = cfg.MergeCommonCfgListByTypeAndName(d.Interceptors, defaultInterceptors, false, false)
 	}
 }
 
