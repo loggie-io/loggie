@@ -596,21 +596,23 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 	// add header source fields from env
 	if len(config.FieldsFromEnv) > 0 {
 		for k, envKey := range config.FieldsFromEnv {
-			if envVal, ok := p.envMap[envKey]; ok && len(envVal) > 0 {
-				if config.FieldsUnderRoot {
-					header[k] = envVal
-					continue
-				}
-				fieldsInHeader, exist := header[config.FieldsUnderKey]
-				if !exist {
-					f := make(map[string]interface{})
-					f[k] = envVal
-					header[config.FieldsUnderKey] = f
-					continue
-				}
-				if fieldsMap, ok := fieldsInHeader.(map[string]interface{}); ok {
-					fieldsMap[k] = envVal
-				}
+			envVal, ok := p.envMap[envKey]
+			if !ok || len(envVal) == 0 {
+				continue
+			}
+			if config.FieldsUnderRoot {
+				header[k] = envVal
+				continue
+			}
+			fieldsInHeader, exist := header[config.FieldsUnderKey]
+			if !exist {
+				f := make(map[string]interface{})
+				f[k] = envVal
+				header[config.FieldsUnderKey] = f
+				continue
+			}
+			if fieldsMap, ok := fieldsInHeader.(map[string]interface{}); ok {
+				fieldsMap[k] = envVal
 			}
 		}
 	}
