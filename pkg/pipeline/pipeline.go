@@ -55,6 +55,7 @@ type Pipeline struct {
 	retryOutFuncs []api.OutFunc
 	index         uint32
 	epoch         *Epoch
+	envMap        map[string]string
 
 	Running bool
 }
@@ -231,6 +232,11 @@ func (p *Pipeline) init(pipelineConfig Config) {
 	p.info.Stop = false
 	p.ns = make(map[string]api.Source)
 	p.nq = make(map[string]api.Queue)
+	p.envMap = make(map[string]string)
+	for _, e := range os.Environ() {
+		env := strings.SplitN(e, "=", 2)
+		p.envMap[env[0]] = env[1]
+	}
 
 	// init event pool
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
@@ -590,23 +596,21 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 	// add header source fields from env
 	if len(config.FieldsFromEnv) > 0 {
 		for k, envKey := range config.FieldsFromEnv {
-			envVal := os.Getenv(envKey)
-			if envVal == "" {
-				continue
-			}
-			if config.FieldsUnderRoot {
-				header[k] = envVal
-				continue
-			}
-			fieldsInHeader, exist := header[config.FieldsUnderKey]
-			if !exist {
-				f := make(map[string]interface{})
-				f[k] = envVal
-				header[config.FieldsUnderKey] = f
-				continue
-			}
-			if fieldsMap, ok := fieldsInHeader.(map[string]interface{}); ok {
-				fieldsMap[k] = envVal
+			if envVal, ok := p.envMap[envKey]; ok && len(envVal) > 0 {
+				if config.FieldsUnderRoot {
+					header[k] = envVal
+					continue
+				}
+				fieldsInHeader, exist := header[config.FieldsUnderKey]
+				if !exist {
+					f := make(map[string]interface{})
+					f[k] = envVal
+					header[config.FieldsUnderKey] = f
+					continue
+				}
+				if fieldsMap, ok := fieldsInHeader.(map[string]interface{}); ok {
+					fieldsMap[k] = envVal
+				}
 			}
 		}
 	}
