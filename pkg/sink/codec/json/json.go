@@ -17,16 +17,12 @@ limitations under the License.
 package json
 
 import (
+	"encoding/json"
 	"time"
 
-	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	eventer "github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
-)
-
-var (
-	json = jsoniter.ConfigFastest
 )
 
 type Json struct {
