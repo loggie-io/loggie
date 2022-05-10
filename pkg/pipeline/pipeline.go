@@ -55,6 +55,7 @@ type Pipeline struct {
 	retryOutFuncs []api.OutFunc
 	index         uint32
 	epoch         *Epoch
+	envMap        map[string]string
 
 	Running bool
 }
@@ -231,6 +232,11 @@ func (p *Pipeline) init(pipelineConfig Config) {
 	p.info.Stop = false
 	p.ns = make(map[string]api.Source)
 	p.nq = make(map[string]api.Queue)
+	p.envMap = make(map[string]string)
+	for _, e := range os.Environ() {
+		env := strings.SplitN(e, "=", 2)
+		p.envMap[env[0]] = env[1]
+	}
 
 	// init event pool
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
@@ -590,8 +596,8 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 	// add header source fields from env
 	if len(config.FieldsFromEnv) > 0 {
 		for k, envKey := range config.FieldsFromEnv {
-			envVal := os.Getenv(envKey)
-			if envVal == "" {
+			envVal, ok := p.envMap[envKey]
+			if !ok || len(envVal) == 0 {
 				continue
 			}
 			if config.FieldsUnderRoot {
