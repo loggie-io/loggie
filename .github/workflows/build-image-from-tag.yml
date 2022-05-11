@@ -1,0 +1,27 @@
+name: Build Image From Tag
+
+on:
+  push:
+    tags:
+      - v*
+
+env:
+  DOCKERHUB_REPO: loggieio/loggie
+
+jobs:
+  image:
+    # github.ref: 触发工作流程的分支或标记参考。 对于分支，格式为 refs/heads/<branch_name>，对于标记是 refs/tags/<tag_name>.
+    # github.ref_name: The branch or tag name that triggered the workflow run.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to DockerHub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: ${{ env.DOCKERHUB_REPO }}:${{ github.ref_name }}
