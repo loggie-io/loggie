@@ -17,6 +17,8 @@ jobs:
         id: meta
         uses: docker/metadata-action@v3
         with:
+          flavor: |
+            latest=false
           images: |
             ${{ secrets.DOCKERHUB_USERNAME }}/loggie
           tags: |
