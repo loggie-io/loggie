@@ -180,6 +180,7 @@ func (l *Listener) consumer(e eventbus.SinkMetricData) {
 			PipelineName: e.PipelineName,
 			SourceName:   e.SourceName,
 		}
+		d = l.data[key]
 	}
 
 	d.SuccessEventCount += int64(e.SuccessEventCount)
