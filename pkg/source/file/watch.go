@@ -751,6 +751,8 @@ func (w *Watcher) checkWaitForStopTask() {
 				} else {
 					log.Warn("job(%s:%s) was deleted but not finalize", job.WatchUid(), job.filename)
 				}
+				job.Stop()
+				w.finalizeJob(job)
 			}
 			watchTask.waiteForStopJobs = nil
 			delete(w.waiteForStopWatchTasks, watchTask.WatchTaskKey())
