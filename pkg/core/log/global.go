@@ -46,19 +46,23 @@ func init() {
 	flag.IntVar(&gLoggerConfig.MaxBackups, "log.maxBackups", 3, "Max number of rolled files to keep")
 	flag.IntVar(&gLoggerConfig.MaxAge, "log.maxAge", 7, "Max age in days to keep a logfile")
 	flag.StringVar(&gLoggerConfig.TimeFormat, "log.timeFormat", "2006-01-02 15:04:05", "TimeFormat log time format")
+	flag.IntVar(&gLoggerConfig.CallerSkipCount, "log.callerSkipCount", 4, "CallerSkipCount is the number of stack frames to skip to find the caller")
+	flag.BoolVar(&gLoggerConfig.NoColor, "log.noColor", false, "NoColor disables the colorized output")
 }
 
 type LoggerConfig struct {
-	Level        string `yaml:"level,omitempty"`
-	JsonFormat   bool   `yaml:"jsonFormat,omitempty"`
-	EnableStdout bool   `yaml:"enableStdout,omitempty"`
-	EnableFile   bool   `yaml:"enableFile,omitempty"`
-	Directory    string `yaml:"directory,omitempty"`
-	Filename     string `yaml:"filename,omitempty"`
-	MaxSize      int    `yaml:"maxSize,omitempty"`
-	MaxBackups   int    `yaml:"maxBackups,omitempty"`
-	MaxAge       int    `yaml:"maxAge,omitempty"`
-	TimeFormat   string `yaml:"timeFormat,omitempty"`
+	Level           string `yaml:"level,omitempty"`
+	JsonFormat      bool   `yaml:"jsonFormat,omitempty"`
+	EnableStdout    bool   `yaml:"enableStdout,omitempty"`
+	EnableFile      bool   `yaml:"enableFile,omitempty"`
+	Directory       string `yaml:"directory,omitempty"`
+	Filename        string `yaml:"filename,omitempty"`
+	MaxSize         int    `yaml:"maxSize,omitempty"`
+	MaxBackups      int    `yaml:"maxBackups,omitempty"`
+	MaxAge          int    `yaml:"maxAge,omitempty"`
+	TimeFormat      string `yaml:"timeFormat,omitempty"`
+	CallerSkipCount int    `yaml:"callerSkipCount,omitempty"`
+	NoColor         bool   `yaml:"noColor,omitempty"`
 }
 
 type Logger struct {
@@ -80,6 +84,7 @@ func NewLogger(config *LoggerConfig) *Logger {
 			writers = append(writers, zerolog.ConsoleWriter{
 				Out:        os.Stderr,
 				TimeFormat: config.TimeFormat,
+				NoColor:    config.NoColor,
 			})
 		}
 	}
@@ -90,7 +95,7 @@ func NewLogger(config *LoggerConfig) *Logger {
 
 	mw := io.MultiWriter(writers...)
 
-	zerolog.CallerSkipFrameCount = 4
+	zerolog.CallerSkipFrameCount = config.CallerSkipCount
 	level, err := zerolog.ParseLevel(config.Level)
 	if err != nil {
 		panic("set log level error, choose trace/debug/info/warn/error/fatal/panic")
