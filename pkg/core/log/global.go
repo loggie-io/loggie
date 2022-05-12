@@ -37,7 +37,7 @@ var (
 
 func init() {
 	flag.StringVar(&gLoggerConfig.Level, "log.level", "info", "Global log output level")
-	flag.BoolVar(&gLoggerConfig.JsonFormat, "log.jsonFormat", true, "Parses the JSON log format")
+	flag.BoolVar(&gLoggerConfig.JsonFormat, "log.jsonFormat", false, "Parses the JSON log format")
 	flag.BoolVar(&gLoggerConfig.EnableStdout, "log.enableStdout", true, "EnableStdout enable the log print to stdout")
 	flag.BoolVar(&gLoggerConfig.EnableFile, "log.enableFile", false, "EnableFile makes the framework log to a file")
 	flag.StringVar(&gLoggerConfig.Directory, "log.directory", "/var/log", "Directory to log to to when log.enableFile is enabled")
@@ -78,23 +78,26 @@ func NewLogger(config *LoggerConfig) *Logger {
 	var writers []io.Writer
 
 	if config.EnableStdout {
-		if config.JsonFormat {
-			writers = append(writers, os.Stderr)
-		} else {
-			writers = append(writers, zerolog.ConsoleWriter{
-				Out:        os.Stderr,
-				TimeFormat: config.TimeFormat,
-				NoColor:    config.NoColor,
-			})
-		}
+		writers = append(writers, os.Stderr)
 	}
 
 	if config.EnableFile {
 		writers = append(writers, newRollingFile(config.Directory, config.Filename, config.MaxBackups, config.MaxSize, config.MaxAge))
 	}
 
+	if !config.JsonFormat {
+		for i, w := range writers {
+			writers[i] = zerolog.ConsoleWriter{
+				Out:        w,
+				NoColor:    config.NoColor,
+				TimeFormat: config.TimeFormat,
+			}
+		}
+	}
+
 	mw := io.MultiWriter(writers...)
 
+	zerolog.TimeFieldFormat = config.TimeFormat
 	zerolog.CallerSkipFrameCount = config.CallerSkipCount
 	level, err := zerolog.ParseLevel(config.Level)
 	if err != nil {
