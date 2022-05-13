@@ -86,14 +86,17 @@ func main() {
 	// init log after error func
 	log.AfterError = eventbus.AfterErrorFunc
 
+	log.Info("pipelines config path: %s", pipelineConfigPath)
 	// pipeline config file
 	pipecfgs, err := control.ReadPipelineConfig(pipelineConfigPath, configType, func(s os.FileInfo) bool {
 		return false
 	})
 	if pipecfgs != nil {
-		if out, yamlErr := yaml.Marshal(pipecfgs); yamlErr != nil {
-			log.Fatal("initial pipelines config:\n%s", string(out))
+		out, yamlErr := yaml.Marshal(pipecfgs)
+		if yamlErr != nil {
+			log.Fatal("marshal initial pipelines failed: %v, config:\n%s", yamlErr, out)
 		}
+		log.Info("initial pipelines:\n%s", out)
 	}
 
 	if err != nil && !os.IsNotExist(err) {
