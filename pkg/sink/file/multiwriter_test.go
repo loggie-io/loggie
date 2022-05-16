@@ -1,11 +1,20 @@
 package file
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 )
 
 func TestMultiFileWriter_Write(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "filesink")
+	if err != nil {
+		t.Errorf("creates temporary directory:%s", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
 	type fields struct {
 		opt *Options
 	}
@@ -33,12 +42,20 @@ func TestMultiFileWriter_Write(t *testing.T) {
 			args: args{
 				msgs: []Message{
 					{
-						Filename: "/tmp/filesink/aaa.log",
+						Filename: filepath.Join(tmpDir, "aaa.log"),
 						Data:     []byte("hello world"),
 					},
 					{
-						Filename: "/tmp/filesink/bbb.log",
+						Filename: filepath.Join(tmpDir, "aaa.log"),
+						Data:     []byte("this is aaa"),
+					},
+					{
+						Filename: filepath.Join(tmpDir, "bbb.log"),
 						Data:     []byte("hello world"),
+					},
+					{
+						Filename: filepath.Join(tmpDir, "bbb.log"),
+						Data:     []byte("this is bbb"),
 					},
 				},
 			},
@@ -55,7 +72,27 @@ func TestMultiFileWriter_Write(t *testing.T) {
 				t.Errorf("Write() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			w.Close()
+			checkWriteResult(t, tt.args.msgs)
 		})
+	}
+}
+
+func checkWriteResult(t *testing.T, msgs []Message) {
+	// map[filename][]data
+	fc := make(map[string][][]byte)
+	for _, msg := range msgs {
+		fc[msg.Filename] = append(fc[msg.Filename], append(msg.Data, '\n'))
+	}
+	for filename, contents := range fc {
+		expect := bytes.Join(contents, nil)
+		actual, err := os.ReadFile(filename)
+		if err != nil {
+			t.Errorf("read file %s:%s", filename, err)
+			continue
+		}
+		if !bytes.Equal(expect, actual) {
+			t.Errorf("want to write:\n%s\nactually write:\n%s", expect, actual)
+		}
 	}
 }
 
