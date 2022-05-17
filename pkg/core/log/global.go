@@ -171,12 +171,20 @@ func (logger *Logger) Fatal(format string, a ...interface{}) {
 	}
 }
 
+func (logger *Logger) GetLevel() string {
+	return logger.l.GetLevel().String()
+}
+
 func (logger *Logger) RawJson(key string, raw []byte, format string, a ...interface{}) {
 	if a == nil {
 		logger.l.Log().RawJSON(key, raw).Msg(format)
 	} else {
 		logger.l.Log().RawJSON(key, raw).Msgf(format, a...)
 	}
+}
+
+func IsDebugLevel() bool {
+	return defaultLogger.GetLevel() == zerolog.DebugLevel.String()
 }
 
 func Debug(format string, a ...interface{}) {
