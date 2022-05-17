@@ -81,3 +81,9 @@ func (t *ProcessorGroup) ProcessAll(e api.Event) error {
 	}
 	return nil
 }
+
+func LogErrorWithIgnore(ignore bool, format string, a ...interface{}) {
+	if !ignore {
+		log.Error(format, a)
+	}
+}
