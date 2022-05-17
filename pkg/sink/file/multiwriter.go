@@ -100,7 +100,7 @@ func (w *MultiFileWriter) Write(msgs ...Message) error {
 		writer := w.getWriter(key)
 		is := indexes
 		w.workers.Submit(func() {
-			for i := range is {
+			for _, i := range is {
 				if _, err := writer.Write(msgs[i].Data); err != nil {
 					log.Error("write error: %+v", err)
 				}
@@ -168,7 +168,7 @@ func (w *MultiFileWriter) getWriter(fn string) *Writer {
 			Filename:   fn,
 			MaxSize:    w.opt.MaxSize, // megabytes
 			MaxBackups: w.opt.MaxBackups,
-			MaxAge:     w.opt.MaxAge, //days
+			MaxAge:     w.opt.MaxAge, // days
 			LocalTime:  w.opt.LocalTime,
 			Compress:   w.opt.Compress, // disabled by default
 		}
