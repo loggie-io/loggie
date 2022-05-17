@@ -98,6 +98,12 @@ func (r *Reloader) Run(stopCh <-chan struct{}) {
 					}
 				}
 
+				if log.IsDebugLevel() && r.controller.CurrentConfig != nil {
+					if older, err := yaml.Marshal(r.controller.CurrentConfig); err == nil {
+						log.Debug("older/current pipelines config:\n%s", string(older))
+					}
+				}
+
 				eventbus.Publish(eventbus.ReloadTopic, eventbus.ReloadMetricData{
 					Tick: 1,
 				})
@@ -161,6 +167,10 @@ func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineCo
 		if !equal {
 			startList = append(startList, newPipe)
 			stopList = append(stopList, oldPipe)
+		}
+		if !equal && log.IsDebugLevel() {
+			diff := cmp.Diff(newPipe, oldPipe, sourceComparer, interceptorComparer, sinkComparer)
+			log.Debug("diff pipeline config: \n%s", diff)
 		}
 	}
 

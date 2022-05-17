@@ -188,8 +188,6 @@ func ReadPipelineConfigFromFile(path string, ignore FileIgnore) (*PipelineConfig
 			return nil, err
 		}
 
-		log.Debug("read file %s:\n %s", fn, content)
-
 		pipes, err := defaultsValidateAndRemove(content)
 		if err != nil {
 			// ignore invalid pipeline
