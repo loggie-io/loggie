@@ -80,12 +80,12 @@ func (p *Pipeline) Stop() {
 	}
 
 	p.info.Stop = true
-	// 0. stop source product
-	p.stopSourceProduct()
-	// 1. stop queue
-	p.stopQueue()
-	// 2. stop sink consumer
+	// 0. stop sink consumer
 	p.stopSinkConsumer()
+	// 1. stop source product
+	p.stopSourceProduct()
+	// 2. stop queue
+	p.stopQueue()
 	// 3. stop component
 	// care about stopped components
 	p.stopComponents()
@@ -100,6 +100,8 @@ func (p *Pipeline) Stop() {
 func (p *Pipeline) stopSinkConsumer() {
 	close(p.done)
 	p.countDown.Wait()
+	// clean out chan: in case source blocking
+	p.cleanOutChan()
 }
 
 func (p *Pipeline) stopSourceProduct() {
