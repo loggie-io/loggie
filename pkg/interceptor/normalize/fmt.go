@@ -26,8 +26,8 @@ import (
 const ProcessorFmt = "fmt"
 
 type FmtProcessor struct {
-	config *FmtConfig
-
+	config         *FmtConfig
+	pipelineName   string
 	patternMatcher map[string][][]string
 }
 
@@ -61,11 +61,19 @@ func (r *FmtProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *FmtProcessor) Init() {
+func (r *FmtProcessor) Init(pipeline string) {
 	for k, v := range r.config.Fields {
 		matcher := pattern.MustInitMatcher(v)
 		r.patternMatcher[k] = matcher
 	}
+}
+
+func (r *FmtProcessor) GetPipeLine() string {
+	return r.pipelineName
+}
+
+func (r *FmtProcessor) GetName() string {
+	return ProcessorFmt
 }
 
 func (r *FmtProcessor) Process(e api.Event) error {

@@ -33,7 +33,8 @@ const (
 )
 
 type ConvertProcessor struct {
-	config *ConvertConfig
+	config       *ConvertConfig
+	pipelineName string
 }
 
 type ConvertConfig struct {
@@ -56,8 +57,16 @@ func (p *ConvertProcessor) Config() interface{} {
 	return p.config
 }
 
-func (p *ConvertProcessor) Init() {
+func (p *ConvertProcessor) Init(pipeline string) {
 	log.Info("format: %v", p.config.Convert)
+}
+
+func (p *ConvertProcessor) GetPipeLine() string {
+	return p.pipelineName
+}
+
+func (p *ConvertProcessor) GetName() string {
+	return ProcessorConvert
 }
 
 func (p *ConvertProcessor) Process(e api.Event) error {

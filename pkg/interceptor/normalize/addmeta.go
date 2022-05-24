@@ -30,7 +30,8 @@ import (
 const ProcessorAddMeta = "addMeta"
 
 type AddMetaProcessor struct {
-	config *AddMetaConfig
+	config       *AddMetaConfig
+	pipelineName string
 }
 
 type AddMetaConfig struct {
@@ -53,7 +54,15 @@ func (r *AddMetaProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *AddMetaProcessor) Init() {
+func (r *AddMetaProcessor) Init(pipeline string) {
+}
+
+func (r *AddMetaProcessor) GetPipeLine() string {
+	return r.pipelineName
+}
+
+func (r *AddMetaProcessor) GetName() string {
+	return ProcessorAddMeta
 }
 
 func (r *AddMetaProcessor) Process(e api.Event) error {

@@ -29,7 +29,8 @@ import (
 const ProcessorSplit = "split"
 
 type SplitProcessor struct {
-	config *SplitConfig
+	config       *SplitConfig
+	pipelineName string
 }
 
 type SplitConfig struct {
@@ -55,7 +56,15 @@ func (r *SplitProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *SplitProcessor) Init() {
+func (r *SplitProcessor) Init(pipeline string) {
+}
+
+func (r *SplitProcessor) GetPipeLine() string {
+	return r.pipelineName
+}
+
+func (r *SplitProcessor) GetName() string {
+	return ProcessorSplit
 }
 
 func (r *SplitProcessor) Process(e api.Event) error {

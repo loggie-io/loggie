@@ -24,7 +24,8 @@ import (
 const ProcessorUnderRoot = "underRoot"
 
 type UnderRootProcessor struct {
-	config *UnderRootConfig
+	config       *UnderRootConfig
+	pipelineName string
 }
 
 type UnderRootConfig struct {
@@ -47,7 +48,15 @@ func (r *UnderRootProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *UnderRootProcessor) Init() {
+func (r *UnderRootProcessor) Init(pipeline string) {
+}
+
+func (r *UnderRootProcessor) GetPipeLine() string {
+	return r.pipelineName
+}
+
+func (r *UnderRootProcessor) GetName() string {
+	return ProcessorAddMeta
 }
 
 func (r *UnderRootProcessor) Process(e api.Event) error {

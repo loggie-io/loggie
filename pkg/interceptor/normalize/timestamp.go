@@ -30,7 +30,8 @@ const ProcessorTimestamp = "timestamp"
 const typeString = "string"
 
 type TimestampProcessor struct {
-	config *TimestampConfig
+	config       *TimestampConfig
+	pipelineName string
 }
 
 type TimestampConfig struct {
@@ -61,7 +62,15 @@ func (r *TimestampProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *TimestampProcessor) Init() {
+func (r *TimestampProcessor) Init(pipeline string) {
+}
+
+func (r *TimestampProcessor) GetPipeLine() string {
+	return r.pipelineName
+}
+
+func (r *TimestampProcessor) GetName() string {
+	return ProcessorTimestamp
 }
 
 func (r *TimestampProcessor) Process(e api.Event) error {

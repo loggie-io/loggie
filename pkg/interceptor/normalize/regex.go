@@ -29,9 +29,9 @@ import (
 const ProcessorRegex = "regex"
 
 type RegexProcessor struct {
-	config *RegexConfig
-
-	regex *regexp.Regexp
+	config       *RegexConfig
+	pipelineName string
+	regex        *regexp.Regexp
 }
 
 type RegexConfig struct {
@@ -56,7 +56,15 @@ func (r *RegexProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *RegexProcessor) Init() {
+func (r *RegexProcessor) GetPipeLine() string {
+	return r.pipelineName
+}
+
+func (r *RegexProcessor) GetName() string {
+	return ProcessorRegex
+}
+
+func (r *RegexProcessor) Init(pipeline string) {
 	log.Info("regex pattern: %s", r.config.Pattern)
 	r.regex = util.CompilePatternWithJavaStyle(r.config.Pattern)
 }

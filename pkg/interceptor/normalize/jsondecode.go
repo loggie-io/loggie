@@ -31,7 +31,8 @@ var (
 )
 
 type JsonDecodeProcessor struct {
-	config *JsonDecodeConfig
+	config       *JsonDecodeConfig
+	pipelineName string
 }
 
 type JsonDecodeConfig struct {
@@ -54,7 +55,15 @@ func (r *JsonDecodeProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *JsonDecodeProcessor) Init() {
+func (r *JsonDecodeProcessor) Init(pipeline string) {
+}
+
+func (r *JsonDecodeProcessor) GetPipeLine() string {
+	return r.pipelineName
+}
+
+func (r *JsonDecodeProcessor) GetName() string {
+	return ProcessorJsonDecode
 }
 
 func (r *JsonDecodeProcessor) Process(e api.Event) error {

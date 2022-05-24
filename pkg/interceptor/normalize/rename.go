@@ -25,7 +25,8 @@ import (
 const ProcessorMove = "rename"
 
 type MoveProcessor struct {
-	config *MoveConfig
+	config       *MoveConfig
+	pipelineName string
 }
 
 type MoveConfig struct {
@@ -48,7 +49,15 @@ func (r *MoveProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *MoveProcessor) Init() {
+func (r *MoveProcessor) Init(pipeline string) {
+}
+
+func (r *MoveProcessor) GetPipeLine() string {
+	return r.pipelineName
+}
+
+func (r *MoveProcessor) GetName() string {
+	return ProcessorMove
 }
 
 func (r *MoveProcessor) Process(e api.Event) error {

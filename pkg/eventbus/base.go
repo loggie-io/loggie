@@ -43,6 +43,7 @@ var (
 	PipelineTopic         = "pipeline"
 	ComponentBaseTopic    = "component"
 	SystemTopic           = "sys"
+	NormalizeTopic        = "normalize"
 )
 
 type BaseMetric struct {
@@ -131,6 +132,13 @@ func (lad *LogAlertData) Fingerprint() string {
 }
 
 type PipelineMetricData struct {
+	EventType        ComponentEventType
+	Name             string
+	Time             time.Time
+	ComponentConfigs []ComponentBaseConfig
+}
+
+type NormalizeMetricData struct {
 	EventType        ComponentEventType
 	Name             string
 	Time             time.Time
