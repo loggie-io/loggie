@@ -21,6 +21,7 @@ import (
 	logconfigclientset "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/controller"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	"k8s.io/apimachinery/pkg/fields"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
@@ -33,6 +34,8 @@ import (
 
 type Discovery struct {
 	config *controller.Config
+
+	runtime runtime.Runtime
 }
 
 func NewDiscovery(config *controller.Config) *Discovery {
@@ -42,6 +45,15 @@ func NewDiscovery(config *controller.Config) *Discovery {
 }
 
 func (d *Discovery) Start(stopCh <-chan struct{}) {
+	if d.config.RootFsCollectionEnabled {
+		// init runtime client
+		log.Info("rootFsCollection is enabled, initializing runtime client")
+		runtimeCli := runtime.Init(d.config.RuntimeEndpoints, d.config.ContainerRuntime)
+		d.runtime = runtimeCli
+
+		log.Info("initial runtime %s client success", runtimeCli.Name())
+	}
+
 	cfg, err := clientcmd.BuildConfigFromFlags(d.config.Master, d.config.Kubeconfig)
 	if err != nil {
 		log.Panic("Error building kubeconfig: %s, cfg: %+v", err.Error(), cfg)
@@ -70,6 +82,8 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 	ctrl := controller.NewController(d.config, kubeClient, logConfigClient, kubeInformerFactory.Core().V1().Pods(),
 		logConfInformerFactory.Loggie().V1beta1().LogConfigs(), logConfInformerFactory.Loggie().V1beta1().ClusterLogConfigs(), logConfInformerFactory.Loggie().V1beta1().Sinks(),
 		logConfInformerFactory.Loggie().V1beta1().Interceptors(), nodeInformerFactory.Core().V1().Nodes())
+
+	ctrl.Runtime = d.runtime
 
 	logConfInformerFactory.Start(stopCh)
 	kubeInformerFactory.Start(stopCh)

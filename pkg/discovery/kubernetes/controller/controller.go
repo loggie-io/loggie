@@ -18,6 +18,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	"reflect"
 	"time"
 
@@ -86,7 +87,8 @@ type Controller struct {
 
 	nodeLabels map[string]string
 
-	record record.EventRecorder
+	record  record.EventRecorder
+	Runtime runtime.Runtime
 }
 
 func NewController(

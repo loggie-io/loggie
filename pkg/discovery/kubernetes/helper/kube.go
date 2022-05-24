@@ -127,6 +127,10 @@ func PathsInNode(kubeletRootDir string, paths []string, pod *corev1.Pod, contain
 	nodePaths := make([]string, 0)
 
 	for _, path := range paths {
+		if path == logconfigv1beta1.PathStdout {
+			continue
+		}
+
 		volumeName, volumeMountPath, subPathRes, err := findVolumeMountsByPaths(path, pod, containerName)
 		if err != nil {
 			return nil, err
@@ -142,11 +146,7 @@ func PathsInNode(kubeletRootDir string, paths []string, pod *corev1.Pod, contain
 	return nodePaths, nil
 }
 
-func GenDockerStdoutLog(dockerDataRoot string, containerId string) string {
-	return filepath.Join(dockerDataRoot, "containers", containerId, containerId+"-json.log")
-}
-
-func GenContainerdStdoutLog(podLogDirPrefix string, namespace string, podName string, podUID string, containerName string) []string {
+func GenContainerStdoutLog(podLogDirPrefix string, namespace string, podName string, podUID string, containerName string) []string {
 	var paths []string
 
 	paths = append(paths, filepath.Join(podLogDirPrefix, podUID, containerName, "*.log"))
