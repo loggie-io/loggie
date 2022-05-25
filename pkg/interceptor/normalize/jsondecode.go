@@ -20,7 +20,6 @@ import (
 	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
-	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 )
 
@@ -35,7 +34,8 @@ type JsonDecodeProcessor struct {
 }
 
 type JsonDecodeConfig struct {
-	Target string `yaml:"target,omitempty" default:"body"`
+	Target      string `yaml:"target,omitempty" default:"body"`
+	IgnoreError bool   `yaml:"ignoreError"`
 }
 
 func init() {
@@ -75,7 +75,7 @@ func (r *JsonDecodeProcessor) Process(e api.Event) error {
 		obj := runtime.NewObject(header)
 		v, err := obj.GetPath(target).String()
 		if err != nil {
-			log.Warn("get content from %s failed %v", target, err)
+			LogErrorWithIgnore(r.config.IgnoreError, "get content from %s failed %v", target, err)
 			return nil
 		}
 		if v == "" {
@@ -88,7 +88,7 @@ func (r *JsonDecodeProcessor) Process(e api.Event) error {
 	res := make(map[string]interface{})
 	err := json.Unmarshal(val, &res)
 	if err != nil {
-		log.Info("unmarshal data: %s err: %v", string(val), err)
+		LogErrorWithIgnore(r.config.IgnoreError, "unmarshal data: %s err: %v", string(val), err)
 		return nil
 	}
 	for k, v := range res {
