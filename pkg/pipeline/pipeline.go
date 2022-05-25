@@ -494,16 +494,16 @@ func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor
 	var interceptorChainName strings.Builder
 	interceptorChainName.WriteString("queue->")
 	// sort interceptors
-	sink.SortableInterceptor(interceptors).Sort()
+	sortableInterceptor := sink.SortableInterceptor(interceptors)
+	sortableInterceptor.Sort()
 	// build chain
-	for _, ic := range interceptors {
-		// filter retry ignore
+	for i := 0; i < l; i++ {
+		tempInterceptor := sortableInterceptor[l-1-i]
 		if retry {
-			if extension, ok := ic.(interceptor.Extension); ok && extension.IgnoreRetry() {
+			if extension, ok := tempInterceptor.(interceptor.Extension); ok && extension.IgnoreRetry() {
 				continue
 			}
 		}
-		tempInterceptor := ic
 		next := last
 		last = &sink.AbstractInvoker{
 			DoInvoke: func(invocation sink.Invocation) api.Result {
@@ -511,7 +511,7 @@ func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor
 			},
 		}
 
-		interceptorChainName.WriteString(tempInterceptor.String())
+		interceptorChainName.WriteString(sortableInterceptor[i].String())
 		interceptorChainName.WriteString("->")
 	}
 	interceptorChainName.WriteString("sink")
@@ -644,7 +644,8 @@ func addSourceFields(header map[string]interface{}, config source.Config) {
 }
 
 func buildSourceInvokerChain(sourceName string, invoker source.Invoker, interceptors []source.Interceptor) source.Invoker {
-	if len(interceptors) == 0 {
+	l := len(interceptors)
+	if l == 0 {
 		return invoker
 	}
 	last := invoker
@@ -653,16 +654,17 @@ func buildSourceInvokerChain(sourceName string, invoker source.Invoker, intercep
 	interceptorChainName.WriteString("source->")
 
 	// sort interceptor
-	source.SortableInterceptor(interceptors).Sort()
-	for _, ic := range interceptors {
-		if extension, ok := ic.(interceptor.Extension); ok {
+	sortableInterceptor := source.SortableInterceptor(interceptors)
+	sortableInterceptor.Sort()
+	for i := 0; i < l; i++ {
+		tempInterceptor := sortableInterceptor[l-1-i]
+		if extension, ok := tempInterceptor.(interceptor.Extension); ok {
 			belongTo := extension.BelongTo()
 			// calling len(belongTo) cannot be ignored
 			if len(belongTo) > 0 && !util.Contain(sourceName, belongTo) {
 				continue
 			}
 		}
-		tempInterceptor := ic
 		next := last
 		last = &source.AbstractInvoker{
 			DoInvoke: func(invocation source.Invocation) api.Result {
@@ -670,7 +672,7 @@ func buildSourceInvokerChain(sourceName string, invoker source.Invoker, intercep
 			},
 		}
 
-		interceptorChainName.WriteString(tempInterceptor.String())
+		interceptorChainName.WriteString(sortableInterceptor[i].String())
 		interceptorChainName.WriteString("->")
 	}
 
