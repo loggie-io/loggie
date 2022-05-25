@@ -102,5 +102,7 @@ func (si SortableInterceptor) Swap(i, j int) {
 }
 
 func (si SortableInterceptor) Sort() {
-	sort.Sort(si)
+	sort.SliceStable(si, func(i, j int) bool {
+		return si.Less(i, j)
+	})
 }
