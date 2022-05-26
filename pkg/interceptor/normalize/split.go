@@ -93,7 +93,7 @@ func (r *SplitProcessor) Process(e api.Event) error {
 	splitResult := strings.SplitN(val, r.config.Separator, r.config.Max)
 	keys := r.config.Keys
 	if len(splitResult) != len(keys) {
-		LogErrorWithIgnore(r.config.IgnoreError, "cannot find target fields %s", "length of split result: %d unequal to keys: %d", len(splitResult), len(keys))
+		LogErrorWithIgnore(r.config.IgnoreError, "cannot find target fields %s, length of split result: %d unequal to keys: %d", target, len(splitResult), len(keys))
 		log.Debug("split failed event: %s", e.String())
 		return nil
 	}
