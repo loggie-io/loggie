@@ -168,10 +168,11 @@ func (bc *batchChain) run() {
 			for _, e := range es {
 				header := e.Header()
 				if batchIndex, ok := header[batchIndexKey]; ok {
-					b := bs[batchIndex.(uint32)]
-					b.ack(e)
-					if b.isDone() {
-						delete(bs, b.index)
+					if b, exist := bs[batchIndex.(uint32)]; exist {
+						b.ack(e)
+						if b.isDone() {
+							delete(bs, b.index)
+						}
 					}
 				} else {
 					log.Error("event cannot find batchIndex: %s", e.String())
