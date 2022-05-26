@@ -26,21 +26,22 @@ func TestGrokProcessor_Process(t *testing.T) {
 			name: "normal",
 			fields: fields{config: &GrokConfig{
 				Match: []string{
-					"^%{IP:ip} %{USER:user} \\[(?P<loglevel>\\w+)\\] (?P<msg>.*)",
+					"^%{DATESTAMP:datetime} %{IPV4:ip} %{PATH:path} %{WORD:word} %{INT:int} %{UUID:uuid}",
 				},
-				Target: "body",
+				Target:            "body",
+				UseDefaultPattern: true,
 			}},
 			args: args{e: &event.DefaultEvent{
-				H: map[string]interface{}{
-					"head": "10.10.10.255 username [info] message",
-				},
-				B: []byte("10.10.10.255 username [info] message"),
+				H: map[string]interface{}{},
+				B: []byte("2022-05-26 21:00:00 127.0.0.1 /var/log/test.log someworld 66 550e8400-e29b-41d4-a716-446655440000"),
 			}},
 			want: map[string]interface{}{
-				"head":     "10.10.10.255 username [info] message",
-				"ip":       "10.10.10.255",
-				"username": "username",
-				"msg":      "message",
+				"datetime": "2022-05-26 21:00:00",
+				"ip":       "127.0.0.1",
+				"path":     "/var/log/test.log",
+				"word":     "someworld",
+				"int":      "66",
+				"uuid":     "550e8400-e29b-41d4-a716-446655440000",
 			},
 		},
 	}
@@ -52,13 +53,6 @@ func TestGrokProcessor_Process(t *testing.T) {
 				config: tt.fields.config,
 			}
 			p.Init()
-			p.groks[0].patterns = map[string]string{
-				"USERNAME": "[a-zA-Z0-9._-]+",
-				"USER":     "%{USERNAME}",
-				"IPV6":     `((([0-9A-Fa-f]{1,4}:){7}([0-9A-Fa-f]{1,4}|:))|(([0-9A-Fa-f]{1,4}:){6}(:[0-9A-Fa-f]{1,4}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){1,2})|:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3})|:))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){1,3})|((:[0-9A-Fa-f]{1,4})?:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){1,4})|((:[0-9A-Fa-f]{1,4}){0,2}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){1,5})|((:[0-9A-Fa-f]{1,4}){0,3}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){1,6})|((:[0-9A-Fa-f]{1,4}){0,4}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:))|(:(((:[0-9A-Fa-f]{1,4}){1,7})|((:[0-9A-Fa-f]{1,4}){0,5}:((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}))|:)))(%.+)?`,
-				"IPV4":     `(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)`,
-				"IP":       "(?:%{IPV6}|%{IPV4})",
-			}
 			finalPattern := p.groks[0].translateMatchPattern(tt.fields.config.Match[0])
 			pnew, err := regexp.Compile(finalPattern)
 			if err != nil {
