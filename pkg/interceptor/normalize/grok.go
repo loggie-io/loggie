@@ -18,6 +18,25 @@ import (
 
 const ProcessorGrok = "grok"
 
+var DefaultGrokPattern = map[string]string{
+	"USERNAME": "[a-zA-Z0-9._-]+",
+	"USER":     "%{USERNAME}",
+	"INT":      "(?:[+-]?(?:[0-9]+))",
+	"WORD":     "\\b\\w+\\b",
+	"UUID":     "[A-Fa-f0-9]{8}-(?:[A-Fa-f0-9]{4}-){3}[A-Fa-f0-9]{12}",
+	"IPV4":     "(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)",
+	"PATH":     "(?:%{UNIXPATH}|%{WINPATH})",
+	"UNIXPATH": "(/[\\w_%!$@:.,-]?/?)(\\S+)?",
+	"WINPATH":  "([A-Za-z]:|\\\\)(?:\\\\[^\\\\?*]*)+",
+	"MONTHNUM": "(?:0?[1-9]|1[0-2])",
+	"MONTHDAY": "(?:(?:0[1-9])|(?:[12][0-9])|(?:3[01])|[1-9])",
+	"YEAR":     "(\\d\\d){1,2}",
+	"DATE_US":  "%{MONTHNUM}[/-]%{MONTHDAY}[/-]%{YEAR}",
+	"DATE_EU":  "%{MONTHDAY}[./-]%{MONTHNUM}[./-]%{YEAR}",
+	"DATE_CN":  "%{YEAR}[./-]%{MONTHNUM}[./-]%{MONTHDAY}",
+	"DATE":     "%{DATE_US}|%{DATE_EU}|%{DATE_CN}",
+}
+
 type GrokProcessor struct {
 	config *GrokConfig
 	groks  []*Grok
@@ -33,14 +52,15 @@ type Grok struct {
 }
 
 type GrokConfig struct {
-	Target       string            `yaml:"target,omitempty" default:"body"`
-	Dst          string            `yaml:"dst,omitempty"`
-	Match        []string          `yaml:"match,omitempty" validate:"required"`
-	IgnoreBlank  bool              `yaml:"ignore_blank"`
-	PatternPaths []string          `yaml:"pattern_paths,omitempty"`
-	Overwrite    bool              `yaml:"overwrite"`
-	IgnoreError  bool              `yaml:"ignoreError"`
-	Pattern      map[string]string `yaml:"pattern,omitempty"`
+	Target            string            `yaml:"target,omitempty" default:"body"`
+	Dst               string            `yaml:"dst,omitempty"`
+	Match             []string          `yaml:"match,omitempty" validate:"required"`
+	IgnoreBlank       bool              `yaml:"ignore_blank"`
+	PatternPaths      []string          `yaml:"pattern_paths,omitempty"`
+	Overwrite         bool              `yaml:"overwrite"`
+	IgnoreError       bool              `yaml:"ignoreError"`
+	Pattern           map[string]string `yaml:"pattern,omitempty"`
+	UseDefaultPattern bool              `yaml:"use_default_pattern,omitempty" default:"true"`
 }
 
 func init() {
@@ -62,7 +82,7 @@ func (r *GrokProcessor) Config() interface{} {
 func (r *GrokProcessor) Init() {
 	groks := make([]*Grok, 0)
 	for _, rule := range r.config.Match {
-		groks = append(groks, NewGrok(rule, r.config.PatternPaths, r.config.IgnoreBlank))
+		groks = append(groks, NewGrok(rule, r.config.PatternPaths, r.config.IgnoreBlank, r.config.Pattern, r.config.UseDefaultPattern))
 	}
 	r.groks = groks
 }
@@ -130,13 +150,25 @@ func (r *GrokProcessor) Process(e api.Event) error {
 	return nil
 }
 
-func NewGrok(match string, patternPaths []string, ignoreBlank bool) *Grok {
+func NewGrok(match string, patternPaths []string, ignoreBlank bool, pattern map[string]string, defaultPattern bool) *Grok {
 	grok := &Grok{
 		patternPaths: patternPaths,
 		patterns:     make(map[string]string),
 		ignoreBlank:  ignoreBlank,
 	}
-	grok.loadPatterns()
+	if defaultPattern {
+		for k, v := range DefaultGrokPattern {
+			grok.patterns[k] = v
+		}
+	}
+	if len(pattern) != 0 {
+		grok.loadPatterns()
+	}
+	if pattern != nil {
+		for k, v := range pattern {
+			grok.patterns[k] = v
+		}
+	}
 	finalPattern := grok.translateMatchPattern(match)
 	p, err := regexp.Compile(finalPattern)
 	if err != nil {
