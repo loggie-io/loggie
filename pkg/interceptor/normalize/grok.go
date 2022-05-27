@@ -60,10 +60,9 @@ type GrokConfig struct {
 	Target            string            `yaml:"target,omitempty" default:"body"`
 	Dst               string            `yaml:"dst,omitempty"`
 	Match             []string          `yaml:"match,omitempty" validate:"required"`
-	IgnoreBlank       bool              `yaml:"ignore_blank"`
+	IgnoreBlank       bool              `yaml:"ignore_blank,omitempty" default:"true"`
 	PatternPaths      []string          `yaml:"pattern_paths,omitempty"`
-	Overwrite         bool              `yaml:"overwrite"`
-	IgnoreError       bool              `yaml:"ignoreError"`
+	Overwrite         bool              `yaml:"overwrite,omitempty" default:"true"`
 	Pattern           map[string]string `yaml:"pattern,omitempty"`
 	UseDefaultPattern bool              `yaml:"use_default_pattern,omitempty" default:"true"`
 }
@@ -166,7 +165,7 @@ func NewGrok(match string, patternPaths []string, ignoreBlank bool, pattern map[
 			grok.patterns[k] = v
 		}
 	}
-	if len(pattern) != 0 {
+	if len(patternPaths) != 0 {
 		grok.loadPatterns()
 	}
 	if pattern != nil {
@@ -250,7 +249,9 @@ func (grok *Grok) parseLine(r *bufio.Reader) {
 			log.Error("wrong line format : %v", string(line))
 			continue
 		}
-		grok.patterns[kv[0]] = kv[1]
+		k := strings.Trim(strings.TrimRight(kv[0], ":"), "\"")
+		v := strings.Trim(strings.TrimSpace(kv[1]), "\"")
+		grok.patterns[k] = v
 	}
 }
 
