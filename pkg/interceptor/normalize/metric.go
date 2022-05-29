@@ -14,9 +14,9 @@ func (i *Interceptor) reportMetric(process Processor) {
 	v, ok := i.MetricContext.MetricMap[process.GetName()]
 	if !ok {
 		normalizeMetricData := eventbus.NormalizeMetricData{
-			BaseMetric: eventbus.BaseMetric{
-				PipelineName: i.pipelineName,
-				SourceName:   i.name,
+			BaseInterceptorMetric: eventbus.BaseInterceptorMetric{
+				PipelineName:    i.pipelineName,
+				InterceptorName: i.name,
 			},
 			Name:  process.GetName(),
 			Count: 1,

@@ -51,6 +51,11 @@ type BaseMetric struct {
 	SourceName   string
 }
 
+type BaseInterceptorMetric struct {
+	PipelineName    string
+	InterceptorName string
+}
+
 type BaseMetricData struct {
 	Lines int
 	Bytes int
@@ -139,7 +144,7 @@ type PipelineMetricData struct {
 }
 
 type NormalizeMetricData struct {
-	BaseMetric
+	BaseInterceptorMetric
 	Count uint64
 	Name  string
 }

@@ -133,11 +133,11 @@ func (l *Listener) consumer(event eventbus.Event) {
 		value, ok := data[metric.Name]
 		if !ok {
 			l.normalizeMetric[key][metric.Name] = &eventbus.NormalizeMetricData{
-				BaseMetric: eventbus.BaseMetric{
-					PipelineName: metric.BaseMetric.PipelineName,
-					SourceName:   metric.BaseMetric.SourceName,
+				BaseInterceptorMetric: eventbus.BaseInterceptorMetric{
+					PipelineName:    metric.BaseInterceptorMetric.PipelineName,
+					InterceptorName: metric.BaseInterceptorMetric.InterceptorName,
 				},
-				Name:  normalizeEvent.Name,
+				Name:  metric.Name,
 				Count: metric.Count,
 			}
 			continue
@@ -165,9 +165,10 @@ func (l *Listener) exportPrometheus() {
 		}
 
 		for _, value := range d {
-			labels := prometheus.Labels{promeExporter.PipelineNameKey: value.PipelineName,
-				promeExporter.SourceNameKey: value.SourceName,
-				"name":                      value.Name,
+			labels := prometheus.Labels{
+				promeExporter.PipelineNameKey:    value.PipelineName,
+				promeExporter.InterceptorNameKey: value.Name,
+				"name":                           value.InterceptorName,
 			}
 
 			m1 := promeExporter.ExportedMetrics{
