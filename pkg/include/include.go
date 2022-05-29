@@ -51,10 +51,14 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/sink/grpc"
 	_ "github.com/loggie-io/loggie/pkg/sink/kafka"
 	_ "github.com/loggie-io/loggie/pkg/sink/loki"
+<<<<<<< HEAD
 	_ "github.com/loggie-io/loggie/pkg/sink/sls"
 	_ "github.com/loggie-io/loggie/pkg/sink/zinc"
 	_ "github.com/loggie-io/loggie/pkg/source/codec/json"
 	_ "github.com/loggie-io/loggie/pkg/source/codec/regex"
+=======
+	_ "github.com/loggie-io/loggie/pkg/sink/pulsar"
+>>>>>>> 7bb34bc6 (feat(sink): add pulsar sink)
 	_ "github.com/loggie-io/loggie/pkg/source/dev"
 	_ "github.com/loggie-io/loggie/pkg/source/elasticsearch"
 	_ "github.com/loggie-io/loggie/pkg/source/file"

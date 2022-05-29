@@ -123,6 +123,7 @@ func ErrorAsf(t TestingT, err error, target interface{}, msg string, args ...int
 	return ErrorAs(t, err, target, append([]interface{}{msg}, args...)...)
 }
 
+<<<<<<< HEAD
 // ErrorContainsf asserts that a function returned an error (i.e. not `nil`)
 // and that the error contains the specified substring.
 //
@@ -135,6 +136,8 @@ func ErrorContainsf(t TestingT, theError error, contains string, msg string, arg
 	return ErrorContains(t, theError, contains, append([]interface{}{msg}, args...)...)
 }
 
+=======
+>>>>>>> 7bb34bc6 (feat(sink): add pulsar sink)
 // ErrorIsf asserts that at least one of the errors in err's chain matches target.
 // This is a wrapper for errors.Is.
 func ErrorIsf(t TestingT, err error, target error, msg string, args ...interface{}) bool {
