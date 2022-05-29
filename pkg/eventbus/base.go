@@ -139,9 +139,10 @@ type PipelineMetricData struct {
 }
 
 type NormalizeMetricData struct {
-	EventType        ComponentEventType
-	Name             string
+	BaseMetric
+	Count            uint64
 	Time             time.Time
+	Name             string
 	ComponentConfigs []ComponentBaseConfig
 }
 

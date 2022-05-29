@@ -25,8 +25,8 @@ import (
 const ProcessorCopy = "copy"
 
 type CopyProcessor struct {
-	config       *CopyConfig
-	pipelineName string
+	config      *CopyConfig
+	interceptor *Interceptor
 }
 
 type CopyConfig struct {
@@ -49,11 +49,8 @@ func (r *CopyProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *CopyProcessor) Init(pipeline string) {
-}
-
-func (r *CopyProcessor) GetPipeLine() string {
-	return r.pipelineName
+func (r *CopyProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
 }
 
 func (r *CopyProcessor) GetName() string {

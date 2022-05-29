@@ -22,9 +22,8 @@ import (
 )
 
 type Processor interface {
-	Init(pipeline string)
+	Init(interceptor *Interceptor)
 	Process(e api.Event) error
-	GetPipeLine() string
 	GetName() string
 }
 

@@ -29,9 +29,9 @@ import (
 const ProcessorRegex = "regex"
 
 type RegexProcessor struct {
-	config       *RegexConfig
-	pipelineName string
-	regex        *regexp.Regexp
+	config      *RegexConfig
+	interceptor *Interceptor
+	regex       *regexp.Regexp
 }
 
 type RegexConfig struct {
@@ -56,17 +56,14 @@ func (r *RegexProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *RegexProcessor) GetPipeLine() string {
-	return r.pipelineName
-}
-
 func (r *RegexProcessor) GetName() string {
 	return ProcessorRegex
 }
 
-func (r *RegexProcessor) Init(pipeline string) {
+func (r *RegexProcessor) Init(interceptor *Interceptor) {
 	log.Info("regex pattern: %s", r.config.Pattern)
 	r.regex = util.CompilePatternWithJavaStyle(r.config.Pattern)
+	r.interceptor = interceptor
 }
 
 func (r *RegexProcessor) Process(e api.Event) error {
@@ -88,6 +85,7 @@ func (r *RegexProcessor) Process(e api.Event) error {
 		if err != nil {
 			log.Info("get target %s failed: %v", r.config.Target, err)
 			log.Debug("regex failed event: %s", e.String())
+			r.interceptor.reportMetric(r)
 			return nil
 		}
 		if targetVal == "" {

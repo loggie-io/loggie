@@ -18,6 +18,7 @@ package normalize
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/eventbus"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -47,6 +48,7 @@ type Interceptor struct {
 	name           string
 	config         *Config
 	ProcessorGroup *ProcessorGroup
+	metricMap      map[string]*eventbus.NormalizeMetricData
 }
 
 func (i *Interceptor) Config() interface{} {
@@ -68,8 +70,9 @@ func (i *Interceptor) String() string {
 func (i *Interceptor) Init(context api.Context) error {
 	i.name = context.Name()
 	pg := NewProcessorGroup(i.config.Processors)
-	pg.InitAll()
+	pg.InitAll(i)
 	i.ProcessorGroup = pg
+	i.metricMap = make(map[string]*eventbus.NormalizeMetricData)
 	return nil
 }
 
@@ -88,6 +91,7 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 		log.Error("normalize event %s error: %v", e.String(), err)
 	}
 
+	i.flushMetric()
 	return invoker.Invoke(invocation)
 }
 

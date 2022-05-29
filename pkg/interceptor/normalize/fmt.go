@@ -27,7 +27,7 @@ const ProcessorFmt = "fmt"
 
 type FmtProcessor struct {
 	config         *FmtConfig
-	pipelineName   string
+	interceptor    *Interceptor
 	patternMatcher map[string][][]string
 }
 
@@ -61,15 +61,12 @@ func (r *FmtProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *FmtProcessor) Init(pipeline string) {
+func (r *FmtProcessor) Init(interceptor *Interceptor) {
 	for k, v := range r.config.Fields {
 		matcher := pattern.MustInitMatcher(v)
 		r.patternMatcher[k] = matcher
 	}
-}
-
-func (r *FmtProcessor) GetPipeLine() string {
-	return r.pipelineName
+	r.interceptor = interceptor
 }
 
 func (r *FmtProcessor) GetName() string {
@@ -91,6 +88,7 @@ func (r *FmtProcessor) Process(e api.Event) error {
 		result, err := runtime.PatternFormat(headerObj, v, r.patternMatcher[k])
 		if err != nil {
 			log.Warn("reformat %s by %s error: %v", k, v, err)
+			r.interceptor.reportMetric(r)
 			continue
 		}
 

@@ -18,14 +18,15 @@ package normalize
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 )
 
 const ProcessorUnderRoot = "underRoot"
 
 type UnderRootProcessor struct {
-	config       *UnderRootConfig
-	pipelineName string
+	config      *UnderRootConfig
+	interceptor *Interceptor
 }
 
 type UnderRootConfig struct {
@@ -48,11 +49,8 @@ func (r *UnderRootProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *UnderRootProcessor) Init(pipeline string) {
-}
-
-func (r *UnderRootProcessor) GetPipeLine() string {
-	return r.pipelineName
+func (r *UnderRootProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
 }
 
 func (r *UnderRootProcessor) GetName() string {
@@ -82,6 +80,8 @@ func (r *UnderRootProcessor) Process(e api.Event) error {
 				obj.Set(k, v)
 			}
 		} else {
+			log.Error("val.Map err:%s", err)
+			r.interceptor.reportMetric(r)
 			obj.Set(key, val)
 		}
 		upperVal.Del(key)

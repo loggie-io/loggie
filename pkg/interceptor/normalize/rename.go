@@ -25,8 +25,8 @@ import (
 const ProcessorMove = "rename"
 
 type MoveProcessor struct {
-	config       *MoveConfig
-	pipelineName string
+	config      *MoveConfig
+	interceptor *Interceptor
 }
 
 type MoveConfig struct {
@@ -49,11 +49,8 @@ func (r *MoveProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *MoveProcessor) Init(pipeline string) {
-}
-
-func (r *MoveProcessor) GetPipeLine() string {
-	return r.pipelineName
+func (r *MoveProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
 }
 
 func (r *MoveProcessor) GetName() string {

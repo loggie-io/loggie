@@ -66,9 +66,9 @@ func newProcessor(name string, properties cfg.CommonCfg) (Processor, error) {
 	return proc, nil
 }
 
-func (t *ProcessorGroup) InitAll() {
+func (t *ProcessorGroup) InitAll(interceptor *Interceptor) {
 	for _, p := range t.processor {
-		p.Init()
+		p.Init(interceptor)
 	}
 }
 

@@ -31,8 +31,8 @@ var (
 )
 
 type JsonDecodeProcessor struct {
-	config       *JsonDecodeConfig
-	pipelineName string
+	config      *JsonDecodeConfig
+	interceptor *Interceptor
 }
 
 type JsonDecodeConfig struct {
@@ -55,11 +55,8 @@ func (r *JsonDecodeProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *JsonDecodeProcessor) Init(pipeline string) {
-}
-
-func (r *JsonDecodeProcessor) GetPipeLine() string {
-	return r.pipelineName
+func (r *JsonDecodeProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
 }
 
 func (r *JsonDecodeProcessor) GetName() string {
@@ -85,6 +82,7 @@ func (r *JsonDecodeProcessor) Process(e api.Event) error {
 		v, err := obj.GetPath(target).String()
 		if err != nil {
 			log.Warn("get content from %s failed %v", target, err)
+			r.interceptor.reportMetric(r)
 			return nil
 		}
 		if v == "" {
@@ -97,6 +95,7 @@ func (r *JsonDecodeProcessor) Process(e api.Event) error {
 	res := make(map[string]interface{})
 	err := json.Unmarshal(val, &res)
 	if err != nil {
+		r.interceptor.reportMetric(r)
 		log.Info("unmarshal data: %s err: %v", string(val), err)
 		return nil
 	}
