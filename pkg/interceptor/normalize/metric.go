@@ -30,16 +30,12 @@ func (i *Interceptor) reportMetric(process Processor) {
 }
 
 func (i *Interceptor) clearMetric() {
-	if len(i.MetricContext.MetricMap) == 0 {
-		return
-	}
 	data := eventbus.NormalizeMetricEvent{
-		MetricMap:    make(map[string]*eventbus.NormalizeMetricData),
 		PipelineName: i.MetricContext.PipelineName,
 		Name:         i.MetricContext.Name,
 		IsClear:      true,
 	}
-	eventbus.PublishOrDrop(eventbus.NormalizeTopic, data)
+	eventbus.PublishOrDrop(eventbus.NormalizeTopic, &data)
 }
 
 func (i *Interceptor) flushMetric() {

@@ -84,6 +84,7 @@ func (r *TimestampProcessor) Process(e api.Event) error {
 	}
 
 	obj := runtime.NewObject(header)
+
 	for _, target := range r.config.Convert {
 		// parse timestamp
 		timeStr, err := obj.GetPath(target.From).String()
