@@ -140,10 +140,15 @@ type PipelineMetricData struct {
 
 type NormalizeMetricData struct {
 	BaseMetric
-	Count            uint64
-	Time             time.Time
-	Name             string
-	ComponentConfigs []ComponentBaseConfig
+	Count uint64
+	Name  string
+}
+
+type NormalizeMetricEvent struct {
+	MetricMap    map[string]*NormalizeMetricData
+	PipelineName string
+	Name         string
+	IsClear      bool
 }
 
 type ComponentBaseConfig struct {

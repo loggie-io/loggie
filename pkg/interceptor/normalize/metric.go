@@ -11,7 +11,7 @@ func (i *Interceptor) reportMetric(process Processor) {
 		log.Error("process is nil")
 		return
 	}
-	v, ok := i.metricMap[process.GetName()]
+	v, ok := i.MetricContext.MetricMap[process.GetName()]
 	if !ok {
 		normalizeMetricData := eventbus.NormalizeMetricData{
 			BaseMetric: eventbus.BaseMetric{
@@ -21,7 +21,7 @@ func (i *Interceptor) reportMetric(process Processor) {
 			Name:  process.GetName(),
 			Count: 1,
 		}
-		i.metricMap[process.GetName()] = &normalizeMetricData
+		i.MetricContext.MetricMap[process.GetName()] = &normalizeMetricData
 		return
 	}
 
@@ -29,10 +29,34 @@ func (i *Interceptor) reportMetric(process Processor) {
 	return
 }
 
-func (i *Interceptor) flushMetric() {
-	if len(i.metricMap) == 0 {
+func (i *Interceptor) clearMetric() {
+	if len(i.MetricContext.MetricMap) == 0 {
 		return
 	}
-	eventbus.PublishOrDrop(eventbus.NormalizeTopic, i.metricMap)
-	i.metricMap = make(map[string]*eventbus.NormalizeMetricData)
+	data := eventbus.NormalizeMetricEvent{
+		MetricMap:    make(map[string]*eventbus.NormalizeMetricData),
+		PipelineName: i.MetricContext.PipelineName,
+		Name:         i.MetricContext.Name,
+		IsClear:      true,
+	}
+	eventbus.PublishOrDrop(eventbus.NormalizeTopic, data)
+}
+
+func (i *Interceptor) flushMetric() {
+	if len(i.MetricContext.MetricMap) == 0 {
+		return
+	}
+	i.MetricContext.IsClear = false
+	data := eventbus.NormalizeMetricEvent{
+		MetricMap:    make(map[string]*eventbus.NormalizeMetricData),
+		PipelineName: i.MetricContext.PipelineName,
+		Name:         i.MetricContext.Name,
+		IsClear:      false,
+	}
+
+	for key, value := range i.MetricContext.MetricMap {
+		data.MetricMap[key] = value
+	}
+	eventbus.PublishOrDrop(eventbus.NormalizeTopic, &data)
+	i.MetricContext.MetricMap = make(map[string]*eventbus.NormalizeMetricData)
 }

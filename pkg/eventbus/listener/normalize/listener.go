@@ -17,7 +17,11 @@ limitations under the License.
 package normalize
 
 import (
-	"strings"
+	"encoding/json"
+	"fmt"
+	"github.com/loggie-io/loggie/pkg/eventbus/export/logger"
+	promeExporter "github.com/loggie-io/loggie/pkg/eventbus/export/prometheus"
+	"github.com/prometheus/client_golang/prometheus"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -25,10 +29,10 @@ import (
 	"github.com/loggie-io/loggie/pkg/eventbus"
 )
 
-const name = "pipeline"
+const name = "normalize"
 
 func init() {
-	eventbus.Registry(name, makeListener, eventbus.WithTopics([]string{eventbus.PipelineTopic, eventbus.ComponentBaseTopic}))
+	eventbus.Registry(name, makeListener, eventbus.WithTopics([]string{eventbus.NormalizeTopic, eventbus.ComponentBaseTopic}))
 }
 
 func makeListener() eventbus.Listener {
@@ -36,7 +40,7 @@ func makeListener() eventbus.Listener {
 		done:                 make(chan struct{}),
 		config:               &Config{},
 		eventChan:            make(chan eventbus.Event),
-		normalizeMetric:      make(map[string]eventbus.NormalizeMetricData),
+		normalizeMetric:      make(map[string]map[string]*eventbus.NormalizeMetricData),
 		nameComponentMetrics: make(map[string][]eventbus.ComponentBaseMetricData),
 	}
 	return l
@@ -51,8 +55,8 @@ type Listener struct {
 	config               *Config
 	done                 chan struct{}
 	eventChan            chan eventbus.Event
-	normalizeMetric      map[string]eventbus.NormalizeMetricData
 	nameComponentMetrics map[string][]eventbus.ComponentBaseMetricData
+	normalizeMetric      map[string]map[string]*eventbus.NormalizeMetricData // key=pipelineName+sourceName
 }
 
 func (l *Listener) Name() string {
@@ -90,105 +94,99 @@ func (l *Listener) run() {
 		case e := <-l.eventChan:
 			l.consumer(e)
 		case <-tick.C:
-			l.validate()
+			l.exportPrometheus()
 		}
 	}
 }
 
 func (l *Listener) consumer(event eventbus.Event) {
-	if event.Topic == eventbus.NormalizeTopic {
-		d, ok := event.Data.(eventbus.NormalizeMetricData)
-		if !ok {
-			log.Panic("convert eventbus reload failed: %v", event)
-		}
-		if _, exist := l.normalizeMetric[d.Name]; exist {
-			delete(l.nameComponentMetrics, d.Name)
-		}
-		l.namePipelineMetric[d.Name] = d
-	}
-	if event.Topic == eventbus.ComponentBaseTopic {
-		d, ok := event.Data.(eventbus.ComponentBaseMetricData)
-		if !ok {
-			log.Panic("convert eventbus reload failed: %v", event)
-		}
-		if _, exist := l.nameComponentMetrics[d.PipelineName]; !exist {
-			l.nameComponentMetrics[d.PipelineName] = make([]eventbus.ComponentBaseMetricData, 0)
-		}
-		componentBaseMetricDataArray := l.nameComponentMetrics[d.PipelineName]
-
-		for i, baseMetricData := range componentBaseMetricDataArray {
-			if d.Config.Name != baseMetricData.Config.Name {
-				continue
-			}
-			if d.Config.Type != baseMetricData.Config.Type {
-				continue
-			}
-			if d.EventType != baseMetricData.EventType {
-				continue
-			}
-			// remove same component event
-			componentBaseMetricDataArray = append(componentBaseMetricDataArray[:i], componentBaseMetricDataArray[i+1:]...)
-		}
-		componentBaseMetricDataArray = append(componentBaseMetricDataArray, d)
-		l.nameComponentMetrics[d.PipelineName] = componentBaseMetricDataArray
-	}
-}
-
-func (l *Listener) validate() {
-	if len(l.namePipelineMetric) <= 0 {
+	if event.Topic != eventbus.NormalizeTopic {
 		return
 	}
-	for _, pipelineMetricData := range l.namePipelineMetric {
-		if time.Since(pipelineMetricData.Time) < l.config.ValidateDuration {
+
+	normalizeEvent, ok := event.Data.(*eventbus.NormalizeMetricEvent)
+
+	if ok == false {
+		log.Error("convert eventbus failed: %v", normalizeEvent)
+		return
+	}
+
+	key := fmt.Sprintf("%s:%s", normalizeEvent.PipelineName, normalizeEvent.Name)
+
+	data, ok := l.normalizeMetric[key]
+
+	if data == nil {
+		l.normalizeMetric[key] = make(map[string]*eventbus.NormalizeMetricData)
+	}
+
+	if normalizeEvent.IsClear == true {
+
+		if ok == false {
+			return
+		}
+
+		delete(l.normalizeMetric, key)
+		return
+	}
+
+	for _, metric := range normalizeEvent.MetricMap {
+		value, ok := data[metric.Name]
+		if !ok {
+			l.normalizeMetric[key][metric.Name] = &eventbus.NormalizeMetricData{
+				BaseMetric: eventbus.BaseMetric{
+					PipelineName: metric.BaseMetric.PipelineName,
+					SourceName:   metric.BaseMetric.SourceName,
+				},
+				Name:  normalizeEvent.Name,
+				Count: metric.Count,
+			}
 			continue
 		}
-		pipelineName := pipelineMetricData.Name
-		componentBaseMetricData, exist := l.nameComponentMetrics[pipelineName]
-		if !exist {
-			log.Error("pipeline(%s) %s timeout, because no component event", pipelineName, pipelineMetricData.EventType)
-			continue
-		}
-		reportPipelineComponentConfig := make([]eventbus.ComponentBaseConfig, 0)
-		for _, baseMetricData := range componentBaseMetricData {
-			if baseMetricData.EventType == pipelineMetricData.EventType {
-				reportPipelineComponentConfig = append(reportPipelineComponentConfig, baseMetricData.Config)
-			}
-		}
-		missComponentConfig := make([]eventbus.ComponentBaseConfig, 0)
-		for _, componentConfig := range pipelineMetricData.ComponentConfigs {
-			if !contain(componentConfig, reportPipelineComponentConfig) {
-				missComponentConfig = append(missComponentConfig, componentConfig)
-			}
-		}
-		if len(missComponentConfig) > 0 {
-			log.Error("pipeline(%s) %s timeout, because miss component: %s", pipelineName, pipelineMetricData.EventType, componentConfigInfo(missComponentConfig))
-			for _, datum := range componentBaseMetricData {
-				if datum.EventType == pipelineMetricData.EventType {
-					log.Warn("%s pipeline(%s) current metric component: %+v", pipelineMetricData.EventType, pipelineName, datum.Config)
-				}
-			}
-		}
-		// clean data
-		delete(l.namePipelineMetric, pipelineName)
-		delete(l.nameComponentMetrics, pipelineName)
+
+		value.Count += metric.Count
 	}
 }
 
-func componentConfigInfo(componentConfigs []eventbus.ComponentBaseConfig) string {
-	var info strings.Builder
-	for _, config := range componentConfigs {
-		info.WriteString("{")
-		info.WriteString(config.Code())
-		info.WriteString("}")
-	}
-	return info.String()
+func buildFQName(name string) string {
+	return prometheus.BuildFQName(promeExporter.Loggie, eventbus.NormalizeTopic, name)
 }
 
-func contain(target eventbus.ComponentBaseConfig, array []eventbus.ComponentBaseConfig) bool {
-	for _, config := range array {
-		if target.Code() == config.Code() {
-			return true
+func (l *Listener) exportPrometheus() {
+
+	if len(l.normalizeMetric) == 0 {
+		return
+	}
+
+	m := promeExporter.ExportedMetrics{}
+
+	for _, d := range l.normalizeMetric {
+		if len(d) == 0 {
+			continue
+		}
+
+		for _, value := range d {
+			labels := prometheus.Labels{promeExporter.PipelineNameKey: value.PipelineName,
+				promeExporter.SourceNameKey: value.SourceName,
+				"name":                      value.Name,
+			}
+
+			m1 := promeExporter.ExportedMetrics{
+				{
+					Desc: prometheus.NewDesc(
+						buildFQName("error_count"),
+						"error count",
+						nil, labels,
+					),
+					Eval:    float64(value.Count),
+					ValType: prometheus.CounterValue,
+				},
+			}
+
+			m = append(m, m1...)
 		}
 	}
-	return false
+
+	promeExporter.Export(eventbus.NormalizeTopic, m)
+	logData, _ := json.Marshal(l.normalizeMetric)
+	logger.Export(eventbus.NormalizeTopic, logData)
 }

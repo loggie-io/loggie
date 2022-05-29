@@ -48,7 +48,7 @@ type Interceptor struct {
 	name           string
 	config         *Config
 	ProcessorGroup *ProcessorGroup
-	metricMap      map[string]*eventbus.NormalizeMetricData
+	MetricContext  *eventbus.NormalizeMetricEvent
 }
 
 func (i *Interceptor) Config() interface{} {
@@ -72,7 +72,13 @@ func (i *Interceptor) Init(context api.Context) error {
 	pg := NewProcessorGroup(i.config.Processors)
 	pg.InitAll(i)
 	i.ProcessorGroup = pg
-	i.metricMap = make(map[string]*eventbus.NormalizeMetricData)
+	metricEvent := &eventbus.NormalizeMetricEvent{
+		MetricMap:    make(map[string]*eventbus.NormalizeMetricData),
+		PipelineName: i.pipelineName,
+		Name:         i.name,
+		IsClear:      false,
+	}
+	i.MetricContext = metricEvent
 	return nil
 }
 
@@ -82,6 +88,7 @@ func (i *Interceptor) Start() error {
 
 func (i *Interceptor) Stop() {
 	close(i.done)
+	i.clearMetric()
 }
 
 func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invocation) api.Result {

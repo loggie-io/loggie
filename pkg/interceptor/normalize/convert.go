@@ -17,7 +17,6 @@ limitations under the License.
 package normalize
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -93,7 +92,7 @@ func (p *ConvertProcessor) Process(e api.Event) error {
 		}
 
 		obj.DelPath(convert.From)
-		obj.SetPath(convert.From, format(val, convert.To))
+		obj.SetPath(convert.From, p.format(val, convert.To))
 	}
 
 	return nil
