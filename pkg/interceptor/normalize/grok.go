@@ -245,13 +245,7 @@ func (grok *Grok) parseLine(r *bufio.Reader) {
 			continue
 		}
 		kv := strings.SplitN(string(line), " ", 2)
-		if len(kv) != 2 {
-			log.Error("wrong line format : %v", string(line))
-			continue
-		}
-		k := strings.Trim(strings.TrimRight(kv[0], ":"), "\"")
-		v := strings.Trim(strings.TrimSpace(kv[1]), "\"")
-		grok.patterns[k] = v
+		grok.patterns[kv[0]] = strings.TrimSpace(kv[1])
 	}
 }
 
