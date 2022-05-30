@@ -158,7 +158,9 @@ func MergeCommonCfgListByType(base []CommonCfg, from []CommonCfg, override bool,
 		fromCfg, ok := fromMap[typeName]
 		if ok {
 			MergeCommonCfg(baseCfg, fromCfg, override)
-			delete(fromMap, typeName)
+			if !ignoreFromType {
+				delete(fromMap, typeName)
+			}
 			continue
 		}
 	}
