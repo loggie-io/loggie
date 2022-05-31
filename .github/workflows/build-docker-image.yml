@@ -3,7 +3,7 @@ name: Build Docker Image
 on:
   push:
     branches:
-      - main
+      - fix-multi-arch-workflow
     tags:
       - v*
 
@@ -37,5 +37,5 @@ jobs:
           qemu-version: latest
       - name: Build and push
         id: docker_buildx
-        run: docker buildx build --platform linux/amd64,linux/arm64 . --push -t ${{ steps.meta.outputs.tags }}
+        run: docker buildx build --platform linux/amd64,linux/arm64 . --push -t ${{ secrets.DOCKERHUB_USERNAME }}/loggie:latest
 
