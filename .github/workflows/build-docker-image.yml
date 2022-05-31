@@ -37,10 +37,10 @@ jobs:
           qemu-version: latest
       - name: get version
         id: get_version
-        run: echo ${GITHUB_SHA::8} && echo ${github.ref}
+        run: echo ${GITHUB_SHA::8} && echo ${{github.ref}}
       - name: get branch
         id: get_branch
-        run: echo ::set-output name=BRANCH::${GITHUB_REPOSITORY#*/}
+        run: echo ${GITHUB_REPOSITORY#*/}
       - name: Build and push
         id: docker_buildx
         run: docker buildx build --platform linux/amd64,linux/arm64 . --push -t ${{ secrets.DOCKERHUB_USERNAME }}/loggie:${GITHUB_REF/refs/tags//}-${GITHUB_SHA::8}
