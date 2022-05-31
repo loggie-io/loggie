@@ -37,7 +37,7 @@ jobs:
           qemu-version: latest
       - name: get version
         id: get_version
-        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+        run: echo ${GITHUB_SHA::8} && echo ${github.ref}
       - name: get branch
         id: get_branch
         run: echo ::set-output name=BRANCH::${GITHUB_REPOSITORY#*/}
