@@ -30,9 +30,13 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push
-        id: docker_build
-        uses: docker/build-push-action@v2
+      - name: Set up Docker Buildx
+        uses: crazy-max/ghaction-docker-buildx@v3
         with:
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          buildx-version: latest
+          qemu-version: latest
+      - name: Build and push
+        id: docker_buildx
+        run: |
+          docker buildx build --platform linux/amd64,linux/arm64 -t  ${{ secrets.DOCKERHUB_USERNAME }}/loggie:${{ steps.meta.outputs.tags }}  . --push
+
