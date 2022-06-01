@@ -17,9 +17,11 @@ limitations under the License.
 package controller
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pkg/errors"
@@ -114,7 +116,7 @@ func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.Log
 		return err, nil
 	}
 	if len(podList) == 0 {
-		log.Info("The pods which logConfig %s/%s matching is null", lgc.Namespace, lgc.Name)
+		log.Info("logConfig %s/%s matches no pods", lgc.Namespace, lgc.Name)
 		return nil, nil
 	}
 
@@ -203,7 +205,7 @@ func (c *Controller) handlePodAddOrUpdateOfClusterLogConfig(pod *corev1.Pod) {
 func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod) error {
 
 	// generate pod related pipeline configs
-	pipeRaw, err := getConfigFromPodAndLogConfig(c.config, lgc, pod, c.sinkLister, c.interceptorLister)
+	pipeRaw, err := c.getConfigFromPodAndLogConfig(c.config, lgc, pod, c.sinkLister, c.interceptorLister)
 	if err != nil {
 		return err
 	}
@@ -250,20 +252,20 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 	return nil
 }
 
-func getConfigFromPodAndLogConfig(config *Config, lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod,
+func (c *Controller) getConfigFromPodAndLogConfig(config *Config, lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod,
 	sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.ConfigRaw, error) {
 
 	if len(pod.Status.ContainerStatuses) == 0 {
 		return nil, nil
 	}
-	cfgs, err := getConfigFromContainerAndLogConfig(config, lgc, pod, sinkLister, interceptorLister)
+	cfgs, err := c.getConfigFromContainerAndLogConfig(config, lgc, pod, sinkLister, interceptorLister)
 	if err != nil {
 		return nil, err
 	}
 	return cfgs, nil
 }
 
-func getConfigFromContainerAndLogConfig(config *Config, lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod,
+func (c *Controller) getConfigFromContainerAndLogConfig(config *Config, lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod,
 	sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.ConfigRaw, error) {
 
 	logConf := lgc.DeepCopy()
@@ -273,7 +275,7 @@ func getConfigFromContainerAndLogConfig(config *Config, lgc *logconfigv1beta1.Lo
 		return nil, errors.WithMessagef(err, "unpack logConfig %s sources failed", lgc.Namespace)
 	}
 
-	filesources, err := updateSources(sourceConfList, config, pod, logConf.Name)
+	filesources, err := c.updateSources(sourceConfList, config, pod, logConf.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -284,10 +286,10 @@ func getConfigFromContainerAndLogConfig(config *Config, lgc *logconfigv1beta1.Lo
 	return pipecfg, nil
 }
 
-func updateSources(sourceConfList []fileSource, config *Config, pod *corev1.Pod, logConfigName string) ([]fileSource, error) {
+func (c *Controller) updateSources(sourceConfList []fileSource, config *Config, pod *corev1.Pod, logConfigName string) ([]fileSource, error) {
 	filesources := make([]fileSource, 0)
 	for _, sourceConf := range sourceConfList {
-		filesrc, err := getConfigPerSource(config, sourceConf, pod, logConfigName)
+		filesrc, err := c.getConfigPerSource(config, sourceConf, pod, logConfigName)
 		if err != nil {
 			return nil, err
 		}
@@ -296,7 +298,7 @@ func updateSources(sourceConfList []fileSource, config *Config, pod *corev1.Pod,
 	return filesources, nil
 }
 
-func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfigName string) ([]fileSource, error) {
+func (c *Controller) getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfigName string) ([]fileSource, error) {
 	if len(s.ExcludeContainerPatterns) > 0 {
 		regexps := make([]*regexp.Regexp, len(s.ExcludeContainerPatterns))
 		for i, containerPattern := range s.ExcludeContainerPatterns {
@@ -345,7 +347,7 @@ func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfig
 		}
 
 		// use paths of the node
-		if err = updatePaths(config, &filesrc, pod, status.Name, containerId); err != nil {
+		if err = c.updatePaths(config, &filesrc, pod, status.Name, containerId); err != nil {
 			return nil, err
 		}
 
@@ -367,13 +369,13 @@ func getTypePodOriginSourceName(podSourceName string) string {
 	return res[len(res)-1]
 }
 
-func updatePaths(config *Config, s *fileSource, pod *corev1.Pod, containerName, containerId string) error {
+func (c *Controller) updatePaths(config *Config, s *fileSource, pod *corev1.Pod, containerName, containerId string) error {
 	filecfg, err := s.getFileConfig()
 	if err != nil {
 		return err
 	}
 	// update paths with real paths in the node
-	nodePaths, err := getPathsInNode(config, filecfg.CollectConfig.Paths, pod, containerName, containerId)
+	nodePaths, err := c.getPathsInNode(config, filecfg.CollectConfig.Paths, pod, containerName, containerId)
 	if err != nil {
 		return err
 	}
@@ -386,33 +388,38 @@ func updatePaths(config *Config, s *fileSource, pod *corev1.Pod, containerName, 
 	return nil
 }
 
-func getPathsInNode(config *Config, containerPaths []string, pod *corev1.Pod, containerName string, containerId string) ([]string, error) {
+func (c *Controller) getPathsInNode(config *Config, containerPaths []string, pod *corev1.Pod, containerName string, containerId string) ([]string, error) {
 	if len(containerPaths) == 0 {
 		return nil, errors.New("path is empty")
 	}
 
 	var paths []string
 	for _, p := range containerPaths {
-
 		// container stdout logs
 		if p == logconfigv1beta1.PathStdout {
-			if config.ContainerRuntime == RuntimeDocker {
-				paths = append(paths, helper.GenDockerStdoutLog(config.DockerDataRoot, containerId))
-			} else {
-				paths = append(paths, helper.GenContainerdStdoutLog(config.PodLogDirPrefix, pod.Namespace, pod.Name, string(pod.UID), containerName)...)
-			}
-
+			paths = append(paths, helper.GenContainerStdoutLog(config.PodLogDirPrefix, pod.Namespace, pod.Name, string(pod.UID), containerName)...)
 			continue
 		}
+	}
 
-		// TODO find log files in docker rootfs
-		p, err := helper.PathsInNode(config.KubeletRootDir, []string{p}, pod, containerName)
+	p, err := helper.PathsInNode(config.KubeletRootDir, containerPaths, pod, containerName)
+	if err != nil {
+		if !config.RootFsCollectionEnabled {
+			return nil, err
+		}
+
+		// find node path in container root filesystem
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		rootfsPaths, err := c.Runtime.GetRootfsPath(ctx, containerId, containerPaths)
 		if err != nil {
 			return nil, err
 		}
-		paths = append(paths, p...)
+		paths = append(paths, rootfsPaths...)
+		return paths, nil
 	}
 
+	paths = append(paths, p...)
 	return paths, nil
 }
 
