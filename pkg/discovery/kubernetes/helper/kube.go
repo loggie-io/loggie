@@ -373,6 +373,11 @@ func getEmptyDirNodePath(pathPattern string, pod *corev1.Pod, volumeName string,
 }
 
 func GetMatchedPodLabel(labelKeys []string, pod *corev1.Pod) map[string]string {
+
+	if len(labelKeys) == 1 && labelKeys[0] == "*" {
+		return pod.Labels
+	}
+
 	matchedLabelMap := map[string]string{}
 
 	for _, key := range labelKeys {
@@ -382,6 +387,11 @@ func GetMatchedPodLabel(labelKeys []string, pod *corev1.Pod) map[string]string {
 }
 
 func GetMatchedPodAnnotation(annotationKeys []string, pod *corev1.Pod) map[string]string {
+
+	if len(annotationKeys) == 1 && annotationKeys[0] == "*" {
+		return pod.Annotations
+	}
+
 	matchedAnnotationMap := map[string]string{}
 
 	for _, key := range annotationKeys {
@@ -400,6 +410,10 @@ func GetMatchedPodEnv(envKeys []string, pod *corev1.Pod, containerName string) m
 		for _, v := range container.Env {
 			containerEnvMap[v.Name] = v.Value
 		}
+	}
+
+	if len(envKeys) == 1 && envKeys[0] == "*" {
+		return containerEnvMap
 	}
 
 	matchedEnvMap := map[string]string{}
