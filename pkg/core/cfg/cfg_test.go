@@ -304,7 +304,7 @@ func TestMergeCommonCfg(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := MergeCommonCfg(tt.args.base, tt.args.from, false); !reflect.DeepEqual(got, tt.want) {
+			if got := MergeCommonCfg(tt.args.base, tt.args.from, true); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("MergeCommonCfg() = %v, want %v", got, tt.want)
 			}
 		})

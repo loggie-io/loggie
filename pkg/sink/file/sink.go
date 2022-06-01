@@ -133,9 +133,14 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			log.Error("select filename error: %+v", err)
 			return result.Fail(err)
 		}
+		data, err := s.cod.Encode(e)
+		if err != nil {
+			log.Warn("codec event error: %+v", err)
+			continue
+		}
 		msgs = append(msgs, Message{
 			Filename: filename,
-			Data:     e.Body(),
+			Data:     data,
 		})
 	}
 	err := s.writer.Write(msgs...)
