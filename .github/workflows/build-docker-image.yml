@@ -3,7 +3,7 @@ name: Build Docker Image
 on:
   push:
     branches:
-      - fix-multi-arch-workflow
+      - main
     tags:
       - v*
 
