@@ -59,12 +59,12 @@ func init() {
 
 func main() {
 	flag.Parse()
+	// init logging configuration
 	log.InitDefaultLogger()
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
-	// init logging configuration
 	// Automatically set GOMAXPROCS to match Linux container CPU quota
 	if _, err := maxprocs.Set(maxprocs.Logger(log.Debug)); err != nil {
 		log.Fatal("set maxprocs error: %v", err)

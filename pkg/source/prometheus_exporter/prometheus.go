@@ -35,12 +35,13 @@ func makeSource(info pipeline.Info) api.Component {
 }
 
 type PromExporter struct {
-	name        string
-	config      *Config
-	client      *http.Client
-	requestPool []*http.Request
-	done        chan struct{}
-	eventPool   *event.Pool
+	name              string
+	config            *Config
+	client            *http.Client
+	requestPool       []*http.Request
+	done              chan struct{}
+	eventPool         *event.Pool
+	extraLabelsEnable bool
 }
 
 func (k *PromExporter) Config() interface{} {
@@ -77,6 +78,11 @@ func (k *PromExporter) Init(context api.Context) error {
 
 		k.requestPool = append(k.requestPool, req)
 	}
+
+	if len(k.config.Labels) != 0 {
+		k.extraLabelsEnable = true
+	}
+
 	return nil
 }
 
@@ -141,7 +147,7 @@ func (k *PromExporter) scrape(c ctx.Context, req *http.Request) ([]byte, error) 
 	}
 
 	if k.config.ToJson {
-		out, promErr := promToJson(resp.Body)
+		out, promErr := k.promToJson(resp.Body)
 		if promErr != nil {
 			return nil, errors.WithMessage(err, "convert prometheus metrics to json failed")
 		}
@@ -156,7 +162,7 @@ func (k *PromExporter) scrape(c ctx.Context, req *http.Request) ([]byte, error) 
 	return out, nil
 }
 
-func promToJson(in io.Reader) ([]byte, error) {
+func (k *PromExporter) promToJson(in io.Reader) ([]byte, error) {
 	var parser expfmt.TextParser
 	metricFamilies, err := parser.TextToMetricFamilies(in)
 	if err != nil {
@@ -172,6 +178,10 @@ func promToJson(in io.Reader) ([]byte, error) {
 		}
 
 		f := prom2json.NewFamily(val)
+
+		if k.extraLabelsEnable {
+			addLabels(f, k.config.Labels)
+		}
 		family = append(family, f)
 	}
 	out, err := json.Marshal(family)
@@ -180,4 +190,10 @@ func promToJson(in io.Reader) ([]byte, error) {
 	}
 
 	return out, nil
+}
+
+func addLabels(family *prom2json.Family, labels map[string]string) {
+	for k, v := range labels {
+		family.AddLabel(k, v)
+	}
 }
