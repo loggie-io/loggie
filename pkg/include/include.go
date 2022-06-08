@@ -45,6 +45,8 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/sink/grpc"
 	_ "github.com/loggie-io/loggie/pkg/sink/kafka"
 	_ "github.com/loggie-io/loggie/pkg/sink/loki"
+	_ "github.com/loggie-io/loggie/pkg/source/codec/json"
+	_ "github.com/loggie-io/loggie/pkg/source/codec/regex"
 	_ "github.com/loggie-io/loggie/pkg/source/dev"
 	_ "github.com/loggie-io/loggie/pkg/source/file"
 	_ "github.com/loggie-io/loggie/pkg/source/file/process"

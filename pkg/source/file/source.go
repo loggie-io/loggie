@@ -18,6 +18,9 @@ package file
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/global"
+	"github.com/loggie-io/loggie/pkg/core/result"
+	"github.com/loggie-io/loggie/pkg/source/codec"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -63,6 +66,7 @@ type Source struct {
 	isolation          Isolation
 	multilineProcessor *MultiProcessor
 	mTask              *MultiTask
+	codec              codec.Codec
 }
 
 func (s *Source) Config() interface{} {
@@ -79,6 +83,10 @@ func (s *Source) Type() api.Type {
 
 func (s *Source) String() string {
 	return fmt.Sprintf("%s/%s/%s", s.Category(), s.Type(), s.name)
+}
+
+func (s *Source) SetCodec(c codec.Codec) {
+	s.codec = c
 }
 
 func (s *Source) Init(context api.Context) error {
@@ -161,10 +169,16 @@ func (s *Source) Product() api.Event {
 func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", s.String())
 	s.productFunc = productFunc
+	if s.config.CollectConfig.AddonMeta {
+		s.productFunc = addonMetaProductFunc(s.productFunc)
+	}
 	if s.config.ReaderConfig.MultiConfig.Active {
 		s.mTask = NewMultiTask(s.epoch, s.name, s.config.ReaderConfig.MultiConfig, s.eventPool, s.productFunc)
 		s.multilineProcessor.StartTask(s.mTask)
 		s.productFunc = s.multilineProcessor.Process
+	}
+	if s.codec != nil {
+		s.productFunc = codec.ProductFunc(s.productFunc, s.codec)
 	}
 	if s.config.AckConfig.Enable {
 		s.ackTask = NewAckTask(s.epoch, s.pipelineName, s.name, func(state *State) {
@@ -188,4 +202,23 @@ func (s *Source) Commit(events []api.Event) {
 	}
 	// release events
 	s.eventPool.PutAll(events)
+}
+
+func addonMetaProductFunc(productFunc api.ProductFunc) api.ProductFunc {
+	return func(event api.Event) api.Result {
+		s, _ := event.Meta().Get(SystemStateKey)
+		state := s.(*State)
+		addonMeta := make(map[string]interface{})
+		addonMeta["pipeline"] = state.PipelineName
+		addonMeta["source"] = state.SourceName
+		addonMeta["filename"] = state.Filename
+		addonMeta["timestamp"] = state.CollectTime.Local().Format(tsLayout)
+		addonMeta["offset"] = state.Offset
+		addonMeta["bytes"] = state.ContentBytes
+		addonMeta["hostname"] = global.NodeName
+
+		event.Header()["state"] = addonMeta
+		productFunc(event)
+		return result.Success()
+	}
 }
