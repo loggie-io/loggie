@@ -169,6 +169,8 @@ func findVolumeMountsByPaths(path string, pod *corev1.Pod, containerName string)
 					envVars := getEnvInPod(pod, containerName)
 					envMap := envVarsToMap(envVars)
 					subPathExprRes = subPathExpand(volMount.SubPathExpr, envMap)
+				} else if volMount.SubPath != "" {
+					subPathExprRes = volMount.SubPath
 				}
 
 				return volMount.Name, volMount.MountPath, subPathExprRes, nil
