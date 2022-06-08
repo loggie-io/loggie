@@ -18,6 +18,7 @@ package source
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/source/codec"
 	"github.com/pkg/errors"
 )
 
@@ -31,11 +32,17 @@ type Config struct {
 	FieldsUnderKey          string                 `yaml:"fieldsUnderKey,omitempty" default:"fields"`
 	Fields                  map[string]interface{} `yaml:"fields,omitempty"`
 	FieldsFromEnv           map[string]string      `yaml:"fieldsFromEnv,omitempty"`
+	Codec                   *codec.Config          `yaml:"codec,omitempty"`
 }
 
 func (c *Config) Validate() error {
 	if c.Name == "" {
 		return ErrSourceNameRequired
+	}
+	if c.Codec != nil {
+		if err := c.Codec.Validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
