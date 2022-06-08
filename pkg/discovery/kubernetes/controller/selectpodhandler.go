@@ -18,6 +18,9 @@ package controller
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/source/codec"
+	"github.com/loggie-io/loggie/pkg/source/codec/json"
+	"github.com/loggie-io/loggie/pkg/source/codec/regex"
 	"regexp"
 	"strings"
 
@@ -340,12 +343,13 @@ func getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfig
 		if err = injectFields(config, s.MatchFields, src, pod, logconfigName, status.Name); err != nil {
 			return nil, err
 		}
-		if err = filesrc.setSource(src); err != nil {
+
+		// use paths of the node
+		if err = updatePaths(config, src, &filesrc, pod, status.Name, containerId); err != nil {
 			return nil, err
 		}
 
-		// use paths of the node
-		if err = updatePaths(config, &filesrc, pod, status.Name, containerId); err != nil {
+		if err = filesrc.setSource(src); err != nil {
 			return nil, err
 		}
 
@@ -367,8 +371,8 @@ func getTypePodOriginSourceName(podSourceName string) string {
 	return res[len(res)-1]
 }
 
-func updatePaths(config *Config, s *fileSource, pod *corev1.Pod, containerName, containerId string) error {
-	filecfg, err := s.getFileConfig()
+func updatePaths(config *Config, source *source.Config, filesource *fileSource, pod *corev1.Pod, containerName, containerId string) error {
+	filecfg, err := filesource.getFileConfig()
 	if err != nil {
 		return err
 	}
@@ -378,8 +382,34 @@ func updatePaths(config *Config, s *fileSource, pod *corev1.Pod, containerName, 
 		return err
 	}
 
+	// parse the stdout raw logs
+	if config.ParseStdout && len(filecfg.CollectConfig.Paths) == 1 && filecfg.CollectConfig.Paths[0] == logconfigv1beta1.PathStdout {
+		source.Codec = &codec.Config{}
+		if config.ContainerRuntime == RuntimeDocker {
+			// e.g.: `{"log":"example: 17 Tue Feb 16 09:15:17 UTC 2021\n","stream":"stdout","time":"2021-02-16T09:15:17.511829776Z"}`
+			source.Codec.Type = json.Type
+			jsoncodec := json.Config{
+				BodyFields: "log",
+			}
+			if source.Codec.CommonCfg, err = cfg.Pack(&jsoncodec); err != nil {
+				return errors.WithMessage(err, "pack json codec config failed")
+			}
+
+		} else {
+			// e.g.: `2021-02-16T09:21:20.545525544Z stdout F example: 15 Tue Feb 16 09:21:20 UTC 2021`
+			source.Codec.Type = regex.Type
+			regexcodec := regex.Config{
+				Pattern:    "^(?P<time>[^ ^Z]+Z) (?P<stream>stdout|stderr) (?P<logtag>[^ ]*) (?P<log>.*)$",
+				BodyFields: "log",
+			}
+			if source.Codec.CommonCfg, err = cfg.Pack(&regexcodec); err != nil {
+				return errors.WithMessage(err, "pack regex codec config failed")
+			}
+		}
+	}
+
 	filecfg.CollectConfig.Paths = nodePaths
-	err = s.setFileConfig(filecfg)
+	err = filesource.setFileConfig(filecfg)
 	if err != nil {
 		return err
 	}

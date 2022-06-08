@@ -27,8 +27,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/loggie-io/loggie/pkg/core/global"
-
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util"
 )
@@ -329,20 +327,6 @@ func (j *Job) ProductEvent(endOffset int64, collectTime time.Time, body []byte) 
 	}
 	e := j.task.eventPool.Get()
 	e.Meta().Set(SystemStateKey, state)
-
-	if j.task.config.AddonMeta {
-		addonMeta := make(map[string]interface{})
-		addonMeta["pipeline"] = state.PipelineName
-		addonMeta["source"] = state.SourceName
-		addonMeta["filename"] = state.Filename
-		addonMeta["timestamp"] = state.CollectTime.Local().Format(tsLayout)
-		addonMeta["offset"] = state.Offset
-		addonMeta["bytes"] = state.ContentBytes
-		addonMeta["hostname"] = global.NodeName
-
-		e.Header()["state"] = addonMeta
-	}
-
 	// copy body,because readBuffer reuse
 	contentBuffer := make([]byte, contentBytes)
 	copy(contentBuffer, body)

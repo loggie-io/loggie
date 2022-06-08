@@ -32,7 +32,8 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/sink"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/eventbus"
-	"github.com/loggie-io/loggie/pkg/sink/codec"
+	sinkcodec "github.com/loggie-io/loggie/pkg/sink/codec"
+	sourcecodec "github.com/loggie-io/loggie/pkg/source/codec"
 	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/pkg/errors"
 )
@@ -398,7 +399,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 	codecConf := sinkConfigs.Codec
 
 	// init codec
-	cod, ok := codec.Get(codecConf.Type)
+	cod, ok := sinkcodec.Get(codecConf.Type)
 	if !ok {
 		return errors.Errorf("codec %s cannot be found", codecConf.Type)
 	}
@@ -413,7 +414,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 
 	// set codec to sink
 	component, _ := GetWithType(ctx.Category(), ctx.Type(), p.info)
-	if si, ok := component.(codec.SinkCodec); ok {
+	if si, ok := component.(sinkcodec.SinkCodec); ok {
 		si.SetCodec(cod)
 	}
 
@@ -531,7 +532,33 @@ func (p *Pipeline) startSource(sourceConfigs []source.Config) error {
 		}
 
 		ctx := context.NewContext(sourceConfig.Name, api.Type(sourceConfig.Type), api.SOURCE, sourceConfig.Properties)
-		err := p.startComponent(ctx)
+
+		component, _ := GetWithType(ctx.Category(), ctx.Type(), p.info)
+
+		// get codec config
+		codecConf := sourceConfig.Codec
+		if codecConf != nil {
+			// init codec
+			cod, ok := sourcecodec.Get(codecConf.Type)
+			if !ok {
+				return errors.Errorf("codec %s cannot be found", codecConf.Type)
+			}
+			if conf, ok := cod.(api.Config); ok {
+				err := cfg.UnpackAndDefaults(codecConf.CommonCfg, conf.Config())
+				if err != nil {
+					// since Loggie has validate the configuration before start, we would never reach here
+					return errors.WithMessage(err, "unpack codec config error")
+				}
+			}
+			cod.Init()
+
+			// set codec to source
+			if si, ok := component.(sourcecodec.SourceCodec); ok {
+				si.SetCodec(cod)
+			}
+		}
+
+		err := p.startWithComponent(component, ctx)
 		if err != nil {
 			return err
 		}

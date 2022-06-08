@@ -33,7 +33,8 @@ type Config struct {
 	PodLogDirPrefix  string `yaml:"podLogDirPrefix" default:"/var/log/pods"`
 	KubeletRootDir   string `yaml:"kubeletRootDir" default:"/var/lib/kubelet"`
 
-	Fields Fields `yaml:"fields"`
+	Fields      Fields `yaml:"fields"`
+	ParseStdout bool   `yaml:"parseStdout"`
 }
 
 type Fields struct {
