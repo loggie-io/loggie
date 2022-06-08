@@ -17,6 +17,7 @@ limitations under the License.
 package pipeline
 
 import (
+	"github.com/goccy/go-yaml"
 	"log"
 	"time"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/queue"
 	"github.com/loggie-io/loggie/pkg/core/sink"
 	"github.com/loggie-io/loggie/pkg/core/source"
-	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
