@@ -19,10 +19,20 @@ loggie:
     enabled: false
     kubernetes:
       kubeconfig: ~/.kube/config
+      k8sFields:
+        namespace: "${_k8s.pod.namespace}"
+        podname: "${_k8s.pod.name}"
+        containername: "${_k8s.pod.container.name}"
+        nodename: "${_k8s.node.name}"
+        logconfig: "${_k8s.logconfig}"
 
   defaults:
     sink:
       type: dev
+      printEvents: true
+#      codec:
+#        type: json
+#        pretty: true
     sources:
       - type: file
         watcher:

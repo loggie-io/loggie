@@ -28,7 +28,7 @@ const ProcessorFmt = "fmt"
 type FmtProcessor struct {
 	config *FmtConfig
 
-	patternMatcher map[string][][]string
+	patternMatcher map[string]*pattern.Pattern
 }
 
 type FmtConfig struct {
@@ -37,7 +37,7 @@ type FmtConfig struct {
 
 func (c *FmtConfig) Validate() error {
 	for _, v := range c.Fields {
-		if _, err := pattern.InitMatcher(v); err != nil {
+		if err := pattern.Validate(v); err != nil {
 			return err
 		}
 	}
@@ -53,7 +53,7 @@ func init() {
 func NewFmtProcessor() *FmtProcessor {
 	return &FmtProcessor{
 		config:         &FmtConfig{},
-		patternMatcher: make(map[string][][]string),
+		patternMatcher: make(map[string]*pattern.Pattern),
 	}
 }
 
@@ -63,8 +63,8 @@ func (r *FmtProcessor) Config() interface{} {
 
 func (r *FmtProcessor) Init() {
 	for k, v := range r.config.Fields {
-		matcher := pattern.MustInitMatcher(v)
-		r.patternMatcher[k] = matcher
+		p, _ := pattern.Init(v)
+		r.patternMatcher[k] = p
 	}
 }
 
@@ -76,11 +76,10 @@ func (r *FmtProcessor) Process(e api.Event) error {
 		return nil
 	}
 
-	header := e.Header()
-	headerObj := runtime.NewObject(header)
+	headerObj := runtime.NewObject(e.Header())
 
 	for k, v := range r.config.Fields {
-		result, err := runtime.PatternFormat(headerObj, v, r.patternMatcher[k])
+		result, err := r.patternMatcher[k].WithObject(headerObj).Render()
 		if err != nil {
 			log.Warn("reformat %s by %s error: %v", k, v, err)
 			continue

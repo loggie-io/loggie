@@ -18,6 +18,7 @@ package kafka
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -69,6 +70,11 @@ type SASL struct {
 }
 
 func (c *Config) Validate() error {
+
+	if err := pattern.Validate(c.Topic); err != nil {
+		return err
+	}
+
 	if c.Balance != "" && c.Balance != BalanceHash && c.Balance != BalanceRoundRobin && c.Balance != BalanceLeastBytes {
 		return fmt.Errorf("kafka sink balance %s is not supported", c.Balance)
 	}
