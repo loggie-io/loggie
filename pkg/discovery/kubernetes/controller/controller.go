@@ -18,6 +18,7 @@ package controller
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	"reflect"
 	"time"
 
@@ -86,7 +87,8 @@ type Controller struct {
 
 	nodeLabels map[string]string
 
-	record record.EventRecorder
+	record  record.EventRecorder
+	runtime runtime.Runtime
 }
 
 func NewController(
@@ -99,6 +101,7 @@ func NewController(
 	sinkInformer logconfigInformers.SinkInformer,
 	interceptorInformer logconfigInformers.InterceptorInformer,
 	nodeInformer corev1Informers.NodeInformer,
+	runtime runtime.Runtime,
 ) *Controller {
 
 	log.Info("Creating event broadcaster")
@@ -130,7 +133,8 @@ func NewController(
 		typeClusterIndex: index.NewLogConfigTypeLoggieIndex(),
 		typeNodeIndex:    index.NewLogConfigTypeNodeIndex(),
 
-		record: recorder,
+		record:  recorder,
+		runtime: runtime,
 	}
 
 	log.Info("Setting up event handlers")
