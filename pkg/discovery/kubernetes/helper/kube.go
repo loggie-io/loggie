@@ -18,9 +18,12 @@ package helper
 
 import (
 	"bytes"
+	"context"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -123,10 +126,18 @@ func LabelsSubset(i map[string]string, j map[string]string) bool {
 	return true
 }
 
-func PathsInNode(kubeletRootDir string, paths []string, pod *corev1.Pod, containerName string) ([]string, error) {
-	nodePaths := make([]string, 0)
+func PathsInNode(podLogDirPrefix string, kubeletRootDir string, rootFsCollectionEnabled bool, runtime runtime.Runtime,
+	paths []string, pod *corev1.Pod, containerId string, containerName string) ([]string, error) {
+
+	var nodePaths []string
+	var containerRootfsPaths []string
 
 	for _, path := range paths {
+		if path == logconfigv1beta1.PathStdout {
+			nodePaths = append(nodePaths, GenContainerStdoutLog(podLogDirPrefix, pod.Namespace, pod.Name, string(pod.UID), containerName)...)
+			continue
+		}
+
 		volumeName, volumeMountPath, subPathRes, err := findVolumeMountsByPaths(path, pod, containerName)
 		if err != nil {
 			return nil, err
@@ -134,19 +145,33 @@ func PathsInNode(kubeletRootDir string, paths []string, pod *corev1.Pod, contain
 
 		nodePath, err := nodePathByContainerPath(path, pod, volumeName, volumeMountPath, subPathRes, kubeletRootDir)
 		if err != nil {
+			if rootFsCollectionEnabled {
+				containerRootfsPaths = append(containerRootfsPaths, path)
+				continue
+			}
+
 			return nil, err
 		}
 
 		nodePaths = append(nodePaths, nodePath)
 	}
+
+	// fallback to container root filesystem log collection
+	if len(containerRootfsPaths) > 0 {
+		// find node path in container root filesystem
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		rootfsPaths, err := runtime.GetRootfsPath(ctx, containerId, containerRootfsPaths)
+		if err != nil {
+			return nil, err
+		}
+		nodePaths = append(nodePaths, rootfsPaths...)
+	}
+
 	return nodePaths, nil
 }
 
-func GenDockerStdoutLog(dockerDataRoot string, containerId string) string {
-	return filepath.Join(dockerDataRoot, "containers", containerId, containerId+"-json.log")
-}
-
-func GenContainerdStdoutLog(podLogDirPrefix string, namespace string, podName string, podUID string, containerName string) []string {
+func GenContainerStdoutLog(podLogDirPrefix string, namespace string, podName string, podUID string, containerName string) []string {
 	var paths []string
 
 	paths = append(paths, filepath.Join(podLogDirPrefix, podUID, containerName, "*.log"))
