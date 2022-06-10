@@ -25,6 +25,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/goccy/go-yaml"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/global"
@@ -37,7 +38,6 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/include"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"go.uber.org/automaxprocs/maxprocs"
-	"gopkg.in/yaml.v2"
 )
 
 var (

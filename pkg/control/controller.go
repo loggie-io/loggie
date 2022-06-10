@@ -17,6 +17,7 @@ limitations under the License.
 package control
 
 import (
+	"github.com/goccy/go-yaml"
 	"net/http"
 	_ "net/http/pprof"
 	"time"
@@ -25,7 +26,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"gopkg.in/yaml.v2"
 )
 
 const handleCurrentPipelines = "/api/v1/controller/pipelines"

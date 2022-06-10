@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/goccy/go-yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/loggie-io/loggie/pkg/control"
@@ -29,7 +30,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"gopkg.in/yaml.v2"
 )
 
 type Reloader struct {
