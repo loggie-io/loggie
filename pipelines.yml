@@ -3,8 +3,9 @@ pipelines:
     sources:
       - type: file
         name: demo
+        charset: gbk
         paths:
-          - /tmp/log/*.log
+          - /home/zhanglei/*.log
         fields:
           topic: "loggie"
     sink:

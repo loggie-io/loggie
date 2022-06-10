@@ -117,6 +117,7 @@ type ReaderConfig struct {
 	MaxContinueRead        int           `yaml:"maxContinueRead,omitempty" default:"16"`
 	MaxContinueReadTimeout time.Duration `yaml:"maxContinueReadTimeout,omitempty" default:"3s"`
 	InactiveTimeout        time.Duration `yaml:"inactiveTimeout,omitempty" default:"3s"`
+	Charset                string        `yaml:"charset,omitempty" default:"utf-8"`
 	MultiConfig            MultiConfig   `yaml:"multi,omitempty"`
 }
 
