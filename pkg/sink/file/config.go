@@ -16,6 +16,8 @@ limitations under the License.
 
 package file
 
+import "github.com/loggie-io/loggie/pkg/util/pattern"
+
 type Config struct {
 	// WorkerCount is the number of concurrent goroutines writing files
 	WorkerCount int `yaml:"workerCount,omitempty" default:"1"`
@@ -48,4 +50,18 @@ type Config struct {
 	// Compress determines if the rotated log files should be compressed
 	// using gzip. The default is not to perform compression.
 	Compress bool `yaml:"compress,omitempty"`
+}
+
+func (c *Config) Validate() error {
+	if c.DirHashKey != "" {
+		if err := pattern.Validate(c.DirHashKey); err != nil {
+			return err
+		}
+	}
+
+	if err := pattern.Validate(c.Filename); err != nil {
+		return err
+	}
+
+	return nil
 }

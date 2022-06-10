@@ -23,7 +23,8 @@ import (
 )
 
 var (
-	ErrSourceNameRequired = errors.New("source name is required")
+	ErrSourceNameRequired = errors.New("pipelines[n].source.name is required")
+	ErrSourceTypeRequired = errors.New("pipelines[n].source.type is required")
 )
 
 type Config struct {
@@ -38,6 +39,9 @@ type Config struct {
 func (c *Config) Validate() error {
 	if c.Name == "" {
 		return ErrSourceNameRequired
+	}
+	if c.Type == "" {
+		return ErrSourceTypeRequired
 	}
 	if c.Codec != nil {
 		if err := c.Codec.Validate(); err != nil {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"strings"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -34,8 +35,8 @@ type ClientSet struct {
 	config            *Config
 	cli               *es.Client
 	codec             codec.Codec
-	indexMatcher      [][]string
-	documentIdMatcher [][]string
+	indexPattern      *pattern.Pattern
+	documentIdPattern *pattern.Pattern
 }
 
 type Client interface {
@@ -43,7 +44,7 @@ type Client interface {
 	Stop()
 }
 
-func NewClient(config *Config, cod codec.Codec, indexMatcher [][]string, documentIdMatcher [][]string) (*ClientSet, error) {
+func NewClient(config *Config, cod codec.Codec, indexPattern *pattern.Pattern, documentIdPattern *pattern.Pattern) (*ClientSet, error) {
 	for i, h := range config.Hosts {
 		if !strings.HasPrefix(h, "http") && !strings.HasPrefix(h, "https") {
 			config.Hosts[i] = fmt.Sprintf("http://%s", h)
@@ -76,19 +77,18 @@ func NewClient(config *Config, cod codec.Codec, indexMatcher [][]string, documen
 		cli:               cli,
 		config:            config,
 		codec:             cod,
-		indexMatcher:      indexMatcher,
-		documentIdMatcher: documentIdMatcher,
+		indexPattern:      indexPattern,
+		documentIdPattern: documentIdPattern,
 	}, nil
 }
 
 func (c *ClientSet) BulkIndex(ctx context.Context, batch api.Batch) error {
 	req := c.cli.Bulk()
 	for _, event := range batch.Events() {
-		header := event.Header()
-		headerObj := runtime.NewObject(header)
+		headerObj := runtime.NewObject(event.Header())
 
 		// select index
-		idx, err := runtime.PatternFormat(headerObj, c.config.Index, c.indexMatcher)
+		idx, err := c.indexPattern.WithObject(headerObj).Render()
 		if err != nil {
 			return errors.WithMessagef(err, "select index pattern error")
 		}
@@ -103,7 +103,7 @@ func (c *ClientSet) BulkIndex(ctx context.Context, batch api.Batch) error {
 			bulkIndexRequest.Type(c.config.Etype)
 		}
 		if c.config.DocumentId != "" {
-			id, err := runtime.PatternFormat(headerObj, c.config.DocumentId, c.documentIdMatcher)
+			id, err := c.documentIdPattern.WithObject(headerObj).Render()
 			if err != nil {
 				return errors.WithMessagef(err, "format documentId %s failed", c.config.DocumentId)
 			}

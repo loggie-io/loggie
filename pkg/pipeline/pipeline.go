@@ -358,6 +358,10 @@ func (p *Pipeline) validateComponent(ctx api.Context) error {
 
 func (p *Pipeline) validate() error {
 	pipelineConfig := &p.config
+	if pipelineConfig.Name == "" {
+		return errors.New("pipelines[n].name is required")
+	}
+
 	for _, iConfig := range pipelineConfig.Interceptors {
 		ctx := context.NewContext(iConfig.Name, api.Type(iConfig.Type), api.INTERCEPTOR, iConfig.Properties)
 		if err := p.validateComponent(ctx); err != nil {
@@ -372,12 +376,18 @@ func (p *Pipeline) validate() error {
 	}
 
 	sinkConfig := pipelineConfig.Sink
+	if sinkConfig == nil || sinkConfig.Type == "" {
+		return errors.New("pipelines[n].sink is required")
+	}
 	ctx = context.NewContext(sinkConfig.Name, api.Type(sinkConfig.Type), api.SINK, sinkConfig.Properties)
 	if err := p.validateComponent(ctx); err != nil {
 		return err
 	}
 
 	unique := make(map[string]struct{})
+	if len(pipelineConfig.Sources) == 0 {
+		return errors.New("pipelines[n].source is required")
+	}
 	for _, sourceConfig := range pipelineConfig.Sources {
 		if _, ok := unique[sourceConfig.Name]; ok {
 			return errors.Errorf("source name %s is duplicated", sourceConfig.Name)

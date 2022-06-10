@@ -50,8 +50,8 @@ type Sink struct {
 
 	consistent *consistent.Consistent
 
-	dirHashKeyMatcher [][]string
-	filenameMatcher   [][]string
+	dirHashKeyPattern *pattern.Pattern
+	filenamePattern   *pattern.Pattern
 }
 
 func NewSink() *Sink {
@@ -88,8 +88,8 @@ func (s *Sink) Init(context api.Context) error {
 		}
 	}
 
-	s.dirHashKeyMatcher = pattern.MustInitMatcher(s.config.DirHashKey)
-	s.filenameMatcher = pattern.MustInitMatcher(s.config.Filename)
+	s.dirHashKeyPattern, _ = pattern.Init(s.config.DirHashKey)
+	s.filenamePattern, _ = pattern.Init(s.config.Filename)
 	return nil
 }
 
@@ -153,8 +153,9 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 func (s *Sink) selectFilename(e api.Event) (string, error) {
 	var dir string
+	headerObj := runtime.NewObject(e.Header())
 	if s.consistent != nil {
-		dirHashKey, err := runtime.PatternFormat(runtime.NewObject(e.Header()), s.config.DirHashKey, s.dirHashKeyMatcher)
+		dirHashKey, err := s.dirHashKeyPattern.WithObject(headerObj).Render()
 		if err != nil {
 			return "", err
 		}
@@ -163,7 +164,7 @@ func (s *Sink) selectFilename(e api.Event) (string, error) {
 			return "", err
 		}
 	}
-	filename, err := runtime.PatternFormat(runtime.NewObject(e.Header()), s.config.Filename, s.filenameMatcher)
+	filename, err := s.filenamePattern.WithObject(headerObj).Render()
 	if err != nil {
 		return "", err
 	}

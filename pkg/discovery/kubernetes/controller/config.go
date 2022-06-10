@@ -18,6 +18,7 @@ package controller
 
 import (
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/pkg/errors"
 	"net/url"
 )
@@ -35,8 +36,9 @@ type Config struct {
 	PodLogDirPrefix         string   `yaml:"podLogDirPrefix" default:"/var/log/pods"`
 	KubeletRootDir          string   `yaml:"kubeletRootDir" default:"/var/lib/kubelet"`
 
-	Fields      Fields `yaml:"fields"`
-	ParseStdout bool   `yaml:"parseStdout"`
+	Fields      Fields            `yaml:"fields"` // Deprecated: use k8sFields instead
+	K8sFields   map[string]string `yaml:"k8sFields"`
+	ParseStdout bool              `yaml:"parseStdout"`
 }
 
 type Fields struct {
@@ -67,5 +69,14 @@ func (c *Config) Validate() error {
 			}
 		}
 	}
+
+	if c.K8sFields != nil {
+		for _, v := range c.K8sFields {
+			if err := pattern.Validate(v); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
