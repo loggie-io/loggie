@@ -344,7 +344,6 @@ func (c *Controller) getConfigPerSource(config *Config, s fileSource, pod *corev
 		if err = injectFields(config, s.MatchFields, src, pod, logconfigName, status.Name); err != nil {
 			return nil, err
 		}
-
 		if err = filesrc.setSource(src); err != nil {
 			return nil, err
 		}
@@ -406,6 +405,9 @@ func (c *Controller) updatePaths(config *Config, source *source.Config, filesour
 			if source.Codec.CommonCfg, err = cfg.Pack(&regexcodec); err != nil {
 				return errors.WithMessage(err, "pack regex codec config failed")
 			}
+		}
+		if err := filesource.setSource(source); err != nil {
+			return err
 		}
 	}
 
