@@ -17,7 +17,7 @@ limitations under the License.
 package util
 
 import (
-	"gopkg.in/yaml.v2"
+	"github.com/goccy/go-yaml"
 )
 
 func Clone(a, b interface{}) error {
