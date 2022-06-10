@@ -1,6 +1,7 @@
 package prometheus_exporter
 
 import (
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"net/url"
 	"time"
 )
@@ -21,5 +22,14 @@ func (c *Config) Validate() error {
 			return err
 		}
 	}
+
+	if len(c.Labels) != 0 {
+		for _, v := range c.Labels {
+			if err := pattern.Validate(v); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }

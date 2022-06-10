@@ -18,9 +18,6 @@ package runtime
 
 import (
 	"strings"
-
-	"github.com/loggie-io/loggie/pkg/util"
-	"github.com/pkg/errors"
 )
 
 func GetQueryPaths(query string) []string {
@@ -38,48 +35,4 @@ func GetQueryUpperPaths(query string) ([]string, string) {
 	lastQuery := last[0]
 
 	return upper, lastQuery
-}
-
-// PatternFormat
-// eg: pattern: aa-${field.bb}-${+YYYY.MM.DD}
-// field.bb in event is xx
-// would be format to: aa-xx-2021.07.04
-func PatternFormat(obj *Object, pattern string, matcher [][]string) (string, error) {
-	if len(matcher) == 0 {
-		return pattern, nil
-	}
-	var oldNew []string
-
-	for _, m := range matcher {
-		keyWrap := m[0] // ${fields.xx}
-		key := m[1]     // fields.xx
-
-		alt, err := getNew(obj, key)
-		if err != nil {
-			return "", errors.WithMessage(err, "replace pattern error")
-		}
-		// add old
-		oldNew = append(oldNew, keyWrap)
-		// add new
-		oldNew = append(oldNew, alt)
-	}
-
-	replacer := strings.NewReplacer(oldNew...)
-	res := replacer.Replace(pattern)
-
-	return res, nil
-}
-
-const timeToken = "+"
-
-func getNew(obj *Object, key string) (string, error) {
-	if strings.HasPrefix(key, timeToken) { // timeFormat
-		return util.TimeFormatNow(strings.TrimLeft(key, timeToken)), nil
-	}
-
-	val, err := obj.GetPath(key).String()
-	if err != nil {
-		return "", err
-	}
-	return val, nil
 }

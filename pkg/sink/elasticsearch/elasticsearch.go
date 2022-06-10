@@ -79,9 +79,9 @@ func (s *Sink) Init(context api.Context) error {
 }
 
 func (s *Sink) Start() error {
-	indexMatchers := pattern.MustInitMatcher(s.config.Index)
-	documentIdMatchers := pattern.MustInitMatcher(s.config.DocumentId)
-	cli, err := NewClient(s.config, s.codec, indexMatchers, documentIdMatchers)
+	indexPattern, _ := pattern.Init(s.config.Index)
+	documentIdPattern, _ := pattern.Init(s.config.DocumentId)
+	cli, err := NewClient(s.config, s.codec, indexPattern, documentIdPattern)
 	if err != nil {
 		log.Error("start elasticsearch connection fail, err: %v", err)
 		return err

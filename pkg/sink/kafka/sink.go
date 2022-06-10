@@ -48,7 +48,7 @@ type Sink struct {
 	writer *kafka.Writer
 	cod    codec.Codec
 
-	topicMatcher [][]string
+	topicPattern *pattern.Pattern
 }
 
 func NewSink() *Sink {
@@ -78,7 +78,7 @@ func (s *Sink) String() string {
 }
 
 func (s *Sink) Init(context api.Context) error {
-	s.topicMatcher = pattern.MustInitMatcher(s.config.Topic)
+	s.topicPattern, _ = pattern.Init(s.config.Topic)
 	return nil
 }
 
@@ -156,5 +156,5 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 }
 
 func (s *Sink) selectTopic(e api.Event) (string, error) {
-	return runtime.PatternFormat(runtime.NewObject(e.Header()), s.config.Topic, s.topicMatcher)
+	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).Render()
 }
