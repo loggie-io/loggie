@@ -143,6 +143,8 @@ func (s *Sink) sendBatch(c context.Context, batch api.Batch) api.Result {
 	return result.Success()
 }
 
+const token = "_"
+
 func (s *Sink) event2stream(event api.Event) (*logproto.Stream, error) {
 	t, ok := event.Meta().Get(eventer.SystemProductTimeKey)
 	if !ok {
@@ -150,7 +152,7 @@ func (s *Sink) event2stream(event api.Event) (*logproto.Stream, error) {
 	}
 
 	obj := runtime.NewObject(event.Header())
-	flatHeader, err := obj.FlatKeyValue()
+	flatHeader, err := obj.FlatKeyValue(token)
 	if err != nil {
 		return nil, err
 	}

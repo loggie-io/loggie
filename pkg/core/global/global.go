@@ -19,3 +19,9 @@ package global
 var (
 	NodeName string
 )
+
+var _VERSION_ = "unknown"
+
+func GetVersion() string {
+	return _VERSION_
+}

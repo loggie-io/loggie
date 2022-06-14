@@ -317,7 +317,7 @@ func TestObject_FlatKeyValue(t *testing.T) {
 			obj := &Object{
 				data: tt.fields.data,
 			}
-			got, err := obj.FlatKeyValue()
+			got, err := obj.FlatKeyValue("_")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("FlatKeyValue() error = %v, wantErr %v", err, tt.wantErr)
 				return
