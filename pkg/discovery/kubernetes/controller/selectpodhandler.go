@@ -342,7 +342,7 @@ func (c *Controller) getConfigPerSource(config *Config, s fileSource, pod *corev
 		src.Name = genTypePodSourceName(pod.Name, status.Name, src.Name)
 
 		// inject default pod metadata
-		if err = c.injectFields(s.MatchFields, src, pod, logconfigName, status.Name); err != nil {
+		if err = c.injectFields(config, s.MatchFields, src, pod, logconfigName, status.Name); err != nil {
 			return nil, err
 		}
 		if err = filesrc.setSource(src); err != nil {
@@ -428,9 +428,32 @@ func (c *Controller) getPathsInNode(config *Config, containerPaths []string, pod
 	return helper.PathsInNode(config.PodLogDirPrefix, config.KubeletRootDir, config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
 }
 
-func (c *Controller) injectFields(match *matchFields, src *source.Config, pod *corev1.Pod, lgcName string, containerName string) error {
+func (c *Controller) injectFields(config *Config, match *matchFields, src *source.Config, pod *corev1.Pod, lgcName string, containerName string) error {
 	if src.Fields == nil {
 		src.Fields = make(map[string]interface{})
+	}
+
+	m := config.Fields
+	if m.Namespace != "" {
+		src.Fields[m.Namespace] = pod.Namespace
+	}
+	if m.NodeName != "" {
+		src.Fields[m.NodeName] = pod.Spec.NodeName
+	}
+	if m.NodeIP != "" {
+		src.Fields[m.NodeIP] = pod.Status.HostIP
+	}
+	if m.PodName != "" {
+		src.Fields[m.PodName] = pod.Name
+	}
+	if m.PodIP != "" {
+		src.Fields[m.PodIP] = pod.Status.PodIP
+	}
+	if m.ContainerName != "" {
+		src.Fields[m.ContainerName] = containerName
+	}
+	if m.LogConfig != "" {
+		src.Fields[m.LogConfig] = lgcName
 	}
 
 	if len(c.extraFieldsPattern) > 0 {
