@@ -62,6 +62,8 @@ func main() {
 	// init logging configuration
 	log.InitDefaultLogger()
 
+	log.Info("version: %s", global.GetVersion())
+
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 

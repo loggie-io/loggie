@@ -3,6 +3,7 @@ module github.com/loggie-io/loggie
 go 1.17
 
 require (
+	github.com/aliyun/aliyun-log-go-sdk v0.1.35
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129
 	github.com/bmatcuk/doublestar/v4 v4.0.2
 	github.com/creasty/defaults v1.5.1
@@ -47,6 +48,7 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/distribution v2.7.1+incompatible // indirect

@@ -159,7 +159,7 @@ func (obj *Object) Value() interface{} {
 	return obj.data
 }
 
-func (obj *Object) FlatKeyValue() (map[string]interface{}, error) {
+func (obj *Object) FlatKeyValue(token string) (map[string]interface{}, error) {
 	m, err := obj.Map()
 	if err != nil {
 		return nil, err
@@ -168,20 +168,18 @@ func (obj *Object) FlatKeyValue() (map[string]interface{}, error) {
 		return m, nil
 	}
 	dest := make(map[string]interface{})
-	flatten("", m, dest)
+	flatten(token, "", m, dest)
 	return dest, nil
 }
 
-const token = "_"
-
-func flatten(prefix string, src map[string]interface{}, dest map[string]interface{}) {
+func flatten(token string, prefix string, src map[string]interface{}, dest map[string]interface{}) {
 	if len(prefix) > 0 {
 		prefix += token
 	}
 	for k, v := range src {
 		switch child := v.(type) {
 		case map[string]interface{}:
-			flatten(prefix+k, child, dest)
+			flatten(token, prefix+k, child, dest)
 		case []interface{}:
 			for i := 0; i < len(child); i++ {
 				dest[prefix+k+token+strconv.Itoa(i)] = child[i]
