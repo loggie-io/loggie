@@ -140,6 +140,11 @@ func PathsInNode(podLogDirPrefix string, kubeletRootDir string, rootFsCollection
 
 		volumeName, volumeMountPath, subPathRes, err := findVolumeMountsByPaths(path, pod, containerName)
 		if err != nil {
+			if rootFsCollectionEnabled {
+				containerRootfsPaths = append(containerRootfsPaths, path)
+				continue
+			}
+
 			return nil, err
 		}
 
