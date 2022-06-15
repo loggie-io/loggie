@@ -96,7 +96,7 @@ func (s *Sink) Start() error {
 		return errors.Errorf("Logstore %s is not exist", conf.LogStore)
 	}
 
-	s.client.SetUserAgent(sls.DefaultLogUserAgent + "loggie/" + global.GetVersion())
+	s.client.SetUserAgent(sls.DefaultLogUserAgent + " loggie/" + global.GetVersion())
 
 	return nil
 }
