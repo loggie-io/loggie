@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@ limitations under the License.
 package zinc
 
 type Config struct {
-	PrintEvents bool   `yaml:"printEvents" default:"false"`
-	Index       string `yaml:"index" default:"default"`
-	Host        string `yaml:"host" default:"http://127.0.0.1:4080"`
-	Username    string `yaml:"username" default:"admin"`
-	Password    string `yaml:"password" default:"Complexpass#123"`
+	Index     string `yaml:"index" default:"default"`
+	Host      string `yaml:"host" default:"http://127.0.0.1:4080"`
+	Username  string `yaml:"username" default:"admin"`
+	Password  string `yaml:"password" default:""`
+	UserAgent string `yaml:"userAgent" default:"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36"`
 }

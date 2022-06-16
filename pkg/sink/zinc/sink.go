@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package zinc
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -43,6 +42,7 @@ type Sink struct {
 	name   string
 	config *Config
 	codec  codec.Codec
+	client *http.Client
 }
 
 func NewSink() *Sink {
@@ -73,6 +73,7 @@ func (s *Sink) String() string {
 
 func (s *Sink) Init(context api.Context) error {
 	s.name = context.Name()
+	s.client = &http.Client{}
 	return nil
 }
 
@@ -91,9 +92,6 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		return nil
 	}
 
-	if !s.config.PrintEvents {
-		return result.NewResult(api.SUCCESS)
-	}
 	dataList := make([]string, 0)
 	for _, e := range events {
 		// json encode
@@ -102,30 +100,26 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			log.Warn("codec event error: %+v", err)
 			continue
 		}
-		log.Info("event: %s", string(out))
-		dataList = append(dataList, fmt.Sprintf("{ \"index\" : { \"_index\" : \"%s\" } }", s.config.Index))
+		var builder strings.Builder
+		builder.WriteString("{ \"index\" : { \"_index\" : \"")
+		builder.WriteString(s.config.Index)
+		builder.WriteString("\"}}")
+		dataList = append(dataList, builder.String())
 		dataList = append(dataList, string(out))
 	}
 	ndjson := strings.Join(dataList, "\n")
-	log.Info(ndjson)
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/_bulk", s.config.Host), strings.NewReader(ndjson))
 	if err != nil {
 		return result.Fail(err)
 	}
 	req.SetBasicAuth(s.config.Username, s.config.Password)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36")
+	req.Header.Set("User-Agent", s.config.UserAgent)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := s.client.Do(req)
 	if err != nil {
 		return result.Fail(err)
 	}
 	defer resp.Body.Close()
-	log.Info("StatusCode: %d", resp.StatusCode)
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return result.Fail(err)
-	}
-	fmt.Println(string(body))
 	return result.NewResult(api.SUCCESS)
 }
