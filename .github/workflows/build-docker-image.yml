@@ -44,5 +44,7 @@ jobs:
         run: echo ${GITHUB_REPOSITORY#*/}
       - name: Build and push
         id: docker_buildx
-        run: docker buildx build --platform linux/amd64,linux/arm64 . --push -t ${{ secrets.DOCKERHUB_USERNAME }}/${GITHUB_REPOSITORY#*/}:${GITHUB_REF#refs/heads/}-${GITHUB_SHA::8}
+        run: docker buildx build --platform linux/amd64,linux/arm64 . --push -t ${{ secrets.DOCKERHUB_USERNAME }}/${GITHUB_REPOSITORY#*/}:$INPUT_TAGS
+        with:
+          tags: ${{ steps.meta.outputs.tags }}
 
