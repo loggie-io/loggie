@@ -76,7 +76,7 @@ func (s *Sink) Init(context api.Context) error {
 func (s *Sink) Start() error {
 	log.Info("starting %s", s.String())
 	conf := s.config
-	s.client = sls.CreateNormalInterface(conf.Endpoint, conf.AccessKeyId, conf.AccessKeySecret, conf.SecurityToken)
+	s.client = sls.CreateNormalInterface(conf.Endpoint, conf.AccessKeyId, conf.AccessKeySecret, "")
 
 	// Check if project exist
 	exist, err := s.client.CheckProjectExist(conf.Project)
@@ -96,7 +96,7 @@ func (s *Sink) Start() error {
 		return errors.Errorf("Logstore %s is not exist", conf.LogStore)
 	}
 
-	s.client.SetUserAgent(sls.DefaultLogUserAgent + "loggie/" + global.GetVersion())
+	s.client.SetUserAgent(sls.DefaultLogUserAgent + " loggie/" + global.GetVersion())
 
 	return nil
 }

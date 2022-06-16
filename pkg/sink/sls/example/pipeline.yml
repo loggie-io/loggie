@@ -7,4 +7,4 @@ pipelines:
     accessKeyId:
     accessKeySecret:
     project:
-    logStore:
+    logstore:

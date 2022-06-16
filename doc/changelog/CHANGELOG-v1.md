@@ -1,4 +1,43 @@
-# Loggie release v1.1.0
+# Release v1.2.0
+
+### :star2: Features
+
+- Support container root filesystem log collection, so Loggie could collect the log files in container even if the pod is not mounting any volumes. #209
+- Add `sls` sink for aliyun. #172
+- Support specifying more time intervals(like 1d, 1w, 1y) for the "ignoreOlder" config of file source. #153 (by @iamyeka)
+- Add `ignoreError` in normalize interceptor. #205
+- Add system listener, which can export CPU/Memory metrics of Loggie. #88
+- Set `log.jsonFormat` default to false, so Loggie would no longer print json format logs in default. #186
+- Add `callerSkipCount` and `noColor` logger flag. #185
+- `file sink` support codec. #215 (by @lyp256)
+- Support linux arm64. #229 (by @ziyu-zhao)
+- `addk8smeta` support adding workload metadata. #221 (by @lyp256)
+- Support extra labels in prometheusExporter source. #233
+- Logconfig matchFields labels, annotations and env support wildcards(*). #235 (by @LeiZhang-Hunter)
+- Add source codec for file source. #239
+- Some specific fields pattern now supports `${_env.XX}`, `${+date}`, `${object}`, `${_k8s.XX}`. #248
+- We support rename `body` of events in normalize interceptor now. #238
+- Use local time format in pattern fields. #234
+- Refactor reader process chain. #166
+- Optimize merge strategy of default interceptors. #174 (by @iamyeka)
+- Merge defaults configurations support recursion. #212
+- Cache env for optimizing performance when using fieldsFromEnv. #178 (by @iamyeka)
+- Update yaml lib to goccy/go-yaml. #242
+- Oomit empty pipeline configurations. #244
+
+### :bug: Bug Fixes
+
+- Fix json error with go 1.18. #164
+- Fix list logconfigs by namespace when handling pod events. #173
+- Fix watcher stop timeout in file source. #188
+- Fix MultiFileWriter in file sink. #202 (by @lyp256)
+- Fix pipeline stop may block. #207
+- Fix unstable interceptor sort. #216
+- Fix grpc source ack panic. #218
+- Fix sub path in kubernetes discovery. #236 (by @yuzhichang)
+
+
+# Release v1.1.0
 
 
 ### :star2: Features
@@ -139,7 +178,7 @@
 
 ---
 
-# Loggie release v1.0.0
+# Release v1.0.0
 
 First Loggie Release! :sparkler:
 

@@ -20,8 +20,7 @@ type Config struct {
 	Endpoint        string `yaml:"endpoint,omitempty" validate:"required"`
 	AccessKeyId     string `yaml:"accessKeyId,omitempty" validate:"required"`
 	AccessKeySecret string `yaml:"accessKeySecret,omitempty" validate:"required"`
-	SecurityToken   string `yaml:"securityToken,omitempty"`
 	Project         string `yaml:"project,omitempty" validate:"required"`
-	LogStore        string `yaml:"logStore,omitempty" validate:"required"`
+	LogStore        string `yaml:"logstore,omitempty" validate:"required"`
 	Topic           string `yaml:"topic,omitempty"` // empty topic is supported in sls storage
 }
