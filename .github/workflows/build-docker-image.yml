@@ -36,7 +36,6 @@ jobs:
         with:
           buildx-version: latest
           qemu-version: latest
-          tags: ${{ steps.meta.outputs.tags }}
       - name: get version
         id: get_version
         run: echo ${GITHUB_SHA::8} && echo ${GITHUB_REF#refs/heads/}
@@ -45,4 +44,6 @@ jobs:
         run: echo ${GITHUB_REPOSITORY#*/}
       - name: Build and push
         id: docker_buildx
-        run: docker buildx build --platform linux/amd64,linux/arm64 . --push -t ${{ secrets.DOCKERHUB_USERNAME }}/${GITHUB_REPOSITORY#*/}:$INPUT_TAGS
+        run: docker buildx build --platform linux/amd64,linux/arm64 . --push -t ${{ secrets.DOCKERHUB_USERNAME }}/${GITHUB_REPOSITORY#*/}:$TAGS
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
