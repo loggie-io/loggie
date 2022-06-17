@@ -3,6 +3,7 @@
 
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://loggie-io.github.io/docs/)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/569/badge)](https://bestpractices.coreinfrastructure.org/projects/569)
+[![dockerHub](https://img.shields.io/badge/dockerHub-loggieio%2Floggie-9cf)](https://hub.docker.com/r/loggieio/loggie/)
 
 > English | [中文](./README_cn.md)
 
@@ -44,3 +45,8 @@ Loggie is a lightweight, high-performance, cloud-native agent and aggregator bas
 
 [Apache-2.0](https://choosealicense.com/licenses/apache-2.0/)
 
+## Contributions
+
+Pull requests, comments and suggestions are welcome.
+
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for more information.
