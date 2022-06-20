@@ -292,11 +292,15 @@ func (j *Job) File() *os.File {
 
 const tsLayout = "2006-01-02T15:04:05.000Z"
 
+func (j *Job) GetSplit() string {
+	return globalSplit.GetSplit(j.task.pipelineName, j.task.sourceName)
+}
+
 func (j *Job) ProductEvent(endOffset int64, collectTime time.Time, body []byte) {
 	nextOffset := endOffset + 1
 	contentBytes := int64(len(body))
 	// -1 because `\n`
-	startOffset := nextOffset - contentBytes - 1
+	startOffset := nextOffset - contentBytes - int64(len(j.GetSplit()))
 
 	j.currentLineNumber++
 	j.currentLines++
@@ -319,7 +323,7 @@ func (j *Job) ProductEvent(endOffset int64, collectTime time.Time, body []byte) 
 		LineNumber:   j.currentLineNumber,
 		Filename:     j.filename,
 		CollectTime:  collectTime,
-		ContentBytes: contentBytes + 1, // because `\n`
+		ContentBytes: contentBytes + int64(len(j.GetSplit())), // because `\n`
 		JobUid:       j.Uid(),
 		JobIndex:     j.Index(),
 		watchUid:     watchUid,

@@ -33,7 +33,8 @@ func (lp *LineProcessor) Process(processorChain file.ProcessChain, ctx *file.Job
 	read := int64(len(readBuffer))
 	processed := int64(0)
 	for processed < read {
-		index := int64(bytes.IndexByte(readBuffer[processed:], '\n'))
+		split := job.GetSplit()
+		index := int64(bytes.IndexAny(readBuffer[processed:], split))
 		if index == -1 {
 			break
 		}
@@ -47,7 +48,10 @@ func (lp *LineProcessor) Process(processorChain file.ProcessChain, ctx *file.Job
 			// Clean the backlog buffer after sending
 			ctx.BacklogBuffer = ctx.BacklogBuffer[:0]
 		} else {
-			job.ProductEvent(endOffset, now, readBuffer[processed:index])
+			buffer := readBuffer[processed:index]
+			if len(buffer) > 0 {
+				job.ProductEvent(endOffset, now, buffer)
+			}
 		}
 		processed = index + 1
 	}
