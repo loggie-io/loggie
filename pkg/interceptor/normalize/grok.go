@@ -1,3 +1,19 @@
+/*
+Copyright 2022 Loggie Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package normalize
 
 import (
@@ -57,14 +73,12 @@ type Grok struct {
 }
 
 type GrokConfig struct {
-	Target            string            `yaml:"target,omitempty" default:"body"`
-	Dst               string            `yaml:"dst,omitempty"`
-	Match             []string          `yaml:"match,omitempty" validate:"required"`
-	IgnoreBlank       bool              `yaml:"ignore_blank,omitempty" default:"true"`
-	PatternPaths      []string          `yaml:"pattern_paths,omitempty"`
-	Overwrite         bool              `yaml:"overwrite,omitempty" default:"true"`
-	Pattern           map[string]string `yaml:"pattern,omitempty"`
-	UseDefaultPattern bool              `yaml:"use_default_pattern,omitempty" default:"true"`
+	Target       string            `yaml:"target,omitempty" default:"body"`
+	Match        []string          `yaml:"match,omitempty" validate:"required"`
+	IgnoreBlank  *bool             `yaml:"ignoreBlank"`
+	PatternPaths []string          `yaml:"patternPaths,omitempty"`
+	Overwrite    *bool             `yaml:"overwrite,omitempty"`
+	Pattern      map[string]string `yaml:"pattern,omitempty"`
 }
 
 func init() {
@@ -86,7 +100,7 @@ func (r *GrokProcessor) Config() interface{} {
 func (r *GrokProcessor) Init() {
 	groks := make([]*Grok, 0)
 	for _, rule := range r.config.Match {
-		groks = append(groks, NewGrok(rule, r.config.PatternPaths, r.config.IgnoreBlank, r.config.Pattern, r.config.UseDefaultPattern))
+		groks = append(groks, NewGrok(rule, r.config.PatternPaths, *r.config.IgnoreBlank, r.config.Pattern))
 	}
 	r.groks = groks
 }
@@ -125,28 +139,14 @@ func (r *GrokProcessor) Process(e api.Event) error {
 		if len(rst) == 0 {
 			continue
 		}
-		if r.config.Dst == "" {
-			if r.config.Overwrite {
-				for field, value := range rst {
-					obj.Set(field, value)
-				}
-			} else {
-				for field, value := range rst {
-					if o := obj.Get(field); o.IsNull() {
-						obj.Set(field, value)
-					}
-				}
+		if *r.config.Overwrite {
+			for field, value := range rst {
+				obj.Set(field, value)
 			}
 		} else {
-			dst := make(map[string]interface{})
 			for field, value := range rst {
-				dst[field] = value
-			}
-			if r.config.Overwrite {
-				obj.Set(r.config.Dst, dst)
-			} else {
-				if o := obj.Get(r.config.Dst); o.IsNull() {
-					obj.Set(r.config.Dst, dst)
+				if o := obj.Get(field); o.IsNull() {
+					obj.Set(field, value)
 				}
 			}
 		}
@@ -154,16 +154,11 @@ func (r *GrokProcessor) Process(e api.Event) error {
 	return nil
 }
 
-func NewGrok(match string, patternPaths []string, ignoreBlank bool, pattern map[string]string, defaultPattern bool) *Grok {
+func NewGrok(match string, patternPaths []string, ignoreBlank bool, pattern map[string]string) *Grok {
 	grok := &Grok{
 		patternPaths: patternPaths,
-		patterns:     make(map[string]string),
+		patterns:     DefaultGrokPattern,
 		ignoreBlank:  ignoreBlank,
-	}
-	if defaultPattern {
-		for k, v := range DefaultGrokPattern {
-			grok.patterns[k] = v
-		}
 	}
 	if len(patternPaths) != 0 {
 		grok.loadPatterns()
@@ -207,24 +202,50 @@ func (grok *Grok) loadPatterns() {
 				log.Error("load pattern error:%s", err)
 				continue
 			}
-			defer resp.Body.Close()
+			resp.Body.Close()
 			r = bufio.NewReader(resp.Body)
 			grok.parseLine(r)
 		} else {
-			files, err := getFiles(patternPath)
+			err := grok.parseFiles(patternPath, r)
 			if err != nil {
 				log.Error("get files error %v", err)
 			}
-			for _, file := range files {
-				f, err := os.Open(file)
-				if err != nil {
-					log.Error("load pattern error:%s", err)
-				}
-				r = bufio.NewReader(f)
-				grok.parseLine(r)
-			}
 		}
 	}
+}
+
+func (grok *Grok) parseFiles(filepath string, r *bufio.Reader) error {
+	fi, err := os.Stat(filepath)
+	if err != nil {
+		return err
+	}
+
+	if !fi.IsDir() {
+		return err
+	}
+
+	f, err := os.Open(filepath)
+	if err != nil {
+		return err
+	}
+
+	list, err := f.Readdir(-1)
+	defer f.Close()
+
+	if err != nil {
+		return err
+	}
+	for _, l := range list {
+		if l.Mode().IsRegular() {
+			f, err := os.Open(path.Join(filepath, l.Name()))
+			if err != nil {
+				log.Error("load pattern error:%s", err)
+			}
+			r = bufio.NewReader(f)
+			grok.parseLine(r)
+		}
+	}
+	return nil
 }
 
 func (grok *Grok) parseLine(r *bufio.Reader) {
@@ -247,36 +268,6 @@ func (grok *Grok) parseLine(r *bufio.Reader) {
 		kv := strings.SplitN(string(line), " ", 2)
 		grok.patterns[kv[0]] = strings.TrimSpace(kv[1])
 	}
-}
-
-func getFiles(filepath string) ([]string, error) {
-	fi, err := os.Stat(filepath)
-	if err != nil {
-		return nil, err
-	}
-
-	if !fi.IsDir() {
-		return []string{filepath}, nil
-	}
-
-	f, err := os.Open(filepath)
-	if err != nil {
-		return nil, err
-	}
-
-	list, err := f.Readdir(-1)
-	f.Close()
-
-	if err != nil {
-		return nil, err
-	}
-	files := make([]string, 0)
-	for _, l := range list {
-		if l.Mode().IsRegular() {
-			files = append(files, path.Join(filepath, l.Name()))
-		}
-	}
-	return files, nil
 }
 
 func (grok *Grok) translateMatchPattern(s string) string {
