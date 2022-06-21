@@ -17,9 +17,9 @@ limitations under the License.
 package zinc
 
 type Config struct {
-	Index     string `yaml:"index" default:"default"`
-	Host      string `yaml:"host" default:"http://127.0.0.1:4080"`
-	Username  string `yaml:"username" default:"admin"`
-	Password  string `yaml:"password" default:""`
-	UserAgent string `yaml:"userAgent" default:"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36"`
+	Index         string `yaml:"index,omitempty" default:"default" validate:"required"`
+	Host          string `yaml:"host,omitempty" default:"http://127.0.0.1:4080" validate:"required"`
+	Username      string `yaml:"username,omitempty" default:"admin" validate:"required"`
+	Password      string `yaml:"password,omitempty" default:"" validate:"required"`
+	SkipSSLVerify bool   `yaml:"skipSSLVerify,omitempty" default:"true"`
 }

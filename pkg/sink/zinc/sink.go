@@ -17,15 +17,15 @@ limitations under the License.
 package zinc
 
 import (
+	"crypto/tls"
 	"fmt"
-	"net/http"
-	"strings"
-
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"net/http"
+	"strings"
 )
 
 const Type = "zinc"
@@ -39,10 +39,11 @@ func makeSink(info pipeline.Info) api.Component {
 }
 
 type Sink struct {
-	name   string
-	config *Config
-	codec  codec.Codec
-	client *http.Client
+	name    string
+	config  *Config
+	codec   codec.Codec
+	client  *http.Client
+	pushUrl string
 }
 
 func NewSink() *Sink {
@@ -74,6 +75,14 @@ func (s *Sink) String() string {
 func (s *Sink) Init(context api.Context) error {
 	s.name = context.Name()
 	s.client = &http.Client{}
+	if s.config.SkipSSLVerify {
+		s.client.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}
+	}
+	s.pushUrl = fmt.Sprintf("%s/api/_bulk", s.config.Host)
 	return nil
 }
 
@@ -108,13 +117,12 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		dataList = append(dataList, string(out))
 	}
 	ndjson := strings.Join(dataList, "\n")
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/_bulk", s.config.Host), strings.NewReader(ndjson))
+	req, err := http.NewRequest("POST", s.pushUrl, strings.NewReader(ndjson))
 	if err != nil {
 		return result.Fail(err)
 	}
 	req.SetBasicAuth(s.config.Username, s.config.Password)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("User-Agent", s.config.UserAgent)
 
 	resp, err := s.client.Do(req)
 	if err != nil {
