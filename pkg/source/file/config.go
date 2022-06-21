@@ -50,7 +50,7 @@ type CollectConfig struct {
 
 type LineEndValue struct {
 	LineType  string `yaml:"type,omitempty" default:"auto"`
-	LineValue string `yaml:"value,omitempty" default:""`
+	LineValue string `yaml:"value,omitempty" default:"\n"`
 }
 
 func (cc CollectConfig) IsIgnoreOlder(info os.FileInfo) bool {
