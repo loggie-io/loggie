@@ -3,14 +3,8 @@ pipelines:
     sources:
       - type: file
         name: demo
-        lineEnd:
-          type: custome
-          value: "\r\n"
-        multi:
-          active: true
-          pattern: '^\['
         paths:
-          - /home/zhanglei/*.log
+          - /tmp/log/*.log
         fields:
           topic: "loggie"
     sink:
