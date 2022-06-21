@@ -87,8 +87,6 @@ func (end *LineEndings) Init() {
 
 func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineEndValue *LineEndValue, charset string) error {
 	end.mutex.Lock()
-	fmt.Println(len(lineEndValue.LineValue))
-	fmt.Println((lineEndValue.LineValue))
 	defer end.mutex.Unlock()
 	lineType, ok := lineTerminators[lineEndValue.LineType]
 	if ok == false && lineEndValue.LineType != Customize {
