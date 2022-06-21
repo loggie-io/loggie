@@ -117,7 +117,7 @@ func (mh *MultiHolder) appendContent(content []byte, state State) {
 		mh.state = state
 	} else {
 		// has content, add '\n'
-		split := []byte(globalSplit.GetSplit(mh.state.PipelineName, mh.state.SourceName))
+		split := globalLineEnd.GetLineEnd(mh.state.PipelineName, mh.state.SourceName)
 		mh.content = append(mh.content, split...)
 		mh.currentSize += int64(len(split))
 		// change state

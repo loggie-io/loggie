@@ -30,7 +30,7 @@ type Config struct {
 	DbConfig      DbConfig               `yaml:"db,omitempty"`
 	WatchConfig   WatchConfig            `yaml:"watcher,omitempty"`
 	ReaderConfig  ReaderConfig           `yaml:",inline,omitempty"`
-	Split         string                 `yaml:"split,omitempty" default:"\n"`
+	LineEnd       LineEndValue           `yaml:"lineEnd,omitempty"`
 	CollectConfig CollectConfig          `yaml:",inline,omitempty" validate:"required,dive"`
 	Isolation     string                 `yaml:"isolation,omitempty" default:"pipeline"`
 	Fields        map[string]interface{} `yaml:"fields,omitempty"`
@@ -46,6 +46,11 @@ type CollectConfig struct {
 	FirstNBytesForIdentifier int           `yaml:"firstNBytesForIdentifier,omitempty" default:"128" validate:"gte=10"` // If the file size is smaller than `firstNBytesForIdentifier`, it will not be collected
 	AddonMeta                bool          `yaml:"addonMeta,omitempty"`
 	excludeFilePatterns      []*regexp.Regexp
+}
+
+type LineEndValue struct {
+	LineType  string `yaml:"type,omitempty" default:"auto"`
+	LineValue string `yaml:"value,omitempty" default:""`
 }
 
 func (cc CollectConfig) IsIgnoreOlder(info os.FileInfo) bool {
@@ -119,6 +124,7 @@ type ReaderConfig struct {
 	MaxContinueReadTimeout time.Duration `yaml:"maxContinueReadTimeout,omitempty" default:"3s"`
 	InactiveTimeout        time.Duration `yaml:"inactiveTimeout,omitempty" default:"3s"`
 	MultiConfig            MultiConfig   `yaml:"multi,omitempty"`
+	Charset                string        `yaml:"charset,omitempty" default:"utf-8"`
 }
 
 type MultiConfig struct {

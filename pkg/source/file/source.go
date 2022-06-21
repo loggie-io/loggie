@@ -33,7 +33,7 @@ const Type = "file"
 
 func init() {
 	pipeline.Register(api.SOURCE, Type, makeSource)
-	globalSplit.Init()
+	globalLineEnd.Init()
 }
 
 func makeSource(info pipeline.Info) api.Component {
@@ -117,7 +117,7 @@ func (s *Source) Init(context api.Context) error {
 		SourceName:   s.name,
 		Level:        IsolationLevel(s.config.Isolation),
 	}
-	globalSplit.AddSplit(s.pipelineName, s.name, s.config.Split)
+	globalLineEnd.AddLineEnd(s.pipelineName, s.name, &s.config.LineEnd, s.config.ReaderConfig.Charset)
 	return nil
 }
 
@@ -161,7 +161,7 @@ func (s *Source) Stop() {
 	if s.config.ReaderConfig.MultiConfig.Active {
 		s.multilineProcessor.StopTask(s.mTask)
 	}
-	globalSplit.RemoveSplit(s.pipelineName, s.name)
+	globalLineEnd.RemoveLineEnd(s.pipelineName, s.name)
 	log.Info("source has stopped: %s", s.String())
 }
 
