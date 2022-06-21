@@ -1,3 +1,19 @@
+/*
+Copyright 2022 Loggie Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package normalize
 
 import (
@@ -15,6 +31,8 @@ func TestGrokProcessor_Process(t *testing.T) {
 	type args struct {
 		e api.Event
 	}
+	T := true
+	F := false
 	tests := []struct {
 		name   string
 		fields fields
@@ -27,10 +45,9 @@ func TestGrokProcessor_Process(t *testing.T) {
 				Match: []string{
 					"^%{DATESTAMP:datetime} (?P<file>[a-zA-Z0-9._-]+):%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 				},
-				Target:            "body",
-				IgnoreBlank:       true,
-				Overwrite:         true,
-				UseDefaultPattern: true,
+				Target:      "body",
+				IgnoreBlank: &T,
+				Overwrite:   &T,
 			}},
 			args: args{e: &event.DefaultEvent{
 				H: map[string]interface{}{
@@ -53,10 +70,9 @@ func TestGrokProcessor_Process(t *testing.T) {
 				Match: []string{
 					"^%{DATESTAMP:datetime} (?P<file>[a-zA-Z0-9._-]+):%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 				},
-				Target:            "body",
-				IgnoreBlank:       false,
-				Overwrite:         true,
-				UseDefaultPattern: true,
+				Target:      "body",
+				IgnoreBlank: &F,
+				Overwrite:   &T,
 			}},
 			args: args{e: &event.DefaultEvent{
 				H: map[string]interface{}{
@@ -80,10 +96,9 @@ func TestGrokProcessor_Process(t *testing.T) {
 				Match: []string{
 					"^%{DATESTAMP:datetime} (?P<file>[a-zA-Z0-9._-]+):%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 				},
-				Target:            "body",
-				IgnoreBlank:       true,
-				Overwrite:         false,
-				UseDefaultPattern: true,
+				Target:      "body",
+				IgnoreBlank: &T,
+				Overwrite:   &F,
 			}},
 			args: args{e: &event.DefaultEvent{
 				H: map[string]interface{}{
@@ -106,10 +121,9 @@ func TestGrokProcessor_Process(t *testing.T) {
 				Match: []string{
 					"^%{DATESTAMP:datetime} (?P<file>[a-zA-Z0-9._-]+):%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 				},
-				Target:            "info",
-				IgnoreBlank:       true,
-				Overwrite:         true,
-				UseDefaultPattern: true,
+				Target:      "info",
+				IgnoreBlank: &T,
+				Overwrite:   &T,
 			}},
 			args: args{e: &event.DefaultEvent{
 				H: map[string]interface{}{
@@ -129,45 +143,14 @@ func TestGrokProcessor_Process(t *testing.T) {
 			},
 		},
 		{
-			name: "use dst",
-			fields: fields{config: &GrokConfig{
-				Match: []string{
-					"^%{DATESTAMP:datetime} (?P<file>[a-zA-Z0-9._-]+):%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
-				},
-				Target:            "body",
-				IgnoreBlank:       true,
-				Overwrite:         true,
-				UseDefaultPattern: true,
-				Dst:               "grok_output",
-			}},
-			args: args{e: &event.DefaultEvent{
-				H: map[string]interface{}{
-					"file": "test.go",
-				},
-				B: []byte("2022/05/28 01:32:01 logTest.go:66: 192.168.0.1 /var/log/test.log 54ce5d87-b94c-c40a-74a7-9cd375289334"),
-			}},
-			want: map[string]interface{}{
-				"file": "test.go",
-				"grok_output": map[string]interface{}{
-					"datetime": "2022/05/28 01:32:01",
-					"file":     "logTest.go",
-					"line":     "66",
-					"ip":       "192.168.0.1",
-					"path":     "/var/log/test.log",
-					"uuid":     "54ce5d87-b94c-c40a-74a7-9cd375289334",
-				},
-			},
-		},
-		{
 			name: "use Pattern by user",
 			fields: fields{config: &GrokConfig{
 				Match: []string{
 					"^%{DATESTAMP:datetime} %{FILE:file}:%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 				},
-				Target:            "body",
-				IgnoreBlank:       true,
-				Overwrite:         true,
-				UseDefaultPattern: true,
+				Target:      "body",
+				IgnoreBlank: &T,
+				Overwrite:   &T,
 				Pattern: map[string]string{
 					"FILE": "[a-zA-Z0-9._-]+",
 				},
@@ -193,10 +176,9 @@ func TestGrokProcessor_Process(t *testing.T) {
 				Match: []string{
 					"^%{DATESTAMP:datetime} %{WORD:file}:%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 				},
-				Target:            "body",
-				IgnoreBlank:       true,
-				Overwrite:         true,
-				UseDefaultPattern: true,
+				Target:      "body",
+				IgnoreBlank: &T,
+				Overwrite:   &T,
 				Pattern: map[string]string{
 					"WORD": "[a-zA-Z0-9._-]+",
 				},
@@ -224,9 +206,9 @@ func TestGrokProcessor_Process(t *testing.T) {
 		//			"^%{DATESTAMP:datetime} (?P<file>[a-zA-Z0-9._-]+):%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 		//		},
 		//		Target:            "body",
-		//		IgnoreBlank:       true,
-		//		Overwrite:         true,
-		//		UseDefaultPattern: false,
+		//		IgnoreBlank:       &T,
+		//		Overwrite:         &T,
+		//		UseDefaultPattern: &F,
 		//		PatternPaths:      []string{"https://raw.githubusercontent.com/vjeantet/grok/master/patterns/grok-patterns"},
 		//	}},
 		//	args: args{e: &event.DefaultEvent{
@@ -273,11 +255,10 @@ func TestGrokProcessor_Process(t *testing.T) {
 				Match: []string{
 					"^%{DATESTAMP:datetime} (?P<file>[a-zA-Z0-9._-]+):%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 				},
-				Target:            "body",
-				IgnoreBlank:       true,
-				Overwrite:         true,
-				UseDefaultPattern: false,
-				PatternPaths:      []string{"./Patterns.txt"},
+				Target:       "body",
+				IgnoreBlank:  &T,
+				Overwrite:    &T,
+				PatternPaths: []string{"./Patterns.txt"},
 			}},
 			args: args{e: &event.DefaultEvent{
 				H: map[string]interface{}{
