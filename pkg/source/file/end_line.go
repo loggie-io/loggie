@@ -1,7 +1,6 @@
 package file
 
 import (
-	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"strings"
 	"sync"
@@ -152,6 +151,9 @@ func (end *LineEndings) GetEncodeLineEnd(pipelineName string, sourceName string)
 func (end *LineEndings) RemoveLineEnd(pipelineName string, sourceName string) {
 	end.mutex.Lock()
 	defer end.mutex.Unlock()
-	key := fmt.Sprintf("%s:%s", pipelineName, sourceName)
-	delete(end.endLineMap, key)
+	var key strings.Builder
+	key.WriteString(pipelineName)
+	key.WriteString(":")
+	key.WriteString(sourceName)
+	delete(end.endLineMap, key.String())
 }
