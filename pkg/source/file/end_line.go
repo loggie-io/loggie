@@ -52,16 +52,16 @@ var (
 	}
 
 	lineTerminatorCharacters = map[LineTerminator][]byte{
-		AutoLineTerminator:     []byte{'\u000A'},
-		LineFeed:               []byte{'\u000A'},
-		VerticalTab:            []byte{'\u000B'},
-		FormFeed:               []byte{'\u000C'},
-		CarriageReturn:         []byte{'\u000D'},
+		AutoLineTerminator:     {'\u000A'},
+		LineFeed:               {'\u000A'},
+		VerticalTab:            {'\u000B'},
+		FormFeed:               {'\u000C'},
+		CarriageReturn:         {'\u000D'},
 		CarriageReturnLineFeed: []byte("\u000D\u000A"),
-		NextLine:               []byte{'\u0085'},
+		NextLine:               {'\u0085'},
 		LineSeparator:          []byte("\u2028"),
 		ParagraphSeparator:     []byte("\u2029"),
-		NullTerminator:         []byte{'\u0000'},
+		NullTerminator:         {'\u0000'},
 	}
 )
 
