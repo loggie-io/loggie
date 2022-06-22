@@ -9,8 +9,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
-	"github.com/loggie-io/loggie/pkg/util/pattern"
-	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/pkg/errors"
 	"time"
 )
@@ -63,8 +61,7 @@ func (s *Sink) Type() api.Type {
 	return Type
 }
 
-func (s *Sink) Init(context api.Context) error {
-	s.topicMatcher = pattern.MustInitMatcher(s.config.Topic)
+func (s *Sink) Init(_ api.Context) error {
 	return nil
 }
 
@@ -146,6 +143,6 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	return result.Success()
 }
 
-func (s *Sink) selectTopic(e api.Event) (string, error) {
-	return runtime.PatternFormat(runtime.NewObject(e.Header()), s.config.Topic, s.topicMatcher)
-}
+//func (s *Sink) selectTopic(e api.Event) (string, error) {
+//	return runtime.PatternFormat(runtime.NewObject(e.Header()), s.config.Topic, s.topicMatcher)
+//}
