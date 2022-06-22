@@ -142,7 +142,3 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 	return result.Success()
 }
-
-//func (s *Sink) selectTopic(e api.Event) (string, error) {
-//	return runtime.PatternFormat(runtime.NewObject(e.Header()), s.config.Topic, s.topicMatcher)
-//}
