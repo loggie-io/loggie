@@ -11,7 +11,7 @@ import (
 type LineTerminator uint8
 
 const (
-	Customize = "customize"
+	Custom = "custom"
 	// InvalidTerminator is the invalid terminator
 	InvalidTerminator LineTerminator = iota
 	// AutoLineTerminator accepts both LF and CR+LF
@@ -88,7 +88,7 @@ func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineE
 	end.mutex.Lock()
 	defer end.mutex.Unlock()
 	lineType, ok := lineTerminators[lineEndValue.LineType]
-	if ok == false && lineEndValue.LineType != Customize {
+	if ok == false && lineEndValue.LineType != Custom {
 		lineType = AutoLineTerminator
 	}
 
@@ -97,7 +97,7 @@ func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineE
 	key.WriteString(":")
 	key.WriteString(sourceName)
 
-	if lineEndValue.LineType == Customize {
+	if lineEndValue.LineType == Custom {
 		bytes, err := Encode(charset, []byte(lineEndValue.LineValue))
 		if err != nil {
 			log.Error("encode error:%s", err)
