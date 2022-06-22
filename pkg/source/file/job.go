@@ -301,7 +301,7 @@ func (j *Job) GetLineEnd() []byte {
 }
 
 func (j *Job) ProductEvent(endOffset int64, collectTime time.Time, body []byte) {
-	nextOffset := endOffset + 1
+	nextOffset := endOffset + int64(len(j.GetEncodeLineEnd()))
 	contentBytes := int64(len(body))
 	// -1 because `\n`
 	startOffset := nextOffset - contentBytes - int64(len(j.GetEncodeLineEnd()))
@@ -314,7 +314,7 @@ func (j *Job) ProductEvent(endOffset int64, collectTime time.Time, body []byte) 
 
 	endOffsetStr := strconv.FormatInt(endOffset, 10)
 	var eventUid strings.Builder
-	eventUid.Grow(j.watchUidLen + 1 + len(endOffsetStr))
+	eventUid.Grow(j.watchUidLen + len(j.GetEncodeLineEnd()) + len(endOffsetStr))
 	eventUid.WriteString(watchUid)
 	eventUid.WriteString("-")
 	eventUid.WriteString(endOffsetStr)

@@ -142,7 +142,7 @@ func (mh *MultiHolder) flush() {
 	if mh.currentSize <= 0 {
 		return
 	}
-	mh.state.ContentBytes = mh.currentSize + 1
+	mh.state.ContentBytes = mh.currentSize + int64(len(globalLineEnd.GetEncodeLineEnd(mh.state.PipelineName, mh.state.SourceName)))
 	state := &State{
 		Epoch:        mh.state.Epoch,
 		PipelineName: mh.state.PipelineName,

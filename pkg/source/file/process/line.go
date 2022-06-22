@@ -52,7 +52,7 @@ func (lp *LineProcessor) Process(processorChain file.ProcessChain, ctx *file.Job
 				job.ProductEvent(endOffset, now, buffer)
 			}
 		}
-		processed = index + 1
+		processed = index + int64(len(job.GetEncodeLineEnd()))
 	}
 	ctx.LastOffset += read
 	ctx.WasSend = processed != 0
