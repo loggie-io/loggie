@@ -4,6 +4,7 @@ import (
 	ctx "context"
 	"encoding/json"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -35,37 +36,39 @@ func makeSource(info pipeline.Info) api.Component {
 }
 
 type PromExporter struct {
-	name        string
-	config      *Config
-	client      *http.Client
-	requestPool []*http.Request
-	done        chan struct{}
-	eventPool   *event.Pool
+	name              string
+	config            *Config
+	client            *http.Client
+	requestPool       []*http.Request
+	done              chan struct{}
+	eventPool         *event.Pool
+	extraLabelsEnable bool
+	labelPattern      map[string]*pattern.Pattern
 }
 
-func (k *PromExporter) Config() interface{} {
-	return k.config
+func (e *PromExporter) Config() interface{} {
+	return e.config
 }
 
-func (k *PromExporter) Category() api.Category {
+func (e *PromExporter) Category() api.Category {
 	return api.SOURCE
 }
 
-func (k *PromExporter) Type() api.Type {
+func (e *PromExporter) Type() api.Type {
 	return Type
 }
 
-func (k *PromExporter) String() string {
+func (e *PromExporter) String() string {
 	return fmt.Sprintf("%s/%s", api.SOURCE, Type)
 }
 
 const acceptHeader = `application/openmetrics-text; version=0.0.1,text/plain;version=0.0.4;q=0.5,*/*;q=0.1`
 
-func (k *PromExporter) Init(context api.Context) error {
-	k.name = context.Name()
+func (e *PromExporter) Init(context api.Context) error {
+	e.name = context.Name()
 
-	k.client = &http.Client{}
-	for _, ep := range k.config.Endpoints {
+	e.client = &http.Client{}
+	for _, ep := range e.config.Endpoints {
 		req, err := http.NewRequest(http.MethodGet, ep, nil)
 		if err != nil {
 			log.Warn("request to endpoint %s error: %v", ep, err)
@@ -73,64 +76,74 @@ func (k *PromExporter) Init(context api.Context) error {
 		}
 
 		req.Header.Add("Accept", acceptHeader)
-		req.Header.Set("X-Prometheus-Scrape-Timeout-Seconds", strconv.FormatFloat(k.config.Timeout.Seconds(), 'f', -1, 64))
+		req.Header.Set("X-Prometheus-Scrape-Timeout-Seconds", strconv.FormatFloat(e.config.Timeout.Seconds(), 'f', -1, 64))
 
-		k.requestPool = append(k.requestPool, req)
+		e.requestPool = append(e.requestPool, req)
 	}
+
+	if len(e.config.Labels) != 0 {
+		e.extraLabelsEnable = true
+		e.labelPattern = make(map[string]*pattern.Pattern)
+		for key, val := range e.config.Labels {
+			p, _ := pattern.Init(val)
+			e.labelPattern[key] = p
+		}
+	}
+
 	return nil
 }
 
-func (k *PromExporter) Start() error {
+func (e *PromExporter) Start() error {
 	return nil
 }
 
-func (k *PromExporter) Stop() {
-	log.Info("stopping source prometheusExporter: %s", k.name)
-	close(k.done)
+func (e *PromExporter) Stop() {
+	log.Info("stopping source prometheusExporter: %s", e.name)
+	close(e.done)
 }
 
-func (k *PromExporter) ProductLoop(productFunc api.ProductFunc) {
-	log.Info("%s start product loop", k.String())
+func (e *PromExporter) ProductLoop(productFunc api.ProductFunc) {
+	log.Info("%s start product loop", e.String())
 
-	t := time.NewTicker(k.config.Interval)
+	t := time.NewTicker(e.config.Interval)
 	defer t.Stop()
 
 	background, cancel := ctx.WithCancel(ctx.Background())
 	defer cancel()
 	for {
 		select {
-		case <-k.done:
+		case <-e.done:
 			return
 
 		case <-t.C:
-			k.batchScrape(background, productFunc)
+			e.batchScrape(background, productFunc)
 		}
 	}
 }
 
-func (k *PromExporter) Commit(events []api.Event) {
-	k.eventPool.PutAll(events)
+func (e *PromExporter) Commit(events []api.Event) {
+	e.eventPool.PutAll(events)
 }
 
-func (k *PromExporter) batchScrape(c ctx.Context, productFunc api.ProductFunc) {
-	for _, req := range k.requestPool {
-		metrics, err := k.scrape(c, req)
+func (e *PromExporter) batchScrape(c ctx.Context, productFunc api.ProductFunc) {
+	for _, req := range e.requestPool {
+		metrics, err := e.scrape(c, req)
 		if err != nil {
 			log.Warn("request to exporter error: %+v", err)
 			continue
 		}
 
-		e := k.eventPool.Get()
+		e := e.eventPool.Get()
 		e.Fill(e.Meta(), e.Header(), metrics)
 
 		productFunc(e)
 	}
 }
 
-func (k *PromExporter) scrape(c ctx.Context, req *http.Request) ([]byte, error) {
-	ct, cancel := ctx.WithTimeout(c, k.config.Timeout)
+func (e *PromExporter) scrape(c ctx.Context, req *http.Request) ([]byte, error) {
+	ct, cancel := ctx.WithTimeout(c, e.config.Timeout)
 	defer cancel()
-	resp, err := k.client.Do(req.WithContext(ct))
+	resp, err := e.client.Do(req.WithContext(ct))
 	if err != nil {
 		return nil, err
 	}
@@ -140,8 +153,8 @@ func (k *PromExporter) scrape(c ctx.Context, req *http.Request) ([]byte, error) 
 		return nil, errors.Errorf("server returned HTTP status %s", resp.Status)
 	}
 
-	if k.config.ToJson {
-		out, promErr := promToJson(resp.Body)
+	if e.config.ToJson {
+		out, promErr := e.promToJson(resp.Body)
 		if promErr != nil {
 			return nil, errors.WithMessage(err, "convert prometheus metrics to json failed")
 		}
@@ -156,7 +169,7 @@ func (k *PromExporter) scrape(c ctx.Context, req *http.Request) ([]byte, error) 
 	return out, nil
 }
 
-func promToJson(in io.Reader) ([]byte, error) {
+func (e *PromExporter) promToJson(in io.Reader) ([]byte, error) {
 	var parser expfmt.TextParser
 	metricFamilies, err := parser.TextToMetricFamilies(in)
 	if err != nil {
@@ -172,6 +185,10 @@ func promToJson(in io.Reader) ([]byte, error) {
 		}
 
 		f := prom2json.NewFamily(val)
+
+		if e.extraLabelsEnable {
+			e.addLabels(f, e.config.Labels)
+		}
 		family = append(family, f)
 	}
 	out, err := json.Marshal(family)
@@ -180,4 +197,15 @@ func promToJson(in io.Reader) ([]byte, error) {
 	}
 
 	return out, nil
+}
+
+func (e *PromExporter) addLabels(family *prom2json.Family, labels map[string]string) {
+	for key := range labels {
+		val, err := e.labelPattern[key].Render()
+		if err != nil {
+			log.Warn("render label %s pattern failed: %v", key, err)
+			continue
+		}
+		family.AddLabel(key, val)
+	}
 }

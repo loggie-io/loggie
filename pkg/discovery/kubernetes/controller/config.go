@@ -16,9 +16,11 @@ limitations under the License.
 
 package controller
 
-const (
-	RuntimeDocker     = "docker"
-	RuntimeContainerd = "containerd"
+import (
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
+	"github.com/pkg/errors"
+	"net/url"
 )
 
 type Config struct {
@@ -28,12 +30,15 @@ type Config struct {
 	NodeName       string `yaml:"-"`
 	ConfigFilePath string `yaml:"-"`
 
-	ContainerRuntime string `yaml:"containerRuntime" default:"docker" validate:"oneof=docker containerd"`
-	DockerDataRoot   string `yaml:"dockerDataRoot" default:"/var/lib/docker"`
-	PodLogDirPrefix  string `yaml:"podLogDirPrefix" default:"/var/log/pods"`
-	KubeletRootDir   string `yaml:"kubeletRootDir" default:"/var/lib/kubelet"`
+	ContainerRuntime        string   `yaml:"containerRuntime"`
+	RuntimeEndpoints        []string `yaml:"runtimeEndpoints" default:"[\"unix:///run/containerd/containerd.sock\", \"unix:///var/run/dockershim.sock\", \"unix:///run/crio/crio.sock\"]"`
+	RootFsCollectionEnabled bool     `yaml:"rootFsCollectionEnabled"`
+	PodLogDirPrefix         string   `yaml:"podLogDirPrefix" default:"/var/log/pods"`
+	KubeletRootDir          string   `yaml:"kubeletRootDir" default:"/var/lib/kubelet"`
 
-	Fields Fields `yaml:"fields"`
+	Fields      Fields            `yaml:"fields"` // Deprecated: use k8sFields instead
+	K8sFields   map[string]string `yaml:"k8sFields"`
+	ParseStdout bool              `yaml:"parseStdout"`
 }
 
 type Fields struct {
@@ -44,4 +49,34 @@ type Fields struct {
 	PodIP         string `yaml:"pod.ip"`
 	ContainerName string `yaml:"container.name"`
 	LogConfig     string `yaml:"logConfig"`
+}
+
+func (c *Config) Validate() error {
+	if c.ContainerRuntime != "" {
+		if c.ContainerRuntime != runtime.RuntimeDocker && c.ContainerRuntime != runtime.RuntimeContainerd {
+			return errors.Errorf("runtime only support %s/%s", runtime.RuntimeDocker, runtime.RuntimeContainerd)
+		}
+	}
+
+	if len(c.RuntimeEndpoints) != 0 {
+		for _, e := range c.RuntimeEndpoints {
+			u, err := url.Parse(e)
+			if err != nil {
+				return err
+			}
+			if u.Scheme != "unix" {
+				return errors.New("only support unix socket endpoint")
+			}
+		}
+	}
+
+	if c.K8sFields != nil {
+		for _, v := range c.K8sFields {
+			if err := pattern.Validate(v); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

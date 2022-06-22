@@ -25,6 +25,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/goccy/go-yaml"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/global"
@@ -37,7 +38,6 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/include"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"go.uber.org/automaxprocs/maxprocs"
-	"gopkg.in/yaml.v2"
 )
 
 var (
@@ -59,12 +59,14 @@ func init() {
 
 func main() {
 	flag.Parse()
+	// init logging configuration
 	log.InitDefaultLogger()
+
+	log.Info("version: %s", global.GetVersion())
 
 	// set up signals so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
-	// init logging configuration
 	// Automatically set GOMAXPROCS to match Linux container CPU quota
 	if _, err := maxprocs.Set(maxprocs.Logger(log.Debug)); err != nil {
 		log.Fatal("set maxprocs error: %v", err)

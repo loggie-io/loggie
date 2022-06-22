@@ -17,10 +17,9 @@ limitations under the License.
 package util
 
 import (
+	"github.com/goccy/go-yaml"
 	"testing"
 	"time"
-
-	"gopkg.in/yaml.v2"
 )
 
 func TestTimeFormatNow(t *testing.T) {

@@ -23,8 +23,8 @@ import (
 
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
+	"github.com/goccy/go-yaml"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	"gopkg.in/yaml.v2"
 )
 
 type CommonCfg map[string]interface{}
@@ -92,7 +92,15 @@ func MergeCommonCfg(base CommonCfg, from CommonCfg, override bool) CommonCfg {
 	}
 
 	for k, v := range from {
-		_, ok := base[k]
+		baseVal, ok := base[k]
+
+		b, okb := baseVal.(map[interface{}]interface{})
+		f, okf := v.(map[interface{}]interface{})
+		if okb && okf {
+			MergeCommonMap(b, f, override)
+			continue
+		}
+
 		if ok && !override {
 			continue
 		}
@@ -100,6 +108,34 @@ func MergeCommonCfg(base CommonCfg, from CommonCfg, override bool) CommonCfg {
 		base[k] = v
 	}
 	return base
+}
+
+func MergeCommonMap(base map[interface{}]interface{}, from map[interface{}]interface{}, override bool) map[interface{}]interface{} {
+	if base == nil {
+		return from
+	}
+	if from == nil {
+		return base
+	}
+
+	for k, v := range from {
+		baseVal, ok := base[k]
+
+		b, okb := baseVal.(map[interface{}]interface{})
+		f, okf := v.(map[interface{}]interface{})
+		if okb && okf {
+			MergeCommonMap(b, f, override)
+			continue
+		}
+
+		if ok && !override {
+			continue
+		}
+
+		base[k] = v
+	}
+	return base
+
 }
 
 // MergeCommonCfgListByType merge commonCfg list
@@ -122,7 +158,9 @@ func MergeCommonCfgListByType(base []CommonCfg, from []CommonCfg, override bool,
 		fromCfg, ok := fromMap[typeName]
 		if ok {
 			MergeCommonCfg(baseCfg, fromCfg, override)
-			delete(fromMap, typeName)
+			if !ignoreFromType {
+				delete(fromMap, typeName)
+			}
 			continue
 		}
 	}

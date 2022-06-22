@@ -30,6 +30,8 @@ type Config struct {
 
 func (c *Config) SetDefaults() {
 	if c != nil {
-		c.ExtensionConfig.Order = Order
+		if c.ExtensionConfig.Order == 0 {
+			c.ExtensionConfig.Order = Order
+		}
 	}
 }

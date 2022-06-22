@@ -32,7 +32,8 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/sink"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/eventbus"
-	"github.com/loggie-io/loggie/pkg/sink/codec"
+	sinkcodec "github.com/loggie-io/loggie/pkg/sink/codec"
+	sourcecodec "github.com/loggie-io/loggie/pkg/source/codec"
 	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/pkg/errors"
 )
@@ -357,6 +358,10 @@ func (p *Pipeline) validateComponent(ctx api.Context) error {
 
 func (p *Pipeline) validate() error {
 	pipelineConfig := &p.config
+	if pipelineConfig.Name == "" {
+		return errors.New("pipelines[n].name is required")
+	}
+
 	for _, iConfig := range pipelineConfig.Interceptors {
 		ctx := context.NewContext(iConfig.Name, api.Type(iConfig.Type), api.INTERCEPTOR, iConfig.Properties)
 		if err := p.validateComponent(ctx); err != nil {
@@ -371,12 +376,18 @@ func (p *Pipeline) validate() error {
 	}
 
 	sinkConfig := pipelineConfig.Sink
+	if sinkConfig == nil || sinkConfig.Type == "" {
+		return errors.New("pipelines[n].sink is required")
+	}
 	ctx = context.NewContext(sinkConfig.Name, api.Type(sinkConfig.Type), api.SINK, sinkConfig.Properties)
 	if err := p.validateComponent(ctx); err != nil {
 		return err
 	}
 
 	unique := make(map[string]struct{})
+	if len(pipelineConfig.Sources) == 0 {
+		return errors.New("pipelines[n].source is required")
+	}
 	for _, sourceConfig := range pipelineConfig.Sources {
 		if _, ok := unique[sourceConfig.Name]; ok {
 			return errors.Errorf("source name %s is duplicated", sourceConfig.Name)
@@ -398,7 +409,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 	codecConf := sinkConfigs.Codec
 
 	// init codec
-	cod, ok := codec.Get(codecConf.Type)
+	cod, ok := sinkcodec.Get(codecConf.Type)
 	if !ok {
 		return errors.Errorf("codec %s cannot be found", codecConf.Type)
 	}
@@ -413,7 +424,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 
 	// set codec to sink
 	component, _ := GetWithType(ctx.Category(), ctx.Type(), p.info)
-	if si, ok := component.(codec.SinkCodec); ok {
+	if si, ok := component.(sinkcodec.SinkCodec); ok {
 		si.SetCodec(cod)
 	}
 
@@ -494,16 +505,16 @@ func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor
 	var interceptorChainName strings.Builder
 	interceptorChainName.WriteString("queue->")
 	// sort interceptors
-	sink.SortableInterceptor(interceptors).Sort()
+	sortableInterceptor := sink.SortableInterceptor(interceptors)
+	sortableInterceptor.Sort()
 	// build chain
-	for _, ic := range interceptors {
-		// filter retry ignore
+	for i := 0; i < l; i++ {
+		tempInterceptor := sortableInterceptor[l-1-i]
 		if retry {
-			if extension, ok := ic.(interceptor.Extension); ok && extension.IgnoreRetry() {
+			if extension, ok := tempInterceptor.(interceptor.Extension); ok && extension.IgnoreRetry() {
 				continue
 			}
 		}
-		tempInterceptor := ic
 		next := last
 		last = &sink.AbstractInvoker{
 			DoInvoke: func(invocation sink.Invocation) api.Result {
@@ -511,7 +522,7 @@ func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor
 			},
 		}
 
-		interceptorChainName.WriteString(tempInterceptor.String())
+		interceptorChainName.WriteString(sortableInterceptor[i].String())
 		interceptorChainName.WriteString("->")
 	}
 	interceptorChainName.WriteString("sink")
@@ -531,7 +542,33 @@ func (p *Pipeline) startSource(sourceConfigs []source.Config) error {
 		}
 
 		ctx := context.NewContext(sourceConfig.Name, api.Type(sourceConfig.Type), api.SOURCE, sourceConfig.Properties)
-		err := p.startComponent(ctx)
+
+		component, _ := GetWithType(ctx.Category(), ctx.Type(), p.info)
+
+		// get codec config
+		codecConf := sourceConfig.Codec
+		if codecConf != nil {
+			// init codec
+			cod, ok := sourcecodec.Get(codecConf.Type)
+			if !ok {
+				return errors.Errorf("codec %s cannot be found", codecConf.Type)
+			}
+			if conf, ok := cod.(api.Config); ok {
+				err := cfg.UnpackAndDefaults(codecConf.CommonCfg, conf.Config())
+				if err != nil {
+					// since Loggie has validate the configuration before start, we would never reach here
+					return errors.WithMessage(err, "unpack codec config error")
+				}
+			}
+			cod.Init()
+
+			// set codec to source
+			if si, ok := component.(sourcecodec.SourceCodec); ok {
+				si.SetCodec(cod)
+			}
+		}
+
+		err := p.startWithComponent(component, ctx)
 		if err != nil {
 			return err
 		}
@@ -644,7 +681,8 @@ func addSourceFields(header map[string]interface{}, config source.Config) {
 }
 
 func buildSourceInvokerChain(sourceName string, invoker source.Invoker, interceptors []source.Interceptor) source.Invoker {
-	if len(interceptors) == 0 {
+	l := len(interceptors)
+	if l == 0 {
 		return invoker
 	}
 	last := invoker
@@ -653,16 +691,17 @@ func buildSourceInvokerChain(sourceName string, invoker source.Invoker, intercep
 	interceptorChainName.WriteString("source->")
 
 	// sort interceptor
-	source.SortableInterceptor(interceptors).Sort()
-	for _, ic := range interceptors {
-		if extension, ok := ic.(interceptor.Extension); ok {
+	sortableInterceptor := source.SortableInterceptor(interceptors)
+	sortableInterceptor.Sort()
+	for i := 0; i < l; i++ {
+		tempInterceptor := sortableInterceptor[l-1-i]
+		if extension, ok := tempInterceptor.(interceptor.Extension); ok {
 			belongTo := extension.BelongTo()
 			// calling len(belongTo) cannot be ignored
 			if len(belongTo) > 0 && !util.Contain(sourceName, belongTo) {
 				continue
 			}
 		}
-		tempInterceptor := ic
 		next := last
 		last = &source.AbstractInvoker{
 			DoInvoke: func(invocation source.Invocation) api.Result {
@@ -670,7 +709,7 @@ func buildSourceInvokerChain(sourceName string, invoker source.Invoker, intercep
 			},
 		}
 
-		interceptorChainName.WriteString(tempInterceptor.String())
+		interceptorChainName.WriteString(sortableInterceptor[i].String())
 		interceptorChainName.WriteString("->")
 	}
 

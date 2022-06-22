@@ -37,7 +37,7 @@ const (
 func TimeFormatNow(pattern string) string {
 	replacer := strings.NewReplacer(year, stdYear, month, stdMonth, day, stdDay, hour, stdHour)
 	layout := replacer.Replace(pattern)
-	return time.Now().Format(layout)
+	return time.Now().Local().Format(layout)
 }
 
 func UnixMilli(t time.Time) int64 {

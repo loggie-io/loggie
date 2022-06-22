@@ -17,6 +17,7 @@ limitations under the License.
 package control
 
 import (
+	"github.com/goccy/go-yaml"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -25,7 +26,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/pkg/errors"
-	"gopkg.in/yaml.v2"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 

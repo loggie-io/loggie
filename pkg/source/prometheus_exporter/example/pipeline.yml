@@ -1,0 +1,13 @@
+pipelines:
+  - name: selfmetrics
+    sources:
+      - type: prometheusExporter
+        name: metric
+        endpoints:
+          - "http://127.0.0.1:9196/metrics"
+        toJson: true
+        labels:
+          test1: constvalue
+          test2: ${_env.USER}
+#          interval: 30s
+#          timeout: 5s

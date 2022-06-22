@@ -90,8 +90,7 @@ func (sp *sortableProcessor) Len() int {
 func (sp *sortableProcessor) Less(i, j int) bool {
 	pi := sp.processors[i]
 	pj := sp.processors[j]
-	// Reverse order
-	return pi.Order() > pj.Order()
+	return pi.Order() < pj.Order()
 }
 
 func (sp *sortableProcessor) Swap(i, j int) {
@@ -99,7 +98,9 @@ func (sp *sortableProcessor) Swap(i, j int) {
 }
 
 func (sp *sortableProcessor) Sort() {
-	sort.Sort(sp)
+	sort.SliceStable(sp.processors, func(i, j int) bool {
+		return sp.Less(i, j)
+	})
 }
 
 func (sp *sortableProcessor) Append(processor Processor) {
@@ -121,15 +122,17 @@ func NewProcessChain(config ReaderConfig) ProcessChain {
 	}
 	sp.Sort()
 	processors := sp.Processors()
+	pl := len(processors)
 	var processChainName strings.Builder
-	processChainName.WriteString("end<-")
+	processChainName.WriteString("start->")
 	last := &abstractProcessChain{
 		DoProcess: func(ctx *JobCollectContext) {
 			// do nothing
 		},
 	}
-	for _, processor := range processors {
-		tempProcessor := processor
+	for i := 0; i < pl; i++ {
+		// Reverse order
+		tempProcessor := processors[pl-1-i]
 		next := last
 		last = &abstractProcessChain{
 			DoProcess: func(ctx *JobCollectContext) {
@@ -137,10 +140,10 @@ func NewProcessChain(config ReaderConfig) ProcessChain {
 			},
 		}
 
-		processChainName.WriteString(tempProcessor.Code())
-		processChainName.WriteString("<-")
+		processChainName.WriteString(processors[i].Code())
+		processChainName.WriteString("->")
 	}
-	processChainName.WriteString("start")
+	processChainName.WriteString("end")
 	log.Info("process chain: %s", processChainName.String())
 	return last
 }
