@@ -33,7 +33,7 @@ func (lp *LineProcessor) Process(processorChain file.ProcessChain, ctx *file.Job
 	read := int64(len(readBuffer))
 	processed := int64(0)
 	for processed < read {
-		index := int64(bytes.Index(readBuffer[processed:], job.GetLineEnd()))
+		index := int64(bytes.Index(readBuffer[processed:], job.GetEncodeLineEnd()))
 		if index == -1 {
 			break
 		}

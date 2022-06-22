@@ -53,7 +53,7 @@ func (llp *LastLineProcessor) Process(processorChain file.ProcessChain, ctx *fil
 			// Because the "last line" of the collection thinks that either it will not be written later,
 			// or it will write /n first, and then write the content of the next line,
 			// it is necessary to seek a position later to ignore the /n that may be written
-			_, err := job.File().Seek(1, io.SeekCurrent)
+			_, err := job.File().Seek(int64(len(job.GetEncodeLineEnd())), io.SeekCurrent)
 			if err != nil {
 				log.Error("can't set offset, file(name:%s) seek error: %v", ctx.Filename, err)
 			}

@@ -49,6 +49,7 @@ type CollectConfig struct {
 }
 
 type LineEndValue struct {
+	Charset   string `yaml:"charset,omitempty" default:"utf-8"`
 	LineType  string `yaml:"type,omitempty" default:"auto"`
 	LineValue string `yaml:"value,omitempty" default:"\n"`
 }
@@ -124,7 +125,6 @@ type ReaderConfig struct {
 	MaxContinueReadTimeout time.Duration `yaml:"maxContinueReadTimeout,omitempty" default:"3s"`
 	InactiveTimeout        time.Duration `yaml:"inactiveTimeout,omitempty" default:"3s"`
 	MultiConfig            MultiConfig   `yaml:"multi,omitempty"`
-	Charset                string        `yaml:"charset,omitempty" default:"utf-8"`
 }
 
 type MultiConfig struct {

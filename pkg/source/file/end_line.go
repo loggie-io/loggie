@@ -84,7 +84,7 @@ func (end *LineEndings) Init() {
 	}
 }
 
-func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineEndValue *LineEndValue, charset string) error {
+func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineEndValue *LineEndValue) error {
 	end.mutex.Lock()
 	defer end.mutex.Unlock()
 	lineType, ok := lineTerminators[lineEndValue.LineType]
@@ -98,7 +98,7 @@ func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineE
 	key.WriteString(sourceName)
 
 	if lineEndValue.LineType == Custom {
-		bytes, err := Encode(charset, []byte(lineEndValue.LineValue))
+		bytes, err := Encode(lineEndValue.Charset, []byte(lineEndValue.LineValue))
 		if err != nil {
 			log.Error("encode error:%s", err)
 		}
@@ -109,7 +109,7 @@ func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineE
 		return nil
 	}
 
-	bytes, err := Encode(charset, lineTerminatorCharacters[lineType])
+	bytes, err := Encode(lineEndValue.Charset, lineTerminatorCharacters[lineType])
 	if err != nil {
 		log.Error("encode error:%s", err)
 	}

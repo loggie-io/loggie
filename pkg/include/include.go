@@ -28,6 +28,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/sys"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/addk8smeta"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/cost"
+	_ "github.com/loggie-io/loggie/pkg/interceptor/iconv"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/json_decode"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/limit"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/logalert"
