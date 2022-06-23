@@ -1,4 +1,4 @@
-package file
+package util
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/log"

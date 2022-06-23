@@ -2,6 +2,7 @@ package file
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/util"
 	"strings"
 	"sync"
 )
@@ -98,7 +99,7 @@ func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineE
 	key.WriteString(sourceName)
 
 	if lineEndValue.LineType == Custom {
-		bytes, err := Encode(lineEndValue.Charset, []byte(lineEndValue.LineValue))
+		bytes, err := util.Encode(lineEndValue.Charset, []byte(lineEndValue.LineValue))
 		if err != nil {
 			log.Error("encode error:%s", err)
 		}
@@ -109,7 +110,7 @@ func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineE
 		return nil
 	}
 
-	bytes, err := Encode(lineEndValue.Charset, lineTerminatorCharacters[lineType])
+	bytes, err := util.Encode(lineEndValue.Charset, lineTerminatorCharacters[lineType])
 	if err != nil {
 		log.Error("encode error:%s", err)
 	}
