@@ -66,9 +66,9 @@ func (i *Interceptor) Init(context api.Context) error {
 	codec, ok := util.AllEncodings[i.config.Charset]
 	if !ok {
 		i.decoder = util.AllEncodings["utf-8"].NewDecoder()
+		log.Warn("The encoding(%s) does not exist, it has been converted to utf-8 by default", i.config.Charset)
 	}
 	i.decoder = codec.NewDecoder()
-	log.Warn("The encoding(%s) does not exist, it has been converted to utf-8 by default", i.config.Charset)
 	return nil
 }
 
