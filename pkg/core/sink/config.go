@@ -17,9 +17,12 @@ limitations under the License.
 package sink
 
 import (
+	"errors"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 )
+
+var ErrSinkTypeRequired = errors.New("pipelines[n].sink.type is required")
 
 type Config struct {
 	cfg.ComponentBaseConfig `yaml:",inline"`
@@ -28,5 +31,9 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
+	if c.Type == "" {
+		return ErrSinkTypeRequired
+	}
+
 	return c.Codec.Validate()
 }

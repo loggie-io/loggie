@@ -102,10 +102,11 @@ func (icp *Interceptor) Intercept(invoker source.Invoker, invocation source.Invo
 		log.Debug("failed get pod by indexer: %+v", indexerMap)
 		return invoker.Invoke(invocation)
 	}
+	w := getWorkload(pod)
 
-	fieldsMap := make(map[string]string)
+	fieldsMap := make(map[string]interface{})
 	for k, v := range icp.config.AddFields {
-		fieldsVal := getFieldsValue(v, pod)
+		fieldsVal := getFieldsValue(v, pod, w)
 		if fieldsVal == "" {
 			continue
 		}
@@ -174,17 +175,26 @@ func getPodByIndex(indexMap map[string]string) *corev1.Pod {
 	return nil
 }
 
-func getFieldsValue(fieldsIndex string, pod *corev1.Pod) string {
+func getFieldsValue(fieldsIndex string, pod *corev1.Pod, w workload) string {
 	if pod == nil {
 		return ""
 	}
 
 	switch fieldsIndex {
+	case "${cluster}":
+		return external.Cluster
+
 	case "${node.name}":
 		return global.NodeName
 
 	case "${namespace}":
 		return pod.Namespace
+
+	case "${workload.kind}":
+		return w.Kind
+
+	case "${workload.name}":
+		return w.Name
 
 	case "${pod.uid}":
 		return string(pod.UID)

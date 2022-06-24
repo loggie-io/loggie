@@ -195,6 +195,9 @@ func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineRawCon
 	var pipeConfigs []pipeline.ConfigRaw
 
 	for lgcKey, podSet := range p.lgcToPodSets {
+		if podSet.Len() == 0 {
+			continue
+		}
 		aggCfg := pipeline.ConfigRaw{}
 		icpSets := make(map[string]ExtInterceptorConfig)
 

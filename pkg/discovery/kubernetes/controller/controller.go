@@ -18,6 +18,8 @@ package controller
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"reflect"
 	"time"
 
@@ -86,7 +88,9 @@ type Controller struct {
 
 	nodeLabels map[string]string
 
-	record record.EventRecorder
+	record             record.EventRecorder
+	runtime            runtime.Runtime
+	extraFieldsPattern map[string]*pattern.Pattern
 }
 
 func NewController(
@@ -99,7 +103,14 @@ func NewController(
 	sinkInformer logconfigInformers.SinkInformer,
 	interceptorInformer logconfigInformers.InterceptorInformer,
 	nodeInformer corev1Informers.NodeInformer,
+	runtime runtime.Runtime,
 ) *Controller {
+
+	extraFieldsPattern := make(map[string]*pattern.Pattern)
+	for k, v := range config.K8sFields {
+		p, _ := pattern.Init(v)
+		extraFieldsPattern[k] = p
+	}
 
 	log.Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
@@ -130,7 +141,9 @@ func NewController(
 		typeClusterIndex: index.NewLogConfigTypeLoggieIndex(),
 		typeNodeIndex:    index.NewLogConfigTypeNodeIndex(),
 
-		record: recorder,
+		record:             recorder,
+		runtime:            runtime,
+		extraFieldsPattern: extraFieldsPattern,
 	}
 
 	log.Info("Setting up event handlers")

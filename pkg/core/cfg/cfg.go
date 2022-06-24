@@ -23,8 +23,8 @@ import (
 
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
+	"github.com/goccy/go-yaml"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	"gopkg.in/yaml.v2"
 )
 
 type CommonCfg map[string]interface{}
@@ -158,7 +158,9 @@ func MergeCommonCfgListByType(base []CommonCfg, from []CommonCfg, override bool,
 		fromCfg, ok := fromMap[typeName]
 		if ok {
 			MergeCommonCfg(baseCfg, fromCfg, override)
-			delete(fromMap, typeName)
+			if !ignoreFromType {
+				delete(fromMap, typeName)
+			}
 			continue
 		}
 	}

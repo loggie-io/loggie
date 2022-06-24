@@ -1,0 +1,10 @@
+pipelines:
+- name: testsls
+  sink:
+    type: sls
+    name: demo
+    endpoint: cn-hangzhou.log.aliyuncs.com
+    accessKeyId:
+    accessKeySecret:
+    project:
+    logstore:

@@ -31,10 +31,11 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
-	if _, err := pattern.InitMatcher(c.Index); err != nil {
+	if err := pattern.Validate(c.Index); err != nil {
 		return err
 	}
-	if _, err := pattern.InitMatcher(c.DocumentId); err != nil {
+
+	if err := pattern.Validate(c.DocumentId); err != nil {
 		return err
 	}
 

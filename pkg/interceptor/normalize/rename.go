@@ -18,6 +18,7 @@ package normalize
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/api"
+	eventer "github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 )
@@ -71,6 +72,11 @@ func (r *MoveProcessor) Process(e api.Event) error {
 		from := convert.From
 
 		obj := runtime.NewObject(header)
+		if from == eventer.Body {
+			obj.SetPath(convert.To, string(e.Body()))
+			e.Fill(e.Meta(), e.Header(), []byte{})
+			continue
+		}
 		val := obj.GetPath(from)
 		if val.IsNull() {
 			log.Info("move fields from %s is not exist", from)

@@ -17,6 +17,10 @@ limitations under the License.
 package pattern
 
 import (
+	"github.com/loggie-io/loggie/pkg/util"
+	k8sMeta "github.com/loggie-io/loggie/pkg/util/pattern/k8smeta"
+	"github.com/loggie-io/loggie/pkg/util/runtime"
+	"os"
 	"regexp"
 	"strings"
 )
@@ -25,7 +29,189 @@ const (
 	Indicator       = '$'
 	SeparatorPrefix = '{'
 	SeparatorSuffix = '}'
+	matchExpr       = `\${(.+?)}`
+
+	timeToken = "+"
+	envToken  = "_env."
+	k8sToken  = "_k8s."
+
+	kindTime   = "time"
+	kindEnv    = "env"
+	kindK8s    = "k8s"
+	kindObject = "object"
 )
+
+type Pattern struct {
+	Raw        string
+	isConstVal bool
+	matcher    []matcher
+	tmpObj     *runtime.Object
+	tmpK8sData *k8sMeta.FieldsData
+}
+
+type matcher struct {
+	keyWrap string // e.g. ${fields.xx}
+	key     string // e.g. fields.xx
+	kind    string
+}
+
+// EnvMatcher matches env var, e.g. ${_env.XXX}
+func isEnvVar(key string) bool {
+	return strings.HasPrefix(key, envToken)
+}
+func envMatcherRender(key string) string {
+	ev := strings.TrimLeft(key, envToken)
+	return os.Getenv(ev)
+}
+
+// TimeMatcher matches date var, e.g. ${+YYYY.MM.dd}
+func isTimeVar(key string) bool {
+	return strings.HasPrefix(key, timeToken)
+}
+func timeMatcherRender(key string) string {
+	return util.TimeFormatNow(strings.TrimLeft(key, timeToken))
+}
+
+// ObjectMatcher retrieve any fields from events, e.g. ${a.b}
+func objectMatcherRender(obj *runtime.Object, key string) (string, error) {
+	if obj == nil {
+		return "", nil
+	}
+
+	val, err := obj.GetPath(key).String()
+	if err != nil {
+		return "", err
+	}
+	return val, nil
+}
+
+// K8sMatcher
+func isK8sVar(key string) bool {
+	return strings.HasPrefix(key, k8sToken)
+}
+func k8sMatcherRender(data *k8sMeta.FieldsData, key string) string {
+	if data == nil {
+		return ""
+	}
+
+	field := strings.TrimLeft(key, k8sToken)
+	switch field {
+	case "pod.name":
+		return data.Pod.Name
+
+	case "pod.namespace":
+		return data.Pod.Namespace
+
+	case "pod.ip":
+		return data.Pod.Status.PodIP
+
+	case "pod.container.name":
+		return data.ContainerName
+
+	case "node.name":
+		return data.Pod.Spec.NodeName
+
+	case "node.ip":
+		return data.Pod.Status.HostIP
+
+	case "logconfig":
+		return data.LogConfig
+	}
+
+	return ""
+}
+
+func Validate(pattern string) error {
+	_, err := Init(pattern)
+	return err
+}
+
+func Init(pattern string) (*Pattern, error) {
+	reg, err := regexp.Compile(matchExpr)
+	if err != nil {
+		return nil, err
+	}
+
+	var matcher []matcher
+	match := reg.FindAllStringSubmatch(pattern, -1)
+	for _, m := range match {
+		matcher = append(matcher, makeMatch(m))
+	}
+
+	isConstVal := false
+	if len(match) == 0 {
+		isConstVal = true
+	}
+
+	return &Pattern{
+		Raw:        pattern,
+		matcher:    matcher,
+		isConstVal: isConstVal,
+	}, nil
+}
+
+func makeMatch(m []string) matcher {
+	keyWrap := m[0]
+	key := m[1]
+	item := matcher{
+		keyWrap: keyWrap,
+		key:     key,
+	}
+
+	if isEnvVar(key) {
+		item.kind = kindEnv
+	} else if isTimeVar(key) {
+		item.kind = kindTime
+	} else if isK8sVar(key) {
+		item.kind = kindK8s
+	} else {
+		item.kind = kindObject
+	}
+	return item
+}
+
+func (p *Pattern) Render() (string, error) {
+	if p.isConstVal || len(p.matcher) == 0 {
+		return p.Raw, nil
+	}
+
+	var oldNew []string
+	for _, m := range p.matcher {
+
+		var alt string
+		if m.kind == kindEnv {
+			alt = envMatcherRender(m.key)
+		} else if m.kind == kindTime {
+			alt = timeMatcherRender(m.key)
+		} else if m.kind == kindObject {
+			o, err := objectMatcherRender(p.tmpObj, m.key)
+			if err != nil {
+				return "", err
+			}
+			alt = o
+		} else if m.kind == kindK8s {
+			alt = k8sMatcherRender(p.tmpK8sData, m.key)
+		}
+
+		// add old
+		oldNew = append(oldNew, m.keyWrap)
+		// add new
+		oldNew = append(oldNew, alt)
+	}
+
+	replacer := strings.NewReplacer(oldNew...)
+	return replacer.Replace(p.Raw), nil
+}
+
+func (p *Pattern) WithObject(obj *runtime.Object) *Pattern {
+	p.tmpObj = obj
+	return p
+}
+
+func (p *Pattern) WithK8s(data *k8sMeta.FieldsData) *Pattern {
+	p.tmpK8sData = data
+	return p
+}
 
 // GetSplits
 // eg: target="/var/log/${pod.uid}/${pod.name}/"
@@ -94,20 +280,4 @@ func Extract(input string, splitsStr []string) []string {
 	}
 
 	return ret
-}
-
-const matchExpr = `\${(.+?)}`
-
-func InitMatcher(pattern string) ([][]string, error) {
-	reg, err := regexp.Compile(matchExpr)
-	if err != nil {
-		return nil, err
-	}
-	return reg.FindAllStringSubmatch(pattern, -1), nil
-}
-
-func MustInitMatcher(pattern string) [][]string {
-	// TODO regexp optimize
-	reg := regexp.MustCompile(matchExpr)
-	return reg.FindAllStringSubmatch(pattern, -1)
 }
