@@ -26,8 +26,8 @@ import (
 const ProcessorFmt = "fmt"
 
 type FmtProcessor struct {
-	config *FmtConfig
-
+	config         *FmtConfig
+	interceptor    *Interceptor
 	patternMatcher map[string]*pattern.Pattern
 }
 
