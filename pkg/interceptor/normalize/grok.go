@@ -99,8 +99,12 @@ func (r *GrokProcessor) Config() interface{} {
 
 func (r *GrokProcessor) Init() {
 	groks := make([]*Grok, 0)
+	ignoreBlank := true
+	if r.config.IgnoreBlank != nil {
+		ignoreBlank = *r.config.IgnoreBlank
+	}
 	for _, rule := range r.config.Match {
-		groks = append(groks, NewGrok(rule, r.config.PatternPaths, *r.config.IgnoreBlank, r.config.Pattern))
+		groks = append(groks, NewGrok(rule, r.config.PatternPaths, ignoreBlank, r.config.Pattern))
 	}
 	r.groks = groks
 }
@@ -139,7 +143,7 @@ func (r *GrokProcessor) Process(e api.Event) error {
 		if len(rst) == 0 {
 			continue
 		}
-		if *r.config.Overwrite {
+		if r.config.Overwrite != nil && *r.config.Overwrite {
 			for field, value := range rst {
 				obj.Set(field, value)
 			}
@@ -195,7 +199,6 @@ func (grok *Grok) grok(input string) map[string]string {
 
 func (grok *Grok) loadPatterns() {
 	for _, patternPath := range grok.patternPaths {
-		var r *bufio.Reader
 		if strings.HasPrefix(patternPath, "http://") || strings.HasPrefix(patternPath, "https://") {
 			resp, err := http.Get(patternPath)
 			if err != nil {
@@ -203,10 +206,10 @@ func (grok *Grok) loadPatterns() {
 				continue
 			}
 			resp.Body.Close()
-			r = bufio.NewReader(resp.Body)
+			r := bufio.NewReader(resp.Body)
 			grok.parseLine(r)
 		} else {
-			err := grok.parseFiles(patternPath, r)
+			err := grok.parseFiles(patternPath)
 			if err != nil {
 				log.Error("get files error %v", err)
 			}
@@ -214,7 +217,7 @@ func (grok *Grok) loadPatterns() {
 	}
 }
 
-func (grok *Grok) parseFiles(filepath string, r *bufio.Reader) error {
+func (grok *Grok) parseFiles(filepath string) error {
 	fi, err := os.Stat(filepath)
 	if err != nil {
 		return err
@@ -241,7 +244,7 @@ func (grok *Grok) parseFiles(filepath string, r *bufio.Reader) error {
 			if err != nil {
 				log.Error("load pattern error:%s", err)
 			}
-			r = bufio.NewReader(f)
+			r := bufio.NewReader(f)
 			grok.parseLine(r)
 		}
 	}
