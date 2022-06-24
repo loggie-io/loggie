@@ -75,10 +75,14 @@ func NewMultiTask(epoch *pipeline.Epoch, sourceName string, config MultiConfig, 
 }
 
 func (mt *MultiTask) newMultiHolder(state State) *MultiHolder {
+	lineEnd := globalLineEnd.GetEncodeLineEnd(state.PipelineName, state.SourceName)
 	return &MultiHolder{
 		mTask:    mt,
 		state:    state,
 		initTime: time.Now(),
+
+		lineEnd:       lineEnd,
+		lineEndLength: int64(len(lineEnd)),
 	}
 }
 
@@ -94,6 +98,9 @@ type MultiHolder struct {
 	currentLines int
 	currentSize  int64
 	initTime     time.Time
+
+	lineEnd       []byte
+	lineEndLength int64
 }
 
 func (mh *MultiHolder) key() string {
@@ -117,7 +124,7 @@ func (mh *MultiHolder) appendContent(content []byte, state State) {
 		mh.state = state
 	} else {
 		// has content, add '\n'
-		split := globalLineEnd.GetLineEnd(mh.state.PipelineName, mh.state.SourceName)
+		split := mh.lineEnd
 		mh.content = append(mh.content, split...)
 		mh.currentSize += int64(len(split))
 		// change state
@@ -142,7 +149,7 @@ func (mh *MultiHolder) flush() {
 	if mh.currentSize <= 0 {
 		return
 	}
-	mh.state.ContentBytes = mh.currentSize + int64(len(globalLineEnd.GetEncodeLineEnd(mh.state.PipelineName, mh.state.SourceName)))
+	mh.state.ContentBytes = mh.currentSize + mh.lineEndLength
 	state := &State{
 		Epoch:        mh.state.Epoch,
 		PipelineName: mh.state.PipelineName,

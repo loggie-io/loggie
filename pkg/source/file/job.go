@@ -66,6 +66,9 @@ type Job struct {
 
 	EofCount       int
 	LastActiveTime time.Time
+
+	lineEnd       []byte
+	encodeLineEnd []byte
 }
 
 func JobUid(fileInfo os.FileInfo) string {
@@ -293,11 +296,11 @@ func (j *Job) File() *os.File {
 const tsLayout = "2006-01-02T15:04:05.000Z"
 
 func (j *Job) GetEncodeLineEnd() []byte {
-	return globalLineEnd.GetEncodeLineEnd(j.task.pipelineName, j.task.sourceName)
+	return j.lineEnd
 }
 
 func (j *Job) GetLineEnd() []byte {
-	return globalLineEnd.GetLineEnd(j.task.pipelineName, j.task.sourceName)
+	return j.encodeLineEnd
 }
 
 func (j *Job) ProductEvent(endOffset int64, collectTime time.Time, body []byte) {
@@ -349,10 +352,12 @@ func NewJob(task *WatchTask, filename string, fileInfo os.FileInfo) *Job {
 
 func newJobWithUid(task *WatchTask, filename string, jobUid string) *Job {
 	j := &Job{
-		task:     task,
-		index:    jobIndex(),
-		filename: filename,
-		uid:      jobUid,
+		task:          task,
+		index:         jobIndex(),
+		filename:      filename,
+		uid:           jobUid,
+		lineEnd:       globalLineEnd.GetLineEnd(task.pipelineName, task.sourceName),
+		encodeLineEnd: globalLineEnd.GetEncodeLineEnd(task.pipelineName, task.sourceName),
 	}
 	j.aFileName.Store(filename)
 	return j
