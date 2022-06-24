@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package json_decode
+package iconv
 
 import (
 	"errors"
@@ -24,6 +24,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/util"
+	"golang.org/x/text/encoding"
 )
 
 const Type = "iconv"
@@ -39,8 +40,9 @@ func makeInterceptor(info pipeline.Info) api.Component {
 }
 
 type Interceptor struct {
-	name   string
-	config *Config
+	name    string
+	config  *Config
+	decoder *encoding.Decoder
 }
 
 func (i *Interceptor) Config() interface{} {
@@ -61,6 +63,12 @@ func (i *Interceptor) String() string {
 
 func (i *Interceptor) Init(context api.Context) error {
 	i.name = context.Name()
+	codec, ok := util.AllEncodings[i.config.Charset]
+	if !ok {
+		i.decoder = util.AllEncodings["utf-8"].NewDecoder()
+	}
+	i.decoder = codec.NewDecoder()
+	log.Warn("The encoding(%s) does not exist, it has been converted to utf-8 by default", i.config.Charset)
 	return nil
 }
 
@@ -85,14 +93,7 @@ func (i *Interceptor) process(e api.Event) error {
 		return nil
 	}
 
-	codec, ok := util.AllEncodings[i.config.Charset]
-
-	if !ok {
-		log.Warn("unknown Charset('%v')", i.config.Charset)
-		return errors.New(fmt.Sprintf("unknown Charset('%v')", i.config.Charset))
-	}
-
-	bytes, err := codec.NewDecoder().Bytes(e.Body())
+	bytes, err := i.decoder.Bytes(e.Body())
 
 	if err != nil {
 		log.Warn("failed to iconv  into %v", i.config.Charset)

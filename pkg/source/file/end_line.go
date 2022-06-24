@@ -89,7 +89,7 @@ func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineE
 	end.mutex.Lock()
 	defer end.mutex.Unlock()
 	lineType, ok := lineTerminators[lineEndValue.LineType]
-	if ok == false && lineEndValue.LineType != Custom {
+	if !ok && lineEndValue.LineType != Custom {
 		lineType = AutoLineTerminator
 	}
 
@@ -129,7 +129,7 @@ func (end *LineEndings) GetLineEnd(pipelineName string, sourceName string) []byt
 	key.WriteString(":")
 	key.WriteString(sourceName)
 	value, ok := end.endLineMap[key.String()]
-	if ok == false {
+	if !ok {
 		return []byte("\n")
 	}
 	return value.value
@@ -143,7 +143,7 @@ func (end *LineEndings) GetEncodeLineEnd(pipelineName string, sourceName string)
 	key.WriteString(":")
 	key.WriteString(sourceName)
 	value, ok := end.endLineMap[key.String()]
-	if ok == false {
+	if !ok {
 		return []byte("\n")
 	}
 	return value.encodeValue

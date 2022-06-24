@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package json_decode
+package iconv
 
 type Config struct {
 	Charset string `yaml:"charset,omitempty" default:"utf-8"`
