@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,8 +47,7 @@ func makeListener() eventbus.Listener {
 }
 
 type Config struct {
-	Period           time.Duration `yaml:"period" default:"30s"`
-	ValidateDuration time.Duration `yaml:"validateDuration" default:"60s"`
+	Period time.Duration `yaml:"period" default:"10s"`
 }
 
 type Listener struct {
