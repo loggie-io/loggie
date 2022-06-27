@@ -26,8 +26,8 @@ import (
 const ProcessorFmt = "fmt"
 
 type FmtProcessor struct {
-	config *FmtConfig
-
+	config         *FmtConfig
+	interceptor    *Interceptor
 	patternMatcher map[string]*pattern.Pattern
 }
 
@@ -61,11 +61,16 @@ func (r *FmtProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *FmtProcessor) Init() {
+func (r *FmtProcessor) Init(interceptor *Interceptor) {
 	for k, v := range r.config.Fields {
 		p, _ := pattern.Init(v)
 		r.patternMatcher[k] = p
 	}
+	r.interceptor = interceptor
+}
+
+func (r *FmtProcessor) GetName() string {
+	return ProcessorFmt
 }
 
 func (r *FmtProcessor) Process(e api.Event) error {
@@ -82,6 +87,7 @@ func (r *FmtProcessor) Process(e api.Event) error {
 		result, err := r.patternMatcher[k].WithObject(headerObj).Render()
 		if err != nil {
 			log.Warn("reformat %s by %s error: %v", k, v, err)
+			r.interceptor.reportMetric(r)
 			continue
 		}
 

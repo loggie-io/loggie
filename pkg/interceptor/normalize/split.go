@@ -29,7 +29,8 @@ import (
 const ProcessorSplit = "split"
 
 type SplitProcessor struct {
-	config *SplitConfig
+	config      *SplitConfig
+	interceptor *Interceptor
 }
 
 type SplitConfig struct {
@@ -56,7 +57,12 @@ func (r *SplitProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *SplitProcessor) Init() {
+func (r *SplitProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
+}
+
+func (r *SplitProcessor) GetName() string {
+	return ProcessorSplit
 }
 
 func (r *SplitProcessor) Process(e api.Event) error {
@@ -80,6 +86,7 @@ func (r *SplitProcessor) Process(e api.Event) error {
 		if err != nil {
 			LogErrorWithIgnore(r.config.IgnoreError, "target %s is not string", target)
 			log.Debug("split failed event: %s", e.String())
+			r.interceptor.reportMetric(r)
 			return nil
 		}
 		if t == "" {

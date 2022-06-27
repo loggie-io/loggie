@@ -30,7 +30,8 @@ import (
 const ProcessorAddMeta = "addMeta"
 
 type AddMetaProcessor struct {
-	config *AddMetaConfig
+	config      *AddMetaConfig
+	interceptor *Interceptor
 }
 
 type AddMetaConfig struct {
@@ -53,7 +54,12 @@ func (r *AddMetaProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *AddMetaProcessor) Init() {
+func (r *AddMetaProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
+}
+
+func (r *AddMetaProcessor) GetName() string {
+	return ProcessorAddMeta
 }
 
 func (r *AddMetaProcessor) Process(e api.Event) error {
@@ -66,12 +72,12 @@ func (r *AddMetaProcessor) Process(e api.Event) error {
 		header = make(map[string]interface{})
 	}
 
-	header[r.config.Target] = getMetaData(e)
+	header[r.config.Target] = r.getMetaData(e)
 
 	return nil
 }
 
-func getMetaData(e api.Event) map[string]interface{} {
+func (r *AddMetaProcessor) getMetaData(e api.Event) map[string]interface{} {
 	meta := e.Meta()
 	if meta == nil {
 		return nil
@@ -84,10 +90,11 @@ func getMetaData(e api.Event) map[string]interface{} {
 			continue
 		}
 
-		if isStruct(v) {
-			m, err := structToMap(v)
+		if r.isStruct(v) {
+			m, err := r.structToMap(v)
 			if err != nil {
 				log.Warn("convert struct to map error: %v", err)
+				r.interceptor.reportMetric(r)
 				continue
 			}
 			metaData[k] = m
@@ -99,7 +106,7 @@ func getMetaData(e api.Event) map[string]interface{} {
 	return metaData
 }
 
-func isStruct(v interface{}) bool {
+func (r *AddMetaProcessor) isStruct(v interface{}) bool {
 	refVal := reflect.ValueOf(v)
 	if refVal.Kind() == reflect.Ptr {
 		refVal = refVal.Elem()
@@ -110,14 +117,16 @@ func isStruct(v interface{}) bool {
 	return false
 }
 
-func structToMap(v interface{}) (map[string]interface{}, error) {
+func (r *AddMetaProcessor) structToMap(v interface{}) (map[string]interface{}, error) {
 	b, err := json.Marshal(&v)
 	if err != nil {
+		r.interceptor.reportMetric(r)
 		return nil, errors.Errorf("json marshal %s in meta error: %v", v, err)
 	}
 	var m map[string]interface{}
 	err = json.Unmarshal(b, &m)
 	if err != nil {
+		r.interceptor.reportMetric(r)
 		return nil, errors.Errorf("json unmarshal %s in meta error: %v", v, err)
 	}
 	return m, nil

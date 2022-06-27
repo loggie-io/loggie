@@ -26,7 +26,8 @@ import (
 const ProcessorMove = "rename"
 
 type MoveProcessor struct {
-	config *MoveConfig
+	config      *MoveConfig
+	interceptor *Interceptor
 }
 
 type MoveConfig struct {
@@ -49,7 +50,12 @@ func (r *MoveProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *MoveProcessor) Init() {
+func (r *MoveProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
+}
+
+func (r *MoveProcessor) GetName() string {
+	return ProcessorMove
 }
 
 func (r *MoveProcessor) Process(e api.Event) error {
