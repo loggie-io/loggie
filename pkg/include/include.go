@@ -46,13 +46,10 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/sink/grpc"
 	_ "github.com/loggie-io/loggie/pkg/sink/kafka"
 	_ "github.com/loggie-io/loggie/pkg/sink/loki"
-<<<<<<< HEAD
 	_ "github.com/loggie-io/loggie/pkg/sink/pulsar"
-=======
 	_ "github.com/loggie-io/loggie/pkg/sink/sls"
 	_ "github.com/loggie-io/loggie/pkg/source/codec/json"
 	_ "github.com/loggie-io/loggie/pkg/source/codec/regex"
->>>>>>> upstream/main
 	_ "github.com/loggie-io/loggie/pkg/source/dev"
 	_ "github.com/loggie-io/loggie/pkg/source/file"
 	_ "github.com/loggie-io/loggie/pkg/source/file/process"
