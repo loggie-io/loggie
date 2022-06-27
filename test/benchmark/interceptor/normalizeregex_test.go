@@ -13,6 +13,8 @@ func BenchmarkRegexProcess(b *testing.B) {
 
 	log.InitDefaultLogger()
 
+	interceptor := &normalize.Interceptor{}
+
 	tests := []struct {
 		name          string
 		initProcessor func() normalize.Processor
@@ -26,7 +28,7 @@ func BenchmarkRegexProcess(b *testing.B) {
 				conf.Target = "body"
 				conf.Pattern = `(?<ip>\S+) (?<id>\S+) (?<u>\S+) (?<time>\[.*?\]) (?<url>\".*?\") (?<status>\S+) (?<size>\S+)`
 				conf.UnderRoot = true
-				proc.Init()
+				proc.Init(interceptor)
 
 				return proc
 			},

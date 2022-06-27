@@ -25,10 +25,11 @@ import (
 )
 
 const (
-	Loggie          = "loggie"
-	PipelineNameKey = "pipeline"
-	SourceNameKey   = "source"
-	QueueTypeKey    = "type"
+	Loggie             = "loggie"
+	PipelineNameKey    = "pipeline"
+	SourceNameKey      = "source"
+	InterceptorNameKey = "interceptor"
+	QueueTypeKey       = "type"
 )
 
 var collector *Collector

@@ -33,7 +33,8 @@ const (
 )
 
 type ConvertProcessor struct {
-	config *ConvertConfig
+	config      *ConvertConfig
+	interceptor *Interceptor
 }
 
 type ConvertConfig struct {
@@ -56,8 +57,13 @@ func (p *ConvertProcessor) Config() interface{} {
 	return p.config
 }
 
-func (p *ConvertProcessor) Init() {
+func (p *ConvertProcessor) Init(interceptor *Interceptor) {
+	p.interceptor = interceptor
 	log.Info("format: %v", p.config.Convert)
+}
+
+func (p *ConvertProcessor) GetName() string {
+	return ProcessorConvert
 }
 
 func (p *ConvertProcessor) Process(e api.Event) error {
@@ -80,34 +86,41 @@ func (p *ConvertProcessor) Process(e api.Event) error {
 
 		val, err := srcVal.String()
 		if err != nil {
+			p.interceptor.reportMetric(p)
 			log.Info("cannot parse %s into string in event: %s", convert.From, e.String())
 			continue
 		}
 
 		obj.DelPath(convert.From)
-		obj.SetPath(convert.From, format(val, convert.To))
+		obj.SetPath(convert.From, p.format(val, convert.To))
 	}
 
 	return nil
 }
 
-func format(srcVal, dstFormat string) interface{} {
+func (p *ConvertProcessor) format(srcVal, dstFormat string) interface{} {
 	switch dstFormat {
 	case typeBoolean:
 		dstVal, err := strconv.ParseBool(srcVal)
 		if err != nil {
+			log.Warn("format error %s", err)
+			p.interceptor.reportMetric(p)
 			goto original
 		}
 		return dstVal
 	case typeInteger:
 		dstVal, err := strconv.ParseInt(srcVal, 10, 64)
 		if err != nil {
+			log.Warn("format error %s", err)
+			p.interceptor.reportMetric(p)
 			goto original
 		}
 		return dstVal
 	case typeFloat:
 		dstVal, err := strconv.ParseFloat(srcVal, 64)
 		if err != nil {
+			log.Warn("format error %s", err)
+			p.interceptor.reportMetric(p)
 			goto original
 		}
 		return dstVal

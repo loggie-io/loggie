@@ -22,8 +22,9 @@ import (
 )
 
 type Processor interface {
-	Init()
+	Init(interceptor *Interceptor)
 	Process(e api.Event) error
+	GetName() string
 }
 
 type factory func() Processor
