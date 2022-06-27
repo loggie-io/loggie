@@ -67,7 +67,6 @@ func (s *Sink) Init(_ api.Context) error {
 
 func (s *Sink) Start() error {
 	c := s.config
-	// 初始化pulsar客户端
 	log.Debug("init pulsar client config")
 	clientOptions, producerOptions, err := getOptions(c)
 	if err != nil {
