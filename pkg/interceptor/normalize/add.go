@@ -24,7 +24,8 @@ import (
 const ProcessorAdd = "add"
 
 type AddProcessor struct {
-	config *AddConfig
+	config      *AddConfig
+	interceptor *Interceptor
 }
 
 type AddConfig struct {
@@ -47,7 +48,12 @@ func (r *AddProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *AddProcessor) Init() {
+func (r *AddProcessor) GetName() string {
+	return ProcessorAdd
+}
+
+func (r *AddProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
 }
 
 func (r *AddProcessor) Process(e api.Event) error {

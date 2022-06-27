@@ -25,7 +25,8 @@ import (
 const ProcessorDrop = "drop"
 
 type DropProcessor struct {
-	config *DropConfig
+	config      *DropConfig
+	interceptor *Interceptor
 }
 
 type DropConfig struct {
@@ -48,7 +49,12 @@ func (r *DropProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *DropProcessor) Init() {
+func (r *DropProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
+}
+
+func (r *DropProcessor) GetName() string {
+	return ProcessorDrop
 }
 
 func (r *DropProcessor) Process(e api.Event) error {

@@ -30,7 +30,8 @@ const ProcessorTimestamp = "timestamp"
 const typeString = "string"
 
 type TimestampProcessor struct {
-	config *TimestampConfig
+	config      *TimestampConfig
+	interceptor *Interceptor
 }
 
 type TimestampConfig struct {
@@ -61,7 +62,12 @@ func (r *TimestampProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *TimestampProcessor) Init() {
+func (r *TimestampProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
+}
+
+func (r *TimestampProcessor) GetName() string {
+	return ProcessorTimestamp
 }
 
 func (r *TimestampProcessor) Process(e api.Event) error {
@@ -84,6 +90,7 @@ func (r *TimestampProcessor) Process(e api.Event) error {
 		timeStr, err := obj.GetPath(target.From).String()
 		if err != nil {
 			log.Info("unexpected type for timestamp in event: %s", e.String())
+			r.interceptor.reportMetric(r)
 			continue
 		}
 		if timeStr == "" {
@@ -94,6 +101,7 @@ func (r *TimestampProcessor) Process(e api.Event) error {
 		timeVal, err := time.Parse(target.FromLayout, timeStr)
 		if err != nil {
 			log.Info("parse time: %s by layout %s error", timeStr, target.FromLayout)
+			r.interceptor.reportMetric(r)
 			continue
 		}
 

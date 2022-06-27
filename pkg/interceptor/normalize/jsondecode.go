@@ -30,7 +30,8 @@ var (
 )
 
 type JsonDecodeProcessor struct {
-	config *JsonDecodeConfig
+	config      *JsonDecodeConfig
+	interceptor *Interceptor
 }
 
 type JsonDecodeConfig struct {
@@ -54,7 +55,12 @@ func (r *JsonDecodeProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *JsonDecodeProcessor) Init() {
+func (r *JsonDecodeProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
+}
+
+func (r *JsonDecodeProcessor) GetName() string {
+	return ProcessorJsonDecode
 }
 
 func (r *JsonDecodeProcessor) Process(e api.Event) error {
@@ -76,6 +82,7 @@ func (r *JsonDecodeProcessor) Process(e api.Event) error {
 		v, err := obj.GetPath(target).String()
 		if err != nil {
 			LogErrorWithIgnore(r.config.IgnoreError, "get content from %s failed %v", target, err)
+			r.interceptor.reportMetric(r)
 			return nil
 		}
 		if v == "" {
@@ -89,6 +96,7 @@ func (r *JsonDecodeProcessor) Process(e api.Event) error {
 	err := json.Unmarshal(val, &res)
 	if err != nil {
 		LogErrorWithIgnore(r.config.IgnoreError, "unmarshal data: %s err: %v", string(val), err)
+		r.interceptor.reportMetric(r)
 		return nil
 	}
 	for k, v := range res {
