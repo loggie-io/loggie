@@ -85,7 +85,7 @@ func beatsFormat(e api.Event) {
 	if meta != nil {
 		if timestamp, exist := meta.Get(eventer.SystemProductTimeKey); exist {
 			if t, ok := timestamp.(time.Time); ok {
-				header["@timestamp"] = t.Format(tsLayout)
+				header["@timestamp"] = t.UTC().Format(tsLayout)
 			}
 		}
 	}
