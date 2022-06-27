@@ -85,11 +85,11 @@ func (end *LineEndings) Init() {
 	}
 }
 
-func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineEndValue *LineEndValue) error {
+func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineDelimiterValue *LineDelimiterValue) error {
 	end.mutex.Lock()
 	defer end.mutex.Unlock()
-	lineType, ok := lineTerminators[lineEndValue.LineType]
-	if !ok && lineEndValue.LineType != Custom {
+	lineType, ok := lineTerminators[lineDelimiterValue.LineType]
+	if !ok && lineDelimiterValue.LineType != Custom {
 		lineType = AutoLineTerminator
 	}
 
@@ -98,19 +98,19 @@ func (end *LineEndings) AddLineEnd(pipelineName string, sourceName string, lineE
 	key.WriteString(":")
 	key.WriteString(sourceName)
 
-	if lineEndValue.LineType == Custom {
-		bytes, err := util.Encode(lineEndValue.Charset, []byte(lineEndValue.LineValue))
+	if lineDelimiterValue.LineType == Custom {
+		bytes, err := util.Encode(lineDelimiterValue.Charset, []byte(lineDelimiterValue.LineValue))
 		if err != nil {
 			log.Error("encode error:%s", err)
 		}
 		end.endLineMap[key.String()] = &LineEndingsValue{
-			value:       []byte(lineEndValue.LineValue),
+			value:       []byte(lineDelimiterValue.LineValue),
 			encodeValue: bytes,
 		}
 		return nil
 	}
 
-	bytes, err := util.Encode(lineEndValue.Charset, lineTerminatorCharacters[lineType])
+	bytes, err := util.Encode(lineDelimiterValue.Charset, lineTerminatorCharacters[lineType])
 	if err != nil {
 		log.Error("encode error:%s", err)
 	}

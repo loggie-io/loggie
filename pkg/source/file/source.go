@@ -117,7 +117,7 @@ func (s *Source) Init(context api.Context) error {
 		SourceName:   s.name,
 		Level:        IsolationLevel(s.config.Isolation),
 	}
-	globalLineEnd.AddLineEnd(s.pipelineName, s.name, &s.config.LineEnd)
+	globalLineEnd.AddLineEnd(s.pipelineName, s.name, &s.config.LineDelimiter)
 	return nil
 }
 

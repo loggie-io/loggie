@@ -30,7 +30,7 @@ type Config struct {
 	DbConfig      DbConfig               `yaml:"db,omitempty"`
 	WatchConfig   WatchConfig            `yaml:"watcher,omitempty"`
 	ReaderConfig  ReaderConfig           `yaml:",inline,omitempty"`
-	LineEnd       LineEndValue           `yaml:"lineEnd,omitempty"`
+	LineDelimiter LineDelimiterValue     `yaml:"lineDelimiter,omitempty"`
 	CollectConfig CollectConfig          `yaml:",inline,omitempty" validate:"required,dive"`
 	Isolation     string                 `yaml:"isolation,omitempty" default:"pipeline"`
 	Fields        map[string]interface{} `yaml:"fields,omitempty"`
@@ -48,7 +48,7 @@ type CollectConfig struct {
 	excludeFilePatterns      []*regexp.Regexp
 }
 
-type LineEndValue struct {
+type LineDelimiterValue struct {
 	Charset   string `yaml:"charset,omitempty" default:"utf-8"`
 	LineType  string `yaml:"type,omitempty" default:"auto"`
 	LineValue string `yaml:"value,omitempty" default:"\n"`
