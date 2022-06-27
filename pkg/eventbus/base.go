@@ -43,11 +43,17 @@ var (
 	PipelineTopic         = "pipeline"
 	ComponentBaseTopic    = "component"
 	SystemTopic           = "sys"
+	NormalizeTopic        = "normalize"
 )
 
 type BaseMetric struct {
 	PipelineName string
 	SourceName   string
+}
+
+type BaseInterceptorMetric struct {
+	PipelineName    string
+	InterceptorName string
 }
 
 type BaseMetricData struct {
@@ -135,6 +141,19 @@ type PipelineMetricData struct {
 	Name             string
 	Time             time.Time
 	ComponentConfigs []ComponentBaseConfig
+}
+
+type NormalizeMetricData struct {
+	BaseInterceptorMetric
+	Count uint64
+	Name  string
+}
+
+type NormalizeMetricEvent struct {
+	MetricMap    map[string]*NormalizeMetricData
+	PipelineName string
+	Name         string
+	IsClear      bool
 }
 
 type ComponentBaseConfig struct {
