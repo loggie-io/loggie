@@ -63,8 +63,8 @@ func (r *RegexProcessor) GetName() string {
 
 func (r *RegexProcessor) Init(interceptor *Interceptor) {
 	log.Info("regex pattern: %s", r.config.Pattern)
-	r.regex = util.CompilePatternWithJavaStyle(r.config.Pattern)
 	r.interceptor = interceptor
+	r.regex = util.MustCompilePatternWithJavaStyle(r.config.Pattern)
 }
 
 func (r *RegexProcessor) Process(e api.Event) error {

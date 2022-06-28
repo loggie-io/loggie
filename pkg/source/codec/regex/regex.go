@@ -25,7 +25,7 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
-	if _, err := regexp.Compile(c.Pattern); err != nil {
+	if _, err := util.CompilePatternWithJavaStyle(c.Pattern); err != nil {
 		return err
 	}
 	return nil
@@ -50,7 +50,7 @@ func (j *Regex) Config() interface{} {
 }
 
 func (j *Regex) Init() {
-	j.regex = util.CompilePatternWithJavaStyle(j.config.Pattern)
+	j.regex = util.MustCompilePatternWithJavaStyle(j.config.Pattern)
 }
 
 func (j *Regex) Decode(e api.Event) (api.Event, error) {
