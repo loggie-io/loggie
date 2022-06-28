@@ -30,7 +30,6 @@ type Config struct {
 	DbConfig      DbConfig               `yaml:"db,omitempty"`
 	WatchConfig   WatchConfig            `yaml:"watcher,omitempty"`
 	ReaderConfig  ReaderConfig           `yaml:",inline,omitempty"`
-	LineDelimiter LineDelimiterValue     `yaml:"lineDelimiter,omitempty"`
 	CollectConfig CollectConfig          `yaml:",inline,omitempty" validate:"required,dive"`
 	Isolation     string                 `yaml:"isolation,omitempty" default:"pipeline"`
 	Fields        map[string]interface{} `yaml:"fields,omitempty"`
@@ -118,13 +117,14 @@ type CleanFiles struct {
 }
 
 type ReaderConfig struct {
-	WorkerCount            int           `yaml:"workerCount,omitempty" default:"1"`
-	ReadChanSize           int           `yaml:"readChanSize,omitempty" default:"512"`
-	ReadBufferSize         int           `yaml:"readBufferSize,omitempty" default:"65536"` // The buffer size used for the file reading. default 65536 = 64k = 16*PAGE_SIZE
-	MaxContinueRead        int           `yaml:"maxContinueRead,omitempty" default:"16"`
-	MaxContinueReadTimeout time.Duration `yaml:"maxContinueReadTimeout,omitempty" default:"3s"`
-	InactiveTimeout        time.Duration `yaml:"inactiveTimeout,omitempty" default:"3s"`
-	MultiConfig            MultiConfig   `yaml:"multi,omitempty"`
+	LineDelimiter          LineDelimiterValue `yaml:"lineDelimiter,omitempty"`
+	WorkerCount            int                `yaml:"workerCount,omitempty" default:"1"`
+	ReadChanSize           int                `yaml:"readChanSize,omitempty" default:"512"`
+	ReadBufferSize         int                `yaml:"readBufferSize,omitempty" default:"65536"` // The buffer size used for the file reading. default 65536 = 64k = 16*PAGE_SIZE
+	MaxContinueRead        int                `yaml:"maxContinueRead,omitempty" default:"16"`
+	MaxContinueReadTimeout time.Duration      `yaml:"maxContinueReadTimeout,omitempty" default:"3s"`
+	InactiveTimeout        time.Duration      `yaml:"inactiveTimeout,omitempty" default:"3s"`
+	MultiConfig            MultiConfig        `yaml:"multi,omitempty"`
 }
 
 type MultiConfig struct {
