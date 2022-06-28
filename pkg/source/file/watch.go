@@ -277,7 +277,7 @@ func (w *Watcher) eventBus(e jobEvent) {
 		existAckOffset := existRegistry.Offset
 		fileSize := stat.Size()
 		// check whether the existAckOffset is larger than the file size
-		if existAckOffset > fileSize+1 {
+		if existAckOffset > fileSize+int64(len(job.GetEncodeLineEnd())) {
 			log.Warn("new job(jobUid:%s) fileName(%s) existRegistry(%+v) ackOffset is larger than file size(%d).is inode repeat?", job.Uid(), filename, existRegistry, fileSize)
 			// file was truncated，start from the beginning
 			if job.task.config.RereadTruncated {
