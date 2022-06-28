@@ -22,7 +22,7 @@ require (
 	github.com/olivere/elastic/v7 v7.0.28
 	github.com/panjf2000/ants/v2 v2.4.7
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.11.0
+	github.com/prometheus/client_golang v1.11.1
 	github.com/prometheus/common v0.32.1
 	github.com/prometheus/prom2json v1.3.0
 	github.com/prometheus/prometheus v1.8.2-0.20201028100903-3245b3267b24
@@ -45,6 +45,8 @@ require (
 )
 
 require (
+	github.com/apache/pulsar-client-go v0.8.1
+	github.com/sirupsen/logrus v1.6.0
 	github.com/Microsoft/go-winio v0.4.14 // indirect
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
