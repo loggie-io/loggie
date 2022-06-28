@@ -46,7 +46,7 @@ import (
 
 const (
 	GenerateConfigName           = "kube-loggie.yml"
-	GenerateTypeLoggieConfigName = "loggie-config.yml"
+	GenerateTypeLoggieConfigName = "cluster-config.yml"
 	GenerateTypeNodeConfigName   = "node-config.yml"
 )
 
@@ -157,7 +157,6 @@ func (c *Controller) handlePodAddOrUpdateOfLogConfig(pod *corev1.Pod) {
 	}
 
 	for _, lgc := range lgcList {
-
 		if !c.belongOfCluster(lgc.Spec.Selector.Cluster) {
 			continue
 		}

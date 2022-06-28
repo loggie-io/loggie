@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
 	"strings"
 	"time"
@@ -35,6 +36,8 @@ import (
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	logconfigLister "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
 )
+
+const MatchAllToken = "*"
 
 func IsPodReady(pod *corev1.Pod) bool {
 	if pod.Status.ContainerStatuses == nil || len(pod.Status.ContainerStatuses) <= 0 {
@@ -60,16 +63,40 @@ func MetaNamespaceKey(namespace string, name string) string {
 type FuncGetRelatedPod func() ([]*corev1.Pod, error)
 
 func GetLogConfigRelatedPod(lgc *logconfigv1beta1.LogConfig, podsLister corev1listers.PodLister) ([]*corev1.Pod, error) {
-	ret, err := podsLister.Pods(lgc.Namespace).List(labels.SelectorFromSet(lgc.Spec.Selector.PodSelector.LabelSelector))
+	var matchExpressions []metav1.LabelSelectorRequirement
+	for key, val := range lgc.Spec.Selector.LabelSelector {
+		if val != MatchAllToken {
+			continue
+		}
+		sel := metav1.LabelSelectorRequirement{
+			Key:      key,
+			Operator: metav1.LabelSelectorOpExists,
+		}
+		matchExpressions = append(matchExpressions, sel)
+	}
+
+	for k, v := range lgc.Spec.Selector.LabelSelector {
+		if v == MatchAllToken {
+			delete(lgc.Spec.Selector.LabelSelector, k)
+		}
+	}
+
+	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
+		MatchLabels:      lgc.Spec.Selector.LabelSelector,
+		MatchExpressions: matchExpressions,
+	})
 	if err != nil {
-		log.Info("%s/%s cannot find pod by labelSelector %#v: %s", lgc.Namespace, lgc.Name, lgc.Spec.Selector.PodSelector.LabelSelector, err.Error())
-		return nil, nil
+		return nil, errors.WithMessagef(err, "make LabelSelector error")
+	}
+
+	ret, err := podsLister.Pods(lgc.Namespace).List(selector)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "%s/%s cannot find pod by labelSelector %#v", lgc.Namespace, lgc.Name, lgc.Spec.Selector.PodSelector.LabelSelector)
 	}
 
 	return ret, nil
 }
 
-// TODO optimize the performance
 func GetPodRelatedLogConfigs(pod *corev1.Pod, lgcLister logconfigLister.LogConfigLister) ([]*logconfigv1beta1.LogConfig, error) {
 	lgcList, err := lgcLister.LogConfigs(pod.Namespace).List(labels.Everything())
 	if err != nil {
@@ -119,6 +146,12 @@ func LabelsSubset(i map[string]string, j map[string]string) bool {
 	}
 
 	for key, val := range i {
+		if val == MatchAllToken {
+			if _, ok := j[key]; ok {
+				continue
+			}
+			return false
+		}
 		if j[key] != val {
 			return false
 		}

@@ -240,6 +240,7 @@ func (c *Controller) reconcileLogConfigAddOrUpdate(lgc *logconfigv1beta1.LogConf
 }
 
 func (c *Controller) handleAllTypesAddOrUpdate(lgc *logconfigv1beta1.LogConfig) (err error, keys []string) {
+	lgc = lgc.DeepCopy()
 	switch lgc.Spec.Selector.Type {
 	case logconfigv1beta1.SelectorTypePod:
 		return c.handleLogConfigTypePodAddOrUpdate(lgc)
