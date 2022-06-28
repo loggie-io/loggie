@@ -47,6 +47,12 @@ type CollectConfig struct {
 	excludeFilePatterns      []*regexp.Regexp
 }
 
+type LineDelimiterValue struct {
+	Charset   string `yaml:"charset,omitempty" default:"utf-8"`
+	LineType  string `yaml:"type,omitempty" default:"auto"`
+	LineValue string `yaml:"value,omitempty" default:"\n"`
+}
+
 func (cc CollectConfig) IsIgnoreOlder(info os.FileInfo) bool {
 	ignoreOlder := cc.IgnoreOlder
 	return ignoreOlder.Duration() > 0 && time.Since(info.ModTime()) > ignoreOlder.Duration()
@@ -111,13 +117,14 @@ type CleanFiles struct {
 }
 
 type ReaderConfig struct {
-	WorkerCount            int           `yaml:"workerCount,omitempty" default:"1"`
-	ReadChanSize           int           `yaml:"readChanSize,omitempty" default:"512"`
-	ReadBufferSize         int           `yaml:"readBufferSize,omitempty" default:"65536"` // The buffer size used for the file reading. default 65536 = 64k = 16*PAGE_SIZE
-	MaxContinueRead        int           `yaml:"maxContinueRead,omitempty" default:"16"`
-	MaxContinueReadTimeout time.Duration `yaml:"maxContinueReadTimeout,omitempty" default:"3s"`
-	InactiveTimeout        time.Duration `yaml:"inactiveTimeout,omitempty" default:"3s"`
-	MultiConfig            MultiConfig   `yaml:"multi,omitempty"`
+	LineDelimiter          LineDelimiterValue `yaml:"lineDelimiter,omitempty"`
+	WorkerCount            int                `yaml:"workerCount,omitempty" default:"1"`
+	ReadChanSize           int                `yaml:"readChanSize,omitempty" default:"512"`
+	ReadBufferSize         int                `yaml:"readBufferSize,omitempty" default:"65536"` // The buffer size used for the file reading. default 65536 = 64k = 16*PAGE_SIZE
+	MaxContinueRead        int                `yaml:"maxContinueRead,omitempty" default:"16"`
+	MaxContinueReadTimeout time.Duration      `yaml:"maxContinueReadTimeout,omitempty" default:"3s"`
+	InactiveTimeout        time.Duration      `yaml:"inactiveTimeout,omitempty" default:"3s"`
+	MultiConfig            MultiConfig        `yaml:"multi,omitempty"`
 }
 
 type MultiConfig struct {
