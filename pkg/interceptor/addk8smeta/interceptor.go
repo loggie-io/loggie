@@ -18,6 +18,7 @@ package addk8smeta
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/global"
@@ -102,7 +103,7 @@ func (icp *Interceptor) Intercept(invoker source.Invoker, invocation source.Invo
 		log.Debug("failed get pod by indexer: %+v", indexerMap)
 		return invoker.Invoke(invocation)
 	}
-	w := getWorkload(pod)
+	w := helper.GetWorkload(pod)
 
 	fieldsMap := make(map[string]interface{})
 	for k, v := range icp.config.AddFields {
@@ -175,7 +176,7 @@ func getPodByIndex(indexMap map[string]string) *corev1.Pod {
 	return nil
 }
 
-func getFieldsValue(fieldsIndex string, pod *corev1.Pod, w workload) string {
+func getFieldsValue(fieldsIndex string, pod *corev1.Pod, w helper.Workload) string {
 	if pod == nil {
 		return ""
 	}
