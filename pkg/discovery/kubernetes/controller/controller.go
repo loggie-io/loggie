@@ -444,12 +444,12 @@ func (c *Controller) syncHandler(element Element) error {
 
 	case EventClusterLogConf:
 		if err = c.reconcileClusterLogConfig(element); err != nil {
-			log.Warn("reconcile logConfig %s err: %+v", element.Key, err)
+			log.Warn("reconcile logConfig %s err: %v", element.Key, err)
 		}
 
 	case EventLogConf:
 		if err = c.reconcileLogConfig(element); err != nil {
-			log.Warn("reconcile logConfig %s err: %+v", element.Key, err)
+			log.Warn("reconcile logConfig %s err: %v", element.Key, err)
 		}
 
 	case EventNode:
