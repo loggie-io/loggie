@@ -18,6 +18,7 @@ package pipeline
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"sync"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -153,20 +154,20 @@ func (r *RegisterCenter) LoadWithType(typename api.Type, name string, componentT
 	return component
 }
 
-func (r *RegisterCenter) Register(component api.Component, name string) {
+func (r *RegisterCenter) Register(component api.Component, name string) error {
 	code := code(component.Category(), component.Type(), name)
 	_, ok := r.nameComponents[code]
 	if ok {
-		panic(fmt.Sprintf("component[%s] is exist", code))
+		return errors.Errorf("component[%s] is duplicated, type/name should be unique", code)
 	}
 	r.nameComponents[code] = component
+	return nil
 }
 
 func (r *RegisterCenter) RegisterListener(listener spi.ComponentListener) {
 	name := listener.Name()
 	_, ok := r.nameListeners[name]
 	if ok {
-		// panic(fmt.Sprintf("component listener[%s] is exist", name))
 		log.Warn("component listener[%s] is exist", name)
 		return
 	}

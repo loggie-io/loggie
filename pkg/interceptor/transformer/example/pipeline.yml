@@ -1,0 +1,41 @@
+---
+## test data: "10.244.0.1 - - [13/Dec/2021:12:40:48 +0000] "GET / HTTP/1.1" 404 683"
+interceptors:
+  - type: transformer
+    actions:
+      - action: regex(body)
+        pattern: "(?<ip>\S+) (?<id>\S+) (?<u>\S+) (?<time>\[.*?\]) (?<url>\".*?\") (?<status>\S+) (?<size>\S+)"
+      - if: equal(status, 404)
+        then:
+          - action: add(topic, not_found)
+          - action: return()
+      - if: equal(status, 500)
+        then:
+          - action: add(topic, inner_error)
+          - action: return()
+      - action: add(topic, common)
+
+---
+## test data: {"log":"I0610 08:29:07.698664 Waiting for caches to sync", "stream":"stderr", "time:"2021-06-10T08:29:07.698731204Z"}
+interceptors:
+  - type: transformer
+    actions:
+      - if: hasPrefix(body, {)
+        then:
+          - action: jsonDecode(body)
+          - action: del(stream)
+          - action: add(topic, json)
+        else:
+          - action: add(topic, plain)
+
+---
+## test data: 2021-02-16T09:21:20.545525544Z DEBUG this is log body
+interceptors:
+  - type: transformer
+    actions:
+      - action: regex(body)
+        pattern: "^(?P<time>[^ ^Z]+Z) (?P<level>[^ ]*) (?P<log>.*)$"
+      - if: equal(level, DEBUG)
+        then:
+          - action: dropEvent()
+
