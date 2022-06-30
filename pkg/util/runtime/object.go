@@ -148,6 +148,26 @@ func (obj *Object) String() (string, error) {
 	return "", errors.New("type assertion to string failed")
 }
 
+func (obj *Object) Int64() (int64, error) {
+	if obj.data == nil {
+		return 0, nil
+	}
+	if s, ok := (obj.data).(int64); ok {
+		return s, nil
+	}
+	return 0, errors.New("type assertion to int failed")
+}
+
+func (obj *Object) Float64() (float64, error) {
+	if obj.data == nil {
+		return 0, nil
+	}
+	if s, ok := (obj.data).(float64); ok {
+		return s, nil
+	}
+	return 0, errors.New("type assertion to float64 failed")
+}
+
 func (obj *Object) IsNull() bool {
 	if obj == nil || obj.data == nil {
 		return true

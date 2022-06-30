@@ -150,6 +150,14 @@ func Init(pattern string) (*Pattern, error) {
 	}, nil
 }
 
+func MustInit(pattern string) *Pattern {
+	p, err := Init(pattern)
+	if err != nil {
+		panic(err)
+	}
+	return p
+}
+
 func makeMatch(m []string) matcher {
 	keyWrap := m[0]
 	key := m[1]

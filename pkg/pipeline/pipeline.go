@@ -298,7 +298,10 @@ func (p *Pipeline) startWithComponent(component api.Component, ctx api.Context) 
 		return errors.WithMessagef(err, "start component %s/%s", component.Category(), component.Type())
 	}
 
-	p.r.Register(component, ctx.Name())
+	err = p.r.Register(component, ctx.Name())
+	if err != nil {
+		return err
+	}
 	p.reportMetric(ctx.Name(), component, eventbus.ComponentStart)
 	return nil
 }

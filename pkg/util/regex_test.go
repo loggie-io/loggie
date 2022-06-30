@@ -33,7 +33,7 @@ func TestMatchGroupWithRegex(t *testing.T) {
 		{
 			name: "test date",
 			args: args{
-				compRegEx: CompilePatternWithJavaStyle("^(?P<Year>\\d{4})-(?P<Month>\\d{2})-(?P<Day>\\d{2})$"),
+				compRegEx: MustCompilePatternWithJavaStyle("^(?P<Year>\\d{4})-(?P<Month>\\d{2})-(?P<Day>\\d{2})$"),
 				context:   "2021-11-01",
 			},
 			wantParamsMap: map[string]string{
@@ -45,7 +45,7 @@ func TestMatchGroupWithRegex(t *testing.T) {
 		{
 			name: "test log split",
 			args: args{
-				compRegEx: CompilePatternWithJavaStyle("^\\[(?<loglevel>[^,]*)\\]\\s*Lag\\s*monitor,\\s*time\\:(?<time>[^,]*),\\s*groupid\\:\\s*(?<groupid>[^,]*),\\s*current_lag_sum\\:(?<currentlag>[^,]*),\\s*threshold\\:(?<threshold>[^,]*),\\s*topics\\:(?<topic>[^,]*)"),
+				compRegEx: MustCompilePatternWithJavaStyle("^\\[(?<loglevel>[^,]*)\\]\\s*Lag\\s*monitor,\\s*time\\:(?<time>[^,]*),\\s*groupid\\:\\s*(?<groupid>[^,]*),\\s*current_lag_sum\\:(?<currentlag>[^,]*),\\s*threshold\\:(?<threshold>[^,]*),\\s*topics\\:(?<topic>[^,]*)"),
 				context:   "[WARN]  Lag monitor, time:2019-10-31 15:31:05, groupid: fdata-dmvipappnewsaleratejob, current_lag_sum: 17, threshold: 60000, topics: FDATA-DWD_ORDER_USER",
 			},
 			wantParamsMap: map[string]string{

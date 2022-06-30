@@ -21,6 +21,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 )
 
+// Config Deprecated, use transformer instead
 type Config struct {
 	interceptor.ExtensionConfig `yaml:",inline"`
 	Processors                  ProcessorConfig `yaml:"processors,omitempty"`

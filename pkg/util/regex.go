@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-func CompilePatternWithJavaStyle(pattern string) *regexp.Regexp {
+func MustCompilePatternWithJavaStyle(pattern string) *regexp.Regexp {
 	// compile java、c# named capturing groups style
 	if strings.Contains(pattern, "?<") {
 		pattern = strings.ReplaceAll(pattern, "?<", "?P<")
@@ -29,8 +29,16 @@ func CompilePatternWithJavaStyle(pattern string) *regexp.Regexp {
 	return regexp.MustCompile(pattern)
 }
 
+func CompilePatternWithJavaStyle(pattern string) (*regexp.Regexp, error) {
+	// compile java、c# named capturing groups style
+	if strings.Contains(pattern, "?<") {
+		pattern = strings.ReplaceAll(pattern, "?<", "?P<")
+	}
+	return regexp.Compile(pattern)
+}
+
 func MatchGroup(pattern string, context string) (paramsMap map[string]string) {
-	compRegEx := CompilePatternWithJavaStyle(pattern)
+	compRegEx := MustCompilePatternWithJavaStyle(pattern)
 	return MatchGroupWithRegex(compRegEx, context)
 }
 
@@ -47,4 +55,18 @@ func MatchGroupWithRegex(compRegEx *regexp.Regexp, context string) (paramsMap ma
 		}
 	}
 	return
+}
+
+func MatchGroupWithRegexAndHeader(compRegEx *regexp.Regexp, context string, header map[string]interface{}) int {
+	match := compRegEx.FindStringSubmatch(context)
+	l := len(match)
+	if l == 0 {
+		return 0
+	}
+	for i, name := range compRegEx.SubexpNames() {
+		if i > 0 && i <= l {
+			header[name] = match[i]
+		}
+	}
+	return l
 }

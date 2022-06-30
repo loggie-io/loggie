@@ -42,6 +42,7 @@ func makeInterceptor(info pipeline.Info) api.Component {
 	}
 }
 
+// Interceptor Deprecated, use transformer instead
 type Interceptor struct {
 	done           chan struct{}
 	pipelineName   string
