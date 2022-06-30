@@ -18,13 +18,12 @@ package cfg
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
-
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
 	"github.com/goccy/go-yaml"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"io/ioutil"
+	"os"
 )
 
 type CommonCfg map[string]interface{}
@@ -94,8 +93,8 @@ func MergeCommonCfg(base CommonCfg, from CommonCfg, override bool) CommonCfg {
 	for k, v := range from {
 		baseVal, ok := base[k]
 
-		b, okb := baseVal.(map[interface{}]interface{})
-		f, okf := v.(map[interface{}]interface{})
+		b, okb := baseVal.(map[string]interface{})
+		f, okf := v.(map[string]interface{})
 		if okb && okf {
 			MergeCommonMap(b, f, override)
 			continue
@@ -110,7 +109,7 @@ func MergeCommonCfg(base CommonCfg, from CommonCfg, override bool) CommonCfg {
 	return base
 }
 
-func MergeCommonMap(base map[interface{}]interface{}, from map[interface{}]interface{}, override bool) map[interface{}]interface{} {
+func MergeCommonMap(base map[string]interface{}, from map[string]interface{}, override bool) map[string]interface{} {
 	if base == nil {
 		return from
 	}
@@ -121,8 +120,8 @@ func MergeCommonMap(base map[interface{}]interface{}, from map[interface{}]inter
 	for k, v := range from {
 		baseVal, ok := base[k]
 
-		b, okb := baseVal.(map[interface{}]interface{})
-		f, okf := v.(map[interface{}]interface{})
+		b, okb := baseVal.(map[string]interface{})
+		f, okf := v.(map[string]interface{})
 		if okb && okf {
 			MergeCommonMap(b, f, override)
 			continue
