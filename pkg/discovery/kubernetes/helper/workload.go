@@ -1,4 +1,4 @@
-package addk8smeta
+package helper
 
 import (
 	"strings"
@@ -7,26 +7,26 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-type workload struct {
+type Workload struct {
 	Kind string
 	Name string
 }
 
-func getWorkload(pod *corev1.Pod) workload {
+func GetWorkload(pod *corev1.Pod) Workload {
 	refs := pod.GetOwnerReferences()
 	if len(refs) == 0 {
-		return workload{}
+		return Workload{}
 	}
 	for _, ref := range refs {
 		kind, name := parseWorkloadKindName(ref)
 		if kind != "" && name != "" {
-			return workload{
+			return Workload{
 				Kind: kind,
 				Name: name,
 			}
 		}
 	}
-	return workload{
+	return Workload{
 		Kind: "Pod",
 		Name: pod.GetName(),
 	}

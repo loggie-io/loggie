@@ -1,4 +1,4 @@
-package addk8smeta
+package helper
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 func Test_getWorkload(t *testing.T) {
 	tests := []struct {
 		args *coreV1.Pod
-		want workload
+		want Workload
 	}{
 		{
 			args: &coreV1.Pod{
@@ -21,7 +21,7 @@ func Test_getWorkload(t *testing.T) {
 					OwnerReferences: []metaV1.OwnerReference{{Kind: "Job", Name: "jobName"}},
 				},
 			},
-			want: workload{Kind: "Job", Name: "jobName"},
+			want: Workload{Kind: "Job", Name: "jobName"},
 		},
 		{
 			args: &coreV1.Pod{
@@ -30,7 +30,7 @@ func Test_getWorkload(t *testing.T) {
 					OwnerReferences: []metaV1.OwnerReference{{Kind: "ReplicaSet", Name: "rsName"}},
 				},
 			},
-			want: workload{Kind: "ReplicaSet", Name: "rsName"},
+			want: Workload{Kind: "ReplicaSet", Name: "rsName"},
 		},
 		{
 			args: &coreV1.Pod{
@@ -39,7 +39,7 @@ func Test_getWorkload(t *testing.T) {
 					OwnerReferences: []metaV1.OwnerReference{{Kind: "ReplicaSet", Name: "dmName-c697f7b44"}},
 				},
 			},
-			want: workload{Kind: "Deployment", Name: "dmName"},
+			want: Workload{Kind: "Deployment", Name: "dmName"},
 		},
 		{
 			args: &coreV1.Pod{
@@ -48,7 +48,7 @@ func Test_getWorkload(t *testing.T) {
 					OwnerReferences: []metaV1.OwnerReference{{Kind: "StatefulSet", Name: "ssName"}},
 				},
 			},
-			want: workload{Kind: "StatefulSet", Name: "ssName"},
+			want: Workload{Kind: "StatefulSet", Name: "ssName"},
 		},
 		{
 			args: &coreV1.Pod{
@@ -57,7 +57,7 @@ func Test_getWorkload(t *testing.T) {
 					OwnerReferences: []metaV1.OwnerReference{{Kind: "DaemonSet", Name: "dsName"}},
 				},
 			},
-			want: workload{Kind: "DaemonSet", Name: "dsName"},
+			want: Workload{Kind: "DaemonSet", Name: "dsName"},
 		},
 		{
 			args: &coreV1.Pod{
@@ -66,13 +66,13 @@ func Test_getWorkload(t *testing.T) {
 					OwnerReferences: []metaV1.OwnerReference{{Kind: "ConfigMap", Name: "cmName"}},
 				},
 			},
-			want: workload{Kind: "Pod", Name: "podName"},
+			want: Workload{Kind: "Pod", Name: "podName"},
 		},
 	}
 	for i, tt := range tests {
 		t.Run(fmt.Sprintf("case index %d", i), func(t *testing.T) {
-			if got := getWorkload(tt.args); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getWorkload() = %v, want %v", got, tt.want)
+			if got := GetWorkload(tt.args); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GetWorkload() = %v, want %v", got, tt.want)
 			}
 		})
 	}

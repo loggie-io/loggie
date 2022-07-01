@@ -33,7 +33,6 @@ const (
 
 	timeToken = "+"
 	envToken  = "_env."
-	k8sToken  = "_k8s."
 
 	kindTime   = "time"
 	kindEnv    = "env"
@@ -85,42 +84,6 @@ func objectMatcherRender(obj *runtime.Object, key string) (string, error) {
 	return val, nil
 }
 
-// K8sMatcher
-func isK8sVar(key string) bool {
-	return strings.HasPrefix(key, k8sToken)
-}
-func k8sMatcherRender(data *k8sMeta.FieldsData, key string) string {
-	if data == nil {
-		return ""
-	}
-
-	field := strings.TrimLeft(key, k8sToken)
-	switch field {
-	case "pod.name":
-		return data.Pod.Name
-
-	case "pod.namespace":
-		return data.Pod.Namespace
-
-	case "pod.ip":
-		return data.Pod.Status.PodIP
-
-	case "pod.container.name":
-		return data.ContainerName
-
-	case "node.name":
-		return data.Pod.Spec.NodeName
-
-	case "node.ip":
-		return data.Pod.Status.HostIP
-
-	case "logconfig":
-		return data.LogConfig
-	}
-
-	return ""
-}
-
 func Validate(pattern string) error {
 	_, err := Init(pattern)
 	return err
@@ -170,7 +133,7 @@ func makeMatch(m []string) matcher {
 		item.kind = kindEnv
 	} else if isTimeVar(key) {
 		item.kind = kindTime
-	} else if isK8sVar(key) {
+	} else if k8sMeta.IsK8sVar(key) {
 		item.kind = kindK8s
 	} else {
 		item.kind = kindObject
@@ -198,7 +161,7 @@ func (p *Pattern) Render() (string, error) {
 			}
 			alt = o
 		} else if m.kind == kindK8s {
-			alt = k8sMatcherRender(p.tmpK8sData, m.key)
+			alt = k8sMeta.K8sMatcherRender(p.tmpK8sData, m.key)
 		}
 
 		// add old
