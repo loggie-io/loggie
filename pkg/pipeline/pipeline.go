@@ -173,16 +173,23 @@ func (p *Pipeline) cleanOutChan() {
 func (p *Pipeline) consumerOutChanAndDrop(out chan api.Batch) {
 	after := time.NewTimer(p.config.CleanDataTimeout)
 	defer after.Stop()
+	dropAndRelease := func(batch api.Batch) {
+		if batch != nil {
+			events := batch.Events()
+			if events != nil {
+				p.info.EventPool.PutAll(events)
+			}
+			batch.Release()
+		}
+	}
 	for {
 		select {
 		case <-after.C:
 			return
 		case b := <-out:
-			// drop
-			p.finalizeBatch(b)
+			dropAndRelease(b)
 		case b := <-p.info.SurviveChan:
-			// drop
-			p.finalizeBatch(b)
+			dropAndRelease(b)
 		}
 	}
 }
