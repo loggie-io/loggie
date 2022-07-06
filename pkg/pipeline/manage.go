@@ -135,6 +135,16 @@ func (r *RegisterCenter) LoadInterceptors() []api.Interceptor {
 	return components
 }
 
+func (r *RegisterCenter) LoadCodeInterceptors() map[string]api.Interceptor {
+	components := make(map[string]api.Interceptor)
+	for c, v := range r.nameComponents {
+		if v.Category() == api.INTERCEPTOR {
+			components[c] = v
+		}
+	}
+	return components
+}
+
 func (r *RegisterCenter) LoadSelector(typename api.Type, name string) api.Selector {
 	code := code(api.SELECTOR, typename, name)
 	component := r.load(code)
