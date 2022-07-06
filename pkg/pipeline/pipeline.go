@@ -99,6 +99,16 @@ func (p *Pipeline) Stop() {
 }
 
 func (p *Pipeline) stopSinkConsumer() {
+	// stop sink interceptor
+	for c, inter := range p.r.LoadCodeInterceptors() {
+		if i, ok := inter.(sink.Interceptor); ok {
+			log.Info("stop sink interceptor: %s", i.String())
+			i.Stop()
+			delete(p.r.nameComponents, c)
+			log.Info("sink interceptor stopped: %s", i.String())
+		}
+	}
+	// stop sink consumer and survive
 	close(p.done)
 	p.countDown.Wait()
 	// clean out chan: in case source blocking
@@ -750,6 +760,9 @@ func collectComponentDependencyInterceptors(component api.Component) []api.Inter
 }
 
 func (p *Pipeline) survive() {
+	p.countDown.Add(1)
+	defer p.countDown.Done()
+
 	for {
 		select {
 		case <-p.done:
