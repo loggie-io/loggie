@@ -17,7 +17,9 @@ limitations under the License.
 package retry
 
 import (
+	"errors"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/result"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -51,7 +53,8 @@ func makeInterceptor(info pipeline.Info) api.Component {
 
 type Config struct {
 	interceptor.ExtensionConfig `yaml:",inline"`
-	RetryMaxCount               int `yaml:"retryMaxCount,omitempty" default:"0"`
+	RetryMaxCount               int           `yaml:"retryMaxCount,omitempty" default:"0"`
+	CleanDataTimeout            time.Duration `yaml:"cleanDataTimeout" default:"5s"`
 }
 
 type retryMeta struct {
@@ -61,6 +64,7 @@ type retryMeta struct {
 type Opt int32
 
 type Interceptor struct {
+	stop        atomic.Value
 	done        chan struct{}
 	name        string
 	config      *Config
@@ -92,6 +96,7 @@ func (i *Interceptor) String() string {
 
 func (i *Interceptor) Init(context api.Context) error {
 	i.name = context.Name()
+	i.stop.Store(false)
 	i.done = make(chan struct{})
 	i.countDown = &sync.WaitGroup{}
 	i.lock = &sync.Mutex{}
@@ -116,26 +121,30 @@ func (i *Interceptor) Start() error {
 }
 
 func (i *Interceptor) Stop() {
+	i.stop.Store(true)
 	close(i.done)
 	i.countDown.Wait()
 	i.wakeUp()
+	go i.cleanData()
 	log.Debug("%s stop", i.String())
 }
 
 func (i *Interceptor) Intercept(invoker sink.Invoker, invocation sink.Invocation) api.Result {
 	batch := invocation.Batch
 	retryBatch := i.isRetryBatch(batch)
-	// retry goroutine will not be pause
+	// retry goroutine will not be paused
 	if !retryBatch && i.pause() {
 		i.wait()
 	}
-	result := invoker.Invoke(invocation)
-	if result.Status() != api.SUCCESS {
+	r := invoker.Invoke(invocation)
+	if i.isStop() {
+		return r
+	}
+	if r.Status() != api.SUCCESS {
 		rm := i.retryMeta(batch)
 		retryMaxCount := i.config.RetryMaxCount
 		if rm != nil && retryMaxCount > 0 && retryMaxCount < rm.count {
-			result.ChangeStatusTo(api.DROP)
-			return result
+			return result.DropWith(errors.New(fmt.Sprintf("retry reaches the limit: retryMaxCount(%d)", retryMaxCount)))
 		}
 		i.in <- batch
 	} else {
@@ -144,7 +153,7 @@ func (i *Interceptor) Intercept(invoker sink.Invoker, invocation sink.Invocation
 			i.signChan <- Reset
 		}
 	}
-	return result
+	return r
 }
 
 func (i *Interceptor) run() {
@@ -260,4 +269,24 @@ func (i *Interceptor) BelongTo() (componentTypes []string) {
 
 func (i *Interceptor) IgnoreRetry() bool {
 	return false
+}
+
+func (i *Interceptor) isStop() bool {
+	return i.stop.Load().(bool)
+}
+
+func (i *Interceptor) cleanData() {
+	t := time.NewTimer(i.config.CleanDataTimeout)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-t.C:
+			return
+		case <-i.in:
+			// ignore
+		case <-i.signChan:
+			// ignore
+		}
+	}
 }
