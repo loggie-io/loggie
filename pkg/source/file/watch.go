@@ -585,8 +585,9 @@ func (w *Watcher) finalizeJob(job *Job) {
 	for k, task := range w.waiteForStopWatchTasks {
 		delete(task.waiteForStopJobs, job.WatchUid())
 		if len(task.waiteForStopJobs) == 0 {
-			task.countDown.Done()
+			task.waiteForStopJobs = nil
 			delete(w.waiteForStopWatchTasks, k)
+			task.countDown.Done()
 		}
 	}
 }
@@ -723,11 +724,13 @@ func (w *Watcher) osNotify(e fsnotify.Event) {
 			return
 		}
 		jobUid := JobUid(stat)
-		if existJob, ok := w.allJobs[jobUid]; ok {
-			w.eventBus(jobEvent{
-				opt: WRITE,
-				job: existJob,
-			})
+		for _, existJob := range w.allJobs {
+			if existJob.Uid() == jobUid {
+				w.eventBus(jobEvent{
+					opt: WRITE,
+					job: existJob,
+				})
+			}
 		}
 	}
 }
@@ -754,9 +757,6 @@ func (w *Watcher) checkWaitForStopTask() {
 				job.Stop()
 				w.finalizeJob(job)
 			}
-			watchTask.waiteForStopJobs = nil
-			delete(w.waiteForStopWatchTasks, watchTask.WatchTaskKey())
-			watchTask.countDown.Done()
 		}
 	}
 }
