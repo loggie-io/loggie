@@ -18,7 +18,6 @@ package file
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -102,18 +101,4 @@ func TestMachDate(t *testing.T) {
 	for _, s := range ms {
 		fmt.Println(s)
 	}
-}
-
-func TestFileInfoSize(t *testing.T) {
-	fileName := "/tmp/pressure-access-889.log"
-	file, _ := os.Open(fileName)
-	stat, _ := file.Stat()
-	before := stat.Size()
-	fmt.Println(before)
-	stat, _ = file.Stat()
-	after := stat.Size()
-	fmt.Println(after)
-	stat, _ = os.Stat(fileName)
-	size := stat.Size()
-	fmt.Println(size)
 }

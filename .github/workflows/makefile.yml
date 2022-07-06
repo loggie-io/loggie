@@ -18,3 +18,5 @@ jobs:
       run: make fmt-check
     - name: Run golangci-lint
       run: make lint
+    - name: Run go test
+      run: make test

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: fmt fmt-check build docker-build docker-push docker-multi-arch
+.PHONY: fmt fmt-check build docker-build docker-push docker-multi-arch test
 
 # put REPO=xxx into .env, or make REPO=xxx
 -include .env
@@ -69,6 +69,11 @@ set -e ;\
 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.45.2 ;\
 }
 endef
+
+##@ Test
+
+test: ## Run go test ./...
+	go test ./...
 
 ##@ Benchmark
 

@@ -17,92 +17,12 @@ limitations under the License.
 package file
 
 import (
-	"database/sql"
 	"fmt"
-	"math/rand"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/log"
 )
-
-func TestNewDB(t *testing.T) {
-	type args struct {
-		config DbConfig
-	}
-	tests := []struct {
-		name string
-		args args
-		want *dbHandler
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GetOrCreateShareDbHandler(tt.args.config); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewDB() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_dbHandler_findAll(t *testing.T) {
-	type fields struct {
-		done   chan struct{}
-		config DbConfig
-		db     *sql.DB
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   []registry
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			d := &dbHandler{
-				done:   tt.fields.done,
-				config: tt.fields.config,
-				db:     tt.fields.db,
-			}
-			if got := d.findAll(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("findAll() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_dbHandler_write(t *testing.T) {
-	log.InitDefaultLogger()
-	handler := GetOrCreateShareDbHandler(DbConfig{
-		File:         "./data/loggie.db",
-		FlushTimeout: 2 * time.Second,
-		BufferSize:   1024,
-		TableName:    "registry",
-	})
-	rand.Seed(time.Now().UnixNano())
-	stats := make([]*State, 0)
-	for i := 0; i < 5; i++ {
-		index := i + 1
-		stats = append(stats, &State{
-			Offset:      rand.Int63(),
-			Filename:    fmt.Sprintf("/tmp/loggie/pressure/pressure-access-%d.log", index),
-			CollectTime: time.Now(),
-			JobUid:      fmt.Sprintf("test-job-uid-%d", index),
-			EventUid:    fmt.Sprintf("aaa-%d-%s", index, time2text(time.Now())),
-		})
-	}
-	stats = append(stats, &State{
-		Offset:      0,
-		Filename:    fmt.Sprintf("/tmp/loggie/pressure/pressure-access-%d.log", 6),
-		CollectTime: time.Now(),
-		JobUid:      fmt.Sprintf("test-job-uid-%d", 6),
-		EventUid:    fmt.Sprintf("aaa-%d-%s", 6, time2text(time.Now())),
-	})
-	handler.write(stats)
-}
 
 func Benchmark_dbHandler_write(b *testing.B) {
 	log.InitDefaultLogger()
@@ -144,8 +64,4 @@ func Test_text2time(t *testing.T) {
 
 func Test_time2text(t *testing.T) {
 	fmt.Println(time2text(time.Now()))
-}
-
-func Test_compressStats(t *testing.T) {
-
 }

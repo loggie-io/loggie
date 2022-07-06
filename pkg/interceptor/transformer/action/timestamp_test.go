@@ -30,7 +30,7 @@ func TestTimestamp_act(t *testing.T) {
 				key: "a.b",
 				extra: &timestampExtra{
 					FromLayout:   "2006-01-02 15:04:05",
-					FromLocation: "Local",
+					FromLocation: "Asia/Shanghai",
 					ToLayout:     "unix_ms",
 					ToLocation:   "Local",
 				},
@@ -53,7 +53,7 @@ func TestTimestamp_act(t *testing.T) {
 			fields: fields{
 				key: "a.b",
 				extra: &timestampExtra{
-					FromLocation: "Local",
+					FromLocation: "Asia/Shanghai",
 					FromLayout:   "unix_ms",
 					ToLayout:     "2006-01-02 15:04:05",
 					ToLocation:   "",
@@ -77,7 +77,7 @@ func TestTimestamp_act(t *testing.T) {
 			fields: fields{
 				key: "a.b",
 				extra: &timestampExtra{
-					FromLocation: "Local",
+					FromLocation: "Asia/Shanghai",
 					FromLayout:   "unix_ms",
 					ToLayout:     "2006-01-02 15:04:05",
 					ToLocation:   "Asia/Shanghai",
@@ -102,7 +102,7 @@ func TestTimestamp_act(t *testing.T) {
 				key: "a.b",
 				extra: &timestampExtra{
 					FromLayout:   "2006-01-02 15:04:05",
-					FromLocation: "Local",
+					FromLocation: "Asia/Shanghai",
 					ToLayout:     time.RFC3339,
 					ToLocation:   "Asia/Shanghai",
 				},
