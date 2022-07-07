@@ -23,6 +23,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/source/codec/json"
 	"github.com/loggie-io/loggie/pkg/source/codec/regex"
 	k8sMeta "github.com/loggie-io/loggie/pkg/util/pattern/k8smeta"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"regexp"
 	"strings"
 
@@ -46,7 +47,7 @@ import (
 
 const (
 	GenerateConfigName           = "kube-loggie.yml"
-	GenerateTypeLoggieConfigName = "loggie-config.yml"
+	GenerateTypeLoggieConfigName = "cluster-config.yml"
 	GenerateTypeNodeConfigName   = "node-config.yml"
 )
 
@@ -123,15 +124,19 @@ func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.Log
 		return nil, nil
 	}
 
-	var ret []string
+	var successPodNames []string
+	var errs []error
 	for _, pod := range podList {
 		if err := c.handleLogConfigPerPod(lgc, pod); err != nil {
-			return err, []string{pod.Name}
+			errs = append(errs, errors.WithMessagef(err, "match pod %s/%s", pod.Namespace, pod.Name))
+			continue
 		}
-		ret = append(ret, pod.Name)
+		successPodNames = append(successPodNames, pod.Name)
 	}
-
-	return nil, ret
+	if len(errs) > 0 {
+		return utilerrors.NewAggregate(errs), successPodNames
+	}
+	return nil, successPodNames
 }
 
 func (c *Controller) handlePodAddOrUpdate(pod *corev1.Pod) error {
@@ -157,7 +162,6 @@ func (c *Controller) handlePodAddOrUpdateOfLogConfig(pod *corev1.Pod) {
 	}
 
 	for _, lgc := range lgcList {
-
 		if !c.belongOfCluster(lgc.Spec.Selector.Cluster) {
 			continue
 		}

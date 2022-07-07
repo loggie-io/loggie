@@ -27,10 +27,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
+const (
+	OverrideLogConfigAnnotation        = "logconfig.loggie.io/override"
+	OverrideClusterLogConfigAnnotation = "clusterlogconfig.loggie.io/override"
+)
+
 type LogConfigTypePodIndex struct {
 	pipeConfigs  map[string]*TypePodPipeConfig // key: podKey/lgcKey, value: related pipeline configs
-	lgcToPodSets map[string]sets.String        // key: lgcKey(namespace/lgcName) , value: podKey(namespace/podName)
+	lgcToPodSets map[string]sets.String        // key: lgcKey(namespace/lgcName), value: podKey(namespace/podName)
 	podToLgcSets map[string]sets.String        // key: podKey(namespace/podName), value: lgcKey(namespace/lgcName)
+
+	lgcToOverrideLgc map[string]string // key: lgcKey(namespace/lgcName), value: override lgcKey(namespace/lgcName)
 }
 
 type TypePodPipeConfig struct {
@@ -40,9 +47,10 @@ type TypePodPipeConfig struct {
 
 func NewLogConfigTypePodIndex() *LogConfigTypePodIndex {
 	return &LogConfigTypePodIndex{
-		pipeConfigs:  make(map[string]*TypePodPipeConfig),
-		lgcToPodSets: make(map[string]sets.String),
-		podToLgcSets: make(map[string]sets.String),
+		pipeConfigs:      make(map[string]*TypePodPipeConfig),
+		lgcToPodSets:     make(map[string]sets.String),
+		podToLgcSets:     make(map[string]sets.String),
+		lgcToOverrideLgc: make(map[string]string),
 	}
 }
 
@@ -87,6 +95,10 @@ func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgc
 	podKey := helper.MetaNamespaceKey(namespace, podName)
 	lgcKey := helper.MetaNamespaceKey(lgcNamespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
+
+	if overrideLgc := overrideLgcKey(lgc); overrideLgc != "" {
+		p.lgcToOverrideLgc[lgcKey] = overrideLgc
+	}
 
 	p.pipeConfigs[podAndLgc] = &TypePodPipeConfig{
 		Raw: cfg,
@@ -143,6 +155,7 @@ func (p *LogConfigTypePodIndex) DeletePipeConfigsByLogConfigKey(lgcKey string) b
 	}
 
 	delete(p.lgcToPodSets, lgcKey)
+	delete(p.lgcToOverrideLgc, lgcKey)
 
 	return true
 }
@@ -171,16 +184,6 @@ func (p *LogConfigTypePodIndex) DeletePipeConfigsByPodKey(podKey string) bool {
 	return true
 }
 
-func (p *LogConfigTypePodIndex) GetAll() *control.PipelineRawConfig {
-	conf := control.PipelineRawConfig{}
-	var pipeConfigs []pipeline.ConfigRaw
-	for _, c := range p.pipeConfigs {
-		pipeConfigs = append(pipeConfigs, *c.Raw)
-	}
-	conf.Pipelines = pipeConfigs
-	return &conf
-}
-
 func (p *LogConfigTypePodIndex) GetAllConfigMap() map[string]*TypePodPipeConfig {
 	return p.pipeConfigs
 }
@@ -193,6 +196,8 @@ type ExtInterceptorConfig struct {
 func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineRawConfig {
 	conf := control.PipelineRawConfig{}
 	var pipeConfigs []pipeline.ConfigRaw
+
+	ignoredKeys := p.IgnoredPodKeyAndLgcKeys()
 
 	for lgcKey, podSet := range p.lgcToPodSets {
 		if podSet.Len() == 0 {
@@ -208,6 +213,12 @@ func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineRawCon
 				log.Error("%s/%s is not in logConfigTypePodIndex", lgcKey, podKey)
 				continue
 			}
+
+			if _, ok := ignoredKeys[key]; ok {
+				log.Debug("%s is ignored because it's override by other logConfigs", key)
+				continue
+			}
+
 			aggCfg.Name = cfgRaw.Raw.Name
 			aggCfg.Sources = append(aggCfg.Sources, cfgRaw.Raw.Sources...)
 			aggCfg.Sink = cfgRaw.Raw.Sink
@@ -218,11 +229,37 @@ func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineRawCon
 		icpList := extInterceptorToCommonCfg(icpSets)
 		aggCfg.Interceptors = icpList
 
-		pipeConfigs = append(pipeConfigs, aggCfg)
+		if aggCfg.Name != "" {
+			pipeConfigs = append(pipeConfigs, aggCfg)
+		}
 	}
 
 	conf.Pipelines = pipeConfigs
 	return &conf
+}
+
+// IgnoredPodKeyAndLgcKeys return map which key is podKey/overrideLgcKey
+func (p *LogConfigTypePodIndex) IgnoredPodKeyAndLgcKeys() map[string]struct{} {
+	ignored := make(map[string]struct{})
+
+	if len(p.lgcToOverrideLgc) == 0 {
+		return ignored
+	}
+
+	for lgcKey, overrideLgcKey := range p.lgcToOverrideLgc {
+		// get lgc pod keys
+		podSets, ok := p.lgcToPodSets[lgcKey]
+		if !ok {
+			continue
+		}
+
+		for _, podKey := range podSets.List() {
+			key := helper.MetaNamespaceKey(podKey, overrideLgcKey)
+			ignored[key] = struct{}{}
+		}
+	}
+
+	return ignored
 }
 
 func mergeInterceptors(icpSets map[string]ExtInterceptorConfig, interceptors []cfg.CommonCfg) {
@@ -261,4 +298,18 @@ func extInterceptorToCommonCfg(icpSets map[string]ExtInterceptorConfig) []cfg.Co
 		icpList = append(icpList, c)
 	}
 	return icpList
+}
+
+// overrideLgcKey return namespace/logConfigName or /clusterLogConfigName
+// retrieve from OverrideLogConfigAnnotation or OverrideClusterLogConfigAnnotation
+func overrideLgcKey(in *v1beta1.LogConfig) string {
+	if overrideLgc, ok := in.Annotations[OverrideLogConfigAnnotation]; ok {
+		return helper.MetaNamespaceKey(in.Namespace, overrideLgc)
+	}
+
+	if overrideClusterLgc, ok := in.Annotations[OverrideClusterLogConfigAnnotation]; ok {
+		return helper.MetaNamespaceKey("", overrideClusterLgc)
+	}
+
+	return ""
 }
