@@ -3,8 +3,6 @@ pipelines:
     sources:
       - type: file
         name: demo
-        ack:
-          enable: false
         paths:
           - /tmp/log/*.log
         fields:
