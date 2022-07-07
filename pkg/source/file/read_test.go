@@ -23,9 +23,6 @@ import (
 	"testing"
 )
 
-func TestLineReader_Next(t *testing.T) {
-}
-
 func TestReadNextOffset(t *testing.T) {
 	fileName := "/tmp/loggie/access.log"
 	file, _ := os.Open(fileName)

@@ -335,24 +335,6 @@ func TestMove(t *testing.T) {
 				},
 			}, []byte("this is body")),
 		},
-		{
-			name: "empty target",
-			args: args{
-				e: event.NewEvent(map[string]interface{}{
-					"a": map[string]interface{}{
-						"b": "foo",
-					},
-				}, []byte("this is body")),
-				from: "a.b",
-				to:   "",
-			},
-			want: event.NewEvent(map[string]interface{}{
-				"a": map[string]interface{}{},
-				"c": map[string]interface{}{
-					"d": "foo",
-				},
-			}, []byte("this is body")),
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
