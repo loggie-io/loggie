@@ -17,7 +17,7 @@ limitations under the License.
 package json
 
 import (
-	"reflect"
+	"github.com/stretchr/testify/assert"
 	"testing"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -29,10 +29,9 @@ func TestJson_Encode(t *testing.T) {
 		event api.Event
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    []byte
-		wantErr bool
+		name string
+		args args
+		want []byte
 	}{
 		{
 			name: "jsonOK",
@@ -44,39 +43,33 @@ func TestJson_Encode(t *testing.T) {
 					},
 				}, []byte("this is body")),
 			},
-			want:    []byte(`{"a":"b","body":"this is body","c":{"d":"e"}}`),
-			wantErr: false,
+			want: []byte(`{"a":"b","body":"this is body","c":{"d":"e"}}`),
 		},
 		{
 			name: "BodyInHeaderOK",
 			args: args{
 				event: event.NewEvent(map[string]interface{}{
 					"a": "b",
-					"body": map[string]interface{}{
-						"time":    "2021-07-04",
-						"level":   "Info",
-						"message": "this is message",
-					},
 					"c": map[string]interface{}{
 						"d": "e",
 					},
-				}, []byte("this is body raw")),
+					"body": "this is message",
+				}, []byte{}),
 			},
-			want:    []byte(`{"a":"b","c":{"d":"e"},"level":"Info","message":"this is message","time":"2021-07-04"}`),
-			wantErr: false,
+			want: []byte(`{"a":"b","c":{"d":"e"},"body":"this is message"}`),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			j := &Json{}
+			j := &Json{
+				config: &Config{
+					Pretty:      false,
+					BeatsFormat: false,
+				},
+			}
 			got, err := j.Encode(tt.args.event)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Encode() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Encode() got = %v, want %v", got, tt.want)
-			}
+			assert.NoError(t, err)
+			assert.JSONEq(t, string(tt.want), string(got))
 		})
 	}
 }

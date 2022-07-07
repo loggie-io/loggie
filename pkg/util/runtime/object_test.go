@@ -17,6 +17,7 @@ limitations under the License.
 package runtime
 
 import (
+	"github.com/stretchr/testify/assert"
 	"reflect"
 	"testing"
 )
@@ -66,6 +67,7 @@ func TestObject_Get(t *testing.T) {
 			want: &Object{
 				data: map[string]interface{}{
 					"e": "f",
+					"g": 2,
 				},
 			},
 		},
@@ -75,9 +77,8 @@ func TestObject_Get(t *testing.T) {
 			obj := &Object{
 				data: tt.fields.data,
 			}
-			if got := obj.Get(tt.args.key); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("Get() = %v, want %v", got, tt.want)
-			}
+			got := obj.Get(tt.args.key)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -290,10 +291,9 @@ func TestObject_FlatKeyValue(t *testing.T) {
 		data interface{}
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		want    map[string]interface{}
-		wantErr bool
+		name   string
+		fields fields
+		want   map[string]interface{}
 	}{
 		{
 			name: "ok",
@@ -307,9 +307,8 @@ func TestObject_FlatKeyValue(t *testing.T) {
 			},
 			want: map[string]interface{}{
 				"a":   "f",
-				"b.c": "g",
+				"b_c": "g",
 			},
-			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -318,13 +317,8 @@ func TestObject_FlatKeyValue(t *testing.T) {
 				data: tt.fields.data,
 			}
 			got, err := obj.FlatKeyValue("_")
-			if (err != nil) != tt.wantErr {
-				t.Errorf("FlatKeyValue() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("FlatKeyValue() got = %v, want %v", got, tt.want)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
