@@ -94,7 +94,7 @@ func (s *Source) Init(context api.Context) error {
 	s.name = context.Name()
 	s.out = make(chan api.Event, s.sinkCount)
 
-	s.ackEnable = s.config.AckConfig.Enable
+	s.ackEnable = *s.config.AckConfig.Enable
 	// init default multi agg timeout
 	mutiTimeout := s.config.ReaderConfig.MultiConfig.Timeout
 	inactiveTimeout := s.config.ReaderConfig.InactiveTimeout
@@ -123,7 +123,7 @@ func (s *Source) Init(context api.Context) error {
 
 func (s *Source) Start() error {
 	log.Info("start source: %s", s.String())
-	if s.config.ReaderConfig.MultiConfig.Active {
+	if *s.config.ReaderConfig.MultiConfig.Active {
 		s.multilineProcessor = GetOrCreateShareMultilineProcessor()
 	}
 	// register queue listener for ack
@@ -146,7 +146,7 @@ func (s *Source) Start() error {
 func (s *Source) Stop() {
 	log.Info("start stop source: %s", s.String())
 	// Stop ack
-	if s.config.AckConfig.Enable {
+	if *s.config.AckConfig.Enable {
 		// stop append&ack source event
 		s.ackChainHandler.StopTask(s.ackTask)
 		log.Info("[%s] all ack jobs of source exit", s.String())
@@ -158,7 +158,7 @@ func (s *Source) Stop() {
 	StopReader(s.isolation)
 	log.Info("[%s] reader stop", s.String())
 	// Stop multilineProcessor
-	if s.config.ReaderConfig.MultiConfig.Active {
+	if *s.config.ReaderConfig.MultiConfig.Active {
 		s.multilineProcessor.StopTask(s.mTask)
 	}
 	globalLineEnd.RemoveLineEnd(s.pipelineName, s.name)
@@ -175,7 +175,7 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 	if s.config.CollectConfig.AddonMeta {
 		s.productFunc = addonMetaProductFunc(s.productFunc)
 	}
-	if s.config.ReaderConfig.MultiConfig.Active {
+	if *s.config.ReaderConfig.MultiConfig.Active {
 		s.mTask = NewMultiTask(s.epoch, s.name, s.config.ReaderConfig.MultiConfig, s.eventPool, s.productFunc)
 		s.multilineProcessor.StartTask(s.mTask)
 		s.productFunc = s.multilineProcessor.Process
@@ -183,7 +183,7 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 	if s.codec != nil {
 		s.productFunc = codec.ProductFunc(s.productFunc, s.codec)
 	}
-	if s.config.AckConfig.Enable {
+	if *s.config.AckConfig.Enable {
 		s.ackTask = NewAckTask(s.epoch, s.pipelineName, s.name, func(state *State) {
 			s.dbHandler.state <- state
 		})

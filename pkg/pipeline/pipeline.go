@@ -659,7 +659,7 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 			if !ok || len(envVal) == 0 {
 				continue
 			}
-			if config.FieldsUnderRoot {
+			if *config.FieldsUnderRoot {
 				header[k] = envVal
 				continue
 			}
@@ -682,7 +682,7 @@ func addSourceFields(header map[string]interface{}, config source.Config) {
 	if len(sourceFields) <= 0 {
 		return
 	}
-	if config.FieldsUnderRoot {
+	if *config.FieldsUnderRoot {
 		for k, v := range sourceFields {
 			header[k] = v
 		}
