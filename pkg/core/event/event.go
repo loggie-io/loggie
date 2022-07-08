@@ -97,6 +97,10 @@ func (de *DefaultEvent) Meta() api.Meta {
 }
 
 func (de *DefaultEvent) Header() map[string]interface{} {
+	if de.H == nil {
+		de.H = make(map[string]interface{})
+	}
+
 	return de.H
 }
 
