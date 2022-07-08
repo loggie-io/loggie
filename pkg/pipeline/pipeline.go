@@ -17,6 +17,7 @@ limitations under the License.
 package pipeline
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -116,12 +117,21 @@ func (p *Pipeline) stopSinkConsumer() {
 }
 
 func (p *Pipeline) stopSourceProduct() {
+	taskName := fmt.Sprintf("stop sources of pipeline(%s)", p.name)
+	namedJob := make(map[string]func())
 	for name, s := range p.ns {
+		localName := name
 		localSource := s
-		localSource.Stop()
-		p.r.removeComponent(localSource.Type(), localSource.Category(), name)
-		p.reportMetric(name, localSource, eventbus.ComponentStop)
+
+		jobName := fmt.Sprintf("stop source(%s)", localName)
+		job := func() {
+			localSource.Stop()
+			p.r.removeComponent(localSource.Type(), localSource.Category(), localName)
+			p.reportMetric(localName, localSource, eventbus.ComponentStop)
+		}
+		namedJob[jobName] = job
 	}
+	util.AsyncRunGroup(taskName, namedJob)
 }
 
 func (p *Pipeline) stopQueue() {
