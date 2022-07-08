@@ -107,9 +107,9 @@ func (w *Watcher) StopWatchTask(watchTask *WatchTask) {
 	watchTask.countDown.Add(1)
 	w.watchTaskChan <- watchTask
 	watchTask.countDown.Wait()
-	stopCost := (time.Since(watchTask.stopTime)) / time.Second
+	stopCost := time.Since(watchTask.stopTime)
 	if stopCost > 10*time.Second {
-		log.Warn("watchTask(%s) stop cost: %ds", watchTask.String(), stopCost)
+		log.Warn("watchTask(%s) stop cost: %ds", watchTask.String(), stopCost/time.Second)
 	}
 }
 
