@@ -65,16 +65,19 @@ func (b *batch) size() int {
 
 func (b *batch) append(e api.Event) {
 	currentIndex := b.eventIndex
-	header := e.Header()
-	header[batchEventIndexKey] = currentIndex
-	header[batchIndexKey] = b.index
+	e.Meta().Set(batchEventIndexKey, currentIndex)
+	e.Meta().Set(batchIndexKey, b.index)
+
 	b.events[currentIndex] = e
 	b.eventIndex++
 }
 
 func (b *batch) ack(e api.Event) {
-	header := e.Header()
-	index := header[batchEventIndexKey].(int32)
+	indexRaw, exist := e.Meta().Get(batchEventIndexKey)
+	if !exist {
+		return
+	}
+	index := indexRaw.(int32)
 	delete(b.events, index)
 
 	if len(b.events) == 0 {
@@ -166,8 +169,7 @@ func (bc *batchChain) run() {
 			}
 		case es := <-bc.ackEvents:
 			for _, e := range es {
-				header := e.Header()
-				if batchIndex, ok := header[batchIndexKey]; ok {
+				if batchIndex, ok := e.Meta().Get(batchIndexKey); ok {
 					if b, exist := bs[batchIndex.(uint32)]; exist {
 						b.ack(e)
 						if b.isDone() {
