@@ -16,7 +16,7 @@ interceptors:
       - action: add(topic, common)
 
 ---
-## test data: {"log":"I0610 08:29:07.698664 Waiting for caches to sync", "stream":"stderr", "time:"2021-06-10T08:29:07.698731204Z"}
+## test data: {"log":"I0610 08:29:07.698664 Waiting for caches to sync", "stream":"stderr", "time":"2021-06-10T08:29:07.698731204Z"}
 interceptors:
   - type: transformer
     actions:
