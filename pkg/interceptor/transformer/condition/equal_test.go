@@ -54,6 +54,21 @@ func TestEqual_Check(t *testing.T) {
 			},
 			want: true,
 		},
+		{
+			name: "special token \r ",
+			fields: fields{
+				field: "a.b",
+				value: "\r",
+			},
+			args: args{
+				e: event.NewEvent(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b": "\r",
+					},
+				}, []byte("this is body")),
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

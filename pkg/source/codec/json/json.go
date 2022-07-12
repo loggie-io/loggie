@@ -81,13 +81,14 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 		}
 
 		body, err := getBytes(header, j.config.BodyFields)
-		length := len(body) - 1
-		if body[length] == '\n' {
-			body = body[:length]
+		if len(body) == 0 {
+			return e, nil
 		}
 		if err != nil {
 			return nil, err
 		}
+
+		body = pruneCLRF(body)
 		e.Fill(e.Meta(), nil, body)
 
 		return e, nil
@@ -110,4 +111,19 @@ func getBytes(header map[string]interface{}, key string) ([]byte, error) {
 	}
 
 	return []byte(targetValStr), nil
+}
+
+func pruneCLRF(in []byte) []byte {
+	var out []byte
+
+	length := len(in) - 1
+	if length >= 2 && in[length] == '\n' && in[length-1] == '\r' {
+		out = in[:length-1]
+	} else if in[length] == '\n' {
+		out = in[:length]
+	} else {
+		out = in
+	}
+
+	return out
 }
