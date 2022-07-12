@@ -228,11 +228,17 @@ func (r *RegisterCenter) Listeners() []spi.ComponentListener {
 }
 
 func (r *RegisterCenter) removeComponent(typename api.Type, category api.Category, name string) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	code := code(category, typename, name)
 	delete(r.nameComponents, code)
 }
 
 func (r *RegisterCenter) cleanData() {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	r.nameComponents = nil
 	r.nameListeners = nil
 }

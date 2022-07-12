@@ -654,8 +654,29 @@ func (w *Watcher) handleWatchTaskEvent(watchTask *WatchTask) {
 		if len(waitForStopJobs) > 0 {
 			watchTask.waiteForStopJobs = waitForStopJobs
 			w.waiteForStopWatchTasks[watchTask.WatchTaskKey()] = watchTask
+
+			// Try to stop jobs more aggressively
+			go w.asyncStopTaskJobs(watchTask)
 		} else {
 			watchTask.countDown.Done()
+		}
+	}
+}
+
+func (w *Watcher) asyncStopTaskJobs(watchTask *WatchTask) {
+	timeout := time.NewTimer(3 * time.Second)
+	defer timeout.Stop()
+
+	for {
+		select {
+		case <-w.done:
+			return
+		case <-timeout.C:
+			return
+		case j := <-watchTask.activeChan:
+			if watchTask.isParentOf(j) {
+				w.decideJob(j)
+			}
 		}
 	}
 }
