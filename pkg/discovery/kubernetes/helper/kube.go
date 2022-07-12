@@ -159,7 +159,7 @@ func LabelsSubset(i map[string]string, j map[string]string) bool {
 	return true
 }
 
-func PathsInNode(podLogDirPrefix string, kubeletRootDir string, rootFsCollectionEnabled bool, runtime runtime.Runtime,
+func PathsInNode(podLogDirPrefix string, kubeletRootDir string, rootFsCollectionEnabled bool, rt runtime.Runtime,
 	paths []string, pod *corev1.Pod, containerId string, containerName string) ([]string, error) {
 
 	var nodePaths []string
@@ -167,7 +167,11 @@ func PathsInNode(podLogDirPrefix string, kubeletRootDir string, rootFsCollection
 
 	for _, path := range paths {
 		if path == logconfigv1beta1.PathStdout {
-			nodePaths = append(nodePaths, GenContainerStdoutLog(podLogDirPrefix, pod.Namespace, pod.Name, string(pod.UID), containerName)...)
+			if rt.Name() == runtime.RuntimeDocker {
+				nodePaths = append(nodePaths, GenDockerStdoutLog("/var/lib/docker", containerId))
+			} else {
+				nodePaths = append(nodePaths, GenContainerStdoutLog(podLogDirPrefix, pod.Namespace, pod.Name, string(pod.UID), containerName)...)
+			}
 			continue
 		}
 
@@ -199,7 +203,7 @@ func PathsInNode(podLogDirPrefix string, kubeletRootDir string, rootFsCollection
 		// find node path in container root filesystem
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		rootfsPaths, err := runtime.GetRootfsPath(ctx, containerId, containerRootfsPaths)
+		rootfsPaths, err := rt.GetRootfsPath(ctx, containerId, containerRootfsPaths)
 		if err != nil {
 			return nil, err
 		}
@@ -207,6 +211,10 @@ func PathsInNode(podLogDirPrefix string, kubeletRootDir string, rootFsCollection
 	}
 
 	return nodePaths, nil
+}
+
+func GenDockerStdoutLog(dockerDataRoot string, containerId string) string {
+	return filepath.Join(dockerDataRoot, "containers", containerId, containerId+"-json.log")
 }
 
 func GenContainerStdoutLog(podLogDirPrefix string, namespace string, podName string, podUID string, containerName string) []string {
