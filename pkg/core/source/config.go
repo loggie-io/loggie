@@ -29,7 +29,7 @@ var (
 
 type Config struct {
 	cfg.ComponentBaseConfig `yaml:",inline"`
-	FieldsUnderRoot         bool                   `yaml:"fieldsUnderRoot,omitempty" default:"false"`
+	FieldsUnderRoot         *bool                  `yaml:"fieldsUnderRoot,omitempty" default:"false"`
 	FieldsUnderKey          string                 `yaml:"fieldsUnderKey,omitempty" default:"fields"`
 	Fields                  map[string]interface{} `yaml:"fields,omitempty"`
 	FieldsFromEnv           map[string]string      `yaml:"fieldsFromEnv,omitempty"`

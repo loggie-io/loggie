@@ -121,7 +121,7 @@ func main() {
 		go k8sDiscovery.Start(stopCh)
 	}
 
-	if syscfg.Loggie.Http.Enabled {
+	if *syscfg.Loggie.Http.Enabled {
 		go func() {
 			if err = http.ListenAndServe(fmt.Sprintf("%s:%d", syscfg.Loggie.Http.Host, syscfg.Loggie.Http.Port), nil); err != nil {
 				log.Fatal("http listen and serve err: %v", err)

@@ -66,14 +66,14 @@ func (j *Json) Encode(e api.Event) ([]byte, error) {
 	if header == nil {
 		header = make(map[string]interface{})
 	}
-	if j.config.BeatsFormat {
+	if *j.config.BeatsFormat {
 		beatsFormat(e)
 	} else if len(e.Body()) != 0 {
 		// put body in header
 		header[eventer.Body] = string(e.Body())
 	}
 
-	if j.config.Pretty {
+	if *j.config.Pretty {
 		return json.MarshalIndent(header, "", "    ")
 	}
 	return json.Marshal(header)

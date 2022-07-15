@@ -126,3 +126,5 @@ replace (
 	google.golang.org/protobuf => google.golang.org/protobuf v1.26.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 => github.com/machine3/lumberjack v0.1.0
 )
+
+replace github.com/creasty/defaults v1.5.1 => github.com/creasty/defaults v1.6.0

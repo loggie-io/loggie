@@ -61,10 +61,11 @@ func TestJson_Encode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			myBool := false
 			j := &Json{
 				config: &Config{
-					Pretty:      false,
-					BeatsFormat: false,
+					Pretty:      &myBool,
+					BeatsFormat: &myBool,
 				},
 			}
 			got, err := j.Encode(tt.args.event)

@@ -88,7 +88,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		return nil
 	}
 
-	if !s.config.PrintEvents {
+	if !*s.config.PrintEvents {
 		return result.NewResult(api.SUCCESS)
 	}
 	for _, e := range events {
