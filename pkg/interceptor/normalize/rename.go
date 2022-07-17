@@ -79,7 +79,7 @@ func (r *MoveProcessor) Process(e api.Event) error {
 		}
 		pathVal := obj.GetPath(from)
 		if !pathVal.IsNull() {
-			obj.GetPath(from)
+			obj.DelPath(from)
 			obj.SetPath(convert.To, pathVal.Value())
 			continue
 		}
