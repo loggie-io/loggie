@@ -77,14 +77,20 @@ func (r *MoveProcessor) Process(e api.Event) error {
 			e.Fill(e.Meta(), e.Header(), []byte{})
 			continue
 		}
-		val := obj.Get(from)
-		if val.IsNull() {
+		val1 := obj.GetPath(from)
+		val2 := obj.Get(from)
+		if val1.IsNull() && val2.IsNull() {
 			log.Info("move fields from %s is not exist", from)
 			log.Debug("move event: %s", e.String())
 			continue
 		}
-		obj.Del(from)
-		obj.Set(convert.To, val.Value())
+		if !val1.IsNull() {
+			obj.GetPath(from)
+			obj.SetPath(convert.To, val1.Value())
+		} else {
+			obj.Del(from)
+			obj.Set(convert.To, val2.Value())
+		}
 	}
 
 	return nil
