@@ -291,10 +291,6 @@ func (w *Watcher) eventBus(e jobEvent) {
 			}
 			w.preAllocationOffset(existAckOffset, job)
 		}
-		//if existAckOffset == 0 && w.config.ReadFromTail {
-		//	w.preAllocationOffset(fileSize, job)
-		//	existAckOffset = fileSize
-		//}
 		// set ack offset
 		job.NextOffset(existAckOffset)
 		// active job
