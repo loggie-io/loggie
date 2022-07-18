@@ -265,12 +265,7 @@ func (d *dbHandler) write(stats []*State) {
 			r.Id = tempId
 			updateRegistries = append(updateRegistries, r)
 		} else {
-			// insert only when offset = 0
-			if cs.first.Offset == 0 {
-				insertRegistries = append(insertRegistries, r)
-			} else {
-				log.Warn("The registry record corresponding to stat(%+v) has been deleted, stat will be ignore!", stat)
-			}
+			log.Warn("The registry record corresponding to stat(%+v) has been deleted, stat will be ignore!", stat)
 		}
 	}
 

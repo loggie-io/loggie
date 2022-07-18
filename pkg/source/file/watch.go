@@ -169,7 +169,7 @@ func (w *Watcher) removeOsNotify(file string) {
 	if w.osWatcher != nil {
 		err := w.osWatcher.Remove(file)
 		if err != nil {
-			log.Warn("remove file(%s) os notify fail: %v", file, err)
+			log.Debug("remove file(%s) os notify fail: %v", file, err)
 		}
 	}
 }
@@ -284,11 +284,17 @@ func (w *Watcher) eventBus(e jobEvent) {
 				existAckOffset = 0
 			}
 		}
-		// PreAllocationOffsetWithSize
-		if existAckOffset == 0 && w.config.ReadFromTail {
-			w.preAllocationOffset(fileSize, job)
-			existAckOffset = fileSize
+		// Pre-allocation offset
+		if existAckOffset == 0 {
+			if w.config.ReadFromTail {
+				existAckOffset = fileSize
+			}
+			w.preAllocationOffset(existAckOffset, job)
 		}
+		//if existAckOffset == 0 && w.config.ReadFromTail {
+		//	w.preAllocationOffset(fileSize, job)
+		//	existAckOffset = fileSize
+		//}
 		// set ack offset
 		job.NextOffset(existAckOffset)
 		// active job
