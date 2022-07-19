@@ -87,7 +87,7 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 	err := i.actions.Exec(e)
 	if err != nil {
 		if errors.Is(err, action.ErrorDropEvent) {
-			return result.Success()
+			return result.Drop()
 		}
 		log.Error("action execute error: %v", err)
 	}
