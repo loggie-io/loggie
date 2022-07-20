@@ -124,5 +124,5 @@ replace (
 	github.com/docker/docker => github.com/docker/docker v1.13.1
 	google.golang.org/grpc => google.golang.org/grpc v1.33.2
 	google.golang.org/protobuf => google.golang.org/protobuf v1.26.0
-	gopkg.in/natefinch/lumberjack.v2 v2.0.0 => github.com/machine3/lumberjack v0.1.0
+	gopkg.in/natefinch/lumberjack.v2 v2.0.0 => github.com/machine3/lumberjack v0.2.0
 )
