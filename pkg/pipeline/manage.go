@@ -74,6 +74,9 @@ func NewRegisterCenter() *RegisterCenter {
 }
 
 func (r *RegisterCenter) load(code string) api.Component {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	component, ok := r.nameComponents[code]
 	if !ok {
 		panic(fmt.Sprintf("component[%s] is not exist", code))
@@ -100,6 +103,9 @@ func (r *RegisterCenter) LoadQueue(typename api.Type, name string) api.Queue {
 }
 
 func (r *RegisterCenter) LoadDefaultQueue() api.Queue {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	for _, v := range r.nameComponents {
 		if v.Category() == api.QUEUE {
 			return v.(api.Queue)
@@ -117,44 +123,6 @@ func (r *RegisterCenter) LoadSource(typename api.Type, name string) api.Source {
 	return component.(api.Source)
 }
 
-func (r *RegisterCenter) LoadInterceptor(typename api.Type, name string) api.Interceptor {
-	code := code(api.INTERCEPTOR, typename, name)
-	component := r.load(code)
-	if api.INTERCEPTOR != component.Category() {
-		panic(fmt.Sprintf("component[%s] is not a interceptor", code))
-	}
-	return component.(api.Interceptor)
-}
-
-func (r *RegisterCenter) LoadInterceptors() []api.Interceptor {
-	components := make([]api.Interceptor, 0)
-	for _, v := range r.nameComponents {
-		if v.Category() == api.INTERCEPTOR {
-			components = append(components, v)
-		}
-	}
-	return components
-}
-
-func (r *RegisterCenter) LoadCodeInterceptors() map[string]api.Interceptor {
-	components := make(map[string]api.Interceptor)
-	for c, v := range r.nameComponents {
-		if v.Category() == api.INTERCEPTOR {
-			components[c] = v
-		}
-	}
-	return components
-}
-
-func (r *RegisterCenter) LoadSelector(typename api.Type, name string) api.Selector {
-	code := code(api.SELECTOR, typename, name)
-	component := r.load(code)
-	if api.SELECTOR != component.Category() {
-		panic(fmt.Sprintf("component[%s] is not a selector", code))
-	}
-	return component.(api.Selector)
-}
-
 func (r *RegisterCenter) LoadWithType(typename api.Type, name string, componentType api.Category) api.Component {
 	code := code(componentType, typename, name)
 	component := r.load(code)
@@ -164,7 +132,54 @@ func (r *RegisterCenter) LoadWithType(typename api.Type, name string, componentT
 	return component
 }
 
+func (r *RegisterCenter) LoadCodeInterceptors() map[string]api.Interceptor {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	components := make(map[string]api.Interceptor)
+	for c, v := range r.nameComponents {
+		if v.Category() == api.INTERCEPTOR {
+			components[c] = v
+		}
+	}
+	return components
+}
+
+func (r *RegisterCenter) LoadCodeComponents() map[string]api.Component {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	components := make(map[string]api.Component)
+	for c, v := range r.nameComponents {
+		components[c] = v
+	}
+	return components
+}
+
+func (r *RegisterCenter) removeComponent(typename api.Type, category api.Category, name string) {
+	code := code(category, typename, name)
+	r.RemoveByCode(code)
+}
+
+func (r *RegisterCenter) RemoveByCode(code string) {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	delete(r.nameComponents, code)
+}
+
+func (r *RegisterCenter) cleanData() {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	r.nameComponents = nil
+	r.nameListeners = nil
+}
+
 func (r *RegisterCenter) Register(component api.Component, name string) error {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	code := code(component.Category(), component.Type(), name)
 	_, ok := r.nameComponents[code]
 	if ok {
@@ -191,6 +206,9 @@ func (r *RegisterCenter) RegisterListener(listener spi.ComponentListener) {
 }
 
 func (r *RegisterCenter) LoadQueueListeners() []spi.QueueListener {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
 	qls := make([]spi.QueueListener, 0)
 	for _, listener := range r.nameListeners {
 		if queueListener, ok := listener.(spi.QueueListener); ok {
@@ -198,47 +216,4 @@ func (r *RegisterCenter) LoadQueueListeners() []spi.QueueListener {
 		}
 	}
 	return qls
-}
-
-// get components by type
-func (r *RegisterCenter) Components(category api.Category) []api.Component {
-	components := make([]api.Component, 0)
-	for _, v := range r.nameComponents {
-		if v.Category() == category {
-			components = append(components, v)
-		}
-	}
-	return components
-}
-
-func (r *RegisterCenter) AllComponents() []api.Component {
-	components := make([]api.Component, 0)
-	for _, v := range r.nameComponents {
-		components = append(components, v)
-	}
-	return components
-}
-
-func (r *RegisterCenter) Listeners() []spi.ComponentListener {
-	listeners := make([]spi.ComponentListener, 0)
-	for _, listener := range r.nameListeners {
-		listeners = append(listeners, listener)
-	}
-	return listeners
-}
-
-func (r *RegisterCenter) removeComponent(typename api.Type, category api.Category, name string) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-
-	code := code(category, typename, name)
-	delete(r.nameComponents, code)
-}
-
-func (r *RegisterCenter) cleanData() {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-
-	r.nameComponents = nil
-	r.nameListeners = nil
 }

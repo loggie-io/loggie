@@ -74,7 +74,7 @@ func newReader(config ReaderConfig, watcher *Watcher) *Reader {
 	r := &Reader{
 		done:      make(chan struct{}),
 		config:    config,
-		jobChan:   make(chan *Job, config.ReadChanSize),
+		jobChan:   make(chan *Job, config.readChanSize),
 		watcher:   watcher,
 		countDown: &sync.WaitGroup{},
 		stopOnce:  &sync.Once{},
@@ -88,7 +88,22 @@ func (r *Reader) Stop() {
 	r.stopOnce.Do(func() {
 		close(r.done)
 		r.countDown.Wait()
+		go r.cleanData()
 	})
+}
+
+func (r *Reader) cleanData() {
+	timeout := time.NewTimer(r.config.CleanDataTimeout)
+	defer timeout.Stop()
+
+	for {
+		select {
+		case <-timeout.C:
+			return
+		case j := <-r.jobChan:
+			r.watcher.decideJob(j)
+		}
+	}
 }
 
 func (r *Reader) Start() {
@@ -117,11 +132,9 @@ func (r *Reader) work(index int) {
 		case <-r.done:
 			return
 		case job := <-jobs:
-			ctx, err := NewJobCollectContextAndValidate(job, readBuffer, backlogBuffer)
-			if err != nil {
-				continue
+			if ctx, err := NewJobCollectContextAndValidate(job, readBuffer, backlogBuffer); err == nil {
+				processChain.Process(ctx)
 			}
-			processChain.Process(ctx)
 			r.watcher.decideJob(job)
 		}
 	}
