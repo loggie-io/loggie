@@ -105,7 +105,7 @@ func (p *Pipeline) stopSinkConsumer() {
 		if i, ok := inter.(sink.Interceptor); ok {
 			log.Info("stop sink interceptor: %s", i.String())
 			i.Stop()
-			delete(p.r.nameComponents, c)
+			p.r.RemoveByCode(c)
 			log.Info("sink interceptor stopped: %s", i.String())
 		}
 	}
@@ -123,10 +123,10 @@ func (p *Pipeline) stopSourceProduct() {
 		localName := name
 		localSource := s
 
+		p.r.removeComponent(localSource.Type(), localSource.Category(), localName)
 		jobName := fmt.Sprintf("stop source(%s)", localName)
 		job := func() {
 			localSource.Stop()
-			p.r.removeComponent(localSource.Type(), localSource.Category(), localName)
 			p.reportMetric(localName, localSource, eventbus.ComponentStop)
 		}
 		namedJob[jobName] = job
@@ -146,11 +146,11 @@ func (p *Pipeline) stopQueue() {
 
 func (p *Pipeline) stopComponents() {
 	log.Debug("stopping components of pipeline %s", p.name)
-	for name, v := range p.r.nameComponents {
+	for name, v := range p.r.LoadCodeComponents() {
 		// async stop with timeout
 		n := name
 		c := v
-		delete(p.r.nameComponents, n)
+		p.r.RemoveByCode(n)
 		util.AsyncRunWithTimeout(func() {
 			c.Stop()
 			p.reportMetricWithCode(n, c, eventbus.ComponentStop)
@@ -463,7 +463,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 
 func (p *Pipeline) startSinkConsumer(sinkConfig *sink.Config) {
 	interceptors := make([]sink.Interceptor, 0)
-	for _, inter := range p.r.Components(api.INTERCEPTOR) {
+	for _, inter := range p.r.LoadCodeInterceptors() {
 		i, ok := inter.(sink.Interceptor)
 		if !ok {
 			continue
@@ -615,7 +615,7 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
 
 		sourceConfig := sc
 		interceptors := make([]source.Interceptor, 0)
-		for _, inter := range p.r.LoadInterceptors() {
+		for _, inter := range p.r.LoadCodeInterceptors() {
 			i, ok := inter.(source.Interceptor)
 			if !ok {
 				continue

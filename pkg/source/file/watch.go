@@ -666,7 +666,7 @@ func (w *Watcher) handleWatchTaskEvent(watchTask *WatchTask) {
 }
 
 func (w *Watcher) asyncStopTaskJobs(watchTask *WatchTask) {
-	timeout := time.NewTimer(3 * time.Second)
+	timeout := time.NewTimer(w.config.CleanDataTimeout)
 	defer timeout.Stop()
 
 	for {
@@ -676,9 +676,7 @@ func (w *Watcher) asyncStopTaskJobs(watchTask *WatchTask) {
 		case <-timeout.C:
 			return
 		case j := <-watchTask.activeChan:
-			if watchTask.isParentOf(j) {
-				w.decideJob(j)
-			}
+			w.decideJob(j)
 		}
 	}
 }

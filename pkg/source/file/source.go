@@ -102,6 +102,9 @@ func (s *Source) Init(context api.Context) error {
 		s.config.ReaderConfig.MultiConfig.Timeout = 2 * inactiveTimeout
 	}
 
+	// init reader chan size
+	s.config.ReaderConfig.readChanSize = s.config.WatchConfig.MaxOpenFds
+
 	// check
 	cleanInactiveTimeout := s.config.DbConfig.CleanInactiveTimeout
 	if inactiveTimeout > cleanInactiveTimeout {
@@ -152,7 +155,9 @@ func (s *Source) Stop() {
 		log.Info("[%s] all ack jobs of source exit", s.String())
 	}
 	// Stop watch task
-	s.watcher.StopWatchTask(s.watchTask)
+	if s.watchTask != nil {
+		s.watcher.StopWatchTask(s.watchTask)
+	}
 	log.Info("[%s] watch task stop", s.String())
 	// Stop reader
 	StopReader(s.isolation)
