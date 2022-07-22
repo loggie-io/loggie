@@ -1,0 +1,8 @@
+pipelines:
+  - name: local
+    sources:
+      - type: dev
+        name: demo
+        eventsTotal: 10000
+        byteSize: 1024
+        qps: 100
