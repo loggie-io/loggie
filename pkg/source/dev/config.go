@@ -17,6 +17,7 @@ limitations under the License.
 package dev
 
 type Config struct {
-	Qps      int `yaml:"qps,omitempty" default:"1000"`
-	ByteSize int `yaml:"byteSize,omitempty" default:"1024"`
+	Qps         int `yaml:"qps,omitempty" default:"1000"`
+	ByteSize    int `yaml:"byteSize,omitempty" default:"1024"`
+	EventsTotal int `yaml:"eventsTotal,omitempty" default:"-1"`
 }
