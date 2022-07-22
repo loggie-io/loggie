@@ -36,7 +36,10 @@ func NewLogConfigTypeNodeIndex() *LogConfigTypeNodeIndex {
 
 func (index *LogConfigTypeNodeIndex) GetConfig(logConfigKey string) ([]pipeline.ConfigRaw, bool) {
 	cfg, ok := index.pipeConfigs[logConfigKey]
-	return cfg.Raw, ok
+	if !ok {
+		return nil, false
+	}
+	return cfg.Raw, true
 }
 
 func (index *LogConfigTypeNodeIndex) DeleteConfig(logConfigKey string) bool {
