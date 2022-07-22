@@ -104,7 +104,7 @@ type ErrorMetricData struct {
 type WatchMetricData struct {
 	BaseMetric
 	FileInfos       []FileInfo
-	TotalFileCount  int
+	ActiveFileCount int
 	InactiveFdCount int
 	SourceFields    map[string]interface{}
 }

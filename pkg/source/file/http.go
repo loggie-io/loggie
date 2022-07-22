@@ -34,7 +34,7 @@ var once sync.Once
 
 const (
 	handlerProxyPath    = "/api/v1/source/file/proxy"
-	handlerRegistryPath = "/api/v1/source/file/registry"
+	HandlerRegistryPath = "/api/v1/source/file/registry"
 )
 
 func (s *Source) HandleHttp() {
@@ -42,8 +42,8 @@ func (s *Source) HandleHttp() {
 		log.Info("handle http func: %+v", handlerProxyPath)
 		http.HandleFunc(handlerProxyPath, proxyFileHandler)
 
-		log.Info("handle http func: %+v", handlerRegistryPath)
-		http.HandleFunc(handlerRegistryPath, s.registryHandler)
+		log.Info("handle http func: %+v", HandlerRegistryPath)
+		http.HandleFunc(HandlerRegistryPath, s.registryHandler)
 	})
 }
 

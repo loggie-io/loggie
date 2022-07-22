@@ -25,13 +25,13 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 )
 
-const handleReadPipelineConfigPath = "/api/v1/reload/config"
+const HandleReadPipelineConfigPath = "/api/v1/reload/config"
 
-func (r *Reloader) initHttp() {
-	http.HandleFunc(handleReadPipelineConfigPath, r.readPipelineConfigHandler)
+func (r *reloader) initHttp() {
+	http.HandleFunc(HandleReadPipelineConfigPath, r.readPipelineConfigHandler)
 }
 
-func (r *Reloader) readPipelineConfigHandler(writer http.ResponseWriter, request *http.Request) {
+func (r *reloader) readPipelineConfigHandler(writer http.ResponseWriter, request *http.Request) {
 	matches, err := filepath.Glob(r.config.ConfigPath)
 	if err != nil {
 		log.Info("glob match path %s error: %v", r.config.ConfigPath, err)

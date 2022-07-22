@@ -30,6 +30,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	_ "github.com/loggie-io/loggie/pkg/include"
+	"github.com/loggie-io/loggie/pkg/ops/helper"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"go.uber.org/automaxprocs/maxprocs"
 	"net/http"
@@ -108,8 +109,7 @@ func main() {
 
 	if syscfg.Loggie.Reload.Enabled {
 		syscfg.Loggie.Reload.ConfigPath = pipelineConfigPath
-		rld := reloader.NewReloader(controller, &syscfg.Loggie.Reload)
-		go rld.Run(stopCh)
+		reloader.Setup(stopCh, controller, &syscfg.Loggie.Reload)
 	}
 
 	if syscfg.Loggie.Discovery.Enabled {
@@ -120,6 +120,9 @@ func main() {
 
 		go k8sDiscovery.Start(stopCh)
 	}
+
+	// api for debugging
+	helper.Setup(controller)
 
 	if syscfg.Loggie.Http.Enabled {
 		go func() {

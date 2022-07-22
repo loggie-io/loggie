@@ -65,7 +65,7 @@ type data struct {
 
 	FileInfo []*fileInfo `json:"info,omitempty"` // key=fileName
 
-	TotalFileCount  int                    `json:"total"`
+	ActiveFileCount int                    `json:"active"`
 	InactiveFdCount int                    `json:"inactive"`
 	SourceFields    map[string]interface{} `json:"sourceFields,omitempty"`
 }
@@ -118,11 +118,11 @@ func (l *Listener) exportPrometheus() {
 		m1 := promeExporter.ExportedMetrics{
 			{
 				Desc: prometheus.NewDesc(
-					buildFQName("total_file_count"),
-					"file count total",
+					buildFQName("active_file_count"),
+					"active file count total",
 					nil, labels,
 				),
-				Eval:    float64(d.TotalFileCount),
+				Eval:    float64(d.ActiveFileCount),
 				ValType: prometheus.GaugeValue,
 			},
 			{
@@ -241,7 +241,7 @@ func (l *Listener) consumer(e eventbus.WatchMetricData) {
 		files = append(files, f)
 	}
 	m.FileInfo = files
-	m.TotalFileCount = e.TotalFileCount
+	m.ActiveFileCount = e.ActiveFileCount
 	m.InactiveFdCount = e.InactiveFdCount
 
 	l.data[key] = m
