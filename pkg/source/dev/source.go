@@ -38,7 +38,7 @@ func init() {
 
 func makeSource(info pipeline.Info) api.Component {
 	return &Dev{
-		stop:      info.Stop,
+		stop:      make(chan struct{}),
 		config:    &Config{},
 		eventPool: info.EventPool,
 	}
@@ -46,7 +46,7 @@ func makeSource(info pipeline.Info) api.Component {
 
 type Dev struct {
 	name      string
-	stop      bool
+	stop      chan struct{}
 	eventPool *event.Pool
 	config    *Config
 	limiter   *rate.Limiter
@@ -84,23 +84,34 @@ func (d *Dev) Start() error {
 }
 
 func (d *Dev) Stop() {
-
-}
-
-func (d *Dev) Product() api.Event {
-	return nil
+	close(d.stop)
 }
 
 func (d *Dev) ProductLoop(productFunc api.ProductFunc) {
 	ctx := context.Background()
 	log.Info("%s start product loop", d.String())
 	content := d.content
-	for !d.stop {
-		header := make(map[string]interface{})
-		e := d.eventPool.Get()
-		e.Fill(e.Meta(), header, content)
-		d.limiter.Wait(ctx)
-		productFunc(e)
+	total := d.config.EventsTotal
+
+	for {
+		select {
+		case <-d.stop:
+			return
+
+		default:
+			header := make(map[string]interface{})
+			e := d.eventPool.Get()
+			e.Fill(e.Meta(), header, content)
+			d.limiter.Wait(ctx)
+			productFunc(e)
+
+			if total > 0 {
+				total--
+			} else if total == 0 {
+				return
+			} // total < 0: continue, make infinite events
+
+		}
 	}
 }
 
