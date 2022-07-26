@@ -638,7 +638,9 @@ func (w *Watcher) handleWatchTaskEvent(watchTask *WatchTask) {
 	if watchTask.watchTaskType == START {
 		w.sourceWatchTasks[key] = watchTask
 		w.cleanWatchTaskRegistry(watchTask)
-	} else if watchTask.watchTaskType == STOP {
+		return
+	}
+	if watchTask.watchTaskType == STOP {
 		log.Info("try to stop watch task: %s", watchTask.String())
 		delete(w.sourceWatchTasks, key)
 		// Delete the jobs of the corresponding source
@@ -658,9 +660,23 @@ func (w *Watcher) handleWatchTaskEvent(watchTask *WatchTask) {
 			w.waiteForStopWatchTasks[watchTask.WatchTaskKey()] = watchTask
 
 			// Try to stop jobs more aggressively
-			go w.asyncStopTaskJobs(watchTask)
+			w.aggressivelyStopWatchTask(watchTask)
 		} else {
 			watchTask.countDown.Done()
+		}
+		return
+	}
+}
+
+func (w *Watcher) aggressivelyStopWatchTask(watchTask *WatchTask) {
+	go w.asyncStopTaskJobs(watchTask)
+
+	if len(w.zombieJobChan) > 0 {
+		for j := range w.zombieJobChan {
+			w.decideZombieJob(j)
+			if len(w.zombieJobChan) == 0 {
+				break
+			}
 		}
 	}
 }
