@@ -70,7 +70,7 @@ func NewPipeline(pipelineConfig *Config) *Pipeline {
 		info: Info{
 			Stop:        false,
 			R:           registerCenter,
-			SurviveChan: make(chan api.Batch, 3),
+			SurviveChan: make(chan api.Batch, pipelineConfig.Sink.Parallelism+1),
 		},
 		r: registerCenter,
 	}
@@ -82,6 +82,9 @@ func (p *Pipeline) Stop() {
 	}
 
 	p.info.Stop = true
+	done := make(chan struct{})
+	// clean out chan: in case blocking
+	p.cleanOutChan(done)
 	// 0. stop sink consumer
 	p.stopSinkConsumer()
 	// 1. stop source product
@@ -95,6 +98,7 @@ func (p *Pipeline) Stop() {
 	p.stopListeners()
 	// 5. clean data(out chan、registry center、and so on)
 	p.cleanData()
+	close(done)
 
 	log.Info("stop pipeline with epoch: %+v", p.epoch)
 }
@@ -112,8 +116,6 @@ func (p *Pipeline) stopSinkConsumer() {
 	// stop sink consumer and survive
 	close(p.done)
 	p.countDown.Wait()
-	// clean out chan: in case source blocking
-	p.cleanOutChan()
 }
 
 func (p *Pipeline) stopSourceProduct() {
@@ -169,8 +171,6 @@ func (p *Pipeline) stopListeners() {
 }
 
 func (p *Pipeline) cleanData() {
-	// clean out chan
-	p.cleanOutChan()
 	// clean registry center
 	p.r.cleanData()
 	// clean pipeline
@@ -180,19 +180,17 @@ func (p *Pipeline) cleanData() {
 	p.r = nil
 }
 
-func (p *Pipeline) cleanOutChan() {
+func (p *Pipeline) cleanOutChan(done <-chan struct{}) {
 	for _, outChan := range p.outChans {
 		out := outChan
 		if len(out) == 0 {
 			continue
 		}
-		go p.consumerOutChanAndDrop(out)
+		go p.consumerOutChanAndDrop(out, done)
 	}
 }
 
-func (p *Pipeline) consumerOutChanAndDrop(out chan api.Batch) {
-	after := time.NewTimer(p.config.CleanDataTimeout)
-	defer after.Stop()
+func (p *Pipeline) consumerOutChanAndDrop(out chan api.Batch, done <-chan struct{}) {
 	dropAndRelease := func(batch api.Batch) {
 		if batch != nil {
 			events := batch.Events()
@@ -204,7 +202,7 @@ func (p *Pipeline) consumerOutChanAndDrop(out chan api.Batch) {
 	}
 	for {
 		select {
-		case <-after.C:
+		case <-done:
 			return
 		case b := <-out:
 			dropAndRelease(b)
@@ -639,6 +637,13 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
 				Event: e,
 				Queue: q,
 			})
+
+			if result.Status() == api.DROP {
+				p.info.EventPool.Put(e)
+			}
+			if result.Status() == api.FAIL {
+				log.Error("source to queue failed: %s", result.Error())
+			}
 			return result
 		}
 		go si.Source.ProductLoop(productFunc)
