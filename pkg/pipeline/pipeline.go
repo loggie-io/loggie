@@ -183,9 +183,6 @@ func (p *Pipeline) cleanData() {
 func (p *Pipeline) cleanOutChan(done <-chan struct{}) {
 	for _, outChan := range p.outChans {
 		out := outChan
-		if len(out) == 0 {
-			continue
-		}
 		go p.consumerOutChanAndDrop(out, done)
 	}
 }

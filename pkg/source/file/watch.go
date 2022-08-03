@@ -49,7 +49,7 @@ type Watcher struct {
 	config                 WatchConfig
 	sourceWatchTasks       map[string]*WatchTask // key:pipelineName:sourceName
 	waiteForStopWatchTasks map[string]*WatchTask
-	watchTaskChan          chan *WatchTask
+	watchTaskEventChan     chan WatchTaskEvent
 	osWatcher              *fsnotify.Watcher
 	osWatchFiles           map[string]bool // key:file|value:1;only zombie job file need os notify
 	allJobs                map[string]*Job // key:`pipelineName:sourceName:job.Uid`|value:*job
@@ -67,7 +67,7 @@ func newWatcher(config WatchConfig, dbHandler *dbHandler) *Watcher {
 		config:                 config,
 		sourceWatchTasks:       make(map[string]*WatchTask),
 		waiteForStopWatchTasks: make(map[string]*WatchTask),
-		watchTaskChan:          make(chan *WatchTask),
+		watchTaskEventChan:     make(chan WatchTaskEvent),
 		dbHandler:              dbHandler,
 		zombieJobChan:          make(chan *Job, config.MaxOpenFds+1),
 		allJobs:                make(map[string]*Job),
@@ -102,10 +102,12 @@ func (w *Watcher) Stop() {
 }
 
 func (w *Watcher) StopWatchTask(watchTask *WatchTask) {
-	watchTask.watchTaskType = STOP
 	watchTask.stopTime = time.Now()
 	watchTask.countDown.Add(1)
-	w.watchTaskChan <- watchTask
+	w.watchTaskEventChan <- WatchTaskEvent{
+		watchTaskType: STOP,
+		watchTask:     watchTask,
+	}
 	watchTask.countDown.Wait()
 	stopCost := time.Since(watchTask.stopTime)
 	if stopCost > 10*time.Second {
@@ -114,8 +116,10 @@ func (w *Watcher) StopWatchTask(watchTask *WatchTask) {
 }
 
 func (w *Watcher) StartWatchTask(watchTask *WatchTask) {
-	watchTask.watchTaskType = START
-	w.watchTaskChan <- watchTask
+	w.watchTaskEventChan <- WatchTaskEvent{
+		watchTaskType: START,
+		watchTask:     watchTask,
+	}
 }
 
 func (w *Watcher) preAllocationOffset(size int64, job *Job) {
@@ -459,12 +463,19 @@ func (w *Watcher) legalFile(filename string, watchTask *WatchTask, withIgnoreOld
 }
 
 func (w *Watcher) scan() {
+	start := time.Now()
+
 	// check any new files
 	w.scanNewFiles()
 	// active job
 	w.scanActiveJob()
 	// zombie job
 	w.scanZombieJob()
+
+	scanCost := time.Since(start)
+	if scanCost > 3*time.Second {
+		log.Warn("watch scan cost: %ds", scanCost/time.Second)
+	}
 }
 
 func (w *Watcher) scanActiveJob() {
@@ -618,8 +629,8 @@ func (w *Watcher) run() {
 		select {
 		case <-w.done:
 			return
-		case watchTask := <-w.watchTaskChan:
-			w.handleWatchTaskEvent(watchTask)
+		case watchTaskEvent := <-w.watchTaskEventChan:
+			w.handleWatchTaskEvent(watchTaskEvent)
 		case job := <-w.zombieJobChan:
 			w.decideZombieJob(job)
 		case e := <-osEvents:
@@ -633,14 +644,20 @@ func (w *Watcher) run() {
 	}
 }
 
-func (w *Watcher) handleWatchTaskEvent(watchTask *WatchTask) {
+func (w *Watcher) handleWatchTaskEvent(watchTaskEvent WatchTaskEvent) {
+	taskType := watchTaskEvent.watchTaskType
+	watchTask := watchTaskEvent.watchTask
 	key := watchTask.WatchTaskKey()
-	if watchTask.watchTaskType == START {
+	if taskType == START {
+		// WatchTask may be stopped at the moment of starting
+		if watchTask.IsStop() {
+			return
+		}
 		w.sourceWatchTasks[key] = watchTask
 		w.cleanWatchTaskRegistry(watchTask)
 		return
 	}
-	if watchTask.watchTaskType == STOP {
+	if taskType == STOP {
 		log.Info("try to stop watch task: %s", watchTask.String())
 		delete(w.sourceWatchTasks, key)
 		// Delete the jobs of the corresponding source

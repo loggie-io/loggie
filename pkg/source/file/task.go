@@ -36,6 +36,11 @@ const (
 
 type WatchTaskType string
 
+type WatchTaskEvent struct {
+	watchTaskType WatchTaskType
+	watchTask     *WatchTask
+}
+
 type WatchTask struct {
 	epoch            *pipeline.Epoch
 	pipelineName     string
@@ -44,7 +49,6 @@ type WatchTask struct {
 	eventPool        *event.Pool
 	productFunc      api.ProductFunc
 	activeChan       chan *Job
-	watchTaskType    WatchTaskType
 	countDown        *sync.WaitGroup
 	waiteForStopJobs map[string]*Job
 	stopTime         time.Time
@@ -128,4 +132,8 @@ func (wt *WatchTask) StopJobsInfo() string {
 		stopJobsInfo.WriteString("}")
 	}
 	return stopJobsInfo.String()
+}
+
+func (wt *WatchTask) IsStop() bool {
+	return !wt.stopTime.IsZero()
 }
