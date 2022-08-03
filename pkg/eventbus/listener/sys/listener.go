@@ -3,6 +3,10 @@ package sys
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strconv"
+	"time"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
@@ -10,9 +14,6 @@ import (
 	promeExporter "github.com/loggie-io/loggie/pkg/eventbus/export/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/shirou/gopsutil/v3/process"
-	"os"
-	"strconv"
-	"time"
 )
 
 const name = "sys"
@@ -139,5 +140,5 @@ func (l *Listener) exportPrometheus() {
 			ValType: prometheus.GaugeValue,
 		},
 	}
-	promeExporter.Export(eventbus.ReloadTopic, metric)
+	promeExporter.Export(eventbus.SystemTopic, metric)
 }
