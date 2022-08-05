@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
@@ -29,12 +30,7 @@ func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) er
 		return errors.WithMessage(err, "convert to pipeline config failed")
 	}
 
-	pipCopy, err := pipRaws.DeepCopy()
-	if err != nil {
-		return errors.WithMessage(err, "deep copy pipeline config error")
-	}
-	pipCopy.SetDefaults()
-	if err = pipCopy.Validate(); err != nil {
+	if err := cfg.NewUnpack(nil, pipRaws, nil).Defaults().Validate().Do(); err != nil {
 		return err
 	}
 

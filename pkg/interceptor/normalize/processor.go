@@ -58,7 +58,7 @@ func newProcessor(name string, properties cfg.CommonCfg) (Processor, error) {
 		if properties == nil {
 			properties = cfg.NewCommonCfg()
 		}
-		err := cfg.UnpackDefaultsAndValidate(properties, c.Config())
+		err := cfg.UnpackFromCommonCfg(properties, c.Config()).Defaults().Validate().Do()
 		if err != nil {
 			return nil, errors.WithMessagef(err, "unpack processor %s config", name)
 		}

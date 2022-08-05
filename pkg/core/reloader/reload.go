@@ -17,10 +17,10 @@ limitations under the License.
 package reloader
 
 import (
+	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"os"
 	"time"
 
-	"github.com/goccy/go-yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/loggie-io/loggie/pkg/control"

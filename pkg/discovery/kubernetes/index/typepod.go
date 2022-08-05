@@ -18,7 +18,6 @@ package index
 
 import (
 	"github.com/loggie-io/loggie/pkg/control"
-	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
@@ -41,7 +40,7 @@ type LogConfigTypePodIndex struct {
 }
 
 type TypePodPipeConfig struct {
-	Raw *pipeline.ConfigRaw
+	Raw *pipeline.Config
 	Lgc *v1beta1.LogConfig
 }
 
@@ -54,7 +53,7 @@ func NewLogConfigTypePodIndex() *LogConfigTypePodIndex {
 	}
 }
 
-func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string, lgcNamespace string, lgcName string) *pipeline.ConfigRaw {
+func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string, lgcNamespace string, lgcName string) *pipeline.Config {
 	podKey := helper.MetaNamespaceKey(namespace, podName)
 	lgcKey := helper.MetaNamespaceKey(lgcNamespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
@@ -76,10 +75,10 @@ func (p *LogConfigTypePodIndex) IsPodExist(namespace string, podName string) boo
 	return true
 }
 
-func (p *LogConfigTypePodIndex) GetPipeConfigsByPod(namespace string, podName string) []pipeline.ConfigRaw {
+func (p *LogConfigTypePodIndex) GetPipeConfigsByPod(namespace string, podName string) []pipeline.Config {
 	podKey := helper.MetaNamespaceKey(namespace, podName)
 
-	pipcfgs := make([]pipeline.ConfigRaw, 0)
+	pipcfgs := make([]pipeline.Config, 0)
 	lgcSets, ok := p.podToLgcSets[podKey]
 	if !ok || lgcSets.Len() == 0 {
 		return pipcfgs
@@ -91,9 +90,9 @@ func (p *LogConfigTypePodIndex) GetPipeConfigsByPod(namespace string, podName st
 	return pipcfgs
 }
 
-func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgcNamespace string, lgcName string, cfg *pipeline.ConfigRaw, lgc *v1beta1.LogConfig) {
+func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgcName string, cfg *pipeline.Config, lgc *v1beta1.LogConfig) {
 	podKey := helper.MetaNamespaceKey(namespace, podName)
-	lgcKey := helper.MetaNamespaceKey(lgcNamespace, lgcName)
+	lgcKey := helper.MetaNamespaceKey(lgc.Namespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
 
 	if overrideLgc := overrideLgcKey(lgc); overrideLgc != "" {
@@ -117,9 +116,9 @@ func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgc
 	}
 }
 
-func (p *LogConfigTypePodIndex) ValidateAndSetConfigs(namespace string, podName string, lgcNamespace string, lgcName string,
-	cfg *pipeline.ConfigRaw, lgc *v1beta1.LogConfig) error {
-	p.SetConfigs(namespace, podName, lgcNamespace, lgcName, cfg, lgc)
+func (p *LogConfigTypePodIndex) ValidateAndSetConfigs(namespace string, podName string, lgcName string,
+	cfg *pipeline.Config, lgc *v1beta1.LogConfig) error {
+	p.SetConfigs(namespace, podName, lgcName, cfg, lgc)
 	if err := p.GetAllGroupByLogConfig().ValidateUniquePipeName(); err != nil {
 		if namespace == "" {
 			log.Warn("validate clusterLogConfig error: %v", err)
@@ -188,23 +187,19 @@ func (p *LogConfigTypePodIndex) GetAllConfigMap() map[string]*TypePodPipeConfig 
 	return p.pipeConfigs
 }
 
-type ExtInterceptorConfig struct {
-	interceptor.ExtensionConfig `yaml:",inline,omitempty"`
-	cfg.CommonCfg               `yaml:",inline,omitempty"`
-}
-
-func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineRawConfig {
-	conf := control.PipelineRawConfig{}
-	var pipeConfigs []pipeline.ConfigRaw
+func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineConfig {
+	conf := control.PipelineConfig{}
+	var pipeConfigs []pipeline.Config
 
 	ignoredKeys := p.IgnoredPodKeyAndLgcKeys()
 
+	// merge logConfig of pods to one, reduce pipelines
 	for lgcKey, podSet := range p.lgcToPodSets {
 		if podSet.Len() == 0 {
 			continue
 		}
-		aggCfg := pipeline.ConfigRaw{}
-		icpSets := make(map[string]ExtInterceptorConfig)
+		aggCfg := pipeline.Config{}
+		icpSets := make(map[string]*interceptor.Config)
 
 		for _, podKey := range podSet.List() {
 			key := helper.MetaNamespaceKey(podKey, lgcKey)
@@ -220,13 +215,15 @@ func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineRawCon
 			}
 
 			aggCfg.Name = cfgRaw.Raw.Name
+			// append sources
 			aggCfg.Sources = append(aggCfg.Sources, cfgRaw.Raw.Sources...)
+			// sink is same
 			aggCfg.Sink = cfgRaw.Raw.Sink
 
-			// merge interceptor.belongTo
+			// in normal, interceptor is same, but we may need to append interceptor.belongTo
 			mergeInterceptors(icpSets, cfgRaw.Raw.Interceptors)
 		}
-		icpList := extInterceptorToCommonCfg(icpSets)
+		icpList := ipcSetsToList(icpSets)
 		aggCfg.Interceptors = icpList
 
 		if aggCfg.Name != "" {
@@ -262,40 +259,40 @@ func (p *LogConfigTypePodIndex) IgnoredPodKeyAndLgcKeys() map[string]struct{} {
 	return ignored
 }
 
-func mergeInterceptors(icpSets map[string]ExtInterceptorConfig, interceptors []cfg.CommonCfg) {
+func mergeInterceptors(icpSets map[string]*interceptor.Config, interceptors []*interceptor.Config) {
 	for _, icp := range interceptors {
-
-		extIcp := &ExtInterceptorConfig{}
-		if err := cfg.Unpack(icp, extIcp); err != nil {
-			log.Warn("unpack interceptor config error: %+v", err)
-			continue
-		}
-
-		icpVal, ok := icpSets[extIcp.UID()]
+		icpVal, ok := icpSets[icp.UID()]
 		if !ok {
-			icpSets[extIcp.UID()] = *extIcp
+			icpSets[icp.UID()] = icp
 			continue
 		}
 
-		if len(extIcp.BelongTo) == 0 {
+		ext, err := icp.GetExtension()
+		if err != nil {
+			log.Warn("get ExtensionConfig from interceptor failed: %+v", err)
+			continue
+		}
+		if len(ext.BelongTo) == 0 {
 			continue
 		}
 
-		// merge when belongTo exist
-		icpVal.BelongTo = append(icpVal.BelongTo, extIcp.BelongTo...)
-		icpSets[extIcp.UID()] = icpVal
+		oriExt, err := icpVal.GetExtension()
+		if err != nil {
+			log.Warn("get ExtensionConfig from interceptor failed: %+v", err)
+			continue
+		}
+
+		// merge when `belongTo` exist
+		oriExt.BelongTo = append(oriExt.BelongTo, ext.BelongTo...)
+		icpVal.SetBelongTo(oriExt.BelongTo)
+		icpSets[icp.UID()] = icpVal
 	}
 }
 
-func extInterceptorToCommonCfg(icpSets map[string]ExtInterceptorConfig) []cfg.CommonCfg {
-	icpList := make([]cfg.CommonCfg, 0)
+func ipcSetsToList(icpSets map[string]*interceptor.Config) []*interceptor.Config {
+	icpList := make([]*interceptor.Config, 0)
 	for _, v := range icpSets {
-		c, err := cfg.Pack(v)
-		if err != nil {
-			log.Info("pack interceptor config error: %+v", err)
-			continue
-		}
-		icpList = append(icpList, c)
+		icpList = append(icpList, v)
 	}
 	return icpList
 }

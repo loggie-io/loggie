@@ -32,3 +32,11 @@ func (c *Config) Validate() error {
 	}
 	return nil
 }
+
+func (c *Config) Merge(from *Config) {
+	if c.Type != from.Type {
+		return
+	}
+
+	c.CommonCfg = cfg.MergeCommonCfg(c.CommonCfg, from.CommonCfg, false)
+}

@@ -58,7 +58,7 @@ func NewTimestamp(args []string, extra cfg.CommonCfg) (*Timestamp, error) {
 	}
 
 	timeExtra := &timestampExtra{}
-	if err := cfg.UnpackDefaultsAndValidate(extra, timeExtra); err != nil {
+	if err := cfg.UnpackFromCommonCfg(extra, timeExtra).Defaults().Validate().Do(); err != nil {
 		return nil, err
 	}
 

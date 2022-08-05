@@ -44,6 +44,13 @@ const (
 	fieldsUnderKeyKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
 )
 
+var (
+	ErrPipelineNameRequired   = errors.New("pipelines[n].name is required")
+	ErrSourceNameRequired     = errors.New("sources[n].name is required")
+	ErrPipelineSourceRequired = errors.New("pipelines[n].source is required")
+	ErrPipelineSinkRequired   = errors.New("pipelines[n].sink is required")
+)
+
 type Pipeline struct {
 	name          string
 	config        Config
@@ -270,7 +277,7 @@ func (p *Pipeline) init(pipelineConfig Config) {
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
 }
 
-func (p *Pipeline) startInterceptor(interceptorConfigs []interceptor.Config) error {
+func (p *Pipeline) startInterceptor(interceptorConfigs []*interceptor.Config) error {
 	for _, iConfig := range interceptorConfigs {
 		if iConfig.Enabled != nil && *iConfig.Enabled == false {
 			log.Info("interceptor %s is disabled", iConfig.Type)
@@ -308,7 +315,7 @@ func (p *Pipeline) startComponent(ctx api.Context) error {
 
 func (p *Pipeline) startWithComponent(component api.Component, ctx api.Context) error {
 	// unpack config from properties
-	err := cfg.UnpackAndDefaults(ctx.Properties(), component.Config())
+	err := cfg.UnpackFromCommonCfg(ctx.Properties(), component.Config()).Defaults().Do()
 	if err != nil {
 		return errors.WithMessagef(err, "unpack component %s/%s", component.Category(), component.Type())
 	}
@@ -381,13 +388,13 @@ func (p *Pipeline) validateComponent(ctx api.Context) error {
 	if err != nil {
 		return err
 	}
-	return cfg.UnpackDefaultsAndValidate(ctx.Properties(), component.Config())
+	return cfg.UnpackFromCommonCfg(ctx.Properties(), component.Config()).Defaults().Validate().Do()
 }
 
 func (p *Pipeline) validate() error {
 	pipelineConfig := &p.config
 	if pipelineConfig.Name == "" {
-		return errors.New("pipelines[n].name is required")
+		return ErrPipelineNameRequired
 	}
 
 	for _, iConfig := range pipelineConfig.Interceptors {
@@ -405,7 +412,7 @@ func (p *Pipeline) validate() error {
 
 	sinkConfig := pipelineConfig.Sink
 	if sinkConfig == nil || sinkConfig.Type == "" {
-		return errors.New("pipelines[n].sink is required")
+		return ErrPipelineSinkRequired
 	}
 	ctx = context.NewContext(sinkConfig.Name, api.Type(sinkConfig.Type), api.SINK, sinkConfig.Properties)
 	if err := p.validateComponent(ctx); err != nil {
@@ -414,9 +421,12 @@ func (p *Pipeline) validate() error {
 
 	unique := make(map[string]struct{})
 	if len(pipelineConfig.Sources) == 0 {
-		return errors.New("pipelines[n].source is required")
+		return ErrPipelineSourceRequired
 	}
 	for _, sourceConfig := range pipelineConfig.Sources {
+		if sourceConfig.Name == "" {
+			return ErrSourceNameRequired
+		}
 		if _, ok := unique[sourceConfig.Name]; ok {
 			return errors.Errorf("source name %s is duplicated", sourceConfig.Name)
 		}
@@ -442,7 +452,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 		return errors.Errorf("codec %s cannot be found", codecConf.Type)
 	}
 	if conf, ok := cod.(api.Config); ok {
-		err := cfg.UnpackAndDefaults(codecConf.CommonCfg, conf.Config())
+		err := cfg.UnpackFromCommonCfg(codecConf.CommonCfg, conf.Config()).Defaults().Do()
 		if err != nil {
 			// since Loggie has validate the configuration before start, we would never reach here
 			return errors.WithMessage(err, "unpack codec config error")
@@ -562,7 +572,7 @@ func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor
 	return last
 }
 
-func (p *Pipeline) startSource(sourceConfigs []source.Config) error {
+func (p *Pipeline) startSource(sourceConfigs []*source.Config) error {
 	for _, sourceConfig := range sourceConfigs {
 		if sourceConfig.Enabled != nil && *sourceConfig.Enabled == false {
 			log.Info("source %s/%s is disabled", sourceConfig.Type, sourceConfig.Name)
@@ -582,7 +592,7 @@ func (p *Pipeline) startSource(sourceConfigs []source.Config) error {
 				return errors.Errorf("codec %s cannot be found", codecConf.Type)
 			}
 			if conf, ok := cod.(api.Config); ok {
-				err := cfg.UnpackAndDefaults(codecConf.CommonCfg, conf.Config())
+				err := cfg.UnpackFromCommonCfg(codecConf.CommonCfg, conf.Config()).Defaults().Do()
 				if err != nil {
 					// since Loggie has validate the configuration before start, we would never reach here
 					return errors.WithMessage(err, "unpack codec config error")
@@ -605,7 +615,7 @@ func (p *Pipeline) startSource(sourceConfigs []source.Config) error {
 	return nil
 }
 
-func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
+func (p *Pipeline) startSourceProduct(sourceConfigs []*source.Config) {
 	for _, sc := range sourceConfigs {
 		if sc.Enabled != nil && *sc.Enabled == false {
 			continue
@@ -631,7 +641,7 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
 
 		sourceInvokerChain := buildSourceInvokerChain(sourceConfig.Name, &source.PublishInvoker{}, si.Interceptors)
 		productFunc := func(e api.Event) api.Result {
-			p.fillEventMetaAndHeader(e, sourceConfig)
+			p.fillEventMetaAndHeader(e, *sourceConfig)
 
 			result := sourceInvokerChain.Invoke(source.Invocation{
 				Event: e,

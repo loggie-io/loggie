@@ -27,7 +27,7 @@ type LogConfigTypeClusterIndex struct {
 }
 
 type TypeClusterPipeConfig struct {
-	Raw []pipeline.ConfigRaw
+	Raw []pipeline.Config
 	Lgc *v1beta1.LogConfig
 }
 
@@ -37,7 +37,7 @@ func NewLogConfigTypeLoggieIndex() *LogConfigTypeClusterIndex {
 	}
 }
 
-func (index *LogConfigTypeClusterIndex) GetConfig(logConfigKey string) ([]pipeline.ConfigRaw, bool) {
+func (index *LogConfigTypeClusterIndex) GetConfig(logConfigKey string) ([]pipeline.Config, bool) {
 	cfg, ok := index.pipeConfigs[logConfigKey]
 	if !ok {
 		return nil, false
@@ -54,14 +54,14 @@ func (index *LogConfigTypeClusterIndex) DeleteConfig(logConfigKey string) bool {
 	return true
 }
 
-func (index *LogConfigTypeClusterIndex) SetConfig(logConfigKey string, p []pipeline.ConfigRaw, lgc *v1beta1.LogConfig) {
+func (index *LogConfigTypeClusterIndex) SetConfig(logConfigKey string, p []pipeline.Config, lgc *v1beta1.LogConfig) {
 	index.pipeConfigs[logConfigKey] = &TypeClusterPipeConfig{
 		Raw: p,
 		Lgc: lgc,
 	}
 }
 
-func (index *LogConfigTypeClusterIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.ConfigRaw, lgc *v1beta1.LogConfig) error {
+func (index *LogConfigTypeClusterIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.Config, lgc *v1beta1.LogConfig) error {
 	index.SetConfig(logConfigKey, p, lgc)
 	if err := index.GetAll().ValidateUniquePipeName(); err != nil {
 		index.DeleteConfig(logConfigKey)
@@ -70,12 +70,12 @@ func (index *LogConfigTypeClusterIndex) ValidateAndSetConfig(logConfigKey string
 	return nil
 }
 
-func (index *LogConfigTypeClusterIndex) GetAll() *control.PipelineRawConfig {
-	var cfgRaws []pipeline.ConfigRaw
+func (index *LogConfigTypeClusterIndex) GetAll() *control.PipelineConfig {
+	var cfgRaws []pipeline.Config
 	for _, v := range index.pipeConfigs {
 		cfgRaws = append(cfgRaws, v.Raw...)
 	}
-	all := &control.PipelineRawConfig{
+	all := &control.PipelineConfig{
 		Pipelines: cfgRaws,
 	}
 	return all

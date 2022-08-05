@@ -21,170 +21,6 @@ import (
 	"testing"
 )
 
-func TestCommonCfg_GetProperties(t *testing.T) {
-	tests := []struct {
-		name string
-		c    CommonCfg
-		want CommonCfg
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.c.GetProperties(); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("CommonCfg.GetProperties() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestUnpackFromFileDefaultsAndValidate(t *testing.T) {
-	type args struct {
-		path   string
-		config interface{}
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := UnpackFromFileDefaultsAndValidate(tt.args.path, tt.args.config); (err != nil) != tt.wantErr {
-				t.Errorf("UnpackFromFileDefaultsAndValidate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestUnpackFromFile(t *testing.T) {
-	type args struct {
-		path   string
-		config interface{}
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := UnpackFromFile(tt.args.path, tt.args.config); (err != nil) != tt.wantErr {
-				t.Errorf("UnpackFromFile() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestUnpackRawDefaultsAndValidate(t *testing.T) {
-	type args struct {
-		content []byte
-		config  interface{}
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := UnpackRawDefaultsAndValidate(tt.args.content, tt.args.config); (err != nil) != tt.wantErr {
-				t.Errorf("UnpackRawDefaultsAndValidate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestUnpackRaw(t *testing.T) {
-	type args struct {
-		content []byte
-		config  interface{}
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := UnpackRaw(tt.args.content, tt.args.config); (err != nil) != tt.wantErr {
-				t.Errorf("UnpackRaw() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestUnpackRawAndDefaults(t *testing.T) {
-	type args struct {
-		content []byte
-		config  interface{}
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := UnpackRawAndDefaults(tt.args.content, tt.args.config); (err != nil) != tt.wantErr {
-				t.Errorf("UnpackRawAndDefaults() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestUnpackDefaultsAndValidate(t *testing.T) {
-	type args struct {
-		properties CommonCfg
-		config     interface{}
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := UnpackDefaultsAndValidate(tt.args.properties, tt.args.config); (err != nil) != tt.wantErr {
-				t.Errorf("UnpackDefaultsAndValidate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestUnpackAndDefaults(t *testing.T) {
-	type args struct {
-		properties CommonCfg
-		config     interface{}
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := UnpackAndDefaults(tt.args.properties, tt.args.config); (err != nil) != tt.wantErr {
-				t.Errorf("UnpackAndDefaults() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestPack(t *testing.T) {
 	type config struct {
 		Code string `yaml:"code"`
@@ -227,50 +63,11 @@ func TestPack(t *testing.T) {
 	}
 }
 
-func Test_setDefault(t *testing.T) {
-	type args struct {
-		config interface{}
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := setDefault(tt.args.config); (err != nil) != tt.wantErr {
-				t.Errorf("setDefault() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func Test_validate(t *testing.T) {
-	type args struct {
-		config interface{}
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if err := validate(tt.args.config); (err != nil) != tt.wantErr {
-				t.Errorf("validate() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
 func TestMergeCommonCfg(t *testing.T) {
 	type args struct {
-		base CommonCfg
-		from CommonCfg
+		base     CommonCfg
+		from     CommonCfg
+		override bool
 	}
 	tests := []struct {
 		name string
@@ -278,7 +75,7 @@ func TestMergeCommonCfg(t *testing.T) {
 		want CommonCfg
 	}{
 		{
-			name: "merge_success",
+			name: "merge_success with override true",
 			args: args{
 				base: CommonCfg{
 					"type": "file",
@@ -291,7 +88,9 @@ func TestMergeCommonCfg(t *testing.T) {
 					"path": []string{
 						"/var/log/*.log",
 					},
+					"extra": "foo",
 				},
+				override: true,
 			},
 			want: CommonCfg{
 				"type": "file",
@@ -299,12 +98,40 @@ func TestMergeCommonCfg(t *testing.T) {
 				"path": []string{
 					"/var/log/*.log",
 				},
+				"extra": "foo",
+			},
+		},
+		{
+			name: "merge_success with override false",
+			args: args{
+				base: CommonCfg{
+					"type": "file",
+					"name": "aa",
+					"path": []string{
+						"stdout",
+					},
+				},
+				from: CommonCfg{
+					"path": []string{
+						"/var/log/*.log",
+					},
+					"extra": "foo",
+				},
+				override: false,
+			},
+			want: CommonCfg{
+				"type": "file",
+				"name": "aa",
+				"path": []string{
+					"stdout",
+				},
+				"extra": "foo",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := MergeCommonCfg(tt.args.base, tt.args.from, true); !reflect.DeepEqual(got, tt.want) {
+			if got := MergeCommonCfg(tt.args.base, tt.args.from, tt.args.override); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("MergeCommonCfg() = %v, want %v", got, tt.want)
 			}
 		})

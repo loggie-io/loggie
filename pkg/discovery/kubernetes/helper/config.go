@@ -18,6 +18,9 @@ package helper
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/core/sink"
+	"github.com/loggie-io/loggie/pkg/core/source"
 
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
@@ -27,13 +30,12 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
-func ToPipeline(lgc *logconfigv1beta1.LogConfig, sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*control.PipelineRawConfig, error) {
-
-	pipelineRawCfg := &control.PipelineRawConfig{}
-	var pipRaws []pipeline.ConfigRaw
+func ToPipeline(lgc *logconfigv1beta1.LogConfig, sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*control.PipelineConfig, error) {
+	pipelineCfg := &control.PipelineConfig{}
+	var pipRaws []pipeline.Config
 	pip := lgc.Spec.Pipeline
 
-	pipRaw := pipeline.ConfigRaw{}
+	pipRaw := pipeline.Config{}
 	pipRaw.Name = fmt.Sprintf("%s/%s/%s", lgc.Namespace, lgc.Name, pip.Name)
 
 	src, err := ToPipelineSources(pip.Sources)
@@ -48,34 +50,32 @@ func ToPipeline(lgc *logconfigv1beta1.LogConfig, sinkLister v1beta1.SinkLister, 
 	}
 	pipRaw.Interceptors = inter
 
-	sink, err := ToPipelineSink(lgc.Spec.Pipeline.Sink, pip.SinkRef, sinkLister)
+	sk, err := ToPipelineSink(lgc.Spec.Pipeline.Sink, pip.SinkRef, sinkLister)
 	if err != nil {
 		return nil, err
 	}
-	pipRaw.Sink = sink
+	pipRaw.Sink = sk
 
 	pipRaws = append(pipRaws, pipRaw)
 
-	pipelineRawCfg.Pipelines = pipRaws
-	return pipelineRawCfg, nil
+	pipelineCfg.Pipelines = pipRaws
+	return pipelineCfg, nil
 }
 
-func ToPipelineSources(sources string) ([]cfg.CommonCfg, error) {
-	sourceCfg := make([]cfg.CommonCfg, 0)
-	err := cfg.UnpackRaw([]byte(sources), &sourceCfg)
+func ToPipelineSources(sources string) ([]*source.Config, error) {
+	sourceCfg := make([]*source.Config, 0)
+	err := cfg.UnPackFromRaw([]byte(sources), &sourceCfg).Do()
 	if err != nil {
 		return nil, err
 	}
-
 	return sourceCfg, nil
 }
 
-func ToPipelineSink(sinkRaw string, sinkRef string, sinkLister v1beta1.SinkLister) (cfg.CommonCfg, error) {
-
+func ToPipelineSink(sinkRaw string, sinkRef string, sinkLister v1beta1.SinkLister) (*sink.Config, error) {
 	// we use the sink in logConfig other than sinkRef if sink content is not empty
-	var sink string
+	var sinkStr string
 	if sinkRaw != "" {
-		sink = sinkRaw
+		sinkStr = sinkRaw
 	} else {
 		lgcSink, err := sinkLister.Get(sinkRef)
 		if err != nil {
@@ -85,23 +85,22 @@ func ToPipelineSink(sinkRaw string, sinkRef string, sinkLister v1beta1.SinkListe
 			return nil, err
 		}
 
-		sink = lgcSink.Spec.Sink
+		sinkStr = lgcSink.Spec.Sink
 	}
 
-	sinkConf := cfg.NewCommonCfg()
-	err := cfg.UnpackRaw([]byte(sink), &sinkConf)
+	sinkConf := sink.Config{}
+	err := cfg.UnPackFromRaw([]byte(sinkStr), &sinkConf).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	return sinkConf, nil
+	return &sinkConf, nil
 }
 
-func ToPipelineInterceptor(interceptorsRaw string, interceptorRef string, interceptorLister v1beta1.InterceptorLister) ([]cfg.CommonCfg, error) {
-
-	var interceptor string
+func ToPipelineInterceptor(interceptorsRaw string, interceptorRef string, interceptorLister v1beta1.InterceptorLister) ([]*interceptor.Config, error) {
+	var icp string
 	if interceptorsRaw != "" {
-		interceptor = interceptorsRaw
+		icp = interceptorsRaw
 	} else {
 		lgcInterceptor, err := interceptorLister.Get(interceptorRef)
 		if err != nil {
@@ -111,11 +110,11 @@ func ToPipelineInterceptor(interceptorsRaw string, interceptorRef string, interc
 			return nil, err
 		}
 
-		interceptor = lgcInterceptor.Spec.Interceptors
+		icp = lgcInterceptor.Spec.Interceptors
 	}
 
-	interConfList := make([]cfg.CommonCfg, 0)
-	err := cfg.UnpackRaw([]byte(interceptor), &interConfList)
+	interConfList := make([]*interceptor.Config, 0)
+	err := cfg.UnPackFromRaw([]byte(icp), &interConfList).Do()
 	if err != nil {
 		return nil, err
 	}

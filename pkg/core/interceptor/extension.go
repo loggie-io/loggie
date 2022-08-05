@@ -16,7 +16,9 @@ limitations under the License.
 
 package interceptor
 
-import "github.com/loggie-io/loggie/pkg/core/api"
+import (
+	"github.com/loggie-io/loggie/pkg/core/api"
+)
 
 const DefaultOrder = 999
 

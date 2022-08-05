@@ -115,7 +115,7 @@ func (ec *EventCenter) start(config Config) {
 		if conf == nil {
 			conf = cfg.NewCommonCfg()
 		}
-		err := cfg.UnpackDefaultsAndValidate(conf, listener.Config())
+		err := cfg.UnpackFromCommonCfg(conf, listener.Config()).Defaults().Validate().Do()
 		if err != nil {
 			log.Panic("unpack listener %s config error: %v", name, err)
 		}

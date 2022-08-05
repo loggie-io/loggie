@@ -25,9 +25,12 @@ import (
 var ErrSinkTypeRequired = errors.New("pipelines[n].sink.type is required")
 
 type Config struct {
-	cfg.ComponentBaseConfig `yaml:",inline"`
-	Parallelism             int          `yaml:"parallelism,omitempty" default:"1" validate:"required,gte=1,lte=100"`
-	Codec                   codec.Config `yaml:"codec" validate:"dive"`
+	Enabled     *bool         `yaml:"enabled,omitempty"`
+	Name        string        `yaml:"name,omitempty"`
+	Type        string        `yaml:"type,omitempty" validate:"required"`
+	Properties  cfg.CommonCfg `yaml:",inline"`
+	Parallelism int           `yaml:"parallelism,omitempty" default:"1" validate:"required,gte=1,lte=100"`
+	Codec       codec.Config  `yaml:"codec,omitempty" validate:"dive"`
 }
 
 func (c *Config) Validate() error {
@@ -36,4 +39,25 @@ func (c *Config) Validate() error {
 	}
 
 	return c.Codec.Validate()
+}
+
+func (c *Config) Merge(from *Config) {
+	if from == nil {
+		return
+	}
+	if c.Name != from.Name || c.Type != from.Type {
+		return
+	}
+
+	c.Properties = cfg.MergeCommonCfg(c.Properties, from.Properties, false)
+
+	if c.Parallelism == 0 {
+		c.Parallelism = from.Parallelism
+	}
+
+	if c.Codec.Type == "" {
+		c.Codec = from.Codec
+	} else {
+		c.Codec = *c.Codec.Merge(&from.Codec)
+	}
 }
