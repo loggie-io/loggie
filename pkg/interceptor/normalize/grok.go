@@ -59,8 +59,9 @@ var DefaultGrokPattern = map[string]string{
 }
 
 type GrokProcessor struct {
-	config *GrokConfig
-	groks  []*Grok
+	config      *GrokConfig
+	groks       []*Grok
+	interceptor *Interceptor
 }
 
 type Grok struct {
@@ -97,7 +98,8 @@ func (r *GrokProcessor) Config() interface{} {
 	return r.config
 }
 
-func (r *GrokProcessor) Init() {
+func (r *GrokProcessor) Init(interceptor *Interceptor) {
+	r.interceptor = interceptor
 	groks := make([]*Grok, 0)
 	ignoreBlank := true
 	if r.config.IgnoreBlank != nil {
@@ -107,6 +109,10 @@ func (r *GrokProcessor) Init() {
 		groks = append(groks, NewGrok(rule, r.config.PatternPaths, ignoreBlank, r.config.Pattern))
 	}
 	r.groks = groks
+}
+
+func (r *GrokProcessor) GetName() string {
+	return ProcessorGrok
 }
 
 func (r *GrokProcessor) Process(e api.Event) error {
