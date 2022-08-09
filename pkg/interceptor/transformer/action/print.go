@@ -67,3 +67,5 @@ func (f *Print) act(e api.Event) error {
 	log.Info("event: %s", string(out))
 	return nil
 }
+
+func (f *Print) stop() {}

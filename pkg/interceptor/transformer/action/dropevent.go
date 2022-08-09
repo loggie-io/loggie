@@ -50,3 +50,5 @@ func NewDropEvent(args []string) (*DropEvent, error) {
 func (a *DropEvent) act(e api.Event) error {
 	return ErrorDropEvent
 }
+
+func (a *DropEvent) stop() {}

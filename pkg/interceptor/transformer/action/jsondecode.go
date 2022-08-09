@@ -91,3 +91,5 @@ func (j *JsonDecode) act(e api.Event) error {
 
 	return nil
 }
+
+func (j *JsonDecode) stop() {}

@@ -114,3 +114,5 @@ func (t *Timestamp) act(e api.Event) error {
 
 	return nil
 }
+
+func (t *Timestamp) stop() {}

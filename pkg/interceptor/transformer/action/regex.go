@@ -113,3 +113,5 @@ func (r *Regex) act(e api.Event) error {
 
 	return nil
 }
+
+func (r *Regex) stop() {}
