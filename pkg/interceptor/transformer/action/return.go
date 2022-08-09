@@ -49,3 +49,5 @@ func NewReturn(args []string) (*Return, error) {
 func (a *Return) act(e api.Event) error {
 	return ErrorReturn
 }
+
+func (a *Return) stop() {}

@@ -52,3 +52,5 @@ func (d *Del) act(e api.Event) error {
 	eventops.DelKeys(e, d.key)
 	return nil
 }
+
+func (d *Del) stop() {}
