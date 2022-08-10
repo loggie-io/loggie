@@ -262,9 +262,6 @@ func NewController(
 			controller.enqueue(new, EventPod, logconfigv1beta1.SelectorTypePod)
 		},
 		DeleteFunc: func(obj interface{}) {
-			po := obj.(*corev1.Pod)
-
-			log.Info("pod: %s/%s is deleting", po.Namespace, po.Name)
 			controller.enqueueForDelete(obj, EventPod, logconfigv1beta1.SelectorTypePod)
 		},
 	})
