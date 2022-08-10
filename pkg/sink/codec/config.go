@@ -34,6 +34,9 @@ func (c *Config) Validate() error {
 }
 
 func (c *Config) Merge(from *Config) *Config {
+	if from == nil {
+		return c
+	}
 	if c.Type != from.Type {
 		return c
 	}
