@@ -21,6 +21,24 @@ import (
 )
 
 type Config struct {
-	cfg.ComponentBaseConfig `yaml:",inline"`
-	BatchSize               int `yaml:"batchSize,omitempty" default:"2048" validate:"required,gte=1"`
+	Enabled    *bool         `yaml:"enabled,omitempty"`
+	Name       string        `yaml:"name,omitempty"`
+	Type       string        `yaml:"type,omitempty" validate:"required"`
+	Properties cfg.CommonCfg `yaml:",inline"`
+	BatchSize  int           `yaml:"batchSize,omitempty" default:"2048" validate:"required,gte=1"`
+}
+
+func (c *Config) Merge(from *Config) {
+	if from == nil {
+		return
+	}
+	if c.Name != from.Name || c.Type != from.Type {
+		return
+	}
+
+	if c.BatchSize == 0 {
+		c.BatchSize = from.BatchSize
+	}
+
+	c.Properties = cfg.MergeCommonCfg(c.Properties, from.Properties, false)
 }

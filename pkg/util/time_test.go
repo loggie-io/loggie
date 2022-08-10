@@ -17,7 +17,7 @@ limitations under the License.
 package util
 
 import (
-	"github.com/goccy/go-yaml"
+	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"testing"
 	"time"
 )

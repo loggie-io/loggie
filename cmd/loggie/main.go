@@ -19,7 +19,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/goccy/go-yaml"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/global"
@@ -30,7 +29,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	_ "github.com/loggie-io/loggie/pkg/include"
-	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"go.uber.org/automaxprocs/maxprocs"
 	"net/http"
 	"os"
@@ -53,7 +52,6 @@ func init() {
 	flag.StringVar(&pipelineConfigPath, "config.pipeline", "pipelines.yml", "reloadable config file")
 	flag.StringVar(&configType, "config.from", "file", "config from file or env")
 	flag.StringVar(&nodeName, "meta.nodeName", hostName, "override nodeName")
-
 }
 
 func main() {
@@ -78,8 +76,6 @@ func main() {
 	// system config file
 	syscfg := sysconfig.Config{}
 	cfg.UnpackTypeDefaultsAndValidate(strings.ToLower(configType), globalConfigFile, &syscfg)
-
-	setDefaultPipelines(syscfg.Loggie.Defaults)
 
 	// start eventBus listeners
 	eventbus.StartAndRun(syscfg.Loggie.MonitorEventBus)
@@ -132,13 +128,4 @@ func main() {
 	log.Info("started Loggie")
 	<-stopCh
 	log.Info("shutting down Loggie")
-}
-
-func setDefaultPipelines(defaults sysconfig.Defaults) {
-	pipeline.SetDefaultConfigRaw(pipeline.ConfigRaw{
-		Sources:      defaults.Sources,
-		Queue:        defaults.Queue,
-		Interceptors: defaults.Interceptors,
-		Sink:         defaults.Sinks,
-	})
 }

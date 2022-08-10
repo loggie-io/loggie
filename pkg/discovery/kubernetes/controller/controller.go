@@ -106,12 +106,6 @@ func NewController(
 	runtime runtime.Runtime,
 ) *Controller {
 
-	extraFieldsPattern := make(map[string]*pattern.Pattern)
-	for k, v := range config.K8sFields {
-		p, _ := pattern.Init(v)
-		extraFieldsPattern[k] = p
-	}
-
 	log.Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClientset.CoreV1().Events("")})
@@ -141,10 +135,11 @@ func NewController(
 		typeClusterIndex: index.NewLogConfigTypeLoggieIndex(),
 		typeNodeIndex:    index.NewLogConfigTypeNodeIndex(),
 
-		record:             recorder,
-		runtime:            runtime,
-		extraFieldsPattern: extraFieldsPattern,
+		record:  recorder,
+		runtime: runtime,
 	}
+
+	controller.InitK8sFieldsPattern()
 
 	log.Info("Setting up event handlers")
 	utilruntime.Must(logconfigSchema.AddToScheme(scheme.Scheme))
@@ -318,6 +313,16 @@ func NewController(
 	return controller
 }
 
+func (c *Controller) InitK8sFieldsPattern() {
+	extraFieldsPattern := make(map[string]*pattern.Pattern)
+	for k, v := range c.config.K8sFields {
+		p, _ := pattern.Init(v)
+		extraFieldsPattern[k] = p
+	}
+
+	c.extraFieldsPattern = extraFieldsPattern
+}
+
 func (c *Controller) enqueue(obj interface{}, eleType string, selectorType string) {
 	var key string
 	var err error
@@ -441,12 +446,20 @@ func (c *Controller) syncHandler(element Element) error {
 
 	case EventClusterLogConf:
 		if err = c.reconcileClusterLogConfig(element); err != nil {
-			log.Warn("reconcile logConfig %s err: %v", element.Key, err)
+			if log.IsDebugLevel() {
+				log.Warn("reconcile clusterLogConfig %s err: %+v", element.Key, err)
+			} else {
+				log.Warn("reconcile clusterLogConfig %s err: %v", element.Key, err)
+			}
 		}
 
 	case EventLogConf:
 		if err = c.reconcileLogConfig(element); err != nil {
-			log.Warn("reconcile logConfig %s err: %v", element.Key, err)
+			if log.IsDebugLevel() {
+				log.Warn("reconcile logConfig %s err: %+v", element.Key, err)
+			} else {
+				log.Warn("reconcile logConfig %s err: %v", element.Key, err)
+			}
 		}
 
 	case EventNode:

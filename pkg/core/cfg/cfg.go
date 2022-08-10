@@ -17,28 +17,16 @@ limitations under the License.
 package cfg
 
 import (
-	"fmt"
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
-	"github.com/goccy/go-yaml"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/util/yaml"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"os"
 )
 
 type CommonCfg map[string]interface{}
-
-type ComponentBaseConfig struct {
-	Enabled    *bool     `yaml:"enabled,omitempty"`
-	Name       string    `yaml:"name,omitempty"`
-	Type       string    `yaml:"type,omitempty" validate:"required"`
-	Properties CommonCfg `yaml:",inline"`
-}
-
-// TODO
-func (c CommonCfg) GetProperties() CommonCfg {
-	return c
-}
 
 type Validator interface {
 	Validate() error
@@ -60,28 +48,7 @@ func (c CommonCfg) Get(key string) interface{} {
 	return c[key]
 }
 
-func (c CommonCfg) UID() string {
-	tp := c.Get("type")
-	name := c.Get("name")
-	return fmt.Sprintf("%s/%s", tp, name)
-}
-
-func (c CommonCfg) GetType() string {
-	typeName, ok := c["type"]
-	if !ok {
-		return ""
-	}
-	return typeName.(string)
-}
-
-func (c CommonCfg) GetName() string {
-	name, ok := c["name"]
-	if !ok {
-		return ""
-	}
-	return name.(string)
-}
-
+// MergeCommonCfg merge `base` map with `from` map
 func MergeCommonCfg(base CommonCfg, from CommonCfg, override bool) CommonCfg {
 	if base == nil {
 		return from
@@ -93,8 +60,8 @@ func MergeCommonCfg(base CommonCfg, from CommonCfg, override bool) CommonCfg {
 	for k, v := range from {
 		baseVal, ok := base[k]
 
-		b, okb := baseVal.(map[string]interface{})
-		f, okf := v.(map[string]interface{})
+		b, okb := baseVal.(map[interface{}]interface{})
+		f, okf := v.(map[interface{}]interface{})
 		if okb && okf {
 			MergeCommonMap(b, f, override)
 			continue
@@ -109,7 +76,7 @@ func MergeCommonCfg(base CommonCfg, from CommonCfg, override bool) CommonCfg {
 	return base
 }
 
-func MergeCommonMap(base map[string]interface{}, from map[string]interface{}, override bool) map[string]interface{} {
+func MergeCommonMap(base map[interface{}]interface{}, from map[interface{}]interface{}, override bool) map[interface{}]interface{} {
 	if base == nil {
 		return from
 	}
@@ -120,8 +87,8 @@ func MergeCommonMap(base map[string]interface{}, from map[string]interface{}, ov
 	for k, v := range from {
 		baseVal, ok := base[k]
 
-		b, okb := baseVal.(map[string]interface{})
-		f, okf := v.(map[string]interface{})
+		b, okb := baseVal.(map[interface{}]interface{})
+		f, okf := v.(map[interface{}]interface{})
 		if okb && okf {
 			MergeCommonMap(b, f, override)
 			continue
@@ -137,208 +104,95 @@ func MergeCommonMap(base map[string]interface{}, from map[string]interface{}, ov
 
 }
 
-// MergeCommonCfgListByType merge commonCfg list
-// ignoreFromType: set ignoreFromType=true, if fromCommonCfg had a type A which does not exist in baseCommonCfg, then type A would not merged to baseCommonCfg
-func MergeCommonCfgListByType(base []CommonCfg, from []CommonCfg, override bool, ignoreFromType bool) []CommonCfg {
-	if len(base) == 0 {
-		return from
-	}
-	if len(from) == 0 {
-		return base
-	}
-
-	fromMap := make(map[string]CommonCfg)
-	for _, v := range from {
-		fromMap[v.GetType()] = v
-	}
-
-	for _, baseCfg := range base {
-		typeName := baseCfg.GetType()
-		fromCfg, ok := fromMap[typeName]
-		if ok {
-			MergeCommonCfg(baseCfg, fromCfg, override)
-			if !ignoreFromType {
-				delete(fromMap, typeName)
-			}
-			continue
-		}
-	}
-
-	if !ignoreFromType {
-		for _, v := range fromMap {
-			base = append(base, v)
-		}
-	}
-	return base
+type UnPack struct {
+	content []byte
+	config  interface{}
+	err     error
 }
 
-func MergeCommonCfgListByTypeAndName(base []CommonCfg, from []CommonCfg, override bool, ignoreFromType bool) []CommonCfg {
-	if len(base) == 0 {
-		return from
+func NewUnpack(raw []byte, config interface{}, err error) *UnPack {
+	return &UnPack{
+		content: raw,
+		config:  config,
+		err:     err,
 	}
-	if len(from) == 0 {
-		return base
-	}
-
-	fromMap := make(map[string]CommonCfg)
-	for _, v := range from {
-		fromMap[v.UID()] = v
-	}
-
-	for _, baseCfg := range base {
-		baseUID := baseCfg.UID()
-		fromCfg, ok := fromMap[baseUID]
-		if ok {
-			MergeCommonCfg(baseCfg, fromCfg, override)
-			delete(fromMap, baseUID)
-			continue
-		}
-	}
-
-	if !ignoreFromType {
-		for _, v := range fromMap {
-			base = append(base, v)
-		}
-	}
-	return base
 }
 
-func UnpackFromFileDefaultsAndValidate(path string, config interface{}) error {
+// UnPackFromFile create an Unpack struct from file
+func UnPackFromFile(path string, config interface{}) *UnPack {
 	content, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Warn("read config error. err: %v", err)
-		return err
+		err = errors.Errorf("read config error. err: %v", err)
 	}
-
-	return UnpackRawDefaultsAndValidate(content, config)
+	return NewUnpack(content, config, err).unpack()
 }
 
-func UnpackFromEnvDefaultsAndValidate(key string, config interface{}) error {
-	return UnpackRawDefaultsAndValidate([]byte(os.Getenv(key)), config)
+// UnpackFromCommonCfg create an Unpack struct from CommonCfg
+func UnpackFromCommonCfg(c CommonCfg, config interface{}) *UnPack {
+	if c == nil {
+		c = CommonCfg{}
+	}
+
+	out, err := yaml.Marshal(c)
+	return NewUnpack(out, config, err).unpack()
 }
 
-func UnpackTypeDefaultsAndValidate(configType string, key string, config interface{}) {
-	var err error
-	switch configType {
-	case "env":
-		err = UnpackFromEnvDefaultsAndValidate(key, config)
-	default:
-		err = UnpackFromFileDefaultsAndValidate(key, config)
-	}
-	if err != nil {
-		log.Fatal("unpack global config file error: %+v", err)
-	}
+// UnpackFromEnv create an Unpack struct from env
+func UnpackFromEnv(key string, config interface{}) *UnPack {
+	return UnPackFromRaw([]byte(os.Getenv(key)), config)
 }
 
-func UnpackFromFileDefaults(path string, config interface{}) error {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Warn("read config error. err: %v", err)
-		return err
-	}
-
-	return UnpackRawAndDefaults(content, config)
+// UnPackFromRaw create an Unpack struct from bytes array
+func UnPackFromRaw(raw []byte, config interface{}) *UnPack {
+	return NewUnpack(raw, config, nil).unpack()
 }
 
-func UnpackFromFile(path string, config interface{}) error {
-	content, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Warn("read config error. err: %v", err)
-		return err
+func (u *UnPack) unpack() *UnPack {
+	if u.err != nil {
+		return u
+	}
+	if u.content == nil {
+		return u
 	}
 
-	return UnpackRaw(content, config)
+	err := yaml.Unmarshal(u.content, u.config)
+	u.err = err
+	return u
 }
 
-func UnpackRawDefaultsAndValidate(content []byte, config interface{}) error {
-	if config == nil {
-		return nil
-	}
-	err := yaml.Unmarshal(content, config)
-	if err != nil {
-		return err
+func (u *UnPack) Defaults() *UnPack {
+	if u.err != nil {
+		return u
 	}
 
-	if err := setDefault(config); err != nil {
-		return err
+	if err := setDefault(u.config); err != nil {
+		u.err = err
 	}
-
-	if err := validate(config); err != nil {
-		return err
-	}
-
-	return nil
+	return u
 }
 
-func UnpackRaw(content []byte, config interface{}) error {
-	if config == nil {
-		return nil
+func (u *UnPack) Validate() *UnPack {
+	if u.err != nil {
+		return u
 	}
 
-	err := yaml.Unmarshal(content, config)
-	if err != nil {
-		return err
+	if err := validate(u.config); err != nil {
+		u.err = err
 	}
 
-	return nil
+	return u
 }
 
-func UnpackRawAndDefaults(content []byte, config interface{}) error {
-	if config == nil {
-		return nil
-	}
-
-	err := yaml.Unmarshal(content, config)
-	if err != nil {
-		return err
-	}
-
-	if err := setDefault(config); err != nil {
-		return err
-	}
-	return nil
+func (u *UnPack) Contents() []byte {
+	return u.content
 }
 
-func UnpackDefaultsAndValidate(properties CommonCfg, config interface{}) error {
-	if properties == nil {
-		return nil
-	}
-
-	out, err := yaml.Marshal(properties)
-	if err != nil {
-		return err
-	}
-
-	return UnpackRawDefaultsAndValidate(out, config)
-}
-
-func UnpackAndDefaults(properties CommonCfg, config interface{}) error {
-	if properties == nil {
-		return nil
-	}
-
-	out, err := yaml.Marshal(properties)
-	if err != nil {
-		return err
-	}
-
-	return UnpackRawAndDefaults(out, config)
-}
-
-func Unpack(properties CommonCfg, config interface{}) error {
-	if properties == nil {
-		return nil
-	}
-
-	out, err := yaml.Marshal(properties)
-	if err != nil {
-		return err
-	}
-	return UnpackRaw(out, config)
+// Do return the error
+func (u *UnPack) Do() error {
+	return u.err
 }
 
 func Pack(config interface{}) (CommonCfg, error) {
-
 	if config == nil {
 		return nil, nil
 	}
@@ -348,7 +202,7 @@ func Pack(config interface{}) (CommonCfg, error) {
 		return nil, err
 	}
 
-	ret := make(map[string]interface{})
+	ret := NewCommonCfg()
 	err = yaml.Unmarshal(out, &ret)
 	if err != nil {
 		return nil, err
@@ -356,25 +210,12 @@ func Pack(config interface{}) (CommonCfg, error) {
 	return ret, nil
 }
 
-func PackAndDefault(config interface{}) (CommonCfg, error) {
-	err := setDefault(config)
-	if err != nil {
-		return nil, err
-	}
-	c, err := Pack(config)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
+// setDefault will affect by `default` tag, and call setDefaults() function.
 func setDefault(config interface{}) error {
-	if defaults.CanUpdate(config) {
-		return defaults.Set(config)
-	}
 	return defaults.Set(config)
 }
 
+// validate will affect by `validate` tag, and call Validate() function in Config.
 func validate(config interface{}) error {
 	if config == nil {
 		return nil
@@ -390,4 +231,17 @@ func validate(config interface{}) error {
 		return cfg.Validate()
 	}
 	return nil
+}
+
+func UnpackTypeDefaultsAndValidate(configType string, key string, config interface{}) {
+	var err error
+	switch configType {
+	case "env":
+		err = UnpackFromEnv(key, config).Defaults().Validate().Do()
+	default:
+		err = UnPackFromFile(key, config).Defaults().Validate().Do()
+	}
+	if err != nil {
+		log.Fatal("unpack global config file error: %+v", err)
+	}
 }

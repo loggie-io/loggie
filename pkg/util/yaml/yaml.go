@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,11 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package pipeline
+package yaml
 
-import (
-	"testing"
-)
+import "gopkg.in/yaml.v2"
 
-func TestPipeline_Start(t *testing.T) {
+func Unmarshal(in []byte, out interface{}) (err error) {
+	return yaml.Unmarshal(in, out)
+}
+
+func Marshal(in interface{}) (out []byte, err error) {
+	return yaml.Marshal(in)
 }

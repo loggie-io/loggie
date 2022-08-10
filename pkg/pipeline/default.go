@@ -21,15 +21,15 @@ import (
 	"github.com/pkg/errors"
 )
 
-var defaultConfigRaw ConfigRaw
+var defaultConfig Config
 
-func SetDefaultConfigRaw(defaults ConfigRaw) {
-	defaultConfigRaw = defaults
+func SetDefaultConfigRaw(defaults Config) {
+	defaultConfig = defaults
 }
 
-func GetDefaultConfigRaw() (*ConfigRaw, error) {
-	rawCopy := &ConfigRaw{}
-	err := util.Clone(defaultConfigRaw, rawCopy)
+func GetDefaultConfigRaw() (*Config, error) {
+	rawCopy := &Config{}
+	err := util.Clone(defaultConfig, rawCopy)
 	if err != nil {
 		return nil, errors.WithMessage(err, "get default config failed")
 	}

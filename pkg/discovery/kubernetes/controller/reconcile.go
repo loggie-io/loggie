@@ -18,7 +18,7 @@ package controller
 
 import (
 	"fmt"
-	"github.com/goccy/go-yaml"
+	"github.com/loggie-io/loggie/pkg/util/yaml"
 
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -328,7 +328,7 @@ func (c *Controller) reconcilePodDelete(key string) error {
 
 func (c *Controller) syncConfigToFile(selectorType string) error {
 	fileName := GenerateConfigName
-	var cfgRaws *control.PipelineRawConfig
+	var cfgRaws *control.PipelineConfig
 	switch selectorType {
 	case logconfigv1beta1.SelectorTypePod:
 		cfgRaws = c.typePodIndex.GetAllGroupByLogConfig()

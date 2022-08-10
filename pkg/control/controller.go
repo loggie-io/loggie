@@ -17,7 +17,7 @@ limitations under the License.
 package control
 
 import (
-	"github.com/goccy/go-yaml"
+	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"net/http"
 	_ "net/http/pprof"
 	"time"
@@ -111,29 +111,29 @@ func (c *Controller) reportMetric(p pipeline.Config, eventType eventbus.Componen
 	componentConfigs := make([]eventbus.ComponentBaseConfig, 0)
 	// queue config
 	componentConfigs = append(componentConfigs, eventbus.ComponentBaseConfig{
-		Name:     p.Queue.ComponentBaseConfig.Name,
-		Type:     api.Type(p.Queue.ComponentBaseConfig.Type),
+		Name:     p.Queue.Name,
+		Type:     api.Type(p.Queue.Type),
 		Category: api.QUEUE,
 	})
 	// sink config
 	componentConfigs = append(componentConfigs, eventbus.ComponentBaseConfig{
-		Name:     p.Sink.ComponentBaseConfig.Name,
-		Type:     api.Type(p.Sink.ComponentBaseConfig.Type),
+		Name:     p.Sink.Name,
+		Type:     api.Type(p.Sink.Type),
 		Category: api.SINK,
 	})
 	// source config
 	for _, s := range p.Sources {
 		componentConfigs = append(componentConfigs, eventbus.ComponentBaseConfig{
-			Name:     s.ComponentBaseConfig.Name,
-			Type:     api.Type(s.ComponentBaseConfig.Type),
+			Name:     s.Name,
+			Type:     api.Type(s.Type),
 			Category: api.SOURCE,
 		})
 	}
 	// interceptor config
 	for _, i := range p.Interceptors {
 		componentConfigs = append(componentConfigs, eventbus.ComponentBaseConfig{
-			Name:     i.ComponentBaseConfig.Name,
-			Type:     api.Type(i.ComponentBaseConfig.Type),
+			Name:     i.Name,
+			Type:     api.Type(i.Type),
 			Category: api.INTERCEPTOR,
 		})
 	}
