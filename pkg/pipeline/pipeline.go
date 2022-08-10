@@ -51,6 +51,13 @@ var (
 	ErrPipelineSinkRequired   = errors.New("pipelines[n].sink is required")
 )
 
+var (
+	ErrPipelineNameRequired   = errors.New("pipelines[n].name is required")
+	ErrSourceNameRequired     = errors.New("sources[n].name is required")
+	ErrPipelineSourceRequired = errors.New("pipelines[n].source is required")
+	ErrPipelineSinkRequired   = errors.New("pipelines[n].sink is required")
+)
+
 type Pipeline struct {
 	name          string
 	config        Config
