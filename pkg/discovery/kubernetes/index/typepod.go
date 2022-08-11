@@ -275,6 +275,10 @@ func mergeInterceptors(icpSets map[string]*interceptor.Config, interceptors []*i
 			continue
 		}
 
+		if !icp.HasBelongTo() {
+			continue
+		}
+
 		ext, err := icp.GetExtension()
 		if err != nil {
 			log.Warn("get ExtensionConfig from interceptor failed: %+v", err)

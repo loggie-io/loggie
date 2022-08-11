@@ -533,6 +533,9 @@ func toPipelineInterceptorWithPodInject(interceptorRaw string, interceptorRef st
 	}
 
 	for i, extIcp := range icpConfList {
+		if !extIcp.HasBelongTo() {
+			continue
+		}
 		exd, err := extIcp.GetExtension()
 		if err != nil {
 			return nil, err
