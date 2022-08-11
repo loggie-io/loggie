@@ -21,6 +21,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/pkg/errors"
 	"net/url"
+	"time"
 )
 
 type Config struct {
@@ -39,6 +40,7 @@ type Config struct {
 	Fields      Fields            `yaml:"fields"` // Deprecated: use k8sFields instead
 	K8sFields   map[string]string `yaml:"k8sFields"`
 	ParseStdout bool              `yaml:"parseStdout"`
+	AsyncFlush  AsyncFlush `yaml:"asyncFlush"`
 }
 
 type Fields struct {
@@ -49,6 +51,11 @@ type Fields struct {
 	PodIP         string `yaml:"pod.ip"`
 	ContainerName string `yaml:"container.name"`
 	LogConfig     string `yaml:"logConfig"`
+}
+
+type AsyncFlush struct {
+	Enabled bool `yaml:"enabled"`
+	Interval time.Duration `yaml:"interval" default:"1s"`
 }
 
 func (c *Config) Validate() error {

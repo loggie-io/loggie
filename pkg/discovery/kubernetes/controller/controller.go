@@ -91,6 +91,8 @@ type Controller struct {
 	record             record.EventRecorder
 	runtime            runtime.Runtime
 	extraFieldsPattern map[string]*pattern.Pattern
+
+	asyncChan chan string
 }
 
 func NewController(
@@ -137,6 +139,7 @@ func NewController(
 
 		record:  recorder,
 		runtime: runtime,
+		asyncChan: make(chan string),
 	}
 
 	controller.InitK8sFieldsPattern()
@@ -359,6 +362,10 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 
 	// Start the informer factories to begin populating the informer caches
 	log.Info("Starting controller")
+
+	if c.config.AsyncFlush.Enabled {
+		go c.AsyncFlushRunner()
+	}
 
 	// Wait for the caches to be synced before starting workers
 	log.Info("Waiting for informer caches to sync")

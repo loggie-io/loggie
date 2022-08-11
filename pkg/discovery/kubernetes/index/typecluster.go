@@ -20,10 +20,13 @@ import (
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"sync"
 )
 
 type LogConfigTypeClusterIndex struct {
 	pipeConfigs map[string]*TypeClusterPipeConfig // key: logConfigNamespace/Name, value: pipeline configs
+
+	mutex sync.RWMutex
 }
 
 type TypeClusterPipeConfig struct {
@@ -38,6 +41,9 @@ func NewLogConfigTypeLoggieIndex() *LogConfigTypeClusterIndex {
 }
 
 func (index *LogConfigTypeClusterIndex) GetConfig(logConfigKey string) ([]pipeline.Config, bool) {
+	index.mutex.RLock()
+	defer index.mutex.RUnlock()
+
 	cfg, ok := index.pipeConfigs[logConfigKey]
 	if !ok {
 		return nil, false
@@ -46,6 +52,9 @@ func (index *LogConfigTypeClusterIndex) GetConfig(logConfigKey string) ([]pipeli
 }
 
 func (index *LogConfigTypeClusterIndex) DeleteConfig(logConfigKey string) bool {
+	index.mutex.Lock()
+	defer index.mutex.Unlock()
+
 	_, ok := index.GetConfig(logConfigKey)
 	if !ok {
 		return false
@@ -54,7 +63,10 @@ func (index *LogConfigTypeClusterIndex) DeleteConfig(logConfigKey string) bool {
 	return true
 }
 
-func (index *LogConfigTypeClusterIndex) SetConfig(logConfigKey string, p []pipeline.Config, lgc *v1beta1.LogConfig) {
+func (index *LogConfigTypeClusterIndex) setConfig(logConfigKey string, p []pipeline.Config, lgc *v1beta1.LogConfig) {
+	index.mutex.Lock()
+	defer index.mutex.Unlock()
+
 	index.pipeConfigs[logConfigKey] = &TypeClusterPipeConfig{
 		Raw: p,
 		Lgc: lgc,
@@ -62,7 +74,7 @@ func (index *LogConfigTypeClusterIndex) SetConfig(logConfigKey string, p []pipel
 }
 
 func (index *LogConfigTypeClusterIndex) ValidateAndSetConfig(logConfigKey string, p []pipeline.Config, lgc *v1beta1.LogConfig) error {
-	index.SetConfig(logConfigKey, p, lgc)
+	index.setConfig(logConfigKey, p, lgc)
 	if err := index.GetAll().ValidateUniquePipeName(); err != nil {
 		index.DeleteConfig(logConfigKey)
 		return err
@@ -71,6 +83,9 @@ func (index *LogConfigTypeClusterIndex) ValidateAndSetConfig(logConfigKey string
 }
 
 func (index *LogConfigTypeClusterIndex) GetAll() *control.PipelineConfig {
+	index.mutex.RLock()
+	defer index.mutex.RUnlock()
+
 	var cfgRaws []pipeline.Config
 	for _, v := range index.pipeConfigs {
 		cfgRaws = append(cfgRaws, v.Raw...)
@@ -82,5 +97,8 @@ func (index *LogConfigTypeClusterIndex) GetAll() *control.PipelineConfig {
 }
 
 func (index *LogConfigTypeClusterIndex) GetAllConfigMap() map[string]*TypeClusterPipeConfig {
+	index.mutex.RLock()
+	defer index.mutex.RUnlock()
+
 	return index.pipeConfigs
 }

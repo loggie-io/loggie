@@ -165,7 +165,6 @@ func (c *Controller) handlePodAddOrUpdateOfLogConfig(pod *corev1.Pod) {
 			c.record.Event(lgc, corev1.EventTypeWarning, ReasonFailed, msg)
 			return
 		}
-		log.Info("handle pod %s/%s addOrUpdate event and sync config file success, related logConfig is %s", pod.Namespace, pod.Name, lgc.Name)
 		msg := fmt.Sprintf(MessageSyncSuccess, lgc.Spec.Selector.Type, pod.Name)
 		c.record.Event(lgc, corev1.EventTypeNormal, ReasonSuccess, msg)
 	}
@@ -193,7 +192,6 @@ func (c *Controller) handlePodAddOrUpdateOfClusterLogConfig(pod *corev1.Pod) {
 			c.record.Event(clgc, corev1.EventTypeWarning, ReasonFailed, msg)
 			return
 		}
-		log.Info("handle pod %s/%s addOrUpdate event and sync config file success, related clusterLogConfig is %s", pod.Namespace, pod.Name, clgc.Name)
 		msg := fmt.Sprintf(MessageSyncSuccess, clgc.Spec.Selector.Type, pod.Name)
 		c.record.Event(clgc, corev1.EventTypeNormal, ReasonSuccess, msg)
 	}
@@ -229,15 +227,17 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 	}
 
 	// TODO merge pipelines if there is no specific pipeline configs
-	err = c.syncConfigToFile(logconfigv1beta1.SelectorTypePod)
+	err = c.SyncConfigToFile(logconfigv1beta1.SelectorTypePod)
 	if err != nil {
 		return errors.WithMessage(err, "sync config to file failed")
 	}
 	// TODO update status when success
-	if lgc.Namespace == "" {
-		log.Info("handle clusterLogConfig %s addOrUpdate event and sync config file success, related pod: %s", lgc.Name, pod.Name)
-	} else {
-		log.Info("handle logConfig %s/%s addOrUpdate event and sync config file success, related pod: %s", lgc.Namespace, lgc.Name, pod.Name)
+	if !c.config.AsyncFlush.Enabled {
+		if lgc.Namespace == "" {
+			log.Info("handle clusterLogConfig %s addOrUpdate event and sync config file success, related pod: %s", lgc.Name, pod.Name)
+		} else {
+			log.Info("handle logConfig %s/%s addOrUpdate event and sync config file success, related pod: %s", lgc.Namespace, lgc.Name, pod.Name)
+		}
 	}
 
 	return nil
