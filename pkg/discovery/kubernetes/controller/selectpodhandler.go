@@ -117,6 +117,10 @@ func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.Log
 	var successPodNames []string
 	var errs []error
 	for _, pod := range podList {
+		if !helper.IsPodReady(pod) {
+			continue
+		}
+
 		if err := c.handleLogConfigPerPod(lgc, pod); err != nil {
 			errs = append(errs, errors.WithMessagef(err, "match pod %s/%s", pod.Namespace, pod.Name))
 			continue
