@@ -27,7 +27,8 @@ import (
 )
 
 var (
-	ErrPipeNameUniq = errors.New("pipeline name is duplicated")
+	ErrPipeNameUniq  = errors.New("pipeline name is duplicated")
+	ErrIgnoreAllFile = errors.New("ignore all the file")
 )
 
 type PipelineConfig struct {
@@ -105,7 +106,7 @@ func ReadPipelineConfigFromFile(path string, ignore FileIgnore) (*PipelineConfig
 
 	// if all files are ignored, then do not read any file.
 	if allIgnored {
-		return pipecfgs, nil
+		return pipecfgs, ErrIgnoreAllFile
 	}
 
 	// if any file should not be ignored, then all files are read.
@@ -113,8 +114,8 @@ func ReadPipelineConfigFromFile(path string, ignore FileIgnore) (*PipelineConfig
 		pipes := &PipelineConfig{}
 		unpack := cfg.UnPackFromFile(fn, pipes)
 		if err = unpack.Defaults().Validate().Do(); err != nil {
-			// ignore invalid pipeline
-			log.Error("pipeline configs invalid : %v, \n%s", err, unpack.Contents())
+			log.Error("invalid pipeline configs: %v, \n%s", err, unpack.Contents())
+			continue
 		}
 		pipecfgs.AddPipelines(pipes.Pipelines)
 	}
