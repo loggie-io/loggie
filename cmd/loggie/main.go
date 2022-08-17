@@ -30,6 +30,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	_ "github.com/loggie-io/loggie/pkg/include"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
+	"github.com/pkg/errors"
 	"go.uber.org/automaxprocs/maxprocs"
 	"net/http"
 	"os"
@@ -95,7 +96,7 @@ func main() {
 		log.Info("initial pipelines:\n%s", out)
 	}
 
-	if err != nil && !os.IsNotExist(err) {
+	if err != nil && !os.IsNotExist(err) && !errors.Is(err, control.ErrIgnoreAllFile) {
 		log.Fatal("unpack config.pipeline config file err: %v", err)
 	}
 
