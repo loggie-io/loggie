@@ -13,6 +13,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"github.com/stretchr/testify/assert"
+	"sort"
 	"testing"
 	"time"
 )
@@ -116,6 +117,14 @@ pipelines:
 			},
 		},
 	}
+
+	sort.Slice(pipe.Pipelines[0].Interceptors, func(i, j int) bool {
+		return pipe.Pipelines[0].Interceptors[i].Type > pipe.Pipelines[0].Interceptors[j].Type
+	})
+
+	sort.Slice(want.Pipelines[0].Interceptors, func(i, j int) bool {
+		return want.Pipelines[0].Interceptors[i].Type > want.Pipelines[0].Interceptors[j].Type
+	})
 
 	assert.Equal(t, want, pipe)
 }

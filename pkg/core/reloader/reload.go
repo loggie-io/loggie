@@ -18,6 +18,7 @@ package reloader
 
 import (
 	"github.com/loggie-io/loggie/pkg/util/yaml"
+	"github.com/pkg/errors"
 	"os"
 	"time"
 
@@ -76,13 +77,17 @@ func (r *Reloader) Run(stopCh <-chan struct{}) {
 				}
 				return false
 			})
-			if newConfig == nil || newConfig.Pipelines == nil {
+			if err != nil && !os.IsNotExist(err) {
+				if errors.Is(err, control.ErrIgnoreAllFile) {
+					continue
+				}
+
+				log.Error("read pipeline config file error: %v", err)
 				continue
 			}
 
-			if err != nil && !os.IsNotExist(err) {
-				log.Error("read pipeline config file error: %v", err)
-				continue
+			if newConfig == nil {
+				newConfig = &control.PipelineConfig{}
 			}
 
 			// diff config
