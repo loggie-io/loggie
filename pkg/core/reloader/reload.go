@@ -33,8 +33,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
-var ErrOutOfReloadPeriod = errors.New("out of reload period")
-
 type Reloader struct {
 	controller *control.Controller
 
