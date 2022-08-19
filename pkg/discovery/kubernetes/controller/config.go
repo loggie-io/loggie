@@ -39,6 +39,10 @@ type Config struct {
 	Fields      Fields            `yaml:"fields"` // Deprecated: use k8sFields instead
 	K8sFields   map[string]string `yaml:"k8sFields"`
 	ParseStdout bool              `yaml:"parseStdout"`
+
+	// If set to true, it means that the pipeline configuration generated does not contain specific Pod paths and meta information.
+	// These data will be dynamically obtained by the file source, thereby reducing the number of configuration changes and reloads.
+	DynamicContainerLog bool `yaml:"dynamicContainerLog"`
 }
 
 type Fields struct {

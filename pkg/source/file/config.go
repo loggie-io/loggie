@@ -21,9 +21,6 @@ import (
 	"os"
 	"regexp"
 	"time"
-
-	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/loggie-io/loggie/pkg/util"
 )
 
 type Config struct {
@@ -57,20 +54,6 @@ type LineDelimiterValue struct {
 func (cc CollectConfig) IsIgnoreOlder(info os.FileInfo) bool {
 	ignoreOlder := cc.IgnoreOlder
 	return ignoreOlder.Duration() > 0 && time.Since(info.ModTime()) > ignoreOlder.Duration()
-}
-
-func (cc CollectConfig) IsFileInclude(file string) bool {
-	for _, path := range cc.Paths {
-		match, err := util.MatchWithRecursive(path, file)
-		if err != nil {
-			log.Error("path glob pattern(%s) match error: %v", path, err)
-			continue
-		}
-		if match {
-			return true
-		}
-	}
-	return false
 }
 
 func (cc CollectConfig) IsFileExcluded(file string) bool {

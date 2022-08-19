@@ -17,6 +17,7 @@ limitations under the License.
 package reloader
 
 import (
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"github.com/pkg/errors"
 	"os"
@@ -25,7 +26,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/loggie-io/loggie/pkg/control"
-	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/eventbus"
@@ -133,15 +133,16 @@ func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineCo
 	startList := make([]pipeline.Config, 0)
 
 	sourceComparer := cmp.Comparer(func(i, j []*source.Config) bool {
-		return cmp.Equal(i, j, cmpopts.SortSlices(func(a, b source.Config) bool {
+		return cmp.Equal(i, j, cmpopts.SortSlices(func(a, b *source.Config) bool {
 			if a.Name > b.Name {
 				return true
 			}
 			return false
 		}))
 	})
+
 	interceptorComparer := cmp.Comparer(func(i, j []*interceptor.Config) bool {
-		return cmp.Equal(i, j, cmpopts.SortSlices(func(a, b interceptor.Config) bool {
+		return cmp.Equal(i, j, cmpopts.SortSlices(func(a, b *interceptor.Config) bool {
 			if a.Type > b.Type {
 				return true
 			}
@@ -159,13 +160,13 @@ func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineCo
 		delete(oldPipeIndex, oldPipe.Name)
 
 		// diff
-		equal := cmp.Equal(newPipe, oldPipe, sourceComparer, interceptorComparer)
+		equal := cmp.Equal(oldPipe, newPipe, sourceComparer, interceptorComparer)
 		if !equal {
 			startList = append(startList, newPipe)
 			stopList = append(stopList, oldPipe)
 		}
 		if !equal && log.IsDebugLevel() {
-			diff := cmp.Diff(newPipe, oldPipe, sourceComparer, interceptorComparer)
+			diff := cmp.Diff(oldPipe, newPipe, sourceComparer, interceptorComparer)
 			log.Debug("diff pipeline config: \n%s", diff)
 		}
 	}

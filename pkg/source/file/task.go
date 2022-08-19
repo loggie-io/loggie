@@ -83,16 +83,22 @@ func NewWatchTask(epoch *pipeline.Epoch, pipelineName string, sourceName string,
 		w.config.excludeFilePatterns = excludeFilePatterns
 	}
 	// init glob path support recursive
-	paths := w.config.Paths
-	for i, path := range paths {
+	w.config.Paths = getRecursivePath(w.config.Paths)
+	return w
+}
+
+func getRecursivePath(paths []string) []string {
+	var pathRec []string
+	for _, path := range paths {
 		if strings.HasSuffix(path, "**") {
-			paths[i] = path + "/*"
+			path = path + "/*"
 		}
 		if strings.HasSuffix(path, "**/") {
-			paths[i] = path + "*"
+			path = path + "*"
 		}
+		pathRec = append(pathRec, path)
 	}
-	return w
+	return pathRec
 }
 
 func (wt *WatchTask) newJob(filename string, info os.FileInfo) *Job {

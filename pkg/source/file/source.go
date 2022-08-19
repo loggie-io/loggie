@@ -177,6 +177,7 @@ func (s *Source) Product() api.Event {
 func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", s.String())
 	s.productFunc = productFunc
+	s.productFunc = jobFieldsProductFunc(s.productFunc)
 	if s.config.CollectConfig.AddonMeta {
 		s.productFunc = addonMetaProductFunc(s.productFunc)
 	}
@@ -210,6 +211,25 @@ func (s *Source) Commit(events []api.Event) {
 	}
 	// release events
 	s.eventPool.PutAll(events)
+}
+
+func jobFieldsProductFunc(productFunc api.ProductFunc) api.ProductFunc {
+	return func(event api.Event) api.Result {
+		productFunc(event)
+		// Add job fields should after base productFunc
+		s, _ := event.Meta().Get(SystemStateKey)
+		state := s.(*State)
+
+		if state.jobFields != nil {
+			header := event.Header()
+			fieldsKey, _ := event.Meta().Get(pipeline.FieldsUnderKey)
+			fieldsUnderRoot, _ := event.Meta().Get(pipeline.FieldsUnderRoot)
+
+			pipeline.AddSourceFields(header, state.jobFields, fieldsUnderRoot.(bool), fieldsKey.(string))
+		}
+
+		return result.Success()
+	}
 }
 
 func addonMetaProductFunc(productFunc api.ProductFunc) api.ProductFunc {

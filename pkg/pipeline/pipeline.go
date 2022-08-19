@@ -40,8 +40,8 @@ import (
 )
 
 const (
-	fieldsUnderRootKey = event.PrivateKeyPrefix + "FieldsUnderRoot"
-	fieldsUnderKeyKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
+	FieldsUnderRoot = event.PrivateKeyPrefix + "FieldsUnderRoot"
+	FieldsUnderKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
 )
 
 var (
@@ -663,8 +663,8 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 	e.Meta().Set(event.SystemProductTimeKey, time.Now())
 	e.Meta().Set(event.SystemPipelineKey, p.name)
 	e.Meta().Set(event.SystemSourceKey, config.Name)
-	e.Meta().Set(fieldsUnderRootKey, config.FieldsUnderRoot)
-	e.Meta().Set(fieldsUnderKeyKey, config.FieldsUnderKey)
+	e.Meta().Set(FieldsUnderRoot, config.FieldsUnderRoot)
+	e.Meta().Set(FieldsUnderKey, config.FieldsUnderKey)
 
 	header := e.Header()
 	if header == nil {
@@ -672,7 +672,7 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 		e.Fill(e.Meta(), header, e.Body())
 	}
 	// add header source fields
-	addSourceFields(header, config)
+	AddSourceFields(header, config.Fields, config.FieldsUnderRoot, config.FieldsUnderKey)
 
 	// add header source fields from env
 	if len(config.FieldsFromEnv) > 0 {
@@ -699,32 +699,31 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 	}
 }
 
-func addSourceFields(header map[string]interface{}, config source.Config) {
-	sourceFields := config.Fields
-	if len(sourceFields) <= 0 {
+func AddSourceFields(header map[string]interface{}, fields map[string]interface{}, underRoot bool, fieldsKey string) {
+	if len(fields) == 0 {
 		return
 	}
-	if config.FieldsUnderRoot {
-		for k, v := range sourceFields {
+	if underRoot {
+		for k, v := range fields {
 			header[k] = v
 		}
 		return
 	}
-	tmp := make(map[string]interface{})
-	for k, v := range sourceFields {
-		tmp[k] = v
+
+	// Copy the fields field to avoid being updated later
+	fieldsCopy := make(map[string]interface{})
+	for k, v := range fields {
+		fieldsCopy[k] = v
 	}
-	sourceFields = tmp
-	sourceFieldsKey := config.FieldsUnderKey
-	if originFields, exist := header[sourceFieldsKey]; exist {
+	if originFields, exist := header[fieldsKey]; exist {
 		if originFieldsMap, convert := originFields.(map[string]interface{}); convert {
-			for k, v := range sourceFields {
+			for k, v := range fieldsCopy {
 				originFieldsMap[k] = v
 			}
 		}
 		return
 	}
-	header[sourceFieldsKey] = sourceFields
+	header[fieldsKey] = fieldsCopy
 }
 
 func buildSourceInvokerChain(sourceName string, invoker source.Invoker, interceptors []source.Interceptor) source.Invoker {

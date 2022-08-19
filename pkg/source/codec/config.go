@@ -26,6 +26,17 @@ type Config struct {
 	cfg.CommonCfg `yaml:",inline"`
 }
 
+func (c *Config) DeepCopy() *Config {
+	if c == nil {
+		return nil
+	}
+	out := &Config{
+		Type:      c.Type,
+		CommonCfg: c.CommonCfg.DeepCopy(),
+	}
+	return out
+}
+
 func (c *Config) Validate() error {
 	if c.Type != "json" && c.Type != "regex" {
 		return errors.Errorf("codec %s is not supported", c.Type)

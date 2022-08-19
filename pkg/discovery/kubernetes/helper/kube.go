@@ -393,7 +393,7 @@ func tryReadVariableName(input string) (string, bool, int) {
 
 		return string(operator) + string(referenceOpener), false, 1
 	default:
-		return (string(operator) + string(input[0])), false, 1
+		return string(operator) + string(input[0]), false, 1
 	}
 }
 

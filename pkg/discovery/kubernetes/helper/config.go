@@ -18,16 +18,16 @@ package helper
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/control"
+	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/sink"
 	"github.com/loggie-io/loggie/pkg/core/source"
-
-	"github.com/loggie-io/loggie/pkg/control"
-	"github.com/loggie-io/loggie/pkg/core/cfg"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"strings"
 )
 
 func ToPipeline(lgc *logconfigv1beta1.LogConfig, sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*control.PipelineConfig, error) {
@@ -120,4 +120,45 @@ func ToPipelineInterceptor(interceptorsRaw string, interceptorRef string, interc
 	}
 
 	return interConfList, nil
+}
+
+func GenTypePodSourceName(podName string, containerName string, sourceName string) string {
+	return fmt.Sprintf("%s/%s/%s", podName, containerName, sourceName)
+}
+
+func GetTypePodOriginSourceName(podSourceName string) string {
+	res := strings.Split(podSourceName, "/")
+	if len(res) == 0 {
+		return ""
+	}
+	return res[len(res)-1]
+}
+
+func GetPathsFromSources(src []*source.Config) []string {
+	var paths []string
+	for _, s := range src {
+		p := GetPathsFromSource(s)
+		paths = append(paths, p...)
+	}
+
+	return paths
+}
+
+func GetPathsFromSource(src *source.Config) []string {
+	pathsRaw := src.Properties["paths"]
+	paths, ok := pathsRaw.([]string)
+	if !ok {
+		ipaths := pathsRaw.([]interface{})
+		// type convert to []string
+		for _, v := range ipaths {
+			p := v.(string)
+			paths = append(paths, p)
+		}
+	}
+
+	return paths
+}
+
+func SetPathsToSource(src *source.Config, paths []string) {
+	src.Properties["paths"] = paths
 }
