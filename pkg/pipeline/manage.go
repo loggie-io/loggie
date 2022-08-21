@@ -156,6 +156,19 @@ func (r *RegisterCenter) LoadCodeComponents() map[string]api.Component {
 	return components
 }
 
+func (r *RegisterCenter) LoadCodeCategoryComponents(category api.Category) map[string]api.Component {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	components := make(map[string]api.Component)
+	for c, v := range r.nameComponents {
+		if v.Category() == category {
+			components[c] = v
+		}
+	}
+	return components
+}
+
 func (r *RegisterCenter) removeComponent(typename api.Type, category api.Category, name string) {
 	code := code(category, typename, name)
 	r.RemoveByCode(code)

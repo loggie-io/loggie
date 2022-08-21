@@ -149,7 +149,7 @@ func (s *Source) Start() error {
 func (s *Source) Stop() {
 	log.Info("start stop source: %s", s.String())
 	// Stop ack
-	if s.config.AckConfig.Enable {
+	if s.ackEnable {
 		// stop append&ack source event
 		s.ackChainHandler.StopTask(s.ackTask)
 		log.Info("[%s] all ack jobs of source exit", s.String())
@@ -188,11 +188,12 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 	if s.codec != nil {
 		s.productFunc = codec.ProductFunc(s.productFunc, s.codec)
 	}
-	if s.config.AckConfig.Enable {
+	if s.ackEnable {
 		s.ackTask = NewAckTask(s.epoch, s.pipelineName, s.name, func(state *State) {
 			s.dbHandler.state <- state
 		})
 		s.ackChainHandler.StartTask(s.ackTask)
+		log.Info("%s ack start", s.String())
 	}
 	s.watchTask = NewWatchTask(s.epoch, s.pipelineName, s.name, s.config.CollectConfig, s.eventPool, s.productFunc, s.r.jobChan, s.config.Fields)
 	// start watch source paths
