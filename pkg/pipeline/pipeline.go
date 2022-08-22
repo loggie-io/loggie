@@ -710,6 +710,11 @@ func addSourceFields(header map[string]interface{}, config source.Config) {
 		}
 		return
 	}
+	tmp := make(map[string]interface{})
+	for k, v := range sourceFields {
+		tmp[k] = v
+	}
+	sourceFields = tmp
 	sourceFieldsKey := config.FieldsUnderKey
 	if originFields, exist := header[sourceFieldsKey]; exist {
 		if originFieldsMap, convert := originFields.(map[string]interface{}); convert {
