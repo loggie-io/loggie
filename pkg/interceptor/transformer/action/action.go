@@ -28,14 +28,29 @@ const (
 	HeaderRoot = "_root"
 )
 
-type Config struct {
+type Config cfg.CommonCfg
+
+type ConfigAction struct {
 	Expression  string        `yaml:"action,omitempty"`
 	IgnoreError bool          `yaml:"ignoreError,omitempty"`
 	Extra       cfg.CommonCfg `yaml:",inline,omitempty"`
 }
 
+func (c *Config) ToActionCfg() (*ConfigAction, error) {
+	cfgAction := &ConfigAction{}
+	err := cfg.UnpackFromCommonCfg(cfg.CommonCfg(*c), cfgAction).Do()
+	if err != nil {
+		return nil, err
+	}
+	return cfgAction, nil
+}
+
 func (c *Config) Validate() error {
-	if c.Expression == "" {
+	actionCfg, err := c.ToActionCfg()
+	if err != nil {
+		return err
+	}
+	if actionCfg.Expression == "" {
 		return errors.New("action expression is required")
 	}
 	return nil
@@ -44,7 +59,7 @@ func (c *Config) Validate() error {
 type Instance struct {
 	Name string
 	Action
-	Config Config
+	Config ConfigAction
 }
 
 type Action interface {
@@ -64,7 +79,11 @@ func RegisterAction(name string, f Factory) {
 }
 
 // GetAction ..
-func GetAction(config Config) (*Instance, error) {
+func GetAction(c Config) (*Instance, error) {
+	config, err := c.ToActionCfg()
+	if err != nil {
+		return nil, err
+	}
 	e, err := expr.ParseExpression(config.Expression)
 	if err != nil {
 		return nil, err
@@ -82,7 +101,7 @@ func GetAction(config Config) (*Instance, error) {
 
 	return &Instance{
 		Name:   e.Name,
-		Config: config,
+		Config: *config,
 		Action: action,
 	}, nil
 }
