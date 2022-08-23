@@ -19,6 +19,7 @@ package controller
 import (
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
+	"time"
 
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -294,7 +295,7 @@ func (c *Controller) handleAllTypesDelete(key string, selectorType string) error
 	}
 
 	// sync to file
-	err := c.syncConfigToFile(selectorType)
+	err := c.SyncConfigToFile(selectorType)
 	if err != nil {
 		return errors.WithMessage(err, "sync to config file failed")
 	}
@@ -317,16 +318,43 @@ func (c *Controller) reconcilePodDelete(key string) error {
 	}
 
 	// sync to file
-	err := c.syncConfigToFile(logconfigv1beta1.SelectorTypePod)
+	err := c.SyncConfigToFile(logconfigv1beta1.SelectorTypePod)
 	if err != nil {
 		return errors.WithMessage(err, "sync config to file failed")
 	}
-	log.Info("handle pod %s delete event and sync config file success", key)
+
+	if !c.config.AsyncFlush.Enabled {
+		log.Info("handle pod %s delete event and sync config file success", key)
+	} else {
+		log.Info("handle pod %s delete event and async config", key)
+	}
 
 	return nil
 }
 
-func (c *Controller) syncConfigToFile(selectorType string) error {
+func (c *Controller) SyncConfigToFile(selectorType string) error {
+	if c.config.AsyncFlush.Enabled {
+		c.asyncChan <- selectorType
+		return nil
+	}
+
+	return c.sync(selectorType)
+}
+
+func (c *Controller) sync(selectorType string) error {
+	content, filename, err := c.renderContent(selectorType)
+	if err != nil {
+		return errors.WithMessagef(err, "render pipelines content")
+	}
+	dir := c.config.ConfigFilePath
+	err = util.WriteFileOrCreate(dir, filename, content)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Controller) renderContent(selectorType string) (content []byte, file string, e error) {
 	fileName := GenerateConfigName
 	var cfgRaws *control.PipelineConfig
 	switch selectorType {
@@ -342,17 +370,43 @@ func (c *Controller) syncConfigToFile(selectorType string) error {
 		fileName = GenerateTypeNodeConfigName
 
 	default:
-		return errors.New("selector.type unsupported")
+		return nil, fileName, errors.New("selector.type unsupported")
 	}
 
 	content, err := yaml.Marshal(cfgRaws)
 	if err != nil {
-		return err
+		return nil, fileName, err
 	}
-	dir := c.config.ConfigFilePath
-	err = util.WriteFileOrCreate(dir, fileName, content)
-	if err != nil {
-		return err
+	return content, fileName, nil
+}
+
+func (c *Controller) AsyncFlushRunner() {
+	log.Info("async flush pipeline configuration is enabled")
+
+	t := time.NewTicker(c.config.AsyncFlush.Interval)
+	defer t.Stop()
+	flushType := make(map[string]struct{})
+
+	for {
+		select {
+		case selectType := <-c.asyncChan:
+			flushType[selectType] = struct{}{}
+
+		case <-t.C:
+			if len(flushType) == 0 {
+				continue
+			}
+
+			for k := range flushType {
+				err := c.sync(k)
+				if err != nil {
+					log.Error("async config to file failed: %v", err)
+					continue
+				}
+				log.Info("async flush config to file success")
+				delete(flushType, k)
+			}
+
+		}
 	}
-	return nil
 }

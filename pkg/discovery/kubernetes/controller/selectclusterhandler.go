@@ -40,7 +40,7 @@ func (c *Controller) handleLogConfigTypeCluster(lgc *logconfigv1beta1.LogConfig)
 		return err
 	}
 
-	if err = c.syncConfigToFile(logconfigv1beta1.SelectorTypeCluster); err != nil {
+	if err = c.SyncConfigToFile(logconfigv1beta1.SelectorTypeCluster); err != nil {
 		return errors.WithMessage(err, "failed to sync config to file")
 	}
 	log.Info("handle logConfig %s/%s addOrUpdate event and sync config file success", lgc.Namespace, lgc.Name)

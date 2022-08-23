@@ -24,6 +24,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"sync"
 )
 
 const (
@@ -37,6 +38,8 @@ type LogConfigTypePodIndex struct {
 	podToLgcSets map[string]sets.String        // key: podKey(namespace/podName), value: lgcKey(namespace/lgcName)
 
 	lgcToOverrideLgc map[string]string // key: lgcKey(namespace/lgcName), value: override lgcKey(namespace/lgcName)
+
+	mutex sync.RWMutex
 }
 
 type TypePodPipeConfig struct {
@@ -54,6 +57,9 @@ func NewLogConfigTypePodIndex() *LogConfigTypePodIndex {
 }
 
 func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string, lgcNamespace string, lgcName string) *pipeline.Config {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
 	podKey := helper.MetaNamespaceKey(namespace, podName)
 	lgcKey := helper.MetaNamespaceKey(lgcNamespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
@@ -66,6 +72,9 @@ func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string,
 }
 
 func (p *LogConfigTypePodIndex) IsPodExist(namespace string, podName string) bool {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
 	podKey := helper.MetaNamespaceKey(namespace, podName)
 
 	lgcSets, ok := p.podToLgcSets[podKey]
@@ -75,22 +84,10 @@ func (p *LogConfigTypePodIndex) IsPodExist(namespace string, podName string) boo
 	return true
 }
 
-func (p *LogConfigTypePodIndex) GetPipeConfigsByPod(namespace string, podName string) []pipeline.Config {
-	podKey := helper.MetaNamespaceKey(namespace, podName)
+func (p *LogConfigTypePodIndex) setConfigs(namespace string, podName string, lgcName string, cfg *pipeline.Config, lgc *v1beta1.LogConfig) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 
-	pipcfgs := make([]pipeline.Config, 0)
-	lgcSets, ok := p.podToLgcSets[podKey]
-	if !ok || lgcSets.Len() == 0 {
-		return pipcfgs
-	}
-	for _, lgcKey := range lgcSets.List() {
-		podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
-		pipcfgs = append(pipcfgs, *p.pipeConfigs[podAndLgc].Raw)
-	}
-	return pipcfgs
-}
-
-func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgcName string, cfg *pipeline.Config, lgc *v1beta1.LogConfig) {
 	podKey := helper.MetaNamespaceKey(namespace, podName)
 	lgcKey := helper.MetaNamespaceKey(lgc.Namespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
@@ -118,7 +115,7 @@ func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgc
 
 func (p *LogConfigTypePodIndex) ValidateAndSetConfigs(namespace string, podName string, lgcName string,
 	cfg *pipeline.Config, lgc *v1beta1.LogConfig) error {
-	p.SetConfigs(namespace, podName, lgcName, cfg, lgc)
+	p.setConfigs(namespace, podName, lgcName, cfg, lgc)
 	if err := p.GetAllGroupByLogConfig().ValidateUniquePipeName(); err != nil {
 		if namespace == "" {
 			log.Warn("validate clusterLogConfig error: %v", err)
@@ -133,6 +130,8 @@ func (p *LogConfigTypePodIndex) ValidateAndSetConfigs(namespace string, podName 
 }
 
 func (p *LogConfigTypePodIndex) DeletePipeConfigsByLogConfigKey(lgcKey string) bool {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 
 	// find lgc related pods
 	podSets, ok := p.lgcToPodSets[lgcKey]
@@ -160,6 +159,9 @@ func (p *LogConfigTypePodIndex) DeletePipeConfigsByLogConfigKey(lgcKey string) b
 }
 
 func (p *LogConfigTypePodIndex) DeletePipeConfigsByPodKey(podKey string) bool {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
 	// find pod related lgc sets
 	lgcSets, ok := p.podToLgcSets[podKey]
 	if !ok || lgcSets.Len() == 0 {
@@ -184,14 +186,20 @@ func (p *LogConfigTypePodIndex) DeletePipeConfigsByPodKey(podKey string) bool {
 }
 
 func (p *LogConfigTypePodIndex) GetAllConfigMap() map[string]*TypePodPipeConfig {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
 	return p.pipeConfigs
 }
 
 func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineConfig {
+	p.mutex.RLock()
+	defer p.mutex.RUnlock()
+
 	conf := control.PipelineConfig{}
 	var pipeConfigs []pipeline.Config
 
-	ignoredKeys := p.IgnoredPodKeyAndLgcKeys()
+	ignoredKeys := p.ignoredPodKeyAndLgcKeys()
 
 	// merge logConfig of pods to one, reduce pipelines
 	for lgcKey, podSet := range p.lgcToPodSets {
@@ -236,7 +244,7 @@ func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig() *control.PipelineConfig
 }
 
 // IgnoredPodKeyAndLgcKeys return map which key is podKey/overrideLgcKey
-func (p *LogConfigTypePodIndex) IgnoredPodKeyAndLgcKeys() map[string]struct{} {
+func (p *LogConfigTypePodIndex) ignoredPodKeyAndLgcKeys() map[string]struct{} {
 	ignored := make(map[string]struct{})
 
 	if len(p.lgcToOverrideLgc) == 0 {
@@ -264,6 +272,10 @@ func mergeInterceptors(icpSets map[string]*interceptor.Config, interceptors []*i
 		icpVal, ok := icpSets[icp.UID()]
 		if !ok {
 			icpSets[icp.UID()] = icp
+			continue
+		}
+
+		if !icp.HasBelongTo() {
 			continue
 		}
 

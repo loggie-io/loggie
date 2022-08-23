@@ -17,10 +17,13 @@ import (
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"sync"
 )
 
 type LogConfigTypeNodeIndex struct {
 	pipeConfigs map[string]*TypeNodePipeConfig // key: logConfigNamespace/Name, value: pipeline configs
+
+	mutex sync.RWMutex
 }
 
 type TypeNodePipeConfig struct {
@@ -35,6 +38,9 @@ func NewLogConfigTypeNodeIndex() *LogConfigTypeNodeIndex {
 }
 
 func (index *LogConfigTypeNodeIndex) GetConfig(logConfigKey string) ([]pipeline.Config, bool) {
+	index.mutex.RLock()
+	defer index.mutex.RUnlock()
+
 	cfg, ok := index.pipeConfigs[logConfigKey]
 	if !ok {
 		return nil, false
@@ -43,6 +49,9 @@ func (index *LogConfigTypeNodeIndex) GetConfig(logConfigKey string) ([]pipeline.
 }
 
 func (index *LogConfigTypeNodeIndex) DeleteConfig(logConfigKey string) bool {
+	index.mutex.Lock()
+	defer index.mutex.Unlock()
+
 	_, ok := index.GetConfig(logConfigKey)
 	if !ok {
 		return false
@@ -52,6 +61,9 @@ func (index *LogConfigTypeNodeIndex) DeleteConfig(logConfigKey string) bool {
 }
 
 func (index *LogConfigTypeNodeIndex) SetConfig(logConfigKey string, p []pipeline.Config, lgc *v1beta1.LogConfig) {
+	index.mutex.Lock()
+	defer index.mutex.Unlock()
+
 	index.pipeConfigs[logConfigKey] = &TypeNodePipeConfig{
 		Raw: p,
 		Lgc: lgc,
@@ -68,6 +80,9 @@ func (index *LogConfigTypeNodeIndex) ValidateAndSetConfig(logConfigKey string, p
 }
 
 func (index *LogConfigTypeNodeIndex) GetAll() *control.PipelineConfig {
+	index.mutex.RLock()
+	defer index.mutex.RUnlock()
+
 	var cfgRaws []pipeline.Config
 	for _, v := range index.pipeConfigs {
 		cfgRaws = append(cfgRaws, v.Raw...)
@@ -79,5 +94,8 @@ func (index *LogConfigTypeNodeIndex) GetAll() *control.PipelineConfig {
 }
 
 func (index *LogConfigTypeNodeIndex) GetAllConfigMap() map[string]*TypeNodePipeConfig {
+	index.mutex.RLock()
+	defer index.mutex.RUnlock()
+
 	return index.pipeConfigs
 }

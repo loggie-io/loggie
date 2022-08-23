@@ -37,6 +37,11 @@ func (c *Config) GetExtension() (*ExtensionConfig, error) {
 	return ext, nil
 }
 
+func (c *Config) HasBelongTo() bool {
+	_, ok := c.Properties["belongTo"]
+	return ok
+}
+
 func (c *Config) SetBelongTo(belongTo []string) {
 	c.Properties["belongTo"] = belongTo
 }
