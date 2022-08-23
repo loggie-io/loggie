@@ -19,8 +19,8 @@ package action
 import (
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
+	eventer "github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	codecjson "github.com/loggie-io/loggie/pkg/sink/codec/json"
 	"github.com/pkg/errors"
 )
 
@@ -48,8 +48,18 @@ func NewPrint(args []string) (*Print, error) {
 }
 
 func (f *Print) act(e api.Event) error {
-	codec := codecjson.NewJson()
-	out, err := codec.Encode(e)
+	// TODO Encapsulated this into a function together with sink json codec
+	header := make(map[string]interface{})
+	for k, v := range e.Header() {
+		header[k] = v
+	}
+
+	if len(e.Body()) != 0 {
+		// put body in header
+		header[eventer.Body] = string(e.Body())
+	}
+
+	out, err := json.Marshal(header)
 	if err != nil {
 		return err
 	}
