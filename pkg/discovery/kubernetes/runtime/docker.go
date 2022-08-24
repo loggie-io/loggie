@@ -44,6 +44,10 @@ func (d *Docker) Name() string {
 	return RuntimeDocker
 }
 
+func (d *Docker) Client() interface{} {
+	return d.cli
+}
+
 func (d *Docker) GetRootfsPath(ctx context.Context, containerId string, containerPaths []string) ([]string, error) {
 	containerJson, err := d.cli.ContainerInspect(ctx, containerId)
 	if err != nil {
