@@ -37,6 +37,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/interceptor/metric"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/normalize"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/retry"
+	_ "github.com/loggie-io/loggie/pkg/interceptor/schema"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/transformer"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/transformer/action"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/transformer/condition"

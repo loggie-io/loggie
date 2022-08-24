@@ -18,9 +18,9 @@ package pattern
 
 import (
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/util"
 	k8sMeta "github.com/loggie-io/loggie/pkg/util/pattern/k8smeta"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
+	"github.com/loggie-io/loggie/pkg/util/time"
 	corev1 "k8s.io/api/core/v1"
 	"os"
 	"reflect"
@@ -139,7 +139,7 @@ func TestEnvPattern(t *testing.T) {
 			args: args{
 				pattern: "pre-${+YYYY.MM.dd}",
 			},
-			want:    "pre-" + util.TimeFormatNow("YYYY.MM.dd"),
+			want:    "pre-" + time.TimeFormatNow("YYYY.MM.dd"),
 			wantErr: false,
 		},
 	}

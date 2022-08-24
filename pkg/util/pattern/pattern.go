@@ -17,9 +17,9 @@ limitations under the License.
 package pattern
 
 import (
-	"github.com/loggie-io/loggie/pkg/util"
 	k8sMeta "github.com/loggie-io/loggie/pkg/util/pattern/k8smeta"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
+	"github.com/loggie-io/loggie/pkg/util/time"
 	"os"
 	"regexp"
 	"strings"
@@ -68,7 +68,7 @@ func isTimeVar(key string) bool {
 	return strings.HasPrefix(key, timeToken)
 }
 func timeMatcherRender(key string) string {
-	return util.TimeFormatNow(strings.TrimLeft(key, timeToken))
+	return time.TimeFormatNow(strings.TrimLeft(key, timeToken))
 }
 
 // ObjectMatcher retrieve any fields from events, e.g. ${a.b}
