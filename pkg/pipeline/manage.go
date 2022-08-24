@@ -169,11 +169,6 @@ func (r *RegisterCenter) LoadCodeCategoryComponents(category api.Category) map[s
 	return components
 }
 
-func (r *RegisterCenter) removeComponent(typename api.Type, category api.Category, name string) {
-	code := code(category, typename, name)
-	r.RemoveByCode(code)
-}
-
 func (r *RegisterCenter) RemoveByCode(code string) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
