@@ -45,6 +45,10 @@ func (c *ContainerD) Name() string {
 	return RuntimeContainerd
 }
 
+func (c *ContainerD) Client() interface{} {
+	return c.cli
+}
+
 func (c *ContainerD) GetRootfsPath(ctx context.Context, containerId string, containerPaths []string) ([]string, error) {
 	request := &criapi.ContainerStatusRequest{
 		ContainerId: containerId,
