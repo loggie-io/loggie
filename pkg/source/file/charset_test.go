@@ -31,6 +31,6 @@ func Test_charset(t *testing.T) {
 	context := []byte("哈哈哈哈测试数据测试数据")
 	data, err := encode.Bytes(context)
 	assert.Equal(t, err, nil)
-	data, err = decoder.decoder.Bytes(data)
+	_, err = decoder.decoder.Bytes(data)
 	assert.Equal(t, err, nil)
 }
