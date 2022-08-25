@@ -39,6 +39,43 @@ type Config struct {
 	Codec           *codec.Config          `yaml:"codec,omitempty"`
 }
 
+func (c *Config) DeepCopy() *Config {
+	if c == nil {
+		return nil
+	}
+
+	var newFields map[string]interface{}
+	if c.Fields != nil {
+		f := make(map[string]interface{})
+		for k, v := range c.Fields {
+			f[k] = v
+		}
+		newFields = f
+	}
+	var newFieldsFromEnv map[string]string
+	if c.FieldsFromEnv != nil {
+		fe := make(map[string]string)
+		for k, v := range c.FieldsFromEnv {
+			fe[k] = v
+		}
+		newFieldsFromEnv = fe
+	}
+
+	out := &Config{
+		Enabled:         c.Enabled,
+		Name:            c.Name,
+		Type:            c.Type,
+		Properties:      c.Properties.DeepCopy(),
+		FieldsUnderRoot: c.FieldsUnderRoot,
+		FieldsUnderKey:  c.FieldsUnderKey,
+		Fields:          newFields,
+		FieldsFromEnv:   newFieldsFromEnv,
+		Codec:           c.Codec.DeepCopy(),
+	}
+
+	return out
+}
+
 func (c *Config) Validate() error {
 	if c.Name == "" {
 		return ErrSourceNameRequired

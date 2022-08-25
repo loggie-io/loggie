@@ -78,8 +78,12 @@ func MergeInterceptorList(base []*Config, from []*Config) []*Config {
 		}
 	}
 
-	for _, v := range fromMap {
-		base = append(base, v)
+	// The map is unordered, and the order of `from config` needs to be guaranteed here.
+	for _, f := range from {
+		if _, ok := fromMap[f.UID()]; ok {
+			base = append(base, f)
+		}
 	}
+
 	return base
 }

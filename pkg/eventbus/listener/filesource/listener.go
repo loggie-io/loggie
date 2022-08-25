@@ -169,7 +169,7 @@ func (l *Listener) compute() {
 		for k, h := range d.FileHarvester {
 			f, err := os.Stat(h.FileName)
 			if err != nil {
-				log.Warn("stat file %s error: %v", h.FileName, err)
+				log.Debug("stat file %s error: %v", h.FileName, err)
 				continue
 			}
 
