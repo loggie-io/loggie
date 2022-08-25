@@ -43,6 +43,7 @@ type CollectConfig struct {
 	FirstNBytesForIdentifier int               `yaml:"firstNBytesForIdentifier,omitempty" default:"128" validate:"gte=10"` // If the file size is smaller than `firstNBytesForIdentifier`, it will not be collected
 	AddonMeta                bool              `yaml:"addonMeta,omitempty"`
 	excludeFilePatterns      []*regexp.Regexp
+	Charset                  string `yaml:"charset,omitempty" default:"utf-8"`
 }
 
 type LineDelimiterValue struct {

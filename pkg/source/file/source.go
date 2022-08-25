@@ -189,6 +189,9 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 	if s.codec != nil {
 		s.productFunc = codec.ProductFunc(s.productFunc, s.codec)
 	}
+	if s.config.CollectConfig.Charset != "utf-8" {
+		s.productFunc = NewCharset(s.config.CollectConfig.Charset, s.productFunc).Hook
+	}
 	if s.ackEnable {
 		s.ackTask = NewAckTask(s.epoch, s.pipelineName, s.name, func(state *State) {
 			s.dbHandler.state <- state
