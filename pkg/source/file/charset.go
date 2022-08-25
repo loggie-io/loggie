@@ -53,7 +53,6 @@ func (i *CharsetDecoder) process(e api.Event) error {
 	}
 
 	bytes, err := i.decoder.Bytes(e.Body())
-
 	if err != nil {
 		log.Error("encoding conversion failed %s", i.charset)
 		return errors.New(fmt.Sprintf("encoding conversion failed %s", i.charset))
