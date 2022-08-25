@@ -28,7 +28,9 @@ func Test_charset(t *testing.T) {
 	gbk := util.AllEncodings["gbk"]
 	encode := gbk.NewEncoder()
 	decoder := NewCharset("gbk", nil)
-	context := []byte("Loggie是一个日志采集Agent和中转处理的Aggregator，包含多个Pipeline管道，每个Pipeline又由Source输入、Interceptor拦截处理和Sink输出组成。\n\n基于这种插件式设计，Loggie并不局限在日志采集，通过配置不同的Source/Interceptor/Sink，Loggie可以组合实现各种不同的功能。\n\n简单起见，这里我们从采集日志开始。\n\n")
+	context := []byte("Loggie是一个日志采集Agent和中转处理的Aggregator，包含多个Pipeline管道，每个Pipeline又由Source输入、I" +
+		"nterceptor拦截处理和Sink输出组成。" + "\n\n基于这种插件式设计，Loggie并不局限在日志采集，通过配置不同的" +
+		"Source/Interceptor/Sink，Loggie可以组合实现各种不同的功能。\n\n简单起见，这里我们从采集日志开始。\n\n")
 	data, err := encode.Bytes(context)
 	assert.Equal(t, err, nil)
 	_, err = decoder.decoder.Bytes(data)
