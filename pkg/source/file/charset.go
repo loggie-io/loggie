@@ -39,8 +39,8 @@ func (i *CharsetDecoder) process(e api.Event) error {
 	bytes, err := i.decoder.Bytes(e.Body())
 
 	if err != nil {
-		log.Error("failed to iconv  into %v", i.charset)
-		return errors.New(fmt.Sprintf("failed to encode  into %v", i.charset))
+		log.Error("encoding conversion failed %s", i.charset)
+		return errors.New(fmt.Sprintf("encoding conversion failed %s", i.charset))
 	}
 
 	e.Fill(e.Meta(), e.Header(), bytes)
@@ -48,9 +48,6 @@ func (i *CharsetDecoder) process(e api.Event) error {
 }
 
 func (i *CharsetDecoder) Hook(event api.Event) api.Result {
-	err := i.process(event)
-	if err != nil {
-		log.Error("i.process error:%s", err)
-	}
+	i.process(event)
 	return i.productFunc(event)
 }
