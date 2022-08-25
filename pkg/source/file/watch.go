@@ -18,6 +18,7 @@ package file
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
 	"os"
 	"path/filepath"
 	"sync"
@@ -355,8 +356,59 @@ func (w *Watcher) scanTaskNewFiles(watchTask *WatchTask) {
 	pipelineName := watchTask.pipelineName
 	sourceName := watchTask.sourceName
 	paths := watchTask.config.Paths
+	if isDynamicPath(paths) {
+		w.scanDynamicContainerLogs(pipelineName, sourceName, watchTask)
+		return
+	}
+
+	w.scanPaths(pipelineName, sourceName, paths, watchTask, nil)
+}
+
+func isDynamicPath(paths []string) bool {
+	if len(paths) == 1 && paths[0] == external.SystemContainerLogsPath {
+		return true
+	}
+	return false
+}
+
+func getPathsIfDynamicContainerLogs(paths []string, pipelineName string, sourceName string) []string {
+	if !isDynamicPath(paths) {
+		return paths
+	}
+
+	pairs, ok := external.GetDynamicPaths(pipelineName, sourceName)
+	if !ok {
+		log.Debug("cannot get dynamic paths by %s/%s", pipelineName, sourceName)
+		return paths
+	}
+
+	var dynamicPaths []string
+	for _, p := range pairs {
+		dynamicPaths = append(dynamicPaths, p.Paths...)
+	}
+
+	return dynamicPaths
+}
+
+func (w *Watcher) scanDynamicContainerLogs(pipelineName string, sourceName string, watchTask *WatchTask) {
+	pairs, ok := external.GetDynamicPaths(pipelineName, sourceName)
+	if !ok {
+		log.Info("cannot get dynamic paths by %s/%s", pipelineName, sourceName)
+		return
+	}
+
+	for _, pair := range pairs {
+		path := getRecursivePath(pair.Paths)
+		w.scanPaths(pipelineName, sourceName, path, watchTask, pair.Fields)
+	}
+
+	return
+}
+
+func (w *Watcher) scanPaths(pipelineName string, sourceName string, paths []string, watchTask *WatchTask, jobFields map[string]interface{}) {
 	for _, path := range paths {
 		matches, err := util.GlobWithRecursive(path)
+		log.Debug("scan paths %+v , matches: %+v", path, matches)
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue
@@ -365,14 +417,16 @@ func (w *Watcher) scanTaskNewFiles(watchTask *WatchTask) {
 			continue
 		}
 		for _, fileName := range matches {
-			w.createOrRename(fileName, watchTask)
+			w.createOrRename(fileName, watchTask, jobFields)
 		}
 	}
 }
 
-func (w *Watcher) createOrRename(filename string, watchTask *WatchTask) {
+func (w *Watcher) createOrRename(filename string, watchTask *WatchTask, jobFields map[string]interface{}) {
 	if legal, name, fileInfo := w.legalFile(filename, watchTask, true); legal {
 		job := watchTask.newJob(name, fileInfo)
+		job.jobFields = jobFields
+
 		err := job.GenerateIdentifier()
 		if err != nil {
 			log.Info("file(%s) ignored because generate id fail: %s", name, err)
@@ -417,11 +471,6 @@ func (w *Watcher) legalFile(filename string, watchTask *WatchTask, withIgnoreOld
 	filename, err := filepath.Abs(filename)
 	if err != nil {
 		log.Error("[pipeline(%s)-source(%s)]: get abs fileName(%s) error: %v", pipelineName, sourceName, filename, err)
-		return false, "", nil
-	}
-
-	if !watchTask.config.IsFileInclude(filename) {
-		log.Debug("[pipeline(%s)-source(%s)]: not include fileName: %s", pipelineName, sourceName, filename)
 		return false, "", nil
 	}
 
@@ -819,7 +868,7 @@ func (w *Watcher) reportWatchMetricAndCleanFiles() {
 	for _, watchTask := range w.sourceWatchTasks {
 		pipelineName := watchTask.pipelineName
 		sourceName := watchTask.sourceName
-		paths := watchTask.config.Paths
+		paths := getPathsIfDynamicContainerLogs(watchTask.config.Paths, pipelineName, sourceName)
 		var (
 			activeCount     int
 			inActiveFdCount int

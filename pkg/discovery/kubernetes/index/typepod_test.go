@@ -163,6 +163,6 @@ func TestTypePodIndex(t *testing.T) {
 			},
 		},
 	}
-	got := index.GetAllGroupByLogConfig()
+	got := index.GetAllGroupByLogConfig(false)
 	assert.Equal(t, want, got)
 }

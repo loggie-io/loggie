@@ -48,6 +48,18 @@ func (c CommonCfg) Get(key string) interface{} {
 	return c[key]
 }
 
+func (c CommonCfg) DeepCopy() CommonCfg {
+	if c == nil {
+		return nil
+	}
+
+	out := NewCommonCfg()
+	for k, v := range c {
+		out[k] = v
+	}
+	return out
+}
+
 // MergeCommonCfg merge `base` map with `from` map
 func MergeCommonCfg(base CommonCfg, from CommonCfg, override bool) CommonCfg {
 	if base == nil {

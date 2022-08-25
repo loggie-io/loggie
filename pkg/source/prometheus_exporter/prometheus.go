@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
+	timeutil "github.com/loggie-io/loggie/pkg/util/time"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -15,7 +16,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/prom2json"
@@ -180,7 +180,7 @@ func (e *PromExporter) promToJson(in io.Reader) ([]byte, error) {
 	for _, val := range metricFamilies {
 		// add timestamp in metrics
 		for _, m := range val.Metric {
-			timeMs := util.UnixMilli(time.Now())
+			timeMs := timeutil.UnixMilli(time.Now())
 			m.TimestampMs = &timeMs
 		}
 

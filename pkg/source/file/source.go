@@ -149,7 +149,7 @@ func (s *Source) Start() error {
 func (s *Source) Stop() {
 	log.Info("start stop source: %s", s.String())
 	// Stop ack
-	if s.config.AckConfig.Enable {
+	if s.ackEnable {
 		// stop append&ack source event
 		s.ackChainHandler.StopTask(s.ackTask)
 		log.Info("[%s] all ack jobs of source exit", s.String())
@@ -177,6 +177,7 @@ func (s *Source) Product() api.Event {
 func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", s.String())
 	s.productFunc = productFunc
+	s.productFunc = jobFieldsProductFunc(s.productFunc)
 	if s.config.CollectConfig.AddonMeta {
 		s.productFunc = addonMetaProductFunc(s.productFunc)
 	}
@@ -191,11 +192,12 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 	if s.config.CollectConfig.Charset != "utf-8" {
 		s.productFunc = NewCharset(s.config.CollectConfig.Charset, s.productFunc).Hook
 	}
-	if s.config.AckConfig.Enable {
+	if s.ackEnable {
 		s.ackTask = NewAckTask(s.epoch, s.pipelineName, s.name, func(state *State) {
 			s.dbHandler.state <- state
 		})
 		s.ackChainHandler.StartTask(s.ackTask)
+		log.Info("%s ack start", s.String())
 	}
 	s.watchTask = NewWatchTask(s.epoch, s.pipelineName, s.name, s.config.CollectConfig, s.eventPool, s.productFunc, s.r.jobChan, s.config.Fields)
 	// start watch source paths
@@ -213,6 +215,25 @@ func (s *Source) Commit(events []api.Event) {
 	}
 	// release events
 	s.eventPool.PutAll(events)
+}
+
+func jobFieldsProductFunc(productFunc api.ProductFunc) api.ProductFunc {
+	return func(event api.Event) api.Result {
+		productFunc(event)
+		// Add job fields should after base productFunc
+		s, _ := event.Meta().Get(SystemStateKey)
+		state := s.(*State)
+
+		if state.jobFields != nil {
+			header := event.Header()
+			fieldsKey, _ := event.Meta().Get(pipeline.FieldsUnderKey)
+			fieldsUnderRoot, _ := event.Meta().Get(pipeline.FieldsUnderRoot)
+
+			pipeline.AddSourceFields(header, state.jobFields, fieldsUnderRoot.(bool), fieldsKey.(string))
+		}
+
+		return result.Success()
+	}
 }
 
 func addonMetaProductFunc(productFunc api.ProductFunc) api.ProductFunc {

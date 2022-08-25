@@ -40,8 +40,8 @@ import (
 )
 
 const (
-	fieldsUnderRootKey = event.PrivateKeyPrefix + "FieldsUnderRoot"
-	fieldsUnderKeyKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
+	FieldsUnderRoot = event.PrivateKeyPrefix + "FieldsUnderRoot"
+	FieldsUnderKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
 )
 
 var (
@@ -128,15 +128,16 @@ func (p *Pipeline) stopSinkConsumer() {
 func (p *Pipeline) stopSourceProduct() {
 	taskName := fmt.Sprintf("stop sources of pipeline(%s)", p.name)
 	namedJob := make(map[string]func())
-	for name, s := range p.ns {
-		localName := name
+	sources := p.r.LoadCodeCategoryComponents(api.SOURCE)
+	for code, s := range sources {
+		localCode := code
 		localSource := s
 
-		p.r.removeComponent(localSource.Type(), localSource.Category(), localName)
-		jobName := fmt.Sprintf("stop source(%s)", localName)
+		p.r.RemoveByCode(localCode)
+		jobName := fmt.Sprintf("stop source(%s)", localCode)
 		job := func() {
 			localSource.Stop()
-			p.reportMetric(localName, localSource, eventbus.ComponentStop)
+			p.reportMetricWithCode(localCode, localSource, eventbus.ComponentStop)
 		}
 		namedJob[jobName] = job
 	}
@@ -144,25 +145,29 @@ func (p *Pipeline) stopSourceProduct() {
 }
 
 func (p *Pipeline) stopQueue() {
-	for n, q := range p.nq {
-		name := n
+	queues := p.r.LoadCodeCategoryComponents(api.QUEUE)
+	for c, q := range queues {
+		localCode := c
 		localQueue := q
+
+		p.r.RemoveByCode(localCode)
 		localQueue.Stop()
-		p.r.removeComponent(localQueue.Type(), localQueue.Category(), name)
-		p.reportMetric(name, localQueue, eventbus.ComponentStop)
+		p.reportMetricWithCode(localCode, localQueue, eventbus.ComponentStop)
 	}
 }
 
 func (p *Pipeline) stopComponents() {
 	log.Debug("stopping components of pipeline %s", p.name)
-	for name, v := range p.r.LoadCodeComponents() {
+	components := p.r.LoadCodeComponents()
+	for c, v := range components {
 		// async stop with timeout
-		n := name
-		c := v
-		p.r.RemoveByCode(n)
+		localCode := c
+		localComponent := v
+
+		p.r.RemoveByCode(localCode)
 		util.AsyncRunWithTimeout(func() {
-			c.Stop()
-			p.reportMetricWithCode(n, c, eventbus.ComponentStop)
+			localComponent.Stop()
+			p.reportMetricWithCode(localCode, localComponent, eventbus.ComponentStop)
 		}, p.config.CleanDataTimeout)
 	}
 }
@@ -663,8 +668,8 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 	e.Meta().Set(event.SystemProductTimeKey, time.Now())
 	e.Meta().Set(event.SystemPipelineKey, p.name)
 	e.Meta().Set(event.SystemSourceKey, config.Name)
-	e.Meta().Set(fieldsUnderRootKey, config.FieldsUnderRoot)
-	e.Meta().Set(fieldsUnderKeyKey, config.FieldsUnderKey)
+	e.Meta().Set(FieldsUnderRoot, config.FieldsUnderRoot)
+	e.Meta().Set(FieldsUnderKey, config.FieldsUnderKey)
 
 	header := e.Header()
 	if header == nil {
@@ -672,7 +677,7 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 		e.Fill(e.Meta(), header, e.Body())
 	}
 	// add header source fields
-	addSourceFields(header, config)
+	AddSourceFields(header, config.Fields, config.FieldsUnderRoot, config.FieldsUnderKey)
 
 	// add header source fields from env
 	if len(config.FieldsFromEnv) > 0 {
@@ -699,27 +704,31 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 	}
 }
 
-func addSourceFields(header map[string]interface{}, config source.Config) {
-	sourceFields := config.Fields
-	if len(sourceFields) <= 0 {
+func AddSourceFields(header map[string]interface{}, fields map[string]interface{}, underRoot bool, fieldsKey string) {
+	if len(fields) == 0 {
 		return
 	}
-	if config.FieldsUnderRoot {
-		for k, v := range sourceFields {
+	if underRoot {
+		for k, v := range fields {
 			header[k] = v
 		}
 		return
 	}
-	sourceFieldsKey := config.FieldsUnderKey
-	if originFields, exist := header[sourceFieldsKey]; exist {
+
+	// Copy the fields field to avoid being updated later
+	fieldsCopy := make(map[string]interface{})
+	for k, v := range fields {
+		fieldsCopy[k] = v
+	}
+	if originFields, exist := header[fieldsKey]; exist {
 		if originFieldsMap, convert := originFields.(map[string]interface{}); convert {
-			for k, v := range sourceFields {
+			for k, v := range fieldsCopy {
 				originFieldsMap[k] = v
 			}
 		}
 		return
 	}
-	header[sourceFieldsKey] = sourceFields
+	header[fieldsKey] = fieldsCopy
 }
 
 func buildSourceInvokerChain(sourceName string, invoker source.Invoker, interceptors []source.Interceptor) source.Invoker {
@@ -809,10 +818,11 @@ func (p *Pipeline) next() api.OutFunc {
 func (p *Pipeline) reportMetricWithCode(code string, component api.Component, eventType eventbus.ComponentEventType) {
 	var name string
 	a := strings.Split(code, "/")
-	if len(a) < 3 {
+	i := len(a)
+	if i < 3 {
 		name = ""
 	} else {
-		name = a[2]
+		name = a[i-1]
 	}
 	p.reportMetric(name, component, eventType)
 }

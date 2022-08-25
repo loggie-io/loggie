@@ -35,12 +35,16 @@ const (
 
 type AckTaskType string
 
+type AckTaskEvent struct {
+	taskType AckTaskType
+	ackTask  *AckTask
+}
+
 type AckTask struct {
 	Epoch           *pipeline.Epoch
 	PipelineName    string
 	SourceName      string
 	key             string
-	ackTaskType     AckTaskType
 	StopCountDown   *sync.WaitGroup
 	persistenceFunc persistenceFunc
 }
@@ -239,28 +243,28 @@ func (ac *JobAckChain) isEmpty() bool {
 }
 
 type AckChainHandler struct {
-	done         chan struct{}
-	ackConfig    AckConfig
-	sinkCount    int
-	jobAckChains map[string]*JobAckChain
-	appendChan   chan []*State
-	ackChan      chan []*State
-	countDown    *sync.WaitGroup
-	ackTasks     map[string]*AckTask
-	ackTaskChan  chan *AckTask
+	done             chan struct{}
+	ackConfig        AckConfig
+	sinkCount        int
+	jobAckChains     map[string]*JobAckChain
+	appendChan       chan []*State
+	ackChan          chan []*State
+	countDown        *sync.WaitGroup
+	ackTasks         map[string]*AckTask
+	ackTaskEventChan chan AckTaskEvent
 }
 
 func NewAckChainHandler(sinkCount int, ackConfig AckConfig) *AckChainHandler {
 	handler := &AckChainHandler{
-		done:         make(chan struct{}),
-		ackConfig:    ackConfig,
-		sinkCount:    sinkCount,
-		jobAckChains: make(map[string]*JobAckChain),
-		appendChan:   make(chan []*State),
-		ackChan:      make(chan []*State, sinkCount),
-		countDown:    &sync.WaitGroup{},
-		ackTasks:     make(map[string]*AckTask),
-		ackTaskChan:  make(chan *AckTask),
+		done:             make(chan struct{}),
+		ackConfig:        ackConfig,
+		sinkCount:        sinkCount,
+		jobAckChains:     make(map[string]*JobAckChain),
+		appendChan:       make(chan []*State),
+		ackChan:          make(chan []*State, sinkCount),
+		countDown:        &sync.WaitGroup{},
+		ackTasks:         make(map[string]*AckTask),
+		ackTaskEventChan: make(chan AckTaskEvent),
 	}
 	go handler.run()
 	return handler
@@ -272,14 +276,18 @@ func (ach *AckChainHandler) Stop() {
 }
 
 func (ach *AckChainHandler) StartTask(task *AckTask) {
-	task.ackTaskType = AckStart
-	ach.ackTaskChan <- task
+	ach.ackTaskEventChan <- AckTaskEvent{
+		taskType: AckStart,
+		ackTask:  task,
+	}
 }
 
 func (ach *AckChainHandler) StopTask(task *AckTask) {
-	task.ackTaskType = AckStop
 	task.StopCountDown.Add(1)
-	ach.ackTaskChan <- task
+	ach.ackTaskEventChan <- AckTaskEvent{
+		taskType: AckStop,
+		ackTask:  task,
+	}
 	task.StopCountDown.Wait()
 }
 
@@ -296,8 +304,9 @@ func (ach *AckChainHandler) run() {
 		select {
 		case <-ach.done:
 			return
-		case ackTask := <-ach.ackTaskChan:
-			taskType := ackTask.ackTaskType
+		case ackTaskEvent := <-ach.ackTaskEventChan:
+			taskType := ackTaskEvent.taskType
+			ackTask := ackTaskEvent.ackTask
 			if taskType == AckStart {
 				_, ok := ach.ackTasks[ackTask.Key()]
 				if ok {

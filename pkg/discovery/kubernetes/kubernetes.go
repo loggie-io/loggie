@@ -88,7 +88,9 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 	nodeInformerFactory.Start(stopCh)
 
 	external.InitGlobalPodIndexer(kubeInformerFactory.Core().V1().Pods().Informer().GetIndexer(), kubeInformerFactory.Core().V1().Pods().Lister())
-
+	if d.config.DynamicContainerLog {
+		external.InitDynamicLogIndexer()
+	}
 	external.Cluster = d.config.Cluster
 
 	if err := ctrl.Run(stopCh); err != nil {

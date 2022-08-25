@@ -46,6 +46,9 @@ type State struct {
 
 	// for cache
 	watchUid string
+
+	// jobFields from job
+	jobFields map[string]interface{}
 }
 
 func (s *State) WatchUid() string {

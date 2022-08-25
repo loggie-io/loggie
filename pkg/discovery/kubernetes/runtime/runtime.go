@@ -36,6 +36,7 @@ const (
 
 type Runtime interface {
 	Name() string
+	Client() interface{}
 	GetRootfsPath(ctx context.Context, containerId string, containerPaths []string) ([]string, error)
 }
 

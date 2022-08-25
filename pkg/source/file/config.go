@@ -17,12 +17,10 @@ limitations under the License.
 package file
 
 import (
+	timeutil "github.com/loggie-io/loggie/pkg/util/time"
 	"os"
 	"regexp"
 	"time"
-
-	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/loggie-io/loggie/pkg/util"
 )
 
 type Config struct {
@@ -36,14 +34,14 @@ type Config struct {
 }
 
 type CollectConfig struct {
-	IsolationLevel           string        `yaml:"isolationLevel,omitempty" default:"share"`
-	Paths                    []string      `yaml:"paths,omitempty" validate:"required"` // glob pattern
-	ExcludeFiles             []string      `yaml:"excludeFiles,omitempty"`              // regular pattern
-	IgnoreOlder              util.Duration `yaml:"ignoreOlder,omitempty"`
-	IgnoreSymlink            bool          `yaml:"ignoreSymlink,omitempty" default:"false"`
-	RereadTruncated          bool          `yaml:"rereadTruncated,omitempty" default:"true"`                           // Read from the beginning when the file is truncated
-	FirstNBytesForIdentifier int           `yaml:"firstNBytesForIdentifier,omitempty" default:"128" validate:"gte=10"` // If the file size is smaller than `firstNBytesForIdentifier`, it will not be collected
-	AddonMeta                bool          `yaml:"addonMeta,omitempty"`
+	IsolationLevel           string            `yaml:"isolationLevel,omitempty" default:"share"`
+	Paths                    []string          `yaml:"paths,omitempty" validate:"required"` // glob pattern
+	ExcludeFiles             []string          `yaml:"excludeFiles,omitempty"`              // regular pattern
+	IgnoreOlder              timeutil.Duration `yaml:"ignoreOlder,omitempty"`
+	IgnoreSymlink            bool              `yaml:"ignoreSymlink,omitempty" default:"false"`
+	RereadTruncated          bool              `yaml:"rereadTruncated,omitempty" default:"true"`                           // Read from the beginning when the file is truncated
+	FirstNBytesForIdentifier int               `yaml:"firstNBytesForIdentifier,omitempty" default:"128" validate:"gte=10"` // If the file size is smaller than `firstNBytesForIdentifier`, it will not be collected
+	AddonMeta                bool              `yaml:"addonMeta,omitempty"`
 	excludeFilePatterns      []*regexp.Regexp
 	Charset                  string `yaml:"charset,omitempty" default:"utf-8"`
 }
@@ -57,20 +55,6 @@ type LineDelimiterValue struct {
 func (cc CollectConfig) IsIgnoreOlder(info os.FileInfo) bool {
 	ignoreOlder := cc.IgnoreOlder
 	return ignoreOlder.Duration() > 0 && time.Since(info.ModTime()) > ignoreOlder.Duration()
-}
-
-func (cc CollectConfig) IsFileInclude(file string) bool {
-	for _, path := range cc.Paths {
-		match, err := util.MatchWithRecursive(path, file)
-		if err != nil {
-			log.Error("path glob pattern(%s) match error: %v", path, err)
-			continue
-		}
-		if match {
-			return true
-		}
-	}
-	return false
 }
 
 func (cc CollectConfig) IsFileExcluded(file string) bool {

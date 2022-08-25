@@ -4,7 +4,7 @@ interceptors:
   - type: transformer
     actions:
       - action: regex(body)
-        pattern: "(?<ip>\S+) (?<id>\S+) (?<u>\S+) (?<time>\[.*?\]) (?<url>\".*?\") (?<status>\S+) (?<size>\S+)"
+        pattern: (?<ip>\S+) (?<id>\S+) (?<u>\S+) (?<time>\[.*?\]) (?<url>\".*?\") (?<status>\S+) (?<size>\S+)
       - if: equal(status, 404)
         then:
           - action: add(topic, not_found)
@@ -34,7 +34,7 @@ interceptors:
   - type: transformer
     actions:
       - action: regex(body)
-        pattern: "^(?P<time>[^ ^Z]+Z) (?P<level>[^ ]*) (?P<log>.*)$"
+        pattern: ^(?P<time>[^ ^Z]+Z) (?P<level>[^ ]*) (?P<log>.*)$
       - if: equal(level, DEBUG)
         then:
           - action: dropEvent()
