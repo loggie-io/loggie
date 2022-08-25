@@ -17,7 +17,6 @@ limitations under the License.
 package file
 
 import (
-	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/stretchr/testify/assert"
@@ -34,5 +33,4 @@ func Test_charset(t *testing.T) {
 	assert.Equal(t, err, nil)
 	data, err = decoder.decoder.Bytes(data)
 	assert.Equal(t, err, nil)
-	fmt.Println(string(data))
 }
