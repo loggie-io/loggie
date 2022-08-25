@@ -128,15 +128,16 @@ func (p *Pipeline) stopSinkConsumer() {
 func (p *Pipeline) stopSourceProduct() {
 	taskName := fmt.Sprintf("stop sources of pipeline(%s)", p.name)
 	namedJob := make(map[string]func())
-	for name, s := range p.ns {
-		localName := name
+	sources := p.r.LoadCodeCategoryComponents(api.SOURCE)
+	for code, s := range sources {
+		localCode := code
 		localSource := s
 
-		p.r.removeComponent(localSource.Type(), localSource.Category(), localName)
-		jobName := fmt.Sprintf("stop source(%s)", localName)
+		p.r.RemoveByCode(localCode)
+		jobName := fmt.Sprintf("stop source(%s)", localCode)
 		job := func() {
 			localSource.Stop()
-			p.reportMetric(localName, localSource, eventbus.ComponentStop)
+			p.reportMetricWithCode(localCode, localSource, eventbus.ComponentStop)
 		}
 		namedJob[jobName] = job
 	}
@@ -144,25 +145,29 @@ func (p *Pipeline) stopSourceProduct() {
 }
 
 func (p *Pipeline) stopQueue() {
-	for n, q := range p.nq {
-		name := n
+	queues := p.r.LoadCodeCategoryComponents(api.QUEUE)
+	for c, q := range queues {
+		localCode := c
 		localQueue := q
+
+		p.r.RemoveByCode(localCode)
 		localQueue.Stop()
-		p.r.removeComponent(localQueue.Type(), localQueue.Category(), name)
-		p.reportMetric(name, localQueue, eventbus.ComponentStop)
+		p.reportMetricWithCode(localCode, localQueue, eventbus.ComponentStop)
 	}
 }
 
 func (p *Pipeline) stopComponents() {
 	log.Debug("stopping components of pipeline %s", p.name)
-	for name, v := range p.r.LoadCodeComponents() {
+	components := p.r.LoadCodeComponents()
+	for c, v := range components {
 		// async stop with timeout
-		n := name
-		c := v
-		p.r.RemoveByCode(n)
+		localCode := c
+		localComponent := v
+
+		p.r.RemoveByCode(localCode)
 		util.AsyncRunWithTimeout(func() {
-			c.Stop()
-			p.reportMetricWithCode(n, c, eventbus.ComponentStop)
+			localComponent.Stop()
+			p.reportMetricWithCode(localCode, localComponent, eventbus.ComponentStop)
 		}, p.config.CleanDataTimeout)
 	}
 }
@@ -813,10 +818,11 @@ func (p *Pipeline) next() api.OutFunc {
 func (p *Pipeline) reportMetricWithCode(code string, component api.Component, eventType eventbus.ComponentEventType) {
 	var name string
 	a := strings.Split(code, "/")
-	if len(a) < 3 {
+	i := len(a)
+	if i < 3 {
 		name = ""
 	} else {
-		name = a[2]
+		name = a[i-1]
 	}
 	p.reportMetric(name, component, eventType)
 }
