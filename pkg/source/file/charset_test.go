@@ -18,16 +18,19 @@ package file
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
 
 func Test_charset(t *testing.T) {
+	log.InitDefaultLogger()
 	gbk := util.AllEncodings["gbk"]
 	encode := gbk.NewEncoder()
 	decoder := NewCharset("gbk", nil)
-	data, err := encode.Bytes([]byte("djwqiodjqiwojdioqwjdioqw"))
+	context := []byte("哈哈哈哈测试数据测试数据")
+	data, err := encode.Bytes(context)
 	assert.Equal(t, err, nil)
 	data, err = decoder.decoder.Bytes(data)
 	assert.Equal(t, err, nil)
