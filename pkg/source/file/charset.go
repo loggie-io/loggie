@@ -21,8 +21,9 @@ func NewCharset(charset string, productFunc api.ProductFunc) *CharsetDecoder {
 	if !ok {
 		decoder = util.AllEncodings["utf-8"].NewDecoder()
 		log.Warn("The encoding(%s) does not exist, it has been converted to utf-8 by default", charset)
+	} else {
+		decoder = codec.NewDecoder()
 	}
-	decoder = codec.NewDecoder()
 	return &CharsetDecoder{
 		decoder:     decoder,
 		charset:     charset,
