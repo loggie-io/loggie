@@ -124,9 +124,6 @@ func (c *ClientSet) cleanInactiveRecord() {
 
 func (c *ClientSet) Search(ctx context.Context) ([][]byte, error) {
 	queryBuilder := c.cli.Search().Index(c.config.Index)
-	if c.config.Etype != "" {
-		queryBuilder.Type(c.config.Etype)
-	}
 	if c.config.Query != "" {
 		queryBuilder.Query(es.NewRawStringQuery(c.config.Query))
 	}

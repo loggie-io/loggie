@@ -33,7 +33,6 @@ type Config struct {
 	ExcludeFields []string `yaml:"excludeFields,omitempty"`
 	Query         string   `yaml:"query,omitempty"`
 	Index         string   `yaml:"index,omitempty" validate:"required"`
-	Etype         string   `yaml:"etype,omitempty"` // elasticsearch type, for v5.* backward compatibility
 	Size          int      `yaml:"size,omitempty" default:"100"`
 
 	Interval time.Duration `yaml:"interval,omitempty" default:"30s"`
