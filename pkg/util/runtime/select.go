@@ -20,13 +20,41 @@ import (
 	"strings"
 )
 
+const (
+	sep          = '.'
+	connectStart = '['
+	connectEnd   = ']'
+)
+
 func GetQueryPaths(query string) []string {
-	paths := strings.Split(query, sep)
-	return paths
+	var result []string
+	var sb strings.Builder
+	connectorMode := false
+	for _, s := range query {
+		if s == sep && !connectorMode {
+			result = append(result, sb.String())
+			sb.Reset()
+			continue
+
+		} else if s == connectStart {
+			connectorMode = true
+			continue
+
+		} else if s == connectEnd {
+			connectorMode = false
+			continue
+		}
+
+		// add sub string
+		sb.WriteRune(s)
+	}
+
+	result = append(result, sb.String())
+	return result
 }
 
 func GetQueryUpperPaths(query string) ([]string, string) {
-	paths := strings.Split(query, sep)
+	paths := GetQueryPaths(query)
 	if len(paths) < 2 {
 		return []string{}, query
 	}
