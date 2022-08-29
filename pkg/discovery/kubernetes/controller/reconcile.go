@@ -117,8 +117,8 @@ func (c *Controller) reconcileNode(name string) error {
 
 	// update node labels
 	n := node.DeepCopy()
-	c.nodeLabels = n.Labels
-	log.Info("node label %v is set", c.nodeLabels)
+	c.nodeInfo = n
+	log.Info("set node labels: %v", n.Labels)
 	return nil
 }
 

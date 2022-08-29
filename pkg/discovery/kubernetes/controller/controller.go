@@ -17,10 +17,12 @@ limitations under the License.
 package controller
 
 import (
+	"context"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
-	"reflect"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -86,11 +88,12 @@ type Controller struct {
 	typeClusterIndex *index.LogConfigTypeClusterIndex
 	typeNodeIndex    *index.LogConfigTypeNodeIndex
 
-	nodeLabels map[string]string
+	nodeInfo *corev1.Node
 
-	record             record.EventRecorder
-	runtime            runtime.Runtime
-	extraFieldsPattern map[string]*pattern.Pattern
+	record                     record.EventRecorder
+	runtime                    runtime.Runtime
+	extraTypePodFieldsPattern  map[string]*pattern.Pattern
+	extraTypeNodeFieldsPattern map[string]*pattern.Pattern
 }
 
 func NewController(
@@ -143,6 +146,13 @@ func NewController(
 
 	log.Info("Setting up event handlers")
 	utilruntime.Must(logconfigSchema.AddToScheme(scheme.Scheme))
+
+	// Since type node logic depends on node labels, we get and set node info at first.
+	node, err := kubeClientset.CoreV1().Nodes().Get(context.Background(), global.NodeName, metav1.GetOptions{})
+	if err != nil {
+		log.Panic("get node %s failed: %+v", global.NodeName, err)
+	}
+	controller.nodeInfo = node.DeepCopy()
 
 	clusterLogConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -272,10 +282,6 @@ func NewController(
 				return
 			}
 
-			if reflect.DeepEqual(newConfig.Labels, oldConfig.Labels) {
-				return
-			}
-
 			controller.enqueue(new, EventNode, logconfigv1beta1.SelectorTypeNode)
 		},
 	})
@@ -314,13 +320,26 @@ func NewController(
 }
 
 func (c *Controller) InitK8sFieldsPattern() {
-	extraFieldsPattern := make(map[string]*pattern.Pattern)
-	for k, v := range c.config.K8sFields {
+	typePodPattern := make(map[string]*pattern.Pattern)
+	for k, v := range c.config.TypePodFields {
 		p, _ := pattern.Init(v)
-		extraFieldsPattern[k] = p
+		typePodPattern[k] = p
 	}
 
-	c.extraFieldsPattern = extraFieldsPattern
+	for k, v := range c.config.K8sFields {
+		p, _ := pattern.Init(v)
+		typePodPattern[k] = p
+	}
+
+	c.extraTypePodFieldsPattern = typePodPattern
+
+	typeNodePattern := make(map[string]*pattern.Pattern)
+	for k, v := range c.config.TypeNodeFields {
+		p, _ := pattern.Init(v)
+		typeNodePattern[k] = p
+	}
+
+	c.extraTypeNodeFieldsPattern = typeNodePattern
 }
 
 func (c *Controller) enqueue(obj interface{}, eleType string, selectorType string) {

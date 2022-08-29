@@ -25,7 +25,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/source/codec"
 	"github.com/loggie-io/loggie/pkg/source/codec/json"
 	"github.com/loggie-io/loggie/pkg/source/codec/regex"
-	k8sMeta "github.com/loggie-io/loggie/pkg/util/pattern/k8smeta"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -336,12 +336,12 @@ func (c *Controller) makeConfigPerSource(s *source.Config, pod *corev1.Pod, logc
 		filesrc.Name = helper.GenTypePodSourceName(pod.Name, status.Name, filesrc.Name)
 
 		// inject default pod metadata
-		if err := c.injectFields(c.config.DynamicContainerLog, filesrc, c.config, extra.MatchFields, pod, logconfigName, status.Name); err != nil {
+		if err := c.injectTypePodFields(c.config.DynamicContainerLog, filesrc, extra.MatchFields, pod, logconfigName, status.Name); err != nil {
 			return nil, err
 		}
 
 		// use paths of the node
-		if err := c.updatePaths(filesrc, c.config, pod, status.Name, containerId); err != nil {
+		if err := c.updatePaths(filesrc, pod, status.Name, containerId); err != nil {
 			return nil, err
 		}
 
@@ -351,21 +351,21 @@ func (c *Controller) makeConfigPerSource(s *source.Config, pod *corev1.Pod, logc
 	return filesrcList, nil
 }
 
-func (c *Controller) updatePaths(source *source.Config, config *Config, pod *corev1.Pod, containerName, containerId string) error {
+func (c *Controller) updatePaths(source *source.Config, pod *corev1.Pod, containerName, containerId string) error {
 	filecfg, err := getFileSource(source)
 	if err != nil {
 		return err
 	}
 	// update paths with real paths in the node
-	nodePaths, err := c.getPathsInNode(config, filecfg.CollectConfig.Paths, pod, containerName, containerId)
+	nodePaths, err := c.getPathsInNode(filecfg.CollectConfig.Paths, pod, containerName, containerId)
 	if err != nil {
 		return err
 	}
 
 	// parse the stdout raw logs
-	if config.ParseStdout && len(filecfg.CollectConfig.Paths) == 1 && filecfg.CollectConfig.Paths[0] == logconfigv1beta1.PathStdout {
+	if c.config.ParseStdout && len(filecfg.CollectConfig.Paths) == 1 && filecfg.CollectConfig.Paths[0] == logconfigv1beta1.PathStdout {
 		source.Codec = &codec.Config{}
-		if config.ContainerRuntime == runtime.RuntimeDocker {
+		if c.config.ContainerRuntime == runtime.RuntimeDocker {
 			// e.g.: `{"log":"example: 17 Tue Feb 16 09:15:17 UTC 2021\n","stream":"stdout","time":"2021-02-16T09:15:17.511829776Z"}`
 			source.Codec.Type = json.Type
 			jsoncodec := json.Config{
@@ -396,22 +396,22 @@ func (c *Controller) updatePaths(source *source.Config, config *Config, pod *cor
 	return nil
 }
 
-func (c *Controller) getPathsInNode(config *Config, containerPaths []string, pod *corev1.Pod, containerName string, containerId string) ([]string, error) {
+func (c *Controller) getPathsInNode(containerPaths []string, pod *corev1.Pod, containerName string, containerId string) ([]string, error) {
 	if len(containerPaths) == 0 {
 		return nil, errors.New("path is empty")
 	}
 
-	return helper.PathsInNode(config.PodLogDirPrefix, config.KubeletRootDir, config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
+	return helper.PathsInNode(c.config.PodLogDirPrefix, c.config.KubeletRootDir, c.config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
 }
 
-func (c *Controller) injectFields(dynamicContainerLogs bool, src *source.Config, config *Config, match *matchFields, pod *corev1.Pod, lgcName string, containerName string) error {
+func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.Config, match *matchFields, pod *corev1.Pod, lgcName string, containerName string) error {
 	if src.Fields == nil {
 		src.Fields = make(map[string]interface{})
 	}
 
 	k8sFields := make(map[string]interface{})
 
-	m := config.Fields
+	m := c.config.Fields
 	if m.Namespace != "" {
 		k8sFields[m.Namespace] = pod.Namespace
 	}
@@ -434,9 +434,9 @@ func (c *Controller) injectFields(dynamicContainerLogs bool, src *source.Config,
 		k8sFields[m.LogConfig] = lgcName
 	}
 
-	if len(c.extraFieldsPattern) > 0 {
-		for k, p := range c.extraFieldsPattern {
-			res, err := p.WithK8s(k8sMeta.NewFieldsData(pod, containerName, lgcName)).Render()
+	if len(c.extraTypePodFieldsPattern) > 0 {
+		for k, p := range c.extraTypePodFieldsPattern {
+			res, err := p.WithK8sPod(pattern.NewTypePodFieldsData(pod, containerName, lgcName)).Render()
 			if err != nil {
 				log.Warn("add extra k8s fields %s failed: %v", k, err)
 				continue
