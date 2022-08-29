@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
@@ -165,6 +166,10 @@ func (s *Sink) event2stream(event api.Event) (*logproto.Stream, error) {
 			continue
 		}
 
+		if !model.LabelName(k).IsValid() {
+			k = tryConvertKeyToUnderscore(k)
+		}
+
 		labelSet[model.LabelName(k)] = model.LabelValue(sv)
 	}
 
@@ -194,6 +199,15 @@ func (s *Sink) event2stream(event api.Event) (*logproto.Stream, error) {
 		},
 	}
 	return &stream, nil
+}
+
+func tryConvertKeyToUnderscore(key string) string {
+	// The loki labels do not support - . /
+	tokenList := []string{"-", ".", "/"}
+	for _, tmpToken := range tokenList {
+		strings.Replace(key, tmpToken, "_", -1)
+	}
+	return key
 }
 
 func genJsonRequest(streams []logproto.Stream, url string, tenantId string) (*http.Request, error) {
