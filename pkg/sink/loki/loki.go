@@ -205,7 +205,7 @@ func tryConvertKeyToUnderscore(key string) string {
 	// The loki labels do not support - . /
 	tokenList := []string{"-", ".", "/"}
 	for _, tmpToken := range tokenList {
-		strings.Replace(key, tmpToken, "_", -1)
+		key = strings.Replace(key, tmpToken, "_", -1)
 	}
 	return key
 }
