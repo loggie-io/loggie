@@ -20,7 +20,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/global"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -117,13 +119,18 @@ func (k *KubeEvent) Start() error {
 		log.Error("get Hostname error: %s", err)
 	}
 
+	var leaderIdentity strings.Builder
+	leaderIdentity.WriteString(global.NodeName)
+	leaderIdentity.WriteString(":")
+	leaderIdentity.WriteString(name)
+
 	rl, err := resourcelock.New(resourcelock.LeasesResourceLock,
 		k.config.LeaderElectionNamespace,
 		k.config.LeaderElectionKey,
 		client.CoreV1(),
 		client.CoordinationV1(),
 		resourcelock.ResourceLockConfig{
-			Identity: name,
+			Identity: leaderIdentity.String(),
 		})
 	if err != nil {
 		log.Error("error creating lock: %v", err)
