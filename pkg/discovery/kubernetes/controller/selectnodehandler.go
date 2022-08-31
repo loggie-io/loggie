@@ -19,8 +19,10 @@ package controller
 import (
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/source"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/pkg/errors"
 )
 
@@ -41,15 +43,38 @@ func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) er
 
 	// check node selector
 	if lgc.Spec.Selector.NodeSelector.NodeSelector != nil {
-		if !helper.LabelsSubset(lgc.Spec.Selector.NodeSelector.NodeSelector, c.nodeLabels) {
+		if !helper.LabelsSubset(lgc.Spec.Selector.NodeSelector.NodeSelector, c.nodeInfo.Labels) {
 			log.Debug("logConfig %s/%s is not belong to this node", lgc.Namespace, lgc.Name)
 			return nil
+		}
+	}
+
+	for i := range pipRaws.Pipelines {
+		for _, s := range pipRaws.Pipelines[i].Sources {
+			c.injectTypeNodeFields(s, lgc.Name)
 		}
 	}
 
 	if err = c.syncConfigToFile(logconfigv1beta1.SelectorTypeNode); err != nil {
 		return errors.WithMessage(err, "failed to sync config to file")
 	}
-	log.Info("handle logConfig %s/%s addOrUpdate event and sync config file success", lgc.Namespace, lgc.Name)
+	log.Info("handle clusterLogConfig %s addOrUpdate event and sync config file success", lgc.Name)
 	return nil
+}
+
+func (c *Controller) injectTypeNodeFields(src *source.Config, clusterlogconfig string) {
+	if src.Fields == nil {
+		src.Fields = make(map[string]interface{})
+	}
+
+	if len(c.extraTypeNodeFieldsPattern) > 0 {
+		for k, p := range c.extraTypeNodeFieldsPattern {
+			res, err := p.WithK8sNode(pattern.NewTypeNodeFieldsData(c.nodeInfo, clusterlogconfig)).Render()
+			if err != nil {
+				log.Warn("add extra k8s node fields %s failed: %v", k, err)
+				continue
+			}
+			src.Fields[k] = res
+		}
+	}
 }

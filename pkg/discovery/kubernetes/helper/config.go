@@ -36,7 +36,7 @@ func ToPipeline(lgc *logconfigv1beta1.LogConfig, sinkLister v1beta1.SinkLister, 
 	pip := lgc.Spec.Pipeline
 
 	pipRaw := pipeline.Config{}
-	pipRaw.Name = fmt.Sprintf("%s/%s/%s", lgc.Namespace, lgc.Name, pip.Name)
+	pipRaw.Name = lgc.Name
 
 	src, err := ToPipelineSources(pip.Sources)
 	if err != nil {

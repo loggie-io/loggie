@@ -18,9 +18,9 @@ package pattern
 
 import (
 	"fmt"
-	k8sMeta "github.com/loggie-io/loggie/pkg/util/pattern/k8smeta"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/loggie-io/loggie/pkg/util/time"
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"os"
 	"reflect"
@@ -220,7 +220,7 @@ func TestK8sPattern(t *testing.T) {
 		HostIP: "111.111.111.111",
 	}
 
-	testdata := &k8sMeta.FieldsData{
+	testdata := &TypePodFieldsData{
 		ContainerName: "tomcat",
 		LogConfig:     "testlgc",
 		Pod:           testpod,
@@ -228,7 +228,7 @@ func TestK8sPattern(t *testing.T) {
 
 	type args struct {
 		pattern string
-		data    *k8sMeta.FieldsData
+		data    *TypePodFieldsData
 	}
 	tests := []struct {
 		name    string
@@ -301,7 +301,7 @@ func TestK8sPattern(t *testing.T) {
 				t.Errorf("init pattern error: %v", err)
 			}
 
-			got, err := p.WithK8s(testdata).Render()
+			got, err := p.WithK8sPod(testdata).Render()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Render() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -309,6 +309,92 @@ func TestK8sPattern(t *testing.T) {
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Render() got = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestK8sPatternTypeNode(t *testing.T) {
+	testnode := &corev1.Node{}
+	testnode.Name = "node1"
+	testnode.Labels = make(map[string]string)
+	testnode.Labels["kubernetes.io/os"] = "linux"
+	testnode.Annotations = make(map[string]string)
+	testnode.Annotations["kubernetes.io/arch"] = "amd64"
+	testnode.Status = corev1.NodeStatus{
+		Addresses: []corev1.NodeAddress{
+			{
+				Type:    corev1.NodeInternalIP,
+				Address: "127.0.0.1",
+			},
+			{
+				Type:    corev1.NodeHostName,
+				Address: "a.b.c",
+			},
+		},
+		NodeInfo: corev1.NodeSystemInfo{
+			OSImage: "CentOS Linux 7 (Core)",
+		},
+	}
+
+	testdata := &TypeNodeFieldsData{
+		Node:             testnode,
+		ClusterLogConfig: "test",
+	}
+
+	type args struct {
+		pattern string
+		data    *TypeNodeFieldsData
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "got node name",
+			args: args{
+				pattern: "${_k8s.node.name}",
+				data:    testdata,
+			},
+			want: "node1",
+		},
+		{
+			name: "got clusterlogconfig",
+			args: args{
+				pattern: "${_k8s.clusterlogconfig}",
+				data:    testdata,
+			},
+			want: "test",
+		},
+		{
+			name: "got node.addresses.InternalIP",
+			args: args{
+				pattern: "${_k8s.node.addresses.InternalIP}",
+				data:    testdata,
+			},
+			want: "127.0.0.1",
+		},
+		{
+			name: "got nodeInfo osImage",
+			args: args{
+				pattern: "${_k8s.node.nodeInfo.osImage}",
+				data:    testdata,
+			},
+			want: "CentOS Linux 7 (Core)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := Init(tt.args.pattern)
+			if err != nil {
+				t.Errorf("init pattern error: %v", err)
+			}
+
+			got, err := p.WithK8sNode(testdata).Render()
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

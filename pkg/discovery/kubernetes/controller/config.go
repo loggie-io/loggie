@@ -36,15 +36,18 @@ type Config struct {
 	PodLogDirPrefix         string   `yaml:"podLogDirPrefix" default:"/var/log/pods"`
 	KubeletRootDir          string   `yaml:"kubeletRootDir" default:"/var/lib/kubelet"`
 
-	Fields      Fields            `yaml:"fields"` // Deprecated: use k8sFields instead
-	K8sFields   map[string]string `yaml:"k8sFields"`
-	ParseStdout bool              `yaml:"parseStdout"`
+	Fields         Fields            `yaml:"fields"`    // Deprecated: use typePodFields
+	K8sFields      map[string]string `yaml:"k8sFields"` // Deprecated: use typePodFields
+	TypePodFields  map[string]string `yaml:"typePodFields"`
+	TypeNodeFields map[string]string `yaml:"typeNodeFields"`
+	ParseStdout    bool              `yaml:"parseStdout"`
 
 	// If set to true, it means that the pipeline configuration generated does not contain specific Pod paths and meta information.
 	// These data will be dynamically obtained by the file source, thereby reducing the number of configuration changes and reloads.
 	DynamicContainerLog bool `yaml:"dynamicContainerLog"`
 }
 
+// Fields Deprecated
 type Fields struct {
 	NodeName      string `yaml:"node.name"`
 	NodeIP        string `yaml:"node.ip"`
@@ -76,6 +79,22 @@ func (c *Config) Validate() error {
 
 	if c.K8sFields != nil {
 		for _, v := range c.K8sFields {
+			if err := pattern.Validate(v); err != nil {
+				return err
+			}
+		}
+	}
+
+	if c.TypePodFields != nil {
+		for _, v := range c.TypePodFields {
+			if err := pattern.Validate(v); err != nil {
+				return err
+			}
+		}
+	}
+
+	if c.TypeNodeFields != nil {
+		for _, v := range c.TypeNodeFields {
 			if err := pattern.Validate(v); err != nil {
 				return err
 			}
