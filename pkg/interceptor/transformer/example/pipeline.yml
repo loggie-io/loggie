@@ -1,5 +1,5 @@
 ---
-## test data: "10.244.0.1 - - [13/Dec/2021:12:40:48 +0000] "GET / HTTP/1.1" 404 683"
+## test data: `10.244.0.1 - - [13/Dec/2021:12:40:48 +0000] "GET / HTTP/1.1" 404 683`
 interceptors:
   - type: transformer
     actions:

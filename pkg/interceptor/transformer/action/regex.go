@@ -104,7 +104,7 @@ func (r *Regex) act(e api.Event) error {
 
 	} else {
 		matchedMap := util.MatchGroupWithRegex(r.reg, val)
-		eventops.Set(e, r.key, matchedMap)
+		eventops.Set(e, r.to, matchedMap)
 	}
 
 	if r.key != r.to {
