@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -29,8 +29,8 @@ import (
 type ClientSet struct {
 	config *Config
 	cli    *es.Client
-	db     *dbHandler
-	offset string
+	db     *DB
+	offset *Offset
 	done   chan struct{}
 }
 
@@ -65,16 +65,17 @@ func NewClient(config *Config) (*ClientSet, error) {
 	c := &ClientSet{
 		cli:    cli,
 		config: config,
+		db:     NewDB(fmt.Sprintf("loggie-%s-%s", config.PipelineName, config.Name), cli),
 	}
 	go c.watch()
 	return c, nil
 }
 
 func (c *ClientSet) watch() {
-	flushT := time.NewTicker(c.config.DbConfig.FlushTimeout)
+	flushT := time.NewTicker(c.config.DBConfig.FlushTimeout)
 	defer flushT.Stop()
 
-	cleanT := time.NewTicker(c.config.DbConfig.CleanScanInterval)
+	cleanT := time.NewTicker(c.config.DBConfig.CleanScanInterval)
 	defer cleanT.Stop()
 
 	for {
@@ -91,35 +92,35 @@ func (c *ClientSet) watch() {
 }
 
 func (c *ClientSet) persistentOffset() {
-	record := c.db.findBy(c.config.Name, c.config.PipelineName)
-	if record.SourceName == "" {
-		record.PipelineName = c.config.PipelineName
-		record.SourceName = c.config.Name
-		record.Source = strings.Join(c.config.Hosts, ",")
+	if c.offset == nil {
+		return
 	}
-	record.Offset = c.offset
-	c.db.upsertRecord(record)
+	if err := c.db.Upsert(context.Background(), c.offset); err != nil {
+		log.Warn("[%s-%s]persistent offset error: %v", c.config.PipelineName, c.config.Name, err)
+	}
 }
 
 func (c *ClientSet) cleanInactiveRecord() {
-	if c.config.DbConfig.CleanInactiveTimeout <= 0 {
+	ctx := context.Background()
+	if c.config.DBConfig.CleanInactiveTimeout <= 0 {
 		return
 	}
-	record := c.db.findBy(c.config.Name, c.config.PipelineName)
-	if record.SourceName == "" {
-		return
-	}
-	collectTime, err := time.Parse("2006-01-02 15:04", record.CollectTime)
+	record, err := c.db.Search(ctx)
 	if err != nil {
-		log.Warn("[%s]parse time of collectTime error: %v", c.config.PipelineName, err)
+		log.Warn("[%s-%s]search offset error: %v", c.config.PipelineName, c.config.Name, err)
+		return
+	}
+	if record == nil {
 		return
 	}
 
-	if time.Since(collectTime) < c.config.DbConfig.CleanInactiveTimeout {
+	if time.Since(record.CreatedAt) < c.config.DBConfig.CleanInactiveTimeout {
 		return
 	}
 
-	c.db.delete(record)
+	if err := c.db.Remove(ctx); err != nil {
+		log.Warn("[%s-%s]remove offset error: %v", c.config.PipelineName, c.config.Name, err)
+	}
 }
 
 func (c *ClientSet) Search(ctx context.Context) ([][]byte, error) {
@@ -138,20 +139,16 @@ func (c *ClientSet) Search(ctx context.Context) ([][]byte, error) {
 		queryBuilder.FetchSourceContext(fsc)
 	}
 
-	if c.offset == "" {
-		record := c.db.findBy(c.config.Name, c.config.PipelineName)
-		if record.SourceName != "" {
-			c.offset = record.Offset
+	if c.offset == nil {
+		ost, err := c.db.Search(ctx)
+		if err != nil {
+			return nil, err
 		}
+		c.offset = ost
 	}
 
-	if c.offset != "" {
-		s := strings.Split(c.offset, ",")
-		offset := make([]interface{}, 0, len(s))
-		for i := 0; i < len(s); i++ {
-			offset = append(offset, s[i])
-		}
-		queryBuilder.SearchAfter(offset...)
+	if c.offset != nil {
+		queryBuilder.SearchAfter(c.offset.Uid, c.offset.Score)
 	}
 
 	result, err := queryBuilder.Sort("_id", true).Sort("_score", false).Size(c.config.Size).Do(ctx)
@@ -160,22 +157,22 @@ func (c *ClientSet) Search(ctx context.Context) ([][]byte, error) {
 	}
 	datas := make([][]byte, 0)
 	if len(result.Hits.Hits) > 0 {
-		var lastSort []interface{}
+		var last *es.SearchHit
 		for i := 0; i < len(result.Hits.Hits); i++ {
 			v := result.Hits.Hits[i]
-			lastSort = v.Sort
 			bt, err := v.Source.MarshalJSON()
 			if err != nil {
 				return nil, err
 			}
 			datas = append(datas, bt)
+			last = v
 		}
 		// record offset
-		offset := make([]string, 0, len(lastSort))
-		for i := 0; i < len(lastSort); i++ {
-			offset = append(offset, fmt.Sprintf("%v", lastSort[i]))
+		c.offset = &Offset{
+			Uid:       last.Sort[0],
+			Score:     last.Sort[1],
+			CreatedAt: time.Now(),
 		}
-		c.offset = strings.Join(offset, ",")
 	}
 	return datas, nil
 }

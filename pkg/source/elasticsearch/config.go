@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,7 +38,7 @@ type Config struct {
 	Interval time.Duration `yaml:"interval,omitempty" default:"30s"`
 	Timeout  time.Duration `yaml:"timeout,omitempty" default:"5s"`
 
-	DbConfig DbConfig `yaml:"db,omitempty"`
+	DBConfig DBConfig `yaml:"db,omitempty"`
 }
 
 func (c *Config) Validate() error {

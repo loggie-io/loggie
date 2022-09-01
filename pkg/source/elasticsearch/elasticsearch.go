@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -93,7 +93,6 @@ func (s *Source) Start() error {
 		return err
 	}
 	s.cli = cli
-	s.cli.db = GetOrCreateShareDbHandler(s.config.DbConfig)
 
 	return nil
 }
