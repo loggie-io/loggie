@@ -29,6 +29,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	_ "github.com/loggie-io/loggie/pkg/include"
+	"github.com/loggie-io/loggie/pkg/ops/helper"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"github.com/pkg/errors"
 	"go.uber.org/automaxprocs/maxprocs"
@@ -116,6 +117,9 @@ func main() {
 
 		go k8sDiscovery.Start(stopCh)
 	}
+
+	// api for debugging
+	helper.Setup(controller)
 
 	if *syscfg.Loggie.Http.Enabled {
 		go func() {
