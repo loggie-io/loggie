@@ -37,7 +37,7 @@ type CollectConfig struct {
 	IsolationLevel           string            `yaml:"isolationLevel,omitempty" default:"share"`
 	Paths                    []string          `yaml:"paths,omitempty" validate:"required"` // glob pattern
 	ExcludeFiles             []string          `yaml:"excludeFiles,omitempty"`              // regular pattern
-	IgnoreOlder              timeutil.Duration `yaml:"ignoreOlder,omitempty"`
+	IgnoreOlder              *timeutil.Duration `yaml:"ignoreOlder,omitempty"`
 	IgnoreSymlink            bool              `yaml:"ignoreSymlink,omitempty" default:"false"`
 	RereadTruncated          bool              `yaml:"rereadTruncated,omitempty" default:"true"`                           // Read from the beginning when the file is truncated
 	FirstNBytesForIdentifier int               `yaml:"firstNBytesForIdentifier,omitempty" default:"128" validate:"gte=10"` // If the file size is smaller than `firstNBytesForIdentifier`, it will not be collected
@@ -53,6 +53,9 @@ type LineDelimiterValue struct {
 }
 
 func (cc CollectConfig) IsIgnoreOlder(info os.FileInfo) bool {
+	if cc.IgnoreOlder == nil {
+		return false
+	}
 	ignoreOlder := cc.IgnoreOlder
 	return ignoreOlder.Duration() > 0 && time.Since(info.ModTime()) > ignoreOlder.Duration()
 }
