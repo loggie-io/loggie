@@ -32,7 +32,9 @@ import (
 	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
-type Reloader struct {
+var globalReloader *reloader
+
+type reloader struct {
 	controller *control.Controller
 
 	config *ReloadConfig
@@ -45,16 +47,17 @@ type ReloadConfig struct {
 	ReloadPeriod time.Duration `yaml:"period" default:"10s"`
 }
 
-func NewReloader(controller *control.Controller, config *ReloadConfig) *Reloader {
-	reload := &Reloader{
+func Setup(stopCh <-chan struct{}, controller *control.Controller, config *ReloadConfig) {
+	reload := &reloader{
 		controller: controller,
 		config:     config,
 	}
 	reload.initHttp()
-	return reload
+	globalReloader = reload
+	go globalReloader.Run(stopCh)
 }
 
-func (r *Reloader) Run(stopCh <-chan struct{}) {
+func (r *reloader) Run(stopCh <-chan struct{}) {
 	log.Info("reloader starting...")
 	t := time.NewTicker(r.config.ReloadPeriod)
 	defer t.Stop()
@@ -69,28 +72,12 @@ func (r *Reloader) Run(stopCh <-chan struct{}) {
 			// If there is at least one pipeline not running, we will not ignore the configuration, and always try to restart the pipeline
 			r.controller.RetryNotRunningPipeline()
 
-			// read and validate config files
-			newConfig, err := control.ReadPipelineConfigFromFile(r.config.ConfigPath, func(s os.FileInfo) bool {
+			newConfig, _, stopList, startList := DiffPipelineConfigs(func(s os.FileInfo) bool {
 				if time.Since(s.ModTime()) > 6*r.config.ReloadPeriod {
 					return true
 				}
 				return false
 			})
-			if err != nil && !os.IsNotExist(err) {
-				if errors.Is(err, control.ErrIgnoreAllFile) {
-					continue
-				}
-
-				log.Error("read pipeline config file error: %v", err)
-				continue
-			}
-
-			if newConfig == nil {
-				newConfig = &control.PipelineConfig{}
-			}
-
-			// diff config
-			stopList, startList := diffConfig(newConfig, r.controller.CurrentConfig)
 
 			if len(stopList) > 0 || len(startList) > 0 {
 				log.Info("loggie is reloading..")
@@ -123,7 +110,29 @@ func (r *Reloader) Run(stopCh <-chan struct{}) {
 	}
 }
 
-func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineConfig) (stopComponentList []pipeline.Config, startComponentList []pipeline.Config) {
+func DiffPipelineConfigs(ignoreFunc control.FileIgnore) (newCfg *control.PipelineConfig, diffPipes []string, stopComponentList []pipeline.Config, startComponentList []pipeline.Config) {
+	// read and validate config files
+	newConfig, err := control.ReadPipelineConfigFromFile(globalReloader.config.ConfigPath, ignoreFunc)
+	if err != nil && !os.IsNotExist(err) {
+		if errors.Is(err, control.ErrIgnoreAllFile) {
+			return nil, nil, nil, nil
+		}
+
+		log.Error("read pipeline config file error: %v", err)
+		return nil, nil, nil, nil
+	}
+
+	// Empty configuration cannot be ignored, because if it is empty configuration, it may be necessary to stop the current pipeline
+	if newConfig == nil {
+		newConfig = &control.PipelineConfig{}
+	}
+
+	// diff config
+	diffs, stopList, startList := diffConfig(newConfig, globalReloader.controller.CurrentConfig)
+	return newConfig, diffs, stopList, startList
+}
+
+func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineConfig) (diffList []string, stopComponentList []pipeline.Config, startComponentList []pipeline.Config) {
 	oldPipeIndex := make(map[string]pipeline.Config)
 	for _, p := range oldConfig.Pipelines {
 		oldPipeIndex[p.Name] = p
@@ -150,6 +159,7 @@ func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineCo
 		}))
 	})
 
+	var diffs []string
 	for _, newPipe := range newConfig.Pipelines {
 		oldPipe, ok := oldPipeIndex[newPipe.Name]
 		if !ok {
@@ -160,15 +170,15 @@ func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineCo
 		delete(oldPipeIndex, oldPipe.Name)
 
 		// diff
-		equal := cmp.Equal(oldPipe, newPipe, sourceComparer, interceptorComparer)
-		if !equal {
-			startList = append(startList, newPipe)
-			stopList = append(stopList, oldPipe)
+		if cmp.Equal(oldPipe, newPipe, sourceComparer, interceptorComparer) {
+			continue
 		}
-		if !equal && log.IsDebugLevel() {
-			diff := cmp.Diff(oldPipe, newPipe, sourceComparer, interceptorComparer)
-			log.Debug("diff pipeline config: \n%s", diff)
-		}
+
+		startList = append(startList, newPipe)
+		stopList = append(stopList, oldPipe)
+		diff := cmp.Diff(oldPipe, newPipe, sourceComparer, interceptorComparer)
+		log.Info("diff pipeline %s: \n%s", newPipe.Name, diff)
+		diffs = append(diffs, diff)
 	}
 
 	// add old pipelines to stopList
@@ -176,5 +186,5 @@ func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineCo
 		stopList = append(stopList, oldPipeIndex[k])
 	}
 
-	return stopList, startList
+	return diffs, stopList, startList
 }
