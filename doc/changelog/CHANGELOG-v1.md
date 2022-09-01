@@ -1,3 +1,40 @@
+# Release v1.3.0-rc.0
+
+### :star2: Features
+- Add transformer interceptor (#267)
+- Add api /api/v1/helper for debugging (#291)
+- Monitoring listener for normalize interceptor (#224)
+- Add typeNodeFields in kubernetes discovery, change k8sFields to typePodFields, add pod.uid, pod.container.id, pod.container.image to typePodFields (#348)
+- File source support any lineDelimiter (#261)
+- Logconfig/Clusterlogconfig labelSelector support wildcard * (#269)
+- Add override annotation in logConfig/clusterLogConfig (#269)
+- Add go test in makefile and github action (#282)
+- Support total events in dev source (#307)
+- Make file sink default file permissions from 600 to 644 (#304)
+- Change goccy/go-yaml to gopkg.in/yaml.v2 (#317)
+- Add schema interceptor (#340)
+- Support collect log files from pod pv (#341)
+- Support dynamic container logs (#334)
+- Put the encoding conversion module in the source (#344)
+- Support [a.b] when fields key is a.b other than a nested fields #301 #297
+- Loki sink will replace fields including string '. / -' to '_' (#347)
+
+### :bug: Bug Fixes
+
+- Set beatsFormat timestamp to UTC in sink codec (#268)
+- Fix pipeline stop block (#280)(#284) (#289) (#305)(#309)  (#335)
+- Fix addonMeta panic (#285)
+- Move private fields from header to meta in grpc source (#286)
+- Fix clusterlogconfig npe when deleting (#306)
+- Fix prometheus export topic (#314)
+- Fix watchTask stop panic; fix big line collect block (#315)
+- Fix type assert panic when deleting pod recieve DeletedFinalStateUnknown objects (#323)
+- Fix maxbytes order (#326)
+- Check if pod is ready when handle logconfig events (#328)
+- Stop pipeline when config is empty (#330)
+- Change leaderElection Identity in kubeEvent source (#349)
+
+
 # Release v1.2.0
 
 ### :star2: Features
