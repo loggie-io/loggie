@@ -36,3 +36,7 @@ type LogConfigNamespaceListerExpansion interface{}
 // SinkListerExpansion allows custom methods to be added to
 // SinkLister.
 type SinkListerExpansion interface{}
+
+// VmListerExpansion allows custom methods to be added to
+// VmLister.
+type VmListerExpansion interface{}

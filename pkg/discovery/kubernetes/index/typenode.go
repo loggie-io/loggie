@@ -19,6 +19,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
+// LogConfigTypeNodeIndex stores logConfigKey to pipeline configurations mapping cache for type: Node and type: Vm
 type LogConfigTypeNodeIndex struct {
 	pipeConfigs map[string]*TypeNodePipeConfig // key: logConfigNamespace/Name, value: pipeline configs
 }

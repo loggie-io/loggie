@@ -48,6 +48,7 @@ const (
 	GenerateConfigName           = "kube-loggie.yml"
 	GenerateTypeLoggieConfigName = "cluster-config.yml"
 	GenerateTypeNodeConfigName   = "node-config.yml"
+	GenerateTypeVmConfigName     = "vm-config.yml"
 )
 
 type KubeFileSourceExtra struct {

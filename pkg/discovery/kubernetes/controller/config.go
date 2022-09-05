@@ -45,6 +45,8 @@ type Config struct {
 	// If set to true, it means that the pipeline configuration generated does not contain specific Pod paths and meta information.
 	// These data will be dynamically obtained by the file source, thereby reducing the number of configuration changes and reloads.
 	DynamicContainerLog bool `yaml:"dynamicContainerLog"`
+
+	VmMode bool `yaml:"vmMode"` // only for when Loggie running in Virtual Machine, and we use VM CRD as configurations
 }
 
 // Fields Deprecated

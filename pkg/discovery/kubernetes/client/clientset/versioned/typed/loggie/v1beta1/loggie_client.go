@@ -29,6 +29,7 @@ type LoggieV1beta1Interface interface {
 	InterceptorsGetter
 	LogConfigsGetter
 	SinksGetter
+	VmsGetter
 }
 
 // LoggieV1beta1Client is used to interact with features provided by the loggie.io group.
@@ -50,6 +51,10 @@ func (c *LoggieV1beta1Client) LogConfigs(namespace string) LogConfigInterface {
 
 func (c *LoggieV1beta1Client) Sinks() SinkInterface {
 	return newSinks(c)
+}
+
+func (c *LoggieV1beta1Client) Vms() VmInterface {
+	return newVms(c)
 }
 
 // NewForConfig creates a new LoggieV1beta1Client for the given config.

@@ -43,6 +43,10 @@ func (c *FakeLoggieV1beta1) Sinks() v1beta1.SinkInterface {
 	return &FakeSinks{c}
 }
 
+func (c *FakeLoggieV1beta1) Vms() v1beta1.VmInterface {
+	return &FakeVms{c}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeLoggieV1beta1) RESTClient() rest.Interface {

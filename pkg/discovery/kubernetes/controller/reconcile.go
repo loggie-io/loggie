@@ -147,24 +147,7 @@ func (c *Controller) reconcileInterceptor(name string) error {
 		return nil
 	}
 
-	for lgcKey, pip := range c.typePodIndex.GetAllConfigMap() {
-		if err := reconcile(pip.Lgc); err != nil {
-			log.Info("reconcile interceptor %s and update logConfig %s error: %v", name, lgcKey, err)
-		}
-	}
-
-	for lgcKey, pip := range c.typeClusterIndex.GetAllConfigMap() {
-		if err := reconcile(pip.Lgc); err != nil {
-			log.Info("reconcile interceptor %s and update logConfig %s error: %v", name, lgcKey, err)
-		}
-	}
-
-	for lgcKey, pip := range c.typeNodeIndex.GetAllConfigMap() {
-		if err := reconcile(pip.Lgc); err != nil {
-			log.Info("reconcile interceptor %s and update logConfig %s error: %v", name, lgcKey, err)
-		}
-	}
-
+	c.syncWithLogConfigReconcile(reconcile, "interceptor/"+name)
 	return nil
 }
 
@@ -193,24 +176,52 @@ func (c *Controller) reconcileSink(name string) error {
 		return nil
 	}
 
-	for lgcKey, pip := range c.typePodIndex.GetAllConfigMap() {
-		if err := reconcile(pip.Lgc); err != nil {
-			log.Info("reconcile sink %s and update logConfig %s error: %v", name, lgcKey, err)
+	c.syncWithLogConfigReconcile(reconcile, "sink/"+name)
+	return nil
+}
+
+type syncLogConfigReconcile func(lgc *logconfigv1beta1.LogConfig) error
+
+func (c *Controller) syncWithLogConfigReconcile(reconcile syncLogConfigReconcile, name string) {
+	if c.typePodIndex != nil {
+		for lgcKey, pip := range c.typePodIndex.GetAllConfigMap() {
+			if err := reconcile(pip.Lgc); err != nil {
+				log.Info("reconcile %s and update logConfig %s error: %v", name, lgcKey, err)
+			}
 		}
 	}
 
-	for lgcKey, pip := range c.typeClusterIndex.GetAllConfigMap() {
-		if err := reconcile(pip.Lgc); err != nil {
-			log.Info("reconcile sink %s and update logConfig %s error: %v", name, lgcKey, err)
+	if c.typeClusterIndex != nil {
+		for lgcKey, pip := range c.typeClusterIndex.GetAllConfigMap() {
+			if err := reconcile(pip.Lgc); err != nil {
+				log.Info("reconcile %s and update logConfig %s error: %v", name, lgcKey, err)
+			}
 		}
 	}
 
-	for lgcKey, pip := range c.typeNodeIndex.GetAllConfigMap() {
-		if err := reconcile(pip.Lgc); err != nil {
-			log.Info("reconcile sink %s and update logConfig %s error: %v", name, lgcKey, err)
+	if c.typeNodeIndex != nil {
+		for lgcKey, pip := range c.typeNodeIndex.GetAllConfigMap() {
+			if err := reconcile(pip.Lgc); err != nil {
+				log.Info("reconcile %s and update logConfig %s error: %v", name, lgcKey, err)
+			}
 		}
 	}
+}
 
+func (c *Controller) reconcileVm(name string) error {
+	vm, err := c.vmLister.Get(name)
+	if kerrors.IsNotFound(err) {
+		log.Warn("vm %s is not found", name)
+		return nil
+	} else if err != nil {
+		runtime.HandleError(fmt.Errorf("failed to get vm %s by lister", name))
+		return nil
+	}
+
+	// update vm labels
+	n := vm.DeepCopy()
+	c.nodeLabels = n.Labels
+	log.Info("vm label %v is set", c.nodeLabels)
 	return nil
 }
 
@@ -243,9 +254,15 @@ func (c *Controller) handleAllTypesAddOrUpdate(lgc *logconfigv1beta1.LogConfig) 
 	case logconfigv1beta1.SelectorTypeNode:
 		err := c.handleLogConfigTypeNode(lgc)
 		return err, nil
+
 	case logconfigv1beta1.SelectorTypeCluster:
 		err := c.handleLogConfigTypeCluster(lgc)
 		return err, nil
+
+	case logconfigv1beta1.SelectorTypeVm:
+		err := c.handleLogConfigTypeVm(lgc)
+		return err, nil
+
 	default:
 		log.Warn("logConfig %s/%s selector type is not supported", lgc.Namespace, lgc.Name)
 		return errors.Errorf("logConfig %s/%s selector type is not supported", lgc.Namespace, lgc.Name), nil
@@ -340,6 +357,10 @@ func (c *Controller) syncConfigToFile(selectorType string) error {
 	case logconfigv1beta1.SelectorTypeNode:
 		cfgRaws = c.typeNodeIndex.GetAll()
 		fileName = GenerateTypeNodeConfigName
+
+	case logconfigv1beta1.SelectorTypeVm:
+		cfgRaws = c.typeNodeIndex.GetAll() // we reuse typeNodeIndex in type: Vm
+		fileName = GenerateTypeVmConfigName
 
 	default:
 		return errors.New("selector.type unsupported")

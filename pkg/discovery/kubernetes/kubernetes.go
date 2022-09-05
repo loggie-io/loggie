@@ -97,13 +97,19 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 		lo.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", d.config.NodeName).String()
 	}))
 
+	// In the vmMode, Loggie should be running on the virtual machine rather than Kubernetes
+	if d.config.VmMode {
+		d.VmModeRun(stopCh, kubeClient, logConfigClient, logConfInformerFactory, kubeInformerFactory)
+		return
+	}
+
 	nodeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithTweakListOptions(func(lo *metav1.ListOptions) {
 		lo.FieldSelector = fields.OneTermEqualSelector("metadata.name", d.config.NodeName).String()
 	}))
 
 	ctrl := controller.NewController(d.config, kubeClient, logConfigClient, kubeInformerFactory.Core().V1().Pods(),
 		logConfInformerFactory.Loggie().V1beta1().LogConfigs(), logConfInformerFactory.Loggie().V1beta1().ClusterLogConfigs(), logConfInformerFactory.Loggie().V1beta1().Sinks(),
-		logConfInformerFactory.Loggie().V1beta1().Interceptors(), nodeInformerFactory.Core().V1().Nodes(), d.runtime)
+		logConfInformerFactory.Loggie().V1beta1().Interceptors(), nodeInformerFactory.Core().V1().Nodes(), logConfInformerFactory.Loggie().V1beta1().Vms(), d.runtime)
 
 	logConfInformerFactory.Start(stopCh)
 	kubeInformerFactory.Start(stopCh)
@@ -115,7 +121,36 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 	}
 	external.Cluster = d.config.Cluster
 
-	if err := ctrl.Run(stopCh); err != nil {
+	if err := ctrl.Run(stopCh, kubeInformerFactory.Core().V1().Pods().Informer().HasSynced,
+		logConfInformerFactory.Loggie().V1beta1().LogConfigs().Informer().HasSynced,
+		logConfInformerFactory.Loggie().V1beta1().ClusterLogConfigs().Informer().HasSynced,
+		logConfInformerFactory.Loggie().V1beta1().Sinks().Informer().HasSynced,
+		logConfInformerFactory.Loggie().V1beta1().Interceptors().Informer().HasSynced,
+		logConfInformerFactory.Loggie().V1beta1().Vms().Informer().HasSynced); err != nil {
+		log.Panic("Error running controller: %s", err.Error())
+	}
+}
+
+func (d *Discovery) VmModeRun(stopCh <-chan struct{}, kubeClient kubeclientset.Interface, logConfigClient logconfigclientset.Interface,
+	logConfInformerFactory logconfigInformer.SharedInformerFactory, kubeInformerFactory kubeinformers.SharedInformerFactory) {
+
+	vmInformerFactory := logconfigInformer.NewSharedInformerFactoryWithOptions(logConfigClient, 0, logconfigInformer.WithTweakListOptions(func(lo *metav1.ListOptions) {
+		lo.FieldSelector = fields.OneTermEqualSelector("metadata.name", d.config.NodeName).String()
+	}))
+
+	ctrl := controller.NewController(d.config, kubeClient, logConfigClient, nil,
+		nil, logConfInformerFactory.Loggie().V1beta1().ClusterLogConfigs(), logConfInformerFactory.Loggie().V1beta1().Sinks(),
+		logConfInformerFactory.Loggie().V1beta1().Interceptors(), nil, vmInformerFactory.Loggie().V1beta1().Vms(), d.runtime)
+
+	logConfInformerFactory.Start(stopCh)
+	kubeInformerFactory.Start(stopCh)
+	vmInformerFactory.Start(stopCh)
+
+	if err := ctrl.Run(stopCh,
+		logConfInformerFactory.Loggie().V1beta1().ClusterLogConfigs().Informer().HasSynced,
+		logConfInformerFactory.Loggie().V1beta1().Sinks().Informer().HasSynced,
+		logConfInformerFactory.Loggie().V1beta1().Interceptors().Informer().HasSynced,
+		vmInformerFactory.Loggie().V1beta1().Vms().Informer().HasSynced); err != nil {
 		log.Panic("Error running controller: %s", err.Error())
 	}
 }
