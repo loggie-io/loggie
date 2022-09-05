@@ -31,6 +31,8 @@ type Interface interface {
 	LogConfigs() LogConfigInformer
 	// Sinks returns a SinkInformer.
 	Sinks() SinkInformer
+	// Vms returns a VmInformer.
+	Vms() VmInformer
 }
 
 type version struct {
@@ -62,4 +64,9 @@ func (v *version) LogConfigs() LogConfigInformer {
 // Sinks returns a SinkInformer.
 func (v *version) Sinks() SinkInformer {
 	return &sinkInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// Vms returns a VmInformer.
+func (v *version) Vms() VmInformer {
+	return &vmInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }

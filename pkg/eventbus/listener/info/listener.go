@@ -94,7 +94,7 @@ func (l *Listener) exportPrometheus() {
 	metric := promeExporter.ExportedMetrics{
 		{
 			Desc: prometheus.NewDesc(
-				prometheus.BuildFQName(promeExporter.Loggie, eventbus.InfoTopic, "stat"),
+				prometheus.BuildFQName(promeExporter.Loggie, eventbus.InfoTopic, "status"),
 				"Loggie info",
 				nil, labels,
 			),

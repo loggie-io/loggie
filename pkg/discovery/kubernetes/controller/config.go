@@ -40,11 +40,14 @@ type Config struct {
 	K8sFields      map[string]string `yaml:"k8sFields"` // Deprecated: use typePodFields
 	TypePodFields  KubeMetaFields    `yaml:"typePodFields"`
 	TypeNodeFields KubeMetaFields    `yaml:"typeNodeFields"`
+	TypeVmFields   KubeMetaFields    `yaml:"typeVmFields"`
 	ParseStdout    bool              `yaml:"parseStdout"`
 
 	// If set to true, it means that the pipeline configuration generated does not contain specific Pod paths and meta information.
 	// These data will be dynamically obtained by the file source, thereby reducing the number of configuration changes and reloads.
 	DynamicContainerLog bool `yaml:"dynamicContainerLog"`
+
+	VmMode bool `yaml:"vmMode"` // only for when Loggie running in Virtual Machine, and we use VM CRD as configurations
 }
 
 type KubeMetaFields map[string]string
@@ -100,6 +103,14 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	if c.TypeVmFields != nil {
+		for _, v := range c.TypeVmFields {
+			if err := pattern.Validate(v); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -113,10 +124,10 @@ func (f KubeMetaFields) validate() error {
 }
 
 func (f KubeMetaFields) initPattern() map[string]*pattern.Pattern {
-	typePodPattern := make(map[string]*pattern.Pattern)
+	typePattern := make(map[string]*pattern.Pattern)
 	for k, v := range f {
 		p, _ := pattern.Init(v)
-		typePodPattern[k] = p
+		typePattern[k] = p
 	}
-	return typePodPattern
+	return typePattern
 }
