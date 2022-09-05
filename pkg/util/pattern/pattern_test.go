@@ -137,9 +137,9 @@ func TestEnvPattern(t *testing.T) {
 		{
 			name: "got time",
 			args: args{
-				pattern: "pre-${+YYYY.MM.dd}",
+				pattern: "pre-${+yyyy.MM.dd}",
 			},
-			want:    "pre-" + time.TimeFormatNow("YYYY.MM.dd"),
+			want:    "pre-" + time.TimeFormatNow("yyyy.MM.dd"),
 			wantErr: false,
 		},
 	}

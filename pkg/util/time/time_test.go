@@ -18,6 +18,8 @@ package time
 
 import (
 	"github.com/loggie-io/loggie/pkg/util/yaml"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -34,16 +36,23 @@ func TestTimeFormatNow(t *testing.T) {
 		{
 			name: "ok",
 			args: args{
-				"YYYY-MM-DD",
+				"yyyy-MM-dd",
 			},
 			want: time.Now().Format("2006-01-02"),
 		},
 		{
 			name: "ok-hour",
 			args: args{
-				"YYYY-MM-DD:hh",
+				"yyyy-MM-dd:hh",
 			},
 			want: time.Now().Format("2006-01-02:15"),
+		},
+		{
+			name: "ok-all",
+			args: args{
+				"yyyy-MM-dd:hh:mm:ss zz ww",
+			},
+			want: weekTestHelper(time.Now()),
 		},
 	}
 	for _, tt := range tests {
@@ -72,4 +81,10 @@ func TestParseDuration(t *testing.T) {
 	if c.Duration.Duration() != oneDay {
 		t.Errorf("Expected to be equal: %s vs %s", oneDay, c.Duration.Duration())
 	}
+}
+
+func weekTestHelper(time time.Time) string {
+	format := time.Format("2006-01-02:15:04:05 -07 zz")
+	_, week := time.ISOWeek()
+	return strings.Replace(format, "zz", strconv.Itoa(week), -1)
 }
