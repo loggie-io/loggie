@@ -50,13 +50,13 @@ type VmList struct {
 }
 
 type VmStatus struct {
-	Addresses []NodeAddress `json:"addresses"`
+	Addresses []NodeAddress `json:"addresses,omitempty'"`
 }
 
 // NodeAddress contains information for the node's address.
 type NodeAddress struct {
 	// Node address type, one of Hostname, ExternalIP or InternalIP.
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 	// The node address.
-	Address string `json:"address"`
+	Address string `json:"address,omitempty"`
 }
