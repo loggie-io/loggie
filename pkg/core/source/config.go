@@ -32,7 +32,7 @@ type Config struct {
 	Name            string                 `yaml:"name,omitempty"`
 	Type            string                 `yaml:"type,omitempty" validate:"required"`
 	Properties      cfg.CommonCfg          `yaml:",inline"`
-	FieldsUnderRoot bool                   `yaml:"fieldsUnderRoot,omitempty" default:"false"`
+	FieldsUnderRoot *bool                  `yaml:"fieldsUnderRoot,omitempty" default:"false"`
 	FieldsUnderKey  string                 `yaml:"fieldsUnderKey,omitempty" default:"fields"`
 	Fields          map[string]interface{} `yaml:"fields,omitempty"`
 	FieldsFromEnv   map[string]string      `yaml:"fieldsFromEnv,omitempty"`
@@ -98,7 +98,7 @@ func (c *Config) Merge(from *Config) {
 
 	c.Properties = cfg.MergeCommonCfg(c.Properties, from.Properties, false)
 
-	if c.FieldsUnderRoot == false {
+	if *c.FieldsUnderRoot == false {
 		c.FieldsUnderRoot = from.FieldsUnderRoot
 	}
 

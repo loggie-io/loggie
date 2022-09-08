@@ -677,7 +677,7 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 		e.Fill(e.Meta(), header, e.Body())
 	}
 	// add header source fields
-	AddSourceFields(header, config.Fields, config.FieldsUnderRoot, config.FieldsUnderKey)
+	AddSourceFields(header, config.Fields, *config.FieldsUnderRoot, config.FieldsUnderKey)
 
 	// add header source fields from env
 	if len(config.FieldsFromEnv) > 0 {
@@ -686,7 +686,7 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 			if !ok || len(envVal) == 0 {
 				continue
 			}
-			if config.FieldsUnderRoot {
+			if *config.FieldsUnderRoot {
 				header[k] = envVal
 				continue
 			}

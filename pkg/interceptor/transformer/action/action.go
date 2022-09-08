@@ -32,7 +32,7 @@ type Config cfg.CommonCfg
 
 type ConfigAction struct {
 	Expression  string        `yaml:"action,omitempty"`
-	IgnoreError bool          `yaml:"ignoreError,omitempty"`
+	IgnoreError bool          `yaml:"ignoreError,omitempty" default:"false"`
 	Extra       cfg.CommonCfg `yaml:",inline,omitempty"`
 }
 

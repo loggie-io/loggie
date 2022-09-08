@@ -58,6 +58,8 @@ pipelines:
 	err = cfg.UnPackFromRaw([]byte(raw), pipe).Defaults().Validate().Do()
 	assert.NoError(t, err)
 
+	defaultValue := false
+
 	want := &control.PipelineConfig{
 		Pipelines: []pipeline.Config{
 			{
@@ -65,8 +67,9 @@ pipelines:
 				CleanDataTimeout: 5 * time.Second,
 				Sources: []*source.Config{
 					{
-						Name: "demo",
-						Type: "file",
+						FieldsUnderRoot: &defaultValue,
+						Name:            "demo",
+						Type:            "file",
 						Properties: cfg.CommonCfg{
 							"paths": []interface{}{"/tmp/log/*.log"},
 							"watcher": map[interface{}]interface{}{

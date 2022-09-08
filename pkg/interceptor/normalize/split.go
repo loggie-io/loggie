@@ -38,7 +38,7 @@ type SplitConfig struct {
 	Separator   string   `yaml:"separator,omitempty" validate:"required"`
 	Max         int      `yaml:"max,omitempty" default:"-1"`
 	Keys        []string `yaml:"keys,omitempty"`
-	IgnoreError bool     `yaml:"ignoreError"`
+	IgnoreError *bool    `yaml:"ignoreError" default:"false"`
 }
 
 func init() {
@@ -84,13 +84,13 @@ func (r *SplitProcessor) Process(e api.Event) error {
 	} else {
 		t, err := obj.GetPath(target).String()
 		if err != nil {
-			LogErrorWithIgnore(r.config.IgnoreError, "target %s is not string", target)
+			LogErrorWithIgnore(*r.config.IgnoreError, "target %s is not string", target)
 			log.Debug("split failed event: %s", e.String())
 			r.interceptor.reportMetric(r)
 			return nil
 		}
 		if t == "" {
-			LogErrorWithIgnore(r.config.IgnoreError, "cannot find target fields %s", target)
+			LogErrorWithIgnore(*r.config.IgnoreError, "cannot find target fields %s", target)
 			log.Debug("split failed event: %s", e.String())
 			return nil
 		}
@@ -100,7 +100,7 @@ func (r *SplitProcessor) Process(e api.Event) error {
 	splitResult := strings.SplitN(val, r.config.Separator, r.config.Max)
 	keys := r.config.Keys
 	if len(splitResult) != len(keys) {
-		LogErrorWithIgnore(r.config.IgnoreError, "cannot find target fields %s, length of split result: %d unequal to keys: %d", target, len(splitResult), len(keys))
+		LogErrorWithIgnore(*r.config.IgnoreError, "cannot find target fields %s, length of split result: %d unequal to keys: %d", target, len(splitResult), len(keys))
 		log.Debug("split failed event: %s", e.String())
 		return nil
 	}

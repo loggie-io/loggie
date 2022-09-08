@@ -94,7 +94,7 @@ func (s *Source) Init(context api.Context) error {
 	s.name = context.Name()
 	s.out = make(chan api.Event, s.sinkCount)
 
-	s.ackEnable = s.config.AckConfig.Enable
+	s.ackEnable = *s.config.AckConfig.Enable
 	// init default multi agg timeout
 	mutiTimeout := s.config.ReaderConfig.MultiConfig.Timeout
 	inactiveTimeout := s.config.ReaderConfig.InactiveTimeout
@@ -126,7 +126,7 @@ func (s *Source) Init(context api.Context) error {
 
 func (s *Source) Start() error {
 	log.Info("start source: %s", s.String())
-	if s.config.ReaderConfig.MultiConfig.Active {
+	if *s.config.ReaderConfig.MultiConfig.Active {
 		s.multilineProcessor = GetOrCreateShareMultilineProcessor()
 	}
 	// register queue listener for ack
@@ -163,7 +163,7 @@ func (s *Source) Stop() {
 	StopReader(s.isolation)
 	log.Info("[%s] reader stop", s.String())
 	// Stop multilineProcessor
-	if s.config.ReaderConfig.MultiConfig.Active {
+	if *s.config.ReaderConfig.MultiConfig.Active {
 		s.multilineProcessor.StopTask(s.mTask)
 	}
 	globalLineEnd.RemoveLineEnd(s.pipelineName, s.name)
@@ -178,10 +178,10 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", s.String())
 	s.productFunc = productFunc
 	s.productFunc = jobFieldsProductFunc(s.productFunc)
-	if s.config.CollectConfig.AddonMeta {
+	if *s.config.CollectConfig.AddonMeta {
 		s.productFunc = addonMetaProductFunc(s.productFunc)
 	}
-	if s.config.ReaderConfig.MultiConfig.Active {
+	if *s.config.ReaderConfig.MultiConfig.Active {
 		s.mTask = NewMultiTask(s.epoch, s.name, s.config.ReaderConfig.MultiConfig, s.eventPool, s.productFunc)
 		s.multilineProcessor.StartTask(s.mTask)
 		s.productFunc = s.multilineProcessor.Process

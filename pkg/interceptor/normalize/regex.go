@@ -37,8 +37,8 @@ type RegexProcessor struct {
 type RegexConfig struct {
 	Target      string `yaml:"target,omitempty" default:"body"`
 	Pattern     string `yaml:"pattern,omitempty" validate:"required"`
-	UnderRoot   bool   `yaml:"underRoot,omitempty" default:"true"`
-	IgnoreError bool   `yaml:"ignoreError"`
+	UnderRoot   *bool  `yaml:"underRoot,omitempty" default:"true"`
+	IgnoreError *bool  `yaml:"ignoreError" default:"false"`
 }
 
 func init() {
@@ -84,7 +84,7 @@ func (r *RegexProcessor) Process(e api.Event) error {
 		obj := runtime.NewObject(header)
 		targetVal, err := obj.GetPath(r.config.Target).String()
 		if err != nil {
-			LogErrorWithIgnore(r.config.IgnoreError, "get target %s failed: %v", r.config.Target, err)
+			LogErrorWithIgnore(*r.config.IgnoreError, "get target %s failed: %v", r.config.Target, err)
 			log.Debug("regex failed event: %s", e.String())
 			r.interceptor.reportMetric(r)
 			return nil
@@ -99,12 +99,12 @@ func (r *RegexProcessor) Process(e api.Event) error {
 
 	pl := len(paramsMap)
 	if pl == 0 {
-		LogErrorWithIgnore(r.config.IgnoreError, "match group with regex %s is empty", r.regex.String())
+		LogErrorWithIgnore(*r.config.IgnoreError, "match group with regex %s is empty", r.regex.String())
 		log.Debug("regex failed event: %s", e.String())
 		return nil
 	}
 
-	if r.config.UnderRoot {
+	if *r.config.UnderRoot {
 		for k, v := range paramsMap {
 			header[k] = v
 		}

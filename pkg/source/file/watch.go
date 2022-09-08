@@ -142,7 +142,7 @@ func (w *Watcher) findExistJobRegistry(job *Job) registry {
 }
 
 func (w *Watcher) initOsWatcher() {
-	if !w.config.EnableOsWatch {
+	if !*w.config.EnableOsWatch {
 		return
 	}
 	watcher, err := fsnotify.NewWatcher()
@@ -285,13 +285,13 @@ func (w *Watcher) eventBus(e jobEvent) {
 		if existAckOffset > fileSize+int64(len(job.GetEncodeLineEnd())) {
 			log.Warn("new job(jobUid:%s) fileName(%s) existRegistry(%+v) ackOffset is larger than file size(%d).is inode repeat?", job.Uid(), filename, existRegistry, fileSize)
 			// file was truncated，start from the beginning
-			if job.task.config.RereadTruncated {
+			if *job.task.config.RereadTruncated {
 				existAckOffset = 0
 			}
 		}
 		// Pre-allocation offset
 		if existAckOffset == 0 {
-			if w.config.ReadFromTail {
+			if *w.config.ReadFromTail {
 				existAckOffset = fileSize
 			}
 			w.preAllocationOffset(existAckOffset, job)
@@ -326,7 +326,7 @@ func ignoreSystemFile(fileName string) bool {
 }
 
 func (w *Watcher) cleanWatchTaskRegistry(watchTask *WatchTask) {
-	if !w.config.CleanWhenRemoved {
+	if !*w.config.CleanWhenRemoved {
 		return
 	}
 	registries := w.dbHandler.findAll()
@@ -492,7 +492,7 @@ func (w *Watcher) legalFile(filename string, watchTask *WatchTask, withIgnoreOld
 	}
 
 	isSymlink := fileInfo.Mode()&os.ModeSymlink != 0
-	if isSymlink && watchTask.config.IgnoreSymlink {
+	if isSymlink && *watchTask.config.IgnoreSymlink {
 		log.Info("[pipeline(%s)-source(%s)]: fileName(%s) skipped as it is a symlink", pipelineName, sourceName, filename)
 		return false, "", nil
 	}
@@ -587,7 +587,7 @@ func (w *Watcher) scanZombieJob() {
 			if size < job.endOffset {
 				log.Warn("job(jobUid: %s) file(%s) size was reduced: file size(%d) should greater than current offset(%d)", job.Uid(), filename, size, currentOffset)
 				// Read from the beginning when the file is truncated
-				if job.task.config.RereadTruncated {
+				if *job.task.config.RereadTruncated {
 					job.endOffset = 0
 					job.nextOffset = 0
 					job.currentLineNumber = 0
@@ -671,7 +671,7 @@ func (w *Watcher) run() {
 		log.Info("watcher stop")
 	}()
 	var osEvents chan fsnotify.Event
-	if w.config.EnableOsWatch && w.osWatcher != nil {
+	if *w.config.EnableOsWatch && w.osWatcher != nil {
 		osEvents = w.osWatcher.Events
 	}
 	for {
@@ -1048,7 +1048,7 @@ func (w *Watcher) handleRenameJobs(jobs ...*Job) {
 }
 
 func (w *Watcher) handleRemoveJobs(jobs ...*Job) {
-	if !w.config.CleanWhenRemoved {
+	if !*w.config.CleanWhenRemoved {
 		return
 	}
 	l := len(jobs)

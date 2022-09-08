@@ -31,15 +31,15 @@ type Event struct {
 }
 
 type Config struct {
-	Enabled            bool             `yaml:"enabled,omitempty"`
+	Enabled            *bool            `yaml:"enabled,omitempty" default:"false"`
 	Period             time.Duration    `yaml:"period,omitempty" default:"10s"`
-	Pretty             bool             `yaml:"pretty,omitempty"`
-	AdditionLogEnabled bool             `yaml:"additionLogEnabled,omitempty"`
+	Pretty             *bool            `yaml:"pretty,omitempty" default:"false"`
+	AdditionLogEnabled *bool            `yaml:"additionLogEnabled,omitempty" default:"false"`
 	AdditionLogConfig  log.LoggerConfig `yaml:"additionLogConfig,omitempty"`
 }
 
 func (c *Config) SetDefaults() {
-	if c.AdditionLogEnabled {
+	if *c.AdditionLogEnabled {
 		config := c.AdditionLogConfig
 
 		config.EnableStdout = false
@@ -88,7 +88,7 @@ func newLogger() *logger {
 }
 
 func Run(config Config) {
-	if !config.Enabled {
+	if !*config.Enabled {
 		return
 	}
 	go lg.run(config)
@@ -97,7 +97,7 @@ func Run(config Config) {
 func (l *logger) run(config Config) {
 	l.config = config
 
-	if l.config.AdditionLogEnabled {
+	if *l.config.AdditionLogEnabled {
 		l.additionLogger = log.NewLogger(&l.config.AdditionLogConfig)
 	}
 
@@ -128,7 +128,7 @@ func (l *logger) print() {
 
 	var d []byte
 	var err error
-	if l.config.Pretty {
+	if *l.config.Pretty {
 		d, err = json.MarshalIndent(l.data, "", "  ")
 	} else {
 		d, err = json.Marshal(l.data)
@@ -137,7 +137,7 @@ func (l *logger) print() {
 		log.Warn("json marshal metric data err: %+v", err)
 	}
 
-	if !l.config.AdditionLogEnabled {
+	if !*l.config.AdditionLogEnabled {
 		log.Info("[metric]: %s", d)
 	} else {
 		l.additionLogger.RawJson("metrics", d, "")

@@ -16,10 +16,13 @@ import (
 )
 
 func TestGetConfigFromPodAndLogConfig(t *testing.T) {
-
+	defaultValue := false
 	ctrl := &Controller{
 		config: &Config{
-			PodLogDirPrefix: "/var/log/pods",
+			DynamicContainerLog:     &defaultValue,
+			RootFsCollectionEnabled: &defaultValue,
+			ParseStdout:             &defaultValue,
+			PodLogDirPrefix:         "/var/log/pods",
 			K8sFields: map[string]string{
 				"namespace":     "${_k8s.pod.namespace}",
 				"podname":       "${_k8s.pod.name}",

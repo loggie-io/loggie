@@ -25,7 +25,7 @@ import (
 type Config struct {
 	interceptor.ExtensionConfig `yaml:",inline"`
 	Actions                     []StepConfig `yaml:"actions"`
-	IgnoreError                 bool         `yaml:"ignoreError,omitempty"`
+	IgnoreError                 *bool        `yaml:"ignoreError,omitempty" default:"false"`
 }
 
 func (c *Config) Validate() error {
