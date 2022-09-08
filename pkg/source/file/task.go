@@ -36,6 +36,11 @@ const (
 
 type WatchTaskType string
 
+type WatchTaskEvent struct {
+	watchTaskType WatchTaskType
+	watchTask     *WatchTask
+}
+
 type WatchTask struct {
 	epoch            *pipeline.Epoch
 	pipelineName     string
@@ -44,7 +49,6 @@ type WatchTask struct {
 	eventPool        *event.Pool
 	productFunc      api.ProductFunc
 	activeChan       chan *Job
-	watchTaskType    WatchTaskType
 	countDown        *sync.WaitGroup
 	waiteForStopJobs map[string]*Job
 	stopTime         time.Time
@@ -79,16 +83,22 @@ func NewWatchTask(epoch *pipeline.Epoch, pipelineName string, sourceName string,
 		w.config.excludeFilePatterns = excludeFilePatterns
 	}
 	// init glob path support recursive
-	paths := w.config.Paths
-	for i, path := range paths {
+	w.config.Paths = getRecursivePath(w.config.Paths)
+	return w
+}
+
+func getRecursivePath(paths []string) []string {
+	var pathRec []string
+	for _, path := range paths {
 		if strings.HasSuffix(path, "**") {
-			paths[i] = path + "/*"
+			path = path + "/*"
 		}
 		if strings.HasSuffix(path, "**/") {
-			paths[i] = path + "*"
+			path = path + "*"
 		}
+		pathRec = append(pathRec, path)
 	}
-	return w
+	return pathRec
 }
 
 func (wt *WatchTask) newJob(filename string, info os.FileInfo) *Job {
@@ -128,4 +138,8 @@ func (wt *WatchTask) StopJobsInfo() string {
 		stopJobsInfo.WriteString("}")
 	}
 	return stopJobsInfo.String()
+}
+
+func (wt *WatchTask) IsStop() bool {
+	return !wt.stopTime.IsZero()
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"sync"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -44,4 +45,28 @@ func AsyncRunWithTimeout(f func(), timeout time.Duration) {
 			return
 		}
 	}
+}
+
+func AsyncRunGroup(taskName string, namedJobs map[string]func()) {
+	start := time.Now()
+	countdown := sync.WaitGroup{}
+	for s, f := range namedJobs {
+		name := s
+		job := f
+
+		countdown.Add(1)
+		doneJob := func() {
+			job()
+			countdown.Done()
+		}
+		go wrapJobWithCostLog(name, doneJob)
+	}
+	countdown.Wait()
+	log.Info("[%s]task total cost: %ds", taskName, time.Since(start)/time.Second)
+}
+
+func wrapJobWithCostLog(name string, job func()) {
+	start := time.Now()
+	job()
+	log.Info("[%s]job cost: %ds", name, time.Since(start)/time.Second)
 }

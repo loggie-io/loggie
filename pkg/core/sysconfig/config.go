@@ -17,13 +17,17 @@ limitations under the License.
 package sysconfig
 
 import (
-	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/core/queue"
 	"github.com/loggie-io/loggie/pkg/core/reloader"
+	"github.com/loggie-io/loggie/pkg/core/sink"
+	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/discovery"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/interceptor/maxbytes"
 	"github.com/loggie-io/loggie/pkg/interceptor/metric"
 	"github.com/loggie-io/loggie/pkg/interceptor/retry"
+	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/queue/channel"
 )
 
@@ -40,36 +44,44 @@ type Loggie struct {
 }
 
 type Defaults struct {
-	Sources      []cfg.CommonCfg `yaml:"sources"`
-	Queue        cfg.CommonCfg   `yaml:"queue"`
-	Interceptors []cfg.CommonCfg `yaml:"interceptors"`
-	Sinks        cfg.CommonCfg   `yaml:"sink"`
+	Sources      []*source.Config      `yaml:"sources"`
+	Queue        *queue.Config         `yaml:"queue"`
+	Interceptors []*interceptor.Config `yaml:"interceptors"`
+	Sink         *sink.Config          `yaml:"sink"`
 }
 
-var defaultInterceptors = []cfg.CommonCfg{
+var defaultInterceptors = []*interceptor.Config{
 	{
-		"type": metric.Type,
+		Type: metric.Type,
 	},
 	{
-		"type": maxbytes.Type,
+		Type: maxbytes.Type,
 	},
 	{
-		"type": retry.Type,
+		Type: retry.Type,
 	},
 }
 
 func (d *Defaults) SetDefaults() {
 	if d.Queue == nil {
-		d.Queue = cfg.CommonCfg{
-			"type": channel.Type,
-			"name": "default",
+		d.Queue = &queue.Config{
+			Type: channel.Type,
+			//Name: "default",
+			BatchSize: 2048,
 		}
 	}
 	if len(d.Interceptors) == 0 {
 		d.Interceptors = defaultInterceptors
 	} else {
-		d.Interceptors = cfg.MergeCommonCfgListByTypeAndName(d.Interceptors, defaultInterceptors, false, false)
+		d.Interceptors = interceptor.MergeInterceptorList(d.Interceptors, defaultInterceptors)
 	}
+
+	pipeline.SetDefaultConfigRaw(pipeline.Config{
+		Sources:      d.Sources,
+		Queue:        d.Queue,
+		Interceptors: d.Interceptors,
+		Sink:         d.Sink,
+	})
 }
 
 type Http struct {

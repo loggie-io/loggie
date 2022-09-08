@@ -18,7 +18,7 @@ package controller
 
 import (
 	"fmt"
-	"github.com/goccy/go-yaml"
+	"github.com/loggie-io/loggie/pkg/util/yaml"
 
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -117,8 +117,8 @@ func (c *Controller) reconcileNode(name string) error {
 
 	// update node labels
 	n := node.DeepCopy()
-	c.nodeLabels = n.Labels
-	log.Info("node label %v is set", c.nodeLabels)
+	c.nodeInfo = n
+	log.Info("set node labels: %v", n.Labels)
 	return nil
 }
 
@@ -328,10 +328,10 @@ func (c *Controller) reconcilePodDelete(key string) error {
 
 func (c *Controller) syncConfigToFile(selectorType string) error {
 	fileName := GenerateConfigName
-	var cfgRaws *control.PipelineRawConfig
+	var cfgRaws *control.PipelineConfig
 	switch selectorType {
 	case logconfigv1beta1.SelectorTypePod:
-		cfgRaws = c.typePodIndex.GetAllGroupByLogConfig()
+		cfgRaws = c.typePodIndex.GetAllGroupByLogConfig(c.config.DynamicContainerLog)
 
 	case logconfigv1beta1.SelectorTypeCluster:
 		cfgRaws = c.typeClusterIndex.GetAll()

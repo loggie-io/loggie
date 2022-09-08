@@ -70,7 +70,7 @@ func NewRegex(args []string, extra cfg.CommonCfg) (*Regex, error) {
 	}
 
 	extraCfg := &regexExtra{}
-	if err := cfg.Unpack(extra, extraCfg); err != nil {
+	if err := cfg.UnpackFromCommonCfg(extra, extraCfg).Do(); err != nil {
 		return nil, err
 	}
 

@@ -157,9 +157,6 @@ func (i *Interceptor) Intercept(invoker sink.Invoker, invocation sink.Invocation
 }
 
 func (i *Interceptor) run() {
-	i.countDown.Add(1)
-	defer i.countDown.Done()
-
 	var (
 		initD  = 500 * time.Millisecond
 		buffer = make([]api.Batch, 0)
@@ -168,7 +165,14 @@ func (i *Interceptor) run() {
 		c      <-chan time.Time
 		t      = time.NewTimer(initD)
 	)
-	defer t.Stop()
+
+	i.countDown.Add(1)
+	defer func() {
+		i.countDown.Done()
+		t.Stop()
+		go i.cleanBuffer(buffer)
+	}()
+
 	for {
 		select {
 		case <-i.done:
@@ -287,6 +291,27 @@ func (i *Interceptor) cleanData() {
 			// ignore
 		case <-i.signChan:
 			// ignore
+		}
+	}
+}
+
+func (i *Interceptor) cleanBuffer(buffer []api.Batch) {
+	if len(buffer) == 0 {
+		return
+	}
+
+	t := time.NewTimer(i.config.CleanDataTimeout)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-t.C:
+			return
+		case i.surviveChan <- buffer[0]:
+			buffer = buffer[1:]
+			if len(buffer) == 0 {
+				return
+			}
 		}
 	}
 }

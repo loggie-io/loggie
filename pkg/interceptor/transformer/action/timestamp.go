@@ -20,6 +20,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/util/eventops"
+	timeutil "github.com/loggie-io/loggie/pkg/util/time"
 	"github.com/pkg/errors"
 	"strconv"
 	"time"
@@ -58,7 +59,7 @@ func NewTimestamp(args []string, extra cfg.CommonCfg) (*Timestamp, error) {
 	}
 
 	timeExtra := &timestampExtra{}
-	if err := cfg.UnpackDefaultsAndValidate(extra, timeExtra); err != nil {
+	if err := cfg.UnpackFromCommonCfg(extra, timeExtra).Defaults().Validate().Do(); err != nil {
 		return nil, err
 	}
 
@@ -74,7 +75,7 @@ func (t *Timestamp) act(e api.Event) error {
 	fromVal := eventops.GetString(e, t.key)
 
 	// parse time
-	var timestamp = time.Time{}
+	var timestamp time.Time
 	switch extra.FromLayout {
 	case LayoutUnix:
 		i, err := strconv.ParseInt(fromVal, 10, 64)
@@ -102,26 +103,14 @@ func (t *Timestamp) act(e api.Event) error {
 			return errors.WithMessagef(err, "parse timestamp with layout %s from field %s error", extra.FromLayout, t.key)
 		}
 		timestamp = fromTime
-
 	}
 
 	// format time
-	toLocation, err := time.LoadLocation(extra.ToLocation)
+	out, err := timeutil.Format(timestamp, extra.ToLocation, extra.ToLayout)
 	if err != nil {
-		return errors.WithMessagef(err, "load location %s from field %s error", extra.FromLocation, t.key)
+		return err
 	}
-	timestamp = timestamp.In(toLocation)
-
-	switch extra.ToLayout {
-	case LayoutUnix:
-		eventops.Set(e, t.key, timestamp.Unix())
-
-	case LayoutUnixMs:
-		eventops.Set(e, t.key, timestamp.UnixMilli())
-
-	default:
-		eventops.Set(e, t.key, timestamp.Format(extra.ToLayout))
-	}
+	eventops.Set(e, t.key, out)
 
 	return nil
 }

@@ -1,0 +1,25 @@
+---
+## add timestamp fields
+## rename body to message
+interceptors:
+  - type: schema
+    addMeta:
+      timestamp:
+        key: "@timestamp"
+    remap:
+      body:
+        key: message
+
+---
+## with location: "" or UTC, Local ...
+## with golang style layout: 2006-01-02T15:04:05Z07:00(RFC3339) ...
+interceptors:
+  - type: schema
+    addMeta:
+      timestamp:
+        key: "_timestamp_"
+        location: Local
+        layout: 2006-01-02T15:04:05Z07:00
+    remap:
+      body:
+        key: _log_

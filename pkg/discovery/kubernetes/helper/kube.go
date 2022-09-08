@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	dockerclient "github.com/docker/docker/client"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
@@ -181,7 +182,7 @@ func PathsInNode(podLogDirPrefix string, kubeletRootDir string, rootFsCollection
 			return nil, err
 		}
 
-		nodePath, err := nodePathByContainerPath(path, pod, volumeName, volumeMountPath, subPathRes, kubeletRootDir)
+		nodePath, err := nodePathByContainerPath(path, pod, volumeName, volumeMountPath, subPathRes, kubeletRootDir, containerId, rootFsCollectionEnabled, runtime)
 		if err != nil {
 			if rootFsCollectionEnabled {
 				containerRootfsPaths = append(containerRootfsPaths, path)
@@ -393,7 +394,7 @@ func tryReadVariableName(input string) (string, bool, int) {
 
 		return string(operator) + string(referenceOpener), false, 1
 	default:
-		return (string(operator) + string(input[0])), false, 1
+		return string(operator) + string(input[0]), false, 1
 	}
 }
 
@@ -405,7 +406,8 @@ func envVarsToMap(envs []corev1.EnvVar) map[string]string {
 	return result
 }
 
-func nodePathByContainerPath(pathPattern string, pod *corev1.Pod, volumeName string, volumeMountPath string, subPathRes string, kubeletRootDir string) (string, error) {
+func nodePathByContainerPath(pathPattern string, pod *corev1.Pod, volumeName string, volumeMountPath string, subPathRes string,
+	kubeletRootDir string, containerId string, rootFsCollectionEnabled bool, containerRuntime runtime.Runtime) (string, error) {
 	for _, vol := range pod.Spec.Volumes {
 		if vol.Name != volumeName {
 			continue
@@ -417,6 +419,11 @@ func nodePathByContainerPath(pathPattern string, pod *corev1.Pod, volumeName str
 
 		if vol.EmptyDir != nil {
 			return getEmptyDirNodePath(pathPattern, pod, volumeName, volumeMountPath, kubeletRootDir, subPathRes), nil
+		}
+
+		// If pod mount pvc as log path，we need set rootFsCollectionEnabled to true, and container runtime should be docker.
+		if vol.PersistentVolumeClaim != nil && rootFsCollectionEnabled && containerRuntime.Name() == runtime.RuntimeDocker {
+			return getPVNodePath(pathPattern, volumeMountPath, containerId, containerRuntime)
 		}
 
 		// unsupported volume type
@@ -435,6 +442,30 @@ func getEmptyDirNodePath(pathPattern string, pod *corev1.Pod, volumeName string,
 	emptyDirPath := filepath.Join(kubeletRootDir, "pods", string(pod.UID), "volumes/kubernetes.io~empty-dir", volumeName)
 	pathSuffix := strings.TrimPrefix(pathPattern, volumeMountPath)
 	return filepath.Join(emptyDirPath, subPath, pathSuffix)
+}
+
+// Find the actual path on the node based on pvc.
+func getPVNodePath(pathPattern string, volumeMountPath string, containerId string, containerRuntime runtime.Runtime) (string, error) {
+	ctx := context.Background()
+	if containerRuntime == nil {
+		return "", errors.New("docker runtime is not initial")
+	}
+
+	cli := containerRuntime.Client().(*dockerclient.Client)
+	containerJson, err := cli.ContainerInspect(ctx, containerId)
+	if err != nil {
+		return "", errors.Errorf("containerId: %s, docker inspect error: %s", containerId, err)
+	}
+
+	for _, mnt := range containerJson.Mounts {
+		if !PathEqual(mnt.Destination, volumeMountPath) {
+			continue
+		}
+
+		pathSuffix := strings.TrimPrefix(pathPattern, volumeMountPath)
+		return filepath.Join(mnt.Source, pathSuffix), nil
+	}
+	return "", errors.New("cannot find pv volume path in node")
 }
 
 func GetMatchedPodLabel(labelKeys []string, pod *corev1.Pod) map[string]string {
@@ -494,4 +525,17 @@ func ExtractContainerId(containerID string) string {
 		return ""
 	}
 	return statusContainerId[1]
+}
+
+// PathEqual Compare whether the two paths are same, ignoring the suffix '/'
+func PathEqual(p1 string, p2 string) bool {
+	if !strings.HasSuffix(p1, "/") {
+		p1 = p1 + "/"
+	}
+
+	if !strings.HasSuffix(p2, "/") {
+		p2 = p2 + "/"
+	}
+
+	return p1 == p2
 }

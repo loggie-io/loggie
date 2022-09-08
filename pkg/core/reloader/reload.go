@@ -17,16 +17,16 @@ limitations under the License.
 package reloader
 
 import (
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/util/yaml"
+	"github.com/pkg/errors"
 	"os"
 	"time"
 
-	"github.com/goccy/go-yaml"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/loggie-io/loggie/pkg/control"
-	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/loggie-io/loggie/pkg/core/sink"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
@@ -76,13 +76,17 @@ func (r *Reloader) Run(stopCh <-chan struct{}) {
 				}
 				return false
 			})
-			if newConfig == nil || newConfig.Pipelines == nil {
+			if err != nil && !os.IsNotExist(err) {
+				if errors.Is(err, control.ErrIgnoreAllFile) {
+					continue
+				}
+
+				log.Error("read pipeline config file error: %v", err)
 				continue
 			}
 
-			if err != nil && !os.IsNotExist(err) {
-				log.Error("read pipeline config file error: %v", err)
-				continue
+			if newConfig == nil {
+				newConfig = &control.PipelineConfig{}
 			}
 
 			// diff config
@@ -128,25 +132,18 @@ func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineCo
 	stopList := make([]pipeline.Config, 0)
 	startList := make([]pipeline.Config, 0)
 
-	sourceComparer := cmp.Comparer(func(i, j []source.Config) bool {
-		return cmp.Equal(i, j, cmpopts.SortSlices(func(a, b source.Config) bool {
+	sourceComparer := cmp.Comparer(func(i, j []*source.Config) bool {
+		return cmp.Equal(i, j, cmpopts.SortSlices(func(a, b *source.Config) bool {
 			if a.Name > b.Name {
 				return true
 			}
 			return false
 		}))
 	})
-	interceptorComparer := cmp.Comparer(func(i, j []interceptor.Config) bool {
-		return cmp.Equal(i, j, cmpopts.SortSlices(func(a, b interceptor.Config) bool {
+
+	interceptorComparer := cmp.Comparer(func(i, j []*interceptor.Config) bool {
+		return cmp.Equal(i, j, cmpopts.SortSlices(func(a, b *interceptor.Config) bool {
 			if a.Type > b.Type {
-				return true
-			}
-			return false
-		}))
-	})
-	sinkComparer := cmp.Comparer(func(i, j []sink.Config) bool {
-		return cmp.Equal(i, j, cmpopts.SortSlices(func(a, b sink.Config) bool {
-			if a.Name > b.Name {
 				return true
 			}
 			return false
@@ -163,13 +160,13 @@ func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineCo
 		delete(oldPipeIndex, oldPipe.Name)
 
 		// diff
-		equal := cmp.Equal(newPipe, oldPipe, sourceComparer, interceptorComparer, sinkComparer)
+		equal := cmp.Equal(oldPipe, newPipe, sourceComparer, interceptorComparer)
 		if !equal {
 			startList = append(startList, newPipe)
 			stopList = append(stopList, oldPipe)
 		}
 		if !equal && log.IsDebugLevel() {
-			diff := cmp.Diff(newPipe, oldPipe, sourceComparer, interceptorComparer, sinkComparer)
+			diff := cmp.Diff(oldPipe, newPipe, sourceComparer, interceptorComparer)
 			log.Debug("diff pipeline config: \n%s", diff)
 		}
 	}

@@ -17,9 +17,8 @@ limitations under the License.
 package pattern
 
 import (
-	"github.com/loggie-io/loggie/pkg/util"
-	k8sMeta "github.com/loggie-io/loggie/pkg/util/pattern/k8smeta"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
+	"github.com/loggie-io/loggie/pkg/util/time"
 	"os"
 	"regexp"
 	"strings"
@@ -41,11 +40,12 @@ const (
 )
 
 type Pattern struct {
-	Raw        string
-	isConstVal bool
-	matcher    []matcher
-	tmpObj     *runtime.Object
-	tmpK8sData *k8sMeta.FieldsData
+	Raw            string
+	isConstVal     bool
+	matcher        []matcher
+	tmpObj         *runtime.Object
+	tmpK8sPodData  *TypePodFieldsData
+	tmpK8sNodeData *TypeNodeFieldsData
 }
 
 type matcher struct {
@@ -68,7 +68,7 @@ func isTimeVar(key string) bool {
 	return strings.HasPrefix(key, timeToken)
 }
 func timeMatcherRender(key string) string {
-	return util.TimeFormatNow(strings.TrimLeft(key, timeToken))
+	return time.TimeFormatNow(strings.TrimLeft(key, timeToken))
 }
 
 // ObjectMatcher retrieve any fields from events, e.g. ${a.b}
@@ -133,7 +133,7 @@ func makeMatch(m []string) matcher {
 		item.kind = kindEnv
 	} else if isTimeVar(key) {
 		item.kind = kindTime
-	} else if k8sMeta.IsK8sVar(key) {
+	} else if IsK8sVar(key) {
 		item.kind = kindK8s
 	} else {
 		item.kind = kindObject
@@ -161,7 +161,7 @@ func (p *Pattern) Render() (string, error) {
 			}
 			alt = o
 		} else if m.kind == kindK8s {
-			alt = k8sMeta.K8sMatcherRender(p.tmpK8sData, m.key)
+			alt = p.K8sMatcherRender(m.key)
 		}
 
 		// add old
@@ -179,8 +179,13 @@ func (p *Pattern) WithObject(obj *runtime.Object) *Pattern {
 	return p
 }
 
-func (p *Pattern) WithK8s(data *k8sMeta.FieldsData) *Pattern {
-	p.tmpK8sData = data
+func (p *Pattern) WithK8sPod(data *TypePodFieldsData) *Pattern {
+	p.tmpK8sPodData = data
+	return p
+}
+
+func (p *Pattern) WithK8sNode(data *TypeNodeFieldsData) *Pattern {
+	p.tmpK8sNodeData = data
 	return p
 }
 

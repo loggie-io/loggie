@@ -17,6 +17,7 @@ limitations under the License.
 package pipeline
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"sync"
@@ -39,8 +40,15 @@ import (
 )
 
 const (
-	fieldsUnderRootKey = event.PrivateKeyPrefix + "FieldsUnderRoot"
-	fieldsUnderKeyKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
+	FieldsUnderRoot = event.PrivateKeyPrefix + "FieldsUnderRoot"
+	FieldsUnderKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
+)
+
+var (
+	ErrPipelineNameRequired   = errors.New("pipelines[n].name is required")
+	ErrSourceNameRequired     = errors.New("sources[n].name is required")
+	ErrPipelineSourceRequired = errors.New("pipelines[n].source is required")
+	ErrPipelineSinkRequired   = errors.New("pipelines[n].sink is required")
 )
 
 type Pipeline struct {
@@ -69,7 +77,7 @@ func NewPipeline(pipelineConfig *Config) *Pipeline {
 		info: Info{
 			Stop:        false,
 			R:           registerCenter,
-			SurviveChan: make(chan api.Batch, 3),
+			SurviveChan: make(chan api.Batch, pipelineConfig.Sink.Parallelism+1),
 		},
 		r: registerCenter,
 	}
@@ -81,6 +89,9 @@ func (p *Pipeline) Stop() {
 	}
 
 	p.info.Stop = true
+	done := make(chan struct{})
+	// clean out chan: in case blocking
+	p.cleanOutChan(done)
 	// 0. stop sink consumer
 	p.stopSinkConsumer()
 	// 1. stop source product
@@ -94,6 +105,7 @@ func (p *Pipeline) Stop() {
 	p.stopListeners()
 	// 5. clean data(out chan、registry center、and so on)
 	p.cleanData()
+	close(done)
 
 	log.Info("stop pipeline with epoch: %+v", p.epoch)
 }
@@ -104,46 +116,58 @@ func (p *Pipeline) stopSinkConsumer() {
 		if i, ok := inter.(sink.Interceptor); ok {
 			log.Info("stop sink interceptor: %s", i.String())
 			i.Stop()
-			delete(p.r.nameComponents, c)
+			p.r.RemoveByCode(c)
 			log.Info("sink interceptor stopped: %s", i.String())
 		}
 	}
 	// stop sink consumer and survive
 	close(p.done)
 	p.countDown.Wait()
-	// clean out chan: in case source blocking
-	p.cleanOutChan()
 }
 
 func (p *Pipeline) stopSourceProduct() {
-	for name, s := range p.ns {
+	taskName := fmt.Sprintf("stop sources of pipeline(%s)", p.name)
+	namedJob := make(map[string]func())
+	sources := p.r.LoadCodeCategoryComponents(api.SOURCE)
+	for code, s := range sources {
+		localCode := code
 		localSource := s
-		localSource.Stop()
-		p.r.removeComponent(localSource.Type(), localSource.Category(), name)
-		p.reportMetric(name, localSource, eventbus.ComponentStop)
+
+		p.r.RemoveByCode(localCode)
+		jobName := fmt.Sprintf("stop source(%s)", localCode)
+		job := func() {
+			localSource.Stop()
+			p.reportMetricWithCode(localCode, localSource, eventbus.ComponentStop)
+		}
+		namedJob[jobName] = job
 	}
+	util.AsyncRunGroup(taskName, namedJob)
 }
 
 func (p *Pipeline) stopQueue() {
-	for n, q := range p.nq {
-		name := n
+	queues := p.r.LoadCodeCategoryComponents(api.QUEUE)
+	for c, q := range queues {
+		localCode := c
 		localQueue := q
+
+		p.r.RemoveByCode(localCode)
 		localQueue.Stop()
-		p.r.removeComponent(localQueue.Type(), localQueue.Category(), name)
-		p.reportMetric(name, localQueue, eventbus.ComponentStop)
+		p.reportMetricWithCode(localCode, localQueue, eventbus.ComponentStop)
 	}
 }
 
 func (p *Pipeline) stopComponents() {
 	log.Debug("stopping components of pipeline %s", p.name)
-	for name, v := range p.r.nameComponents {
+	components := p.r.LoadCodeComponents()
+	for c, v := range components {
 		// async stop with timeout
-		n := name
-		c := v
-		delete(p.r.nameComponents, n)
+		localCode := c
+		localComponent := v
+
+		p.r.RemoveByCode(localCode)
 		util.AsyncRunWithTimeout(func() {
-			c.Stop()
-			p.reportMetricWithCode(n, c, eventbus.ComponentStop)
+			localComponent.Stop()
+			p.reportMetricWithCode(localCode, localComponent, eventbus.ComponentStop)
 		}, p.config.CleanDataTimeout)
 	}
 }
@@ -159,8 +183,6 @@ func (p *Pipeline) stopListeners() {
 }
 
 func (p *Pipeline) cleanData() {
-	// clean out chan
-	p.cleanOutChan()
 	// clean registry center
 	p.r.cleanData()
 	// clean pipeline
@@ -170,19 +192,14 @@ func (p *Pipeline) cleanData() {
 	p.r = nil
 }
 
-func (p *Pipeline) cleanOutChan() {
+func (p *Pipeline) cleanOutChan(done <-chan struct{}) {
 	for _, outChan := range p.outChans {
 		out := outChan
-		if len(out) == 0 {
-			continue
-		}
-		go p.consumerOutChanAndDrop(out)
+		go p.consumerOutChanAndDrop(out, done)
 	}
 }
 
-func (p *Pipeline) consumerOutChanAndDrop(out chan api.Batch) {
-	after := time.NewTimer(p.config.CleanDataTimeout)
-	defer after.Stop()
+func (p *Pipeline) consumerOutChanAndDrop(out chan api.Batch, done <-chan struct{}) {
 	dropAndRelease := func(batch api.Batch) {
 		if batch != nil {
 			events := batch.Events()
@@ -194,7 +211,7 @@ func (p *Pipeline) consumerOutChanAndDrop(out chan api.Batch) {
 	}
 	for {
 		select {
-		case <-after.C:
+		case <-done:
 			return
 		case b := <-out:
 			dropAndRelease(b)
@@ -262,7 +279,7 @@ func (p *Pipeline) init(pipelineConfig Config) {
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
 }
 
-func (p *Pipeline) startInterceptor(interceptorConfigs []interceptor.Config) error {
+func (p *Pipeline) startInterceptor(interceptorConfigs []*interceptor.Config) error {
 	for _, iConfig := range interceptorConfigs {
 		if iConfig.Enabled != nil && *iConfig.Enabled == false {
 			log.Info("interceptor %s is disabled", iConfig.Type)
@@ -300,7 +317,7 @@ func (p *Pipeline) startComponent(ctx api.Context) error {
 
 func (p *Pipeline) startWithComponent(component api.Component, ctx api.Context) error {
 	// unpack config from properties
-	err := cfg.UnpackAndDefaults(ctx.Properties(), component.Config())
+	err := cfg.UnpackFromCommonCfg(ctx.Properties(), component.Config()).Defaults().Do()
 	if err != nil {
 		return errors.WithMessagef(err, "unpack component %s/%s", component.Category(), component.Type())
 	}
@@ -373,13 +390,13 @@ func (p *Pipeline) validateComponent(ctx api.Context) error {
 	if err != nil {
 		return err
 	}
-	return cfg.UnpackDefaultsAndValidate(ctx.Properties(), component.Config())
+	return cfg.UnpackFromCommonCfg(ctx.Properties(), component.Config()).Defaults().Validate().Do()
 }
 
 func (p *Pipeline) validate() error {
 	pipelineConfig := &p.config
 	if pipelineConfig.Name == "" {
-		return errors.New("pipelines[n].name is required")
+		return ErrPipelineNameRequired
 	}
 
 	for _, iConfig := range pipelineConfig.Interceptors {
@@ -397,7 +414,7 @@ func (p *Pipeline) validate() error {
 
 	sinkConfig := pipelineConfig.Sink
 	if sinkConfig == nil || sinkConfig.Type == "" {
-		return errors.New("pipelines[n].sink is required")
+		return ErrPipelineSinkRequired
 	}
 	ctx = context.NewContext(sinkConfig.Name, api.Type(sinkConfig.Type), api.SINK, sinkConfig.Properties)
 	if err := p.validateComponent(ctx); err != nil {
@@ -406,9 +423,12 @@ func (p *Pipeline) validate() error {
 
 	unique := make(map[string]struct{})
 	if len(pipelineConfig.Sources) == 0 {
-		return errors.New("pipelines[n].source is required")
+		return ErrPipelineSourceRequired
 	}
 	for _, sourceConfig := range pipelineConfig.Sources {
+		if sourceConfig.Name == "" {
+			return ErrSourceNameRequired
+		}
 		if _, ok := unique[sourceConfig.Name]; ok {
 			return errors.Errorf("source name %s is duplicated", sourceConfig.Name)
 		}
@@ -434,7 +454,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 		return errors.Errorf("codec %s cannot be found", codecConf.Type)
 	}
 	if conf, ok := cod.(api.Config); ok {
-		err := cfg.UnpackAndDefaults(codecConf.CommonCfg, conf.Config())
+		err := cfg.UnpackFromCommonCfg(codecConf.CommonCfg, conf.Config()).Defaults().Do()
 		if err != nil {
 			// since Loggie has validate the configuration before start, we would never reach here
 			return errors.WithMessage(err, "unpack codec config error")
@@ -453,7 +473,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 
 func (p *Pipeline) startSinkConsumer(sinkConfig *sink.Config) {
 	interceptors := make([]sink.Interceptor, 0)
-	for _, inter := range p.r.Components(api.INTERCEPTOR) {
+	for _, inter := range p.r.LoadCodeInterceptors() {
 		i, ok := inter.(sink.Interceptor)
 		if !ok {
 			continue
@@ -554,7 +574,7 @@ func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor
 	return last
 }
 
-func (p *Pipeline) startSource(sourceConfigs []source.Config) error {
+func (p *Pipeline) startSource(sourceConfigs []*source.Config) error {
 	for _, sourceConfig := range sourceConfigs {
 		if sourceConfig.Enabled != nil && *sourceConfig.Enabled == false {
 			log.Info("source %s/%s is disabled", sourceConfig.Type, sourceConfig.Name)
@@ -574,7 +594,7 @@ func (p *Pipeline) startSource(sourceConfigs []source.Config) error {
 				return errors.Errorf("codec %s cannot be found", codecConf.Type)
 			}
 			if conf, ok := cod.(api.Config); ok {
-				err := cfg.UnpackAndDefaults(codecConf.CommonCfg, conf.Config())
+				err := cfg.UnpackFromCommonCfg(codecConf.CommonCfg, conf.Config()).Defaults().Do()
 				if err != nil {
 					// since Loggie has validate the configuration before start, we would never reach here
 					return errors.WithMessage(err, "unpack codec config error")
@@ -597,7 +617,7 @@ func (p *Pipeline) startSource(sourceConfigs []source.Config) error {
 	return nil
 }
 
-func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
+func (p *Pipeline) startSourceProduct(sourceConfigs []*source.Config) {
 	for _, sc := range sourceConfigs {
 		if sc.Enabled != nil && *sc.Enabled == false {
 			continue
@@ -605,7 +625,7 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
 
 		sourceConfig := sc
 		interceptors := make([]source.Interceptor, 0)
-		for _, inter := range p.r.LoadInterceptors() {
+		for _, inter := range p.r.LoadCodeInterceptors() {
 			i, ok := inter.(source.Interceptor)
 			if !ok {
 				continue
@@ -623,12 +643,19 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []source.Config) {
 
 		sourceInvokerChain := buildSourceInvokerChain(sourceConfig.Name, &source.PublishInvoker{}, si.Interceptors)
 		productFunc := func(e api.Event) api.Result {
-			p.fillEventMetaAndHeader(e, sourceConfig)
+			p.fillEventMetaAndHeader(e, *sourceConfig)
 
 			result := sourceInvokerChain.Invoke(source.Invocation{
 				Event: e,
 				Queue: q,
 			})
+
+			if result.Status() == api.DROP {
+				p.info.EventPool.Put(e)
+			}
+			if result.Status() == api.FAIL {
+				log.Error("source to queue failed: %s", result.Error())
+			}
 			return result
 		}
 		go si.Source.ProductLoop(productFunc)
@@ -641,8 +668,8 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 	e.Meta().Set(event.SystemProductTimeKey, time.Now())
 	e.Meta().Set(event.SystemPipelineKey, p.name)
 	e.Meta().Set(event.SystemSourceKey, config.Name)
-	e.Meta().Set(fieldsUnderRootKey, config.FieldsUnderRoot)
-	e.Meta().Set(fieldsUnderKeyKey, config.FieldsUnderKey)
+	e.Meta().Set(FieldsUnderRoot, config.FieldsUnderRoot)
+	e.Meta().Set(FieldsUnderKey, config.FieldsUnderKey)
 
 	header := e.Header()
 	if header == nil {
@@ -650,7 +677,7 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 		e.Fill(e.Meta(), header, e.Body())
 	}
 	// add header source fields
-	addSourceFields(header, config)
+	AddSourceFields(header, config.Fields, config.FieldsUnderRoot, config.FieldsUnderKey)
 
 	// add header source fields from env
 	if len(config.FieldsFromEnv) > 0 {
@@ -677,27 +704,31 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 	}
 }
 
-func addSourceFields(header map[string]interface{}, config source.Config) {
-	sourceFields := config.Fields
-	if len(sourceFields) <= 0 {
+func AddSourceFields(header map[string]interface{}, fields map[string]interface{}, underRoot bool, fieldsKey string) {
+	if len(fields) == 0 {
 		return
 	}
-	if *config.FieldsUnderRoot {
-		for k, v := range sourceFields {
+	if underRoot {
+		for k, v := range fields {
 			header[k] = v
 		}
 		return
 	}
-	sourceFieldsKey := config.FieldsUnderKey
-	if originFields, exist := header[sourceFieldsKey]; exist {
+
+	// Copy the fields field to avoid being updated later
+	fieldsCopy := make(map[string]interface{})
+	for k, v := range fields {
+		fieldsCopy[k] = v
+	}
+	if originFields, exist := header[fieldsKey]; exist {
 		if originFieldsMap, convert := originFields.(map[string]interface{}); convert {
-			for k, v := range sourceFields {
+			for k, v := range fieldsCopy {
 				originFieldsMap[k] = v
 			}
 		}
 		return
 	}
-	header[sourceFieldsKey] = sourceFields
+	header[fieldsKey] = fieldsCopy
 }
 
 func buildSourceInvokerChain(sourceName string, invoker source.Invoker, interceptors []source.Interceptor) source.Invoker {
@@ -787,10 +818,11 @@ func (p *Pipeline) next() api.OutFunc {
 func (p *Pipeline) reportMetricWithCode(code string, component api.Component, eventType eventbus.ComponentEventType) {
 	var name string
 	a := strings.Split(code, "/")
-	if len(a) < 3 {
+	i := len(a)
+	if i < 3 {
 		name = ""
 	} else {
-		name = a[2]
+		name = a[i-1]
 	}
 	p.reportMetric(name, component, eventType)
 }

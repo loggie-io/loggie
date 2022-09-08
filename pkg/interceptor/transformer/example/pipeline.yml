@@ -4,7 +4,7 @@ interceptors:
   - type: transformer
     actions:
       - action: regex(body)
-        pattern: "(?<ip>\S+) (?<id>\S+) (?<u>\S+) (?<time>\[.*?\]) (?<url>\".*?\") (?<status>\S+) (?<size>\S+)"
+        pattern: (?<ip>\S+) (?<id>\S+) (?<u>\S+) (?<time>\[.*?\]) (?<url>\".*?\") (?<status>\S+) (?<size>\S+)
       - if: equal(status, 404)
         then:
           - action: add(topic, not_found)
@@ -16,7 +16,7 @@ interceptors:
       - action: add(topic, common)
 
 ---
-## test data: {"log":"I0610 08:29:07.698664 Waiting for caches to sync", "stream":"stderr", "time:"2021-06-10T08:29:07.698731204Z"}
+## test data: {"log":"I0610 08:29:07.698664 Waiting for caches to sync", "stream":"stderr", "time":"2021-06-10T08:29:07.698731204Z"}
 interceptors:
   - type: transformer
     actions:
@@ -34,7 +34,7 @@ interceptors:
   - type: transformer
     actions:
       - action: regex(body)
-        pattern: "^(?P<time>[^ ^Z]+Z) (?P<level>[^ ]*) (?P<log>.*)$"
+        pattern: ^(?P<time>[^ ^Z]+Z) (?P<level>[^ ]*) (?P<log>.*)$
       - if: equal(level, DEBUG)
         then:
           - action: dropEvent()

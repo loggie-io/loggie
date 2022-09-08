@@ -61,6 +61,8 @@ type Job struct {
 	renameTime        atomic.Value
 	stopTime          atomic.Value
 	identifier        string
+	// Additional fields information for this job, will be injected into the event product by this job.
+	jobFields map[string]interface{}
 
 	task *WatchTask
 
@@ -335,6 +337,7 @@ func (j *Job) ProductEvent(endOffset int64, collectTime time.Time, body []byte) 
 		JobIndex:     j.Index(),
 		watchUid:     watchUid,
 		EventUid:     eventUid.String(),
+		jobFields:    j.jobFields,
 	}
 	e := j.task.eventPool.Get()
 	e.Meta().Set(SystemStateKey, state)

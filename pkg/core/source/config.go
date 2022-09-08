@@ -28,12 +28,52 @@ var (
 )
 
 type Config struct {
-	cfg.ComponentBaseConfig `yaml:",inline"`
-	FieldsUnderRoot         *bool                  `yaml:"fieldsUnderRoot,omitempty" default:"false"`
-	FieldsUnderKey          string                 `yaml:"fieldsUnderKey,omitempty" default:"fields"`
-	Fields                  map[string]interface{} `yaml:"fields,omitempty"`
-	FieldsFromEnv           map[string]string      `yaml:"fieldsFromEnv,omitempty"`
-	Codec                   *codec.Config          `yaml:"codec,omitempty"`
+	Enabled         *bool                  `yaml:"enabled,omitempty"`
+	Name            string                 `yaml:"name,omitempty"`
+	Type            string                 `yaml:"type,omitempty" validate:"required"`
+	Properties      cfg.CommonCfg          `yaml:",inline"`
+	FieldsUnderRoot *bool                  `yaml:"fieldsUnderRoot,omitempty" default:"false"`
+	FieldsUnderKey  string                 `yaml:"fieldsUnderKey,omitempty" default:"fields"`
+	Fields          map[string]interface{} `yaml:"fields,omitempty"`
+	FieldsFromEnv   map[string]string      `yaml:"fieldsFromEnv,omitempty"`
+	Codec           *codec.Config          `yaml:"codec,omitempty"`
+}
+
+func (c *Config) DeepCopy() *Config {
+	if c == nil {
+		return nil
+	}
+
+	var newFields map[string]interface{}
+	if c.Fields != nil {
+		f := make(map[string]interface{})
+		for k, v := range c.Fields {
+			f[k] = v
+		}
+		newFields = f
+	}
+	var newFieldsFromEnv map[string]string
+	if c.FieldsFromEnv != nil {
+		fe := make(map[string]string)
+		for k, v := range c.FieldsFromEnv {
+			fe[k] = v
+		}
+		newFieldsFromEnv = fe
+	}
+
+	out := &Config{
+		Enabled:         c.Enabled,
+		Name:            c.Name,
+		Type:            c.Type,
+		Properties:      c.Properties.DeepCopy(),
+		FieldsUnderRoot: c.FieldsUnderRoot,
+		FieldsUnderKey:  c.FieldsUnderKey,
+		Fields:          newFields,
+		FieldsFromEnv:   newFieldsFromEnv,
+		Codec:           c.Codec.DeepCopy(),
+	}
+
+	return out
 }
 
 func (c *Config) Validate() error {
@@ -49,4 +89,73 @@ func (c *Config) Validate() error {
 		}
 	}
 	return nil
+}
+
+func (c *Config) Merge(from *Config) {
+	if c.Type != from.Type {
+		return
+	}
+
+	c.Properties = cfg.MergeCommonCfg(c.Properties, from.Properties, false)
+
+	if c.FieldsUnderRoot == false {
+		c.FieldsUnderRoot = from.FieldsUnderRoot
+	}
+
+	if c.FieldsUnderKey == "" {
+		c.FieldsUnderKey = from.FieldsUnderKey
+	}
+
+	if c.Fields == nil {
+		c.Fields = from.Fields
+	} else {
+		for k, v := range from.Fields {
+			_, ok := c.Fields[k]
+			if !ok {
+				c.Fields[k] = v
+			}
+		}
+	}
+
+	if c.FieldsFromEnv == nil {
+		c.FieldsFromEnv = from.FieldsFromEnv
+	} else {
+		for k, v := range from.FieldsFromEnv {
+			_, ok := c.FieldsFromEnv[k]
+			if !ok {
+				c.FieldsFromEnv[k] = v
+			}
+		}
+	}
+
+	if c.Codec == nil {
+		c.Codec = from.Codec
+	} else {
+		c.Codec.Merge(from.Codec)
+	}
+}
+
+func MergeSourceList(base []*Config, from []*Config) []*Config {
+	if len(base) == 0 {
+		return from
+	}
+	if len(from) == 0 {
+		return base
+	}
+
+	fromMap := make(map[string]*Config)
+	for _, v := range from {
+		fromMap[v.Type] = v
+	}
+
+	for _, baseCfg := range base {
+		typeName := baseCfg.Type
+		fromCfg, ok := fromMap[typeName]
+		if ok {
+			baseCfg.Merge(fromCfg)
+			continue
+		}
+	}
+
+	return base
 }

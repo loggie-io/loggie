@@ -33,6 +33,18 @@ func TestGet(t *testing.T) {
 			want: "foo",
 		},
 		{
+			name: "get a.[b.c]",
+			args: args{
+				e: event.NewEvent(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b.c": "foo",
+					},
+				}, []byte("this is body")),
+				key: "a.[b.c]",
+			},
+			want: "foo",
+		},
+		{
 			name: "get nil",
 			args: args{
 				e: event.NewEvent(map[string]interface{}{
@@ -334,6 +346,41 @@ func TestMove(t *testing.T) {
 					"d": "foo",
 				},
 			}, []byte("this is body")),
+		},
+		{
+			name: "move a.[b.c] to a.d",
+			args: args{
+				e: event.NewEvent(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b.c": "foo",
+					},
+				}, []byte("this is body")),
+				from: "a.[b.c]",
+				to:   "a.d",
+			},
+			want: event.NewEvent(map[string]interface{}{
+				"a": map[string]interface{}{
+					"d": "foo",
+				},
+			}, []byte("this is body")),
+		},
+		{
+			name: "rename body",
+			args: args{
+				e: event.NewEvent(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b": "foo",
+					},
+				}, []byte("this is body")),
+				from: event.Body,
+				to:   "log",
+			},
+			want: event.NewEvent(map[string]interface{}{
+				"a": map[string]interface{}{
+					"b": "foo",
+				},
+				"log": "this is body",
+			}, []byte{}),
 		},
 	}
 	for _, tt := range tests {

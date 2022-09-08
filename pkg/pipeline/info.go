@@ -17,12 +17,10 @@ limitations under the License.
 package pipeline
 
 import (
-	"github.com/goccy/go-yaml"
-	"log"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/queue"
@@ -34,90 +32,49 @@ type Config struct {
 	Name             string        `yaml:"name,omitempty" validate:"required"`
 	CleanDataTimeout time.Duration `yaml:"cleanDataTimeout,omitempty" default:"5s"`
 
-	Queue        *queue.Config        `yaml:"queue,omitempty" validate:"dive,required"`
-	Interceptors []interceptor.Config `yaml:"interceptors,omitempty"`
-	Sources      []source.Config      `yaml:"sources,omitempty" validate:"dive,required"`
-	Sink         *sink.Config         `yaml:"sink,omitempty" validate:"dive,required"`
+	Queue        *queue.Config         `yaml:"queue,omitempty" validate:"dive,required"`
+	Interceptors []*interceptor.Config `yaml:"interceptors,omitempty"`
+	Sources      []*source.Config      `yaml:"sources,omitempty" validate:"dive,required"`
+	Sink         *sink.Config          `yaml:"sink,omitempty" validate:"dive,required"`
 }
 
-type ConfigRaw struct {
-	Name             string        `yaml:"name,omitempty" validate:"required"`
-	CleanDataTimeout time.Duration `yaml:"cleanDataTimeout,omitempty" default:"5s"`
-
-	Queue        cfg.CommonCfg   `yaml:"queue,omitempty" validate:"required"`
-	Interceptors []cfg.CommonCfg `yaml:"interceptors,omitempty"`
-	Sources      []cfg.CommonCfg `yaml:"sources,omitempty" validate:"required"`
-	Sink         cfg.CommonCfg   `yaml:"sink,omitempty" validate:"required"`
+func (c *Config) SetDefaults() {
+	c.merge()
 }
 
-func (cr *ConfigRaw) SetDefaults() {
+func (c *Config) Validate() error {
+	return NewPipeline(c).validate()
+}
+
+func (c *Config) merge() {
 	defaults, err := GetDefaultConfigRaw()
 	if err != nil {
-		log.Fatalf("get default pipeline config error: %v", err)
-	}
-	cr.Queue = cfg.MergeCommonCfg(cr.Queue, defaults.Queue, false)
-	cr.Interceptors = cfg.MergeCommonCfgListByTypeAndName(cr.Interceptors, defaults.Interceptors, false, false)
-	cr.Sink = cfg.MergeCommonCfg(cr.Sink, defaults.Sink, false)
-	cr.Sources = cfg.MergeCommonCfgListByType(cr.Sources, defaults.Sources, false, true)
-}
-
-func (cr *ConfigRaw) ToConfig() (*Config, error) {
-	config := &Config{}
-
-	config.Name = cr.Name
-	config.CleanDataTimeout = cr.CleanDataTimeout
-
-	queueConfig := queue.Config{}
-	err := cfg.UnpackDefaultsAndValidate(cr.Queue, &queueConfig)
-	if err != nil {
-		return nil, err
+		log.Fatal("get default pipeline config error: %v", err)
 	}
 
-	queueConfig.Properties = cr.Queue.GetProperties()
-	config.Queue = &queueConfig
-
-	for _, in := range cr.Interceptors {
-		interConfig := interceptor.Config{}
-		err = cfg.UnpackDefaultsAndValidate(in, &interConfig)
-		if err != nil {
-			return nil, err
-		}
-		interConfig.Properties = in.GetProperties()
-		config.Interceptors = append(config.Interceptors, interConfig)
+	if c.Queue != nil {
+		c.Queue.Merge(defaults.Queue)
+	} else {
+		c.Queue = defaults.Queue
 	}
 
-	sinkConfig := sink.Config{}
-	err = cfg.UnpackDefaultsAndValidate(cr.Sink, &sinkConfig)
-	if err != nil {
-		return nil, err
-	}
-	sinkConfig.Properties = cr.Sink.GetProperties()
-	config.Sink = &sinkConfig
-
-	for _, sr := range cr.Sources {
-		srcConfig := source.Config{}
-		err := cfg.UnpackDefaultsAndValidate(sr, &srcConfig)
-		if err != nil {
-			return nil, err
-		}
-		srcConfig.Properties = sr.GetProperties()
-		config.Sources = append(config.Sources, srcConfig)
+	if len(c.Interceptors) != 0 {
+		c.Interceptors = interceptor.MergeInterceptorList(c.Interceptors, defaults.Interceptors)
+	} else {
+		c.Interceptors = defaults.Interceptors
 	}
 
-	return config, nil
-}
-
-func (cr *ConfigRaw) DeepCopy() (dest *ConfigRaw, err error) {
-	out, err := yaml.Marshal(cr)
-	if err != nil {
-		return nil, err
+	if c.Sink != nil {
+		c.Sink.Merge(defaults.Sink)
+	} else {
+		c.Sink = defaults.Sink
 	}
 
-	d := new(ConfigRaw)
-	if err = yaml.Unmarshal(out, d); err != nil {
-		return nil, err
+	if len(c.Sources) != 0 {
+		c.Sources = source.MergeSourceList(c.Sources, defaults.Sources)
+	} else {
+		c.Sources = defaults.Sources
 	}
-	return d, nil
 }
 
 type Info struct {
@@ -128,28 +85,4 @@ type Info struct {
 	R            *RegisterCenter
 	SinkCount    int
 	EventPool    *event.Pool
-}
-
-func (cr *ConfigRaw) Validate() error {
-	c, err := cr.ToConfig()
-	if err != nil {
-		return err
-	}
-	return c.Validate()
-}
-
-func (cr *ConfigRaw) ValidateAndToConfig() (*Config, error) {
-	c, err := cr.ToConfig()
-	if err != nil {
-		return nil, err
-	}
-	err = c.Validate()
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
-func (c *Config) Validate() error {
-	return NewPipeline(c).validate()
 }

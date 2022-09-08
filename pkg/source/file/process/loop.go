@@ -43,15 +43,17 @@ func (bp *LoopProcessor) Process(processorChain file.ProcessChain, ctx *file.Job
 			break
 		}
 
-		bp.continueRead++
-		// According to the number of batches 2048, a maximum of one batch can be read,
-		// and a single event is calculated according to 512 bytes, that is, the maximum reading is 1mb ,maxContinueRead = 16 by default
-		// SSD recommends that maxContinueRead be increased by 3 ~ 5x
-		if bp.continueRead > bp.maxContinueRead {
-			break
-		}
-		if time.Since(bp.startReadTime) > bp.maxContinueReadTimeout {
-			break
+		if ctx.WasSend {
+			bp.continueRead++
+			// According to the number of batches 2048, a maximum of one batch can be read,
+			// and a single event is calculated according to 512 bytes, that is, the maximum reading is 1mb ,maxContinueRead = 16 by default
+			// SSD recommends that maxContinueRead be increased by 3 ~ 5x
+			if bp.continueRead > bp.maxContinueRead {
+				break
+			}
+			if time.Since(bp.startReadTime) > bp.maxContinueReadTimeout {
+				break
+			}
 		}
 	}
 

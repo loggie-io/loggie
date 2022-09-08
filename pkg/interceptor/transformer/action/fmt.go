@@ -65,7 +65,7 @@ func NewFmt(args []string, extra cfg.CommonCfg) (*Fmt, error) {
 	}
 
 	extraCfg := &fmtExtra{}
-	if err := cfg.Unpack(extra, extraCfg); err != nil {
+	if err := cfg.UnpackFromCommonCfg(extra, extraCfg).Do(); err != nil {
 		return nil, err
 	}
 

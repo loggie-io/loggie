@@ -161,7 +161,7 @@ func (l *Listener) exportPrometheus() {
 
 		metrics = append(metrics, m...)
 	}
-	promeExporter.Export(eventbus.SinkMetricTopic, metrics)
+	promeExporter.Export(eventbus.QueueMetricTopic, metrics)
 }
 
 func (l *Listener) consumer(e eventbus.QueueMetricData) {

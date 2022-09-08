@@ -17,10 +17,12 @@ limitations under the License.
 package controller
 
 import (
+	"context"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
-	"reflect"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -86,11 +88,12 @@ type Controller struct {
 	typeClusterIndex *index.LogConfigTypeClusterIndex
 	typeNodeIndex    *index.LogConfigTypeNodeIndex
 
-	nodeLabels map[string]string
+	nodeInfo *corev1.Node
 
-	record             record.EventRecorder
-	runtime            runtime.Runtime
-	extraFieldsPattern map[string]*pattern.Pattern
+	record                     record.EventRecorder
+	runtime                    runtime.Runtime
+	extraTypePodFieldsPattern  map[string]*pattern.Pattern
+	extraTypeNodeFieldsPattern map[string]*pattern.Pattern
 }
 
 func NewController(
@@ -105,12 +108,6 @@ func NewController(
 	nodeInformer corev1Informers.NodeInformer,
 	runtime runtime.Runtime,
 ) *Controller {
-
-	extraFieldsPattern := make(map[string]*pattern.Pattern)
-	for k, v := range config.K8sFields {
-		p, _ := pattern.Init(v)
-		extraFieldsPattern[k] = p
-	}
 
 	log.Info("Creating event broadcaster")
 	eventBroadcaster := record.NewBroadcaster()
@@ -141,13 +138,21 @@ func NewController(
 		typeClusterIndex: index.NewLogConfigTypeLoggieIndex(),
 		typeNodeIndex:    index.NewLogConfigTypeNodeIndex(),
 
-		record:             recorder,
-		runtime:            runtime,
-		extraFieldsPattern: extraFieldsPattern,
+		record:  recorder,
+		runtime: runtime,
 	}
+
+	controller.InitK8sFieldsPattern()
 
 	log.Info("Setting up event handlers")
 	utilruntime.Must(logconfigSchema.AddToScheme(scheme.Scheme))
+
+	// Since type node logic depends on node labels, we get and set node info at first.
+	node, err := kubeClientset.CoreV1().Nodes().Get(context.Background(), global.NodeName, metav1.GetOptions{})
+	if err != nil {
+		log.Panic("get node %s failed: %+v", global.NodeName, err)
+	}
+	controller.nodeInfo = node.DeepCopy()
 
 	clusterLogConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -262,9 +267,6 @@ func NewController(
 			controller.enqueue(new, EventPod, logconfigv1beta1.SelectorTypePod)
 		},
 		DeleteFunc: func(obj interface{}) {
-			po := obj.(*corev1.Pod)
-
-			log.Info("pod: %s/%s is deleting", po.Namespace, po.Name)
 			controller.enqueueForDelete(obj, EventPod, logconfigv1beta1.SelectorTypePod)
 		},
 	})
@@ -277,10 +279,6 @@ func NewController(
 			newConfig := new.(*corev1.Node)
 			oldConfig := old.(*corev1.Node)
 			if newConfig.ResourceVersion == oldConfig.ResourceVersion {
-				return
-			}
-
-			if reflect.DeepEqual(newConfig.Labels, oldConfig.Labels) {
 				return
 			}
 
@@ -319,6 +317,29 @@ func NewController(
 	})
 
 	return controller
+}
+
+func (c *Controller) InitK8sFieldsPattern() {
+	typePodPattern := make(map[string]*pattern.Pattern)
+	for k, v := range c.config.TypePodFields {
+		p, _ := pattern.Init(v)
+		typePodPattern[k] = p
+	}
+
+	for k, v := range c.config.K8sFields {
+		p, _ := pattern.Init(v)
+		typePodPattern[k] = p
+	}
+
+	c.extraTypePodFieldsPattern = typePodPattern
+
+	typeNodePattern := make(map[string]*pattern.Pattern)
+	for k, v := range c.config.TypeNodeFields {
+		p, _ := pattern.Init(v)
+		typeNodePattern[k] = p
+	}
+
+	c.extraTypeNodeFieldsPattern = typeNodePattern
 }
 
 func (c *Controller) enqueue(obj interface{}, eleType string, selectorType string) {
@@ -444,12 +465,20 @@ func (c *Controller) syncHandler(element Element) error {
 
 	case EventClusterLogConf:
 		if err = c.reconcileClusterLogConfig(element); err != nil {
-			log.Warn("reconcile logConfig %s err: %v", element.Key, err)
+			if log.IsDebugLevel() {
+				log.Warn("reconcile clusterLogConfig %s err: %+v", element.Key, err)
+			} else {
+				log.Warn("reconcile clusterLogConfig %s err: %v", element.Key, err)
+			}
 		}
 
 	case EventLogConf:
 		if err = c.reconcileLogConfig(element); err != nil {
-			log.Warn("reconcile logConfig %s err: %v", element.Key, err)
+			if log.IsDebugLevel() {
+				log.Warn("reconcile logConfig %s err: %+v", element.Key, err)
+			} else {
+				log.Warn("reconcile logConfig %s err: %v", element.Key, err)
+			}
 		}
 
 	case EventNode:

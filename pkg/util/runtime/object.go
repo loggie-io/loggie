@@ -22,8 +22,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-const sep = "."
-
 type Object struct {
 	data interface{}
 }

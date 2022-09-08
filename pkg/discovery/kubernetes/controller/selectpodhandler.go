@@ -18,20 +18,20 @@ package controller
 
 import (
 	"fmt"
+	"github.com/google/go-cmp/cmp"
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/index"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	"github.com/loggie-io/loggie/pkg/source/codec"
 	"github.com/loggie-io/loggie/pkg/source/codec/json"
 	"github.com/loggie-io/loggie/pkg/source/codec/regex"
-	k8sMeta "github.com/loggie-io/loggie/pkg/util/pattern/k8smeta"
-	utilerrors "k8s.io/apimachinery/pkg/util/errors"
-	"regexp"
-	"strings"
-
-	"github.com/google/go-cmp/cmp"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"regexp"
 
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -39,7 +39,6 @@ import (
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
-	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/index"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/source/file"
 	"github.com/loggie-io/loggie/pkg/util"
@@ -51,16 +50,23 @@ const (
 	GenerateTypeNodeConfigName   = "node-config.yml"
 )
 
-type fileSource struct {
-	ContainerName string       `yaml:"containerName,omitempty"`
-	MatchFields   *matchFields `yaml:"matchFields,omitempty"`
-	cfg.CommonCfg `yaml:",inline"`
-
-	ExcludeContainerPatterns []string `yaml:"excludeContainerPatterns,omitempty"` // regular pattern
-	excludeContainerRegexps  []*regexp.Regexp
+type KubeFileSourceExtra struct {
+	ContainerName            string           `yaml:"containerName,omitempty"`
+	MatchFields              *matchFields     `yaml:"matchFields,omitempty"`
+	ExcludeContainerPatterns []string         `yaml:"excludeContainerPatterns,omitempty"` // regular pattern
+	excludeContainerRegexps  []*regexp.Regexp `yaml:"-,omitempty"`
 }
 
-func (f *fileSource) IsContainerExcluded(container string) bool {
+func GetKubeExtraFromFileSource(src *source.Config) (*KubeFileSourceExtra, error) {
+	extra := &KubeFileSourceExtra{}
+
+	if err := cfg.UnpackFromCommonCfg(src.Properties, extra).Do(); err != nil {
+		return nil, err
+	}
+	return extra, nil
+}
+
+func (f *KubeFileSourceExtra) IsContainerExcluded(container string) bool {
 	if len(f.excludeContainerRegexps) == 0 {
 		return false
 	}
@@ -72,38 +78,22 @@ func (f *fileSource) IsContainerExcluded(container string) bool {
 	return false
 }
 
-func (f *fileSource) getSource() (*source.Config, error) {
-	srccfg := &source.Config{}
-	if err := cfg.Unpack(f.CommonCfg, srccfg); err != nil {
-		return nil, err
-	}
-	return srccfg, nil
-}
-
-func (f *fileSource) setSource(s *source.Config) error {
-	c, err := cfg.Pack(s)
+func setFileSource(s *source.Config, f *file.Config) error {
+	filesrc, err := cfg.Pack(f)
 	if err != nil {
 		return err
 	}
-	f.CommonCfg = cfg.MergeCommonCfg(f.CommonCfg, c, true)
+
+	s.Properties = filesrc
 	return nil
 }
 
-func (f *fileSource) getFileConfig() (*file.Config, error) {
+func getFileSource(s *source.Config) (*file.Config, error) {
 	conf := &file.Config{}
-	if err := cfg.Unpack(f.CommonCfg, conf); err != nil {
+	if err := cfg.UnpackFromCommonCfg(s.Properties, conf).Do(); err != nil {
 		return nil, errors.WithMessage(err, "unpack file source config failed")
 	}
 	return conf, nil
-}
-
-func (f *fileSource) setFileConfig(c *file.Config) error {
-	conf, err := cfg.Pack(c)
-	if err != nil {
-		return err
-	}
-	cfg.MergeCommonCfg(f.CommonCfg, conf, true)
-	return nil
 }
 
 type matchFields struct {
@@ -113,7 +103,6 @@ type matchFields struct {
 }
 
 func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.LogConfig) (err error, podsName []string) {
-
 	// find pods related in the node
 	podList, err := helper.GetLogConfigRelatedPod(lgc, c.podsLister)
 	if err != nil {
@@ -127,6 +116,10 @@ func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.Log
 	var successPodNames []string
 	var errs []error
 	for _, pod := range podList {
+		if !helper.IsPodReady(pod) {
+			continue
+		}
+
 		if err := c.handleLogConfigPerPod(lgc, pod); err != nil {
 			errs = append(errs, errors.WithMessagef(err, "match pod %s/%s", pod.Namespace, pod.Name))
 			continue
@@ -212,7 +205,7 @@ func (c *Controller) handlePodAddOrUpdateOfClusterLogConfig(pod *corev1.Pod) {
 func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod) error {
 
 	// generate pod related pipeline configs
-	pipeRaw, err := c.getConfigFromPodAndLogConfig(c.config, lgc, pod, c.sinkLister, c.interceptorLister)
+	pipeRaw, err := c.getConfigFromPodAndLogConfig(lgc, pod, c.sinkLister, c.interceptorLister)
 	if err != nil {
 		return err
 	}
@@ -220,13 +213,7 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 		return nil
 	}
 
-	// validate pipeline configs
-	pipeCopy, err := pipeRaw.DeepCopy()
-	if err != nil {
-		return errors.WithMessage(err, "deep copy pipeline config error")
-	}
-	pipeCopy.SetDefaults()
-	if err = pipeCopy.Validate(); err != nil {
+	if err := cfg.NewUnpack(nil, pipeRaw, nil).Defaults().Validate().Do(); err != nil {
 		return err
 	}
 
@@ -240,8 +227,10 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 	}
 
 	// update index
-	if err = c.typePodIndex.ValidateAndSetConfigs(pod.Namespace, pod.Name, lgc.Namespace, lgc.Name, pipeRaw, lgc); err != nil {
-		return err
+	c.typePodIndex.SetConfigs(pod.Namespace, pod.Name, lgc.Name, pipeRaw, lgc)
+	if c.config.DynamicContainerLog {
+		paths := helper.GetPathsFromSources(pipeRaw.Sources)
+		log.Info("[pipeline: %s] [pod: %s/%s] set dynamic paths: %+v", pipeRaw.Name, pod.Namespace, pod.Name, paths)
 	}
 
 	// TODO merge pipelines if there is no specific pipeline configs
@@ -259,44 +248,44 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 	return nil
 }
 
-func (c *Controller) getConfigFromPodAndLogConfig(config *Config, lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod,
-	sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.ConfigRaw, error) {
+func (c *Controller) getConfigFromPodAndLogConfig(lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod,
+	sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.Config, error) {
 
 	if len(pod.Status.ContainerStatuses) == 0 {
 		return nil, nil
 	}
-	cfgs, err := c.getConfigFromContainerAndLogConfig(config, lgc, pod, sinkLister, interceptorLister)
+	cfgs, err := c.getConfigFromContainerAndLogConfig(lgc, pod, sinkLister, interceptorLister)
 	if err != nil {
 		return nil, err
 	}
 	return cfgs, nil
 }
 
-func (c *Controller) getConfigFromContainerAndLogConfig(config *Config, lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod,
-	sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.ConfigRaw, error) {
+func (c *Controller) getConfigFromContainerAndLogConfig(lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod,
+	sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.Config, error) {
 
 	logConf := lgc.DeepCopy()
-	sourceConfList := make([]fileSource, 0)
-	err := cfg.UnpackRaw([]byte(logConf.Spec.Pipeline.Sources), &sourceConfList)
+	sourceConfList := make([]*source.Config, 0)
+	err := cfg.UnPackFromRaw([]byte(logConf.Spec.Pipeline.Sources), &sourceConfList).Do()
 	if err != nil {
 		return nil, errors.WithMessagef(err, "unpack logConfig %s sources failed", lgc.Namespace)
 	}
 
-	filesources, err := c.updateSources(sourceConfList, config, pod, logConf.Name)
+	filesources, err := c.updateSources(sourceConfList, pod, logConf.Name)
 	if err != nil {
 		return nil, err
 	}
-	pipecfg, err := toPipeConfig(lgc.Namespace, lgc.Name, logConf.Spec.Pipeline, filesources, sinkLister, interceptorLister)
+	pipecfg, err := toPipeConfig(c.config.DynamicContainerLog, lgc.Namespace, lgc.Name, logConf.Spec.Pipeline, filesources, sinkLister, interceptorLister)
 	if err != nil {
 		return nil, err
 	}
 	return pipecfg, nil
 }
 
-func (c *Controller) updateSources(sourceConfList []fileSource, config *Config, pod *corev1.Pod, logConfigName string) ([]fileSource, error) {
-	filesources := make([]fileSource, 0)
+func (c *Controller) updateSources(sourceConfList []*source.Config, pod *corev1.Pod, logConfigName string) ([]*source.Config, error) {
+	filesources := make([]*source.Config, 0)
 	for _, sourceConf := range sourceConfList {
-		filesrc, err := c.getConfigPerSource(config, sourceConf, pod, logConfigName)
+		filesrc, err := c.makeConfigPerSource(sourceConf, pod, logConfigName)
 		if err != nil {
 			return nil, err
 		}
@@ -305,10 +294,14 @@ func (c *Controller) updateSources(sourceConfList []fileSource, config *Config, 
 	return filesources, nil
 }
 
-func (c *Controller) getConfigPerSource(config *Config, s fileSource, pod *corev1.Pod, logconfigName string) ([]fileSource, error) {
-	if len(s.ExcludeContainerPatterns) > 0 {
-		regexps := make([]*regexp.Regexp, len(s.ExcludeContainerPatterns))
-		for i, containerPattern := range s.ExcludeContainerPatterns {
+func (c *Controller) makeConfigPerSource(s *source.Config, pod *corev1.Pod, logconfigName string) ([]*source.Config, error) {
+	extra, err := GetKubeExtraFromFileSource(s)
+	if err != nil {
+		return nil, err
+	}
+	if len(extra.ExcludeContainerPatterns) > 0 {
+		regexps := make([]*regexp.Regexp, len(extra.ExcludeContainerPatterns))
+		for i, containerPattern := range extra.ExcludeContainerPatterns {
 			reg, err := regexp.Compile(containerPattern)
 			if err != nil {
 				log.Error("compile exclude container pattern(%s) fail: %v", containerPattern, err)
@@ -316,45 +309,39 @@ func (c *Controller) getConfigPerSource(config *Config, s fileSource, pod *corev
 			}
 			regexps[i] = reg
 		}
-		s.excludeContainerRegexps = regexps
+		extra.excludeContainerRegexps = regexps
 	}
 
-	filesrcList := make([]fileSource, 0)
+	filesrcList := make([]*source.Config, 0)
 	for _, status := range pod.Status.ContainerStatuses {
-		filesrc := fileSource{}
+		filesrc := &source.Config{}
 		if err := util.Clone(s, &filesrc); err != nil {
 			return nil, err
 		}
 
 		containerId := helper.ExtractContainerId(status.ContainerID)
-		src, err := filesrc.getSource()
-		if err != nil {
-			return nil, err
-		}
-		if src.Type != file.Type {
+		if filesrc.Type != file.Type {
 			return nil, errors.New("only source type=file is supported when selector.type=pod")
 		}
 
-		if s.IsContainerExcluded(status.Name) {
+		if extra.IsContainerExcluded(status.Name) {
 			continue
 		}
 
-		if s.ContainerName != "" && s.ContainerName != status.Name {
+		if extra.ContainerName != "" && extra.ContainerName != status.Name {
 			continue
 		}
+
 		// change the source name, add pod.Name-containerName as prefix, since there maybe multiple containers in pod
-		src.Name = genTypePodSourceName(pod.Name, status.Name, src.Name)
+		filesrc.Name = helper.GenTypePodSourceName(pod.Name, status.Name, filesrc.Name)
 
 		// inject default pod metadata
-		if err = c.injectFields(config, s.MatchFields, src, pod, logconfigName, status.Name); err != nil {
-			return nil, err
-		}
-		if err = filesrc.setSource(src); err != nil {
+		if err := c.injectTypePodFields(c.config.DynamicContainerLog, filesrc, extra.MatchFields, pod, logconfigName, status.Name); err != nil {
 			return nil, err
 		}
 
 		// use paths of the node
-		if err = c.updatePaths(config, src, &filesrc, pod, status.Name, containerId); err != nil {
+		if err := c.updatePaths(filesrc, pod, status.Name, containerId); err != nil {
 			return nil, err
 		}
 
@@ -364,33 +351,21 @@ func (c *Controller) getConfigPerSource(config *Config, s fileSource, pod *corev
 	return filesrcList, nil
 }
 
-func genTypePodSourceName(podName string, containerName string, sourceName string) string {
-	return fmt.Sprintf("%s/%s/%s", podName, containerName, sourceName)
-}
-
-func getTypePodOriginSourceName(podSourceName string) string {
-	res := strings.Split(podSourceName, "/")
-	if len(res) == 0 {
-		return ""
-	}
-	return res[len(res)-1]
-}
-
-func (c *Controller) updatePaths(config *Config, source *source.Config, filesource *fileSource, pod *corev1.Pod, containerName, containerId string) error {
-	filecfg, err := filesource.getFileConfig()
+func (c *Controller) updatePaths(source *source.Config, pod *corev1.Pod, containerName, containerId string) error {
+	filecfg, err := getFileSource(source)
 	if err != nil {
 		return err
 	}
 	// update paths with real paths in the node
-	nodePaths, err := c.getPathsInNode(config, filecfg.CollectConfig.Paths, pod, containerName, containerId)
+	nodePaths, err := c.getPathsInNode(filecfg.CollectConfig.Paths, pod, containerName, containerId)
 	if err != nil {
 		return err
 	}
 
 	// parse the stdout raw logs
-	if config.ParseStdout && len(filecfg.CollectConfig.Paths) == 1 && filecfg.CollectConfig.Paths[0] == logconfigv1beta1.PathStdout {
+	if c.config.ParseStdout && len(filecfg.CollectConfig.Paths) == 1 && filecfg.CollectConfig.Paths[0] == logconfigv1beta1.PathStdout {
 		source.Codec = &codec.Config{}
-		if config.ContainerRuntime == runtime.RuntimeDocker {
+		if c.config.ContainerRuntime == runtime.RuntimeDocker {
 			// e.g.: `{"log":"example: 17 Tue Feb 16 09:15:17 UTC 2021\n","stream":"stdout","time":"2021-02-16T09:15:17.511829776Z"}`
 			source.Codec.Type = json.Type
 			jsoncodec := json.Config{
@@ -411,101 +386,101 @@ func (c *Controller) updatePaths(config *Config, source *source.Config, filesour
 				return errors.WithMessage(err, "pack regex codec config failed")
 			}
 		}
-		if err := filesource.setSource(source); err != nil {
-			return err
-		}
 	}
 
 	filecfg.CollectConfig.Paths = nodePaths
-	err = filesource.setFileConfig(filecfg)
+	err = setFileSource(source, filecfg)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (c *Controller) getPathsInNode(config *Config, containerPaths []string, pod *corev1.Pod, containerName string, containerId string) ([]string, error) {
+func (c *Controller) getPathsInNode(containerPaths []string, pod *corev1.Pod, containerName string, containerId string) ([]string, error) {
 	if len(containerPaths) == 0 {
 		return nil, errors.New("path is empty")
 	}
 
-	return helper.PathsInNode(config.PodLogDirPrefix, config.KubeletRootDir, config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
+	return helper.PathsInNode(c.config.PodLogDirPrefix, c.config.KubeletRootDir, c.config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
 }
 
-func (c *Controller) injectFields(config *Config, match *matchFields, src *source.Config, pod *corev1.Pod, lgcName string, containerName string) error {
+func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.Config, match *matchFields, pod *corev1.Pod, lgcName string, containerName string) error {
 	if src.Fields == nil {
 		src.Fields = make(map[string]interface{})
 	}
 
-	m := config.Fields
+	k8sFields := make(map[string]interface{})
+
+	m := c.config.Fields
 	if m.Namespace != "" {
-		src.Fields[m.Namespace] = pod.Namespace
+		k8sFields[m.Namespace] = pod.Namespace
 	}
 	if m.NodeName != "" {
-		src.Fields[m.NodeName] = pod.Spec.NodeName
+		k8sFields[m.NodeName] = pod.Spec.NodeName
 	}
 	if m.NodeIP != "" {
-		src.Fields[m.NodeIP] = pod.Status.HostIP
+		k8sFields[m.NodeIP] = pod.Status.HostIP
 	}
 	if m.PodName != "" {
-		src.Fields[m.PodName] = pod.Name
+		k8sFields[m.PodName] = pod.Name
 	}
 	if m.PodIP != "" {
-		src.Fields[m.PodIP] = pod.Status.PodIP
+		k8sFields[m.PodIP] = pod.Status.PodIP
 	}
 	if m.ContainerName != "" {
-		src.Fields[m.ContainerName] = containerName
+		k8sFields[m.ContainerName] = containerName
 	}
 	if m.LogConfig != "" {
-		src.Fields[m.LogConfig] = lgcName
+		k8sFields[m.LogConfig] = lgcName
 	}
 
-	if len(c.extraFieldsPattern) > 0 {
-		for k, p := range c.extraFieldsPattern {
-			res, err := p.WithK8s(k8sMeta.NewFieldsData(pod, containerName, lgcName)).Render()
+	if len(c.extraTypePodFieldsPattern) > 0 {
+		for k, p := range c.extraTypePodFieldsPattern {
+			res, err := p.WithK8sPod(pattern.NewTypePodFieldsData(pod, containerName, lgcName)).Render()
 			if err != nil {
 				log.Warn("add extra k8s fields %s failed: %v", k, err)
 				continue
 			}
-			src.Fields[k] = res
+			k8sFields[k] = res
 		}
 	}
 
 	if match != nil {
 		if len(match.LabelKey) > 0 {
 			for k, v := range helper.GetMatchedPodLabel(match.LabelKey, pod) {
-				src.Fields[k] = v
+				k8sFields[k] = v
 			}
 		}
 		if len(match.AnnotationKey) > 0 {
 			for k, v := range helper.GetMatchedPodAnnotation(match.AnnotationKey, pod) {
-				src.Fields[k] = v
+				k8sFields[k] = v
 			}
 		}
 		if len(match.Env) > 0 {
 			for k, v := range helper.GetMatchedPodEnv(match.Env, pod, containerName) {
-				src.Fields[k] = v
+				k8sFields[k] = v
 			}
 		}
+	}
+
+	// The k8s meta information here will not be rendered as configuration and will eventually be set to external.DynamicLogIndexer
+	if dynamicContainerLogs {
+		src.Fields[index.K8sFieldsKey] = k8sFields
+		return nil
+	}
+
+	for k, v := range k8sFields {
+		src.Fields[k] = v
 	}
 
 	return nil
 }
 
-func toPipeConfig(lgcNamespace string, lgcName string, lgcPipe *logconfigv1beta1.Pipeline, filesources []fileSource, sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.ConfigRaw, error) {
-	pipecfg := &pipeline.ConfigRaw{}
+func toPipeConfig(dynamicContainerLog bool, lgcNamespace string, lgcName string, lgcPipe *logconfigv1beta1.Pipeline, filesources []*source.Config, sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.Config, error) {
+	pipecfg := &pipeline.Config{}
 
-	if lgcNamespace == "" {
-		pipecfg.Name = lgcName
-	} else {
-		pipecfg.Name = fmt.Sprintf("%s/%s", lgcNamespace, lgcName)
-	}
-
-	src, err := toPipelineSource(filesources)
-	if err != nil {
-		return pipecfg, err
-	}
-	pipecfg.Sources = src
+	pipecfg.Name = helper.MetaNamespaceKey(lgcNamespace, lgcName)
+	pipecfg.Sources = filesources
 
 	sink, err := helper.ToPipelineSink(lgcPipe.Sink, lgcPipe.SinkRef, sinkLister)
 	if err != nil {
@@ -513,7 +488,7 @@ func toPipeConfig(lgcNamespace string, lgcName string, lgcPipe *logconfigv1beta1
 	}
 	pipecfg.Sink = sink
 
-	interceptors, err := toPipelineInterceptorWithPodInject(lgcPipe.Interceptors, lgcPipe.InterceptorRef, interceptorLister, filesources)
+	interceptors, err := toPipelineInterceptorWithPodInject(dynamicContainerLog, lgcPipe.Interceptors, lgcPipe.InterceptorRef, interceptorLister, filesources)
 	if err != nil {
 		return pipecfg, err
 	}
@@ -522,26 +497,11 @@ func toPipeConfig(lgcNamespace string, lgcName string, lgcPipe *logconfigv1beta1
 	return pipecfg, nil
 }
 
-func toPipelineSource(filesources []fileSource) ([]cfg.CommonCfg, error) {
-	sourceConfList := make([]cfg.CommonCfg, 0)
-
-	for _, sr := range filesources {
-		sourceConf, err := cfg.Pack(sr.CommonCfg)
-		if err != nil {
-			return nil, err
-		}
-
-		sourceConfList = append(sourceConfList, sourceConf)
-	}
-
-	return sourceConfList, nil
-}
-
 // Since the source name is auto-generated in LogConfig, the interceptor param `belongTo` is also need to be changed
-func toPipelineInterceptorWithPodInject(interceptorRaw string, interceptorRef string, interceptorLister v1beta1.InterceptorLister, filesources []fileSource) ([]cfg.CommonCfg, error) {
-	var interceptor string
+func toPipelineInterceptorWithPodInject(dynamicContainerLog bool, interceptorRaw string, interceptorRef string, interceptorLister v1beta1.InterceptorLister, filesources []*source.Config) ([]*interceptor.Config, error) {
+	var interceptorStr string
 	if interceptorRaw != "" {
-		interceptor = interceptorRaw
+		interceptorStr = interceptorRaw
 	} else {
 		lgcInterceptor, err := interceptorLister.Get(interceptorRef)
 		if err != nil {
@@ -551,14 +511,24 @@ func toPipelineInterceptorWithPodInject(interceptorRaw string, interceptorRef st
 			return nil, err
 		}
 
-		interceptor = lgcInterceptor.Spec.Interceptors
+		interceptorStr = lgcInterceptor.Spec.Interceptors
+	}
+
+	icpConfList := make([]*interceptor.Config, 0)
+	err := cfg.UnPackFromRaw([]byte(interceptorStr), &icpConfList).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	if dynamicContainerLog {
+		return icpConfList, nil
 	}
 
 	// key: originSourceName, multi value: podName/containerName/originSourceName
 	originSrcNameMap := make(map[string]sets.String)
 	for _, fs := range filesources {
-		podSrcName := fs.GetName()
-		origin := getTypePodOriginSourceName(podSrcName)
+		podSrcName := fs.Name
+		origin := helper.GetTypePodOriginSourceName(podSrcName)
 		srcVal, ok := originSrcNameMap[origin]
 		if !ok {
 			originSrcNameMap[origin] = sets.NewString(podSrcName)
@@ -567,20 +537,18 @@ func toPipelineInterceptorWithPodInject(interceptorRaw string, interceptorRef st
 		srcVal.Insert(podSrcName)
 	}
 
-	icpConfList := make([]index.ExtInterceptorConfig, 0)
-	err := cfg.UnpackRaw([]byte(interceptor), &icpConfList)
-	if err != nil {
-		return nil, err
-	}
-
 	for i, extIcp := range icpConfList {
-		if len(extIcp.BelongTo) == 0 {
+		exd, err := extIcp.GetExtension()
+		if err != nil {
+			return nil, err
+		}
+		if len(exd.BelongTo) == 0 {
 			continue
 		}
 
 		newBelongTo := make([]string, 0)
 		// update interceptor belongTo with podName/containerName/originSourceName
-		for _, origin := range extIcp.BelongTo {
+		for _, origin := range exd.BelongTo {
 			podSrcNameSet, ok := originSrcNameMap[origin]
 			if !ok {
 				continue
@@ -588,18 +556,8 @@ func toPipelineInterceptorWithPodInject(interceptorRaw string, interceptorRef st
 			newBelongTo = append(newBelongTo, podSrcNameSet.List()...)
 		}
 
-		icpConfList[i].BelongTo = newBelongTo
+		icpConfList[i].SetBelongTo(newBelongTo)
 	}
 
-	icpCommonCfg := make([]cfg.CommonCfg, 0)
-	for _, v := range icpConfList {
-		c, err := cfg.Pack(v)
-		if err != nil {
-			log.Info("pack interceptor config error: %+v", err)
-			continue
-		}
-		icpCommonCfg = append(icpCommonCfg, c)
-	}
-
-	return icpCommonCfg, nil
+	return icpConfList, nil
 }
