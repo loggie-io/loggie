@@ -103,6 +103,7 @@ func TestMergeSourceList(t *testing.T) {
 		base []*Config
 		from []*Config
 	}
+	defaultBool := false
 	tests := []struct {
 		name string
 		args args
@@ -123,6 +124,7 @@ func TestMergeSourceList(t *testing.T) {
 						Fields: map[string]interface{}{
 							"a": "b",
 						},
+						FieldsUnderRoot: &defaultBool,
 					},
 				},
 				from: []*Config{
