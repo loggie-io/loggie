@@ -890,49 +890,94 @@ func (w *Watcher) reportWatchMetricAndCleanFiles() {
 			} else {
 				activeCount++
 			}
-		}
-		fileInfos := make([]eventbus.FileInfo, 0)
-		for _, path := range paths {
-			matches, err := util.GlobWithRecursive(path)
-			if err != nil {
-				log.Info("[pipeline(%s)-source(%s)]: glob path(%s) fail: %v", pipelineName, sourceName, path, err)
-				continue
-			}
-			for _, fileName := range matches {
-				if legal, f, stat := w.legalFile(fileName, watchTask, false); legal {
-					job := watchTask.newJob(f, stat)
-					existRegistry := w.findExistJobRegistry(job)
-					existOffset := existRegistry.Offset
-					existJob, exist := w.allJobs[job.WatchUid()]
-					fileInfo := eventbus.FileInfo{
-						FileName:       f,
-						Size:           stat.Size(),
-						LastModifyTime: stat.ModTime(),
-						Offset:         existOffset,
-						IsIgnoreOlder:  job.task.config.IsIgnoreOlder(stat),
-						IsRelease:      exist && existJob.file == nil,
-					}
-					fileInfos = append(fileInfos, fileInfo)
-				}
-			}
-		}
-		watchMetricData := eventbus.WatchMetricData{
-			BaseMetric: eventbus.BaseMetric{
-				PipelineName: pipelineName,
-				SourceName:   sourceName,
-			},
-			FileInfos:       fileInfos,
-			TotalFileCount:  activeCount,
-			InactiveFdCount: inActiveFdCount,
-			SourceFields:    watchTask.sourceFields,
-		}
-		eventbus.Publish(eventbus.FileWatcherTopic, watchMetricData)
 
-		removedFiles := w.cleanFiles(fileInfos)
-		if len(removedFiles) > 0 {
-			log.Info("cleanLogs: removed files %+v", removedFiles)
+			watchMetricData := w.reportWatchMetric(watchTask, paths, pipelineName, sourceName)
+			eventbus.Publish(eventbus.FileWatcherTopic, watchMetricData)
+
+			removedFiles := w.cleanFiles(watchMetricData.FileInfos)
+			if len(removedFiles) > 0 {
+				log.Info("cleanLogs: removed files %+v", removedFiles)
+			}
 		}
 	}
+}
+
+func (w *Watcher) reportWatchMetric(watchTask *WatchTask, paths []string, pipelineName string, sourceName string) eventbus.WatchMetricData {
+	var (
+		activeFdCount   int
+		inActiveFdCount int
+	)
+	for _, job := range w.allJobs {
+		if job.file == nil {
+			continue
+		}
+		if job.task.pipelineName != watchTask.pipelineName {
+			continue
+		}
+		if job.task.sourceName != watchTask.sourceName {
+			continue
+		}
+		if j, ok := w.zombieJobs[job.WatchUid()]; ok {
+			if j.file != nil {
+				inActiveFdCount++
+			}
+		} else {
+			activeFdCount++
+		}
+	}
+	fileInfos := make([]eventbus.FileInfo, 0)
+	for _, path := range paths {
+		matches, err := util.GlobWithRecursive(path)
+		if err != nil {
+			log.Info("[pipeline(%s)-source(%s)]: glob path(%s) fail: %v", pipelineName, sourceName, path, err)
+			continue
+		}
+		for _, fileName := range matches {
+			if legal, f, stat := w.legalFile(fileName, watchTask, false); legal {
+				job := watchTask.newJob(f, stat)
+				existRegistry := w.findExistJobRegistry(job)
+				existOffset := existRegistry.Offset
+				existJob, exist := w.allJobs[job.WatchUid()]
+				fileInfo := eventbus.FileInfo{
+					FileName:       f,
+					Size:           stat.Size(),
+					LastModifyTime: stat.ModTime(),
+					Offset:         existOffset,
+					IsIgnoreOlder:  job.task.config.IsIgnoreOlder(stat),
+					IsRelease:      exist && existJob.file == nil,
+				}
+				fileInfos = append(fileInfos, fileInfo)
+			}
+		}
+	}
+
+	watchMetricData := eventbus.WatchMetricData{
+		BaseMetric: eventbus.BaseMetric{
+			PipelineName: pipelineName,
+			SourceName:   sourceName,
+		},
+		FileInfos:       fileInfos,
+		ActiveFileCount: activeFdCount,
+		InactiveFdCount: inActiveFdCount,
+		SourceFields:    watchTask.sourceFields,
+	}
+
+	return watchMetricData
+}
+
+// ExportWatchMetric export all pipeline/source files info
+func ExportWatchMetric() map[string]eventbus.WatchMetricData {
+	watcherMetrics := make(map[string]eventbus.WatchMetricData)
+
+	watchLock.Lock()
+	defer watchLock.Unlock()
+	for _, watchTask := range globalWatcher.sourceWatchTasks {
+		paths := getPathsIfDynamicContainerLogs(watchTask.config.Paths, watchTask.pipelineName, watchTask.sourceName)
+		m := globalWatcher.reportWatchMetric(watchTask, paths, watchTask.pipelineName, watchTask.sourceName)
+		watcherMetrics[fmt.Sprintf("%s/%s", watchTask.pipelineName, watchTask.sourceName)] = m
+	}
+
+	return watcherMetrics
 }
 
 func (w *Watcher) cleanFiles(infos []eventbus.FileInfo) []string {

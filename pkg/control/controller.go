@@ -17,8 +17,6 @@ limitations under the License.
 package control
 
 import (
-	"github.com/loggie-io/loggie/pkg/util/yaml"
-	"net/http"
 	_ "net/http/pprof"
 	"time"
 
@@ -27,12 +25,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 )
-
-const handleCurrentPipelines = "/api/v1/controller/pipelines"
-
-func (c *Controller) initHttp() {
-	http.HandleFunc(handleCurrentPipelines, c.currentPipelinesHandler)
-}
 
 type Controller struct {
 	CurrentConfig  *PipelineConfig
@@ -143,17 +135,4 @@ func (c *Controller) reportMetric(p pipeline.Config, eventType eventbus.Componen
 		Time:             time.Now(),
 		ComponentConfigs: componentConfigs,
 	})
-}
-
-func (c *Controller) currentPipelinesHandler(writer http.ResponseWriter, request *http.Request) {
-	data, err := yaml.Marshal(c.CurrentConfig)
-	if err != nil {
-		log.Warn("marshal current pipeline config err: %v", err)
-		writer.WriteHeader(http.StatusInternalServerError)
-		writer.Write([]byte(err.Error()))
-		return
-	}
-
-	writer.WriteHeader(http.StatusOK)
-	writer.Write(data)
 }

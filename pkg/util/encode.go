@@ -18,7 +18,9 @@ var AllEncodings = map[string]encoding.Encoding{
 	"utf-8": encoding.Nop,
 
 	// simplified chinese
-	"gbk": simplifiedchinese.GBK, // shadow htmlindex using 'GB10830' for GBK
+	"gbk":      simplifiedchinese.GBK, // shadow htmlindex using 'GB10830' for GBK
+	"gb18030":  simplifiedchinese.GB18030,
+	"hzgb2312": simplifiedchinese.HZGB2312,
 
 	// traditional chinese
 	"big5": traditionalchinese.Big5,
