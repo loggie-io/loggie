@@ -58,6 +58,7 @@ pipelines:
 	err = cfg.UnPackFromRaw([]byte(raw), pipe).Defaults().Validate().Do()
 	assert.NoError(t, err)
 
+	defaultValue := false
 	want := &control.PipelineConfig{
 		Pipelines: []pipeline.Config{
 			{
@@ -75,7 +76,8 @@ pipelines:
 								},
 							},
 						},
-						FieldsUnderKey: "fields",
+						FieldsUnderRoot: &defaultValue,
+						FieldsUnderKey:  "fields",
 						Fields: map[string]interface{}{
 							"a": "b",
 							"c": "d",
