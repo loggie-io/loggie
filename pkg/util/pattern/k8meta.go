@@ -17,12 +17,17 @@ limitations under the License.
 package pattern
 
 import (
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	corev1 "k8s.io/api/core/v1"
 	"strings"
 )
 
-const k8sToken = "_k8s."
+const (
+	k8sToken = "_k8s."
+
+	AllLabelToken = "${labels.key}"
+)
 
 type TypePodFieldsData struct {
 	Pod           *corev1.Pod
@@ -50,6 +55,18 @@ func NewTypeNodeFieldsData(node *corev1.Node, clusterlogconfig string) *TypeNode
 	}
 }
 
+type TypeVmFieldsData struct {
+	Vm               *v1beta1.Vm
+	ClusterLogConfig string
+}
+
+func NewTypeVmFieldsData(vm *v1beta1.Vm, clusterlogconfig string) *TypeVmFieldsData {
+	return &TypeVmFieldsData{
+		Vm:               vm,
+		ClusterLogConfig: clusterlogconfig,
+	}
+}
+
 // K8sMatcher
 
 func IsK8sVar(key string) bool {
@@ -64,6 +81,10 @@ func (p *Pattern) K8sMatcherRender(key string) string {
 
 	if p.tmpK8sNodeData != nil {
 		return renderTypeNode(p.tmpK8sNodeData, field)
+	}
+
+	if p.tmpVmData != nil {
+		return renderTypeVm(p.tmpVmData, field)
 	}
 
 	return ""
@@ -124,6 +145,9 @@ func renderTypePod(data *TypePodFieldsData, field string) string {
 const (
 	nodeLabelPrefix      = "node.labels."
 	nodeAnnotationPrefix = "node.annotations."
+
+	vmLabelPrefix      = "vm.labels."
+	vmAnnotationPrefix = "vm.annotations."
 )
 
 func renderTypeNode(data *TypeNodeFieldsData, field string) string {
@@ -180,6 +204,25 @@ func getNodeAddress(address []corev1.NodeAddress, addressType corev1.NodeAddress
 		if addr.Type == addressType {
 			return addr.Address
 		}
+	}
+
+	return ""
+}
+
+func renderTypeVm(data *TypeVmFieldsData, field string) string {
+	if strings.HasPrefix(field, vmLabelPrefix) {
+		key := strings.TrimPrefix(field, vmLabelPrefix)
+		return data.Vm.Labels[key]
+	}
+
+	if strings.HasPrefix(field, vmAnnotationPrefix) {
+		key := strings.TrimPrefix(field, vmAnnotationPrefix)
+		return data.Vm.Annotations[key]
+	}
+
+	switch field {
+	case "clusterlogconfig":
+		return data.ClusterLogConfig
 	}
 
 	return ""

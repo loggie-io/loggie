@@ -46,6 +46,7 @@ type Pattern struct {
 	tmpObj         *runtime.Object
 	tmpK8sPodData  *TypePodFieldsData
 	tmpK8sNodeData *TypeNodeFieldsData
+	tmpVmData      *TypeVmFieldsData
 }
 
 type matcher struct {
@@ -186,6 +187,11 @@ func (p *Pattern) WithK8sPod(data *TypePodFieldsData) *Pattern {
 
 func (p *Pattern) WithK8sNode(data *TypeNodeFieldsData) *Pattern {
 	p.tmpK8sNodeData = data
+	return p
+}
+
+func (p *Pattern) WithVm(data *TypeVmFieldsData) *Pattern {
+	p.tmpVmData = data
 	return p
 }
 

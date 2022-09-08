@@ -88,11 +88,13 @@ type Controller struct {
 	typeNodeIndex    *index.LogConfigTypeNodeIndex
 
 	nodeInfo *corev1.Node
+	vmInfo   *logconfigv1beta1.Vm
 
 	record                     record.EventRecorder
 	runtime                    runtime.Runtime
 	extraTypePodFieldsPattern  map[string]*pattern.Pattern
 	extraTypeNodeFieldsPattern map[string]*pattern.Pattern
+	extraTypeVmFieldsPattern   map[string]*pattern.Pattern
 }
 
 func NewController(
@@ -130,7 +132,7 @@ func NewController(
 
 			typeNodeIndex: index.NewLogConfigTypeNodeIndex(),
 
-			record:             recorder,
+			record: recorder,
 		}
 	} else {
 		controller = &Controller{
@@ -151,8 +153,8 @@ func NewController(
 			typeClusterIndex: index.NewLogConfigTypeLoggieIndex(),
 			typeNodeIndex:    index.NewLogConfigTypeNodeIndex(),
 
-			record:             recorder,
-			runtime:            runtime,
+			record:  recorder,
+			runtime: runtime,
 		}
 	}
 
@@ -161,12 +163,21 @@ func NewController(
 	log.Info("Setting up event handlers")
 	utilruntime.Must(logconfigSchema.AddToScheme(scheme.Scheme))
 
-	// Since type node logic depends on node labels, we get and set node info at first.
-	node, err := kubeClientset.CoreV1().Nodes().Get(context.Background(), global.NodeName, metav1.GetOptions{})
-	if err != nil {
-		log.Panic("get node %s failed: %+v", global.NodeName, err)
+	if config.VmMode {
+		vm, err := logConfigClientset.LoggieV1beta1().Vms().Get(context.Background(), global.NodeName, metav1.GetOptions{})
+		if err != nil {
+			log.Panic("get vm %s failed: %+v", global.NodeName, err)
+		}
+		controller.vmInfo = vm.DeepCopy()
+
+	} else {
+		// Since type node logic depends on node labels, we get and set node info at first.
+		node, err := kubeClientset.CoreV1().Nodes().Get(context.Background(), global.NodeName, metav1.GetOptions{})
+		if err != nil {
+			log.Panic("get node %s failed: %+v", global.NodeName, err)
+		}
+		controller.nodeInfo = node.DeepCopy()
 	}
-	controller.nodeInfo = node.DeepCopy()
 
 	clusterLogConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -375,8 +386,14 @@ func (c *Controller) InitK8sFieldsPattern() {
 		p, _ := pattern.Init(v)
 		typeNodePattern[k] = p
 	}
-
 	c.extraTypeNodeFieldsPattern = typeNodePattern
+
+	typeVmPattern := make(map[string]*pattern.Pattern)
+	for k, v := range c.config.TypeVmFields {
+		p, _ := pattern.Init(v)
+		typeVmPattern[k] = p
+	}
+	c.extraTypeVmFieldsPattern = typeVmPattern
 }
 
 func (c *Controller) enqueue(obj interface{}, eleType string, selectorType string) {

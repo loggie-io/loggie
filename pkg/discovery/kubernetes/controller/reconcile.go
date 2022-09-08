@@ -220,8 +220,8 @@ func (c *Controller) reconcileVm(name string) error {
 
 	// update vm labels
 	n := vm.DeepCopy()
-	c.nodeLabels = n.Labels
-	log.Info("vm label %v is set", c.nodeLabels)
+	c.vmInfo = n
+	log.Info("vm label %v is set", n.Labels)
 	return nil
 }
 
@@ -302,6 +302,11 @@ func (c *Controller) handleAllTypesDelete(key string, selectorType string) error
 		}
 
 	case logconfigv1beta1.SelectorTypeNode:
+		if ok := c.typeNodeIndex.DeleteConfig(key); !ok {
+			return nil
+		}
+
+	case logconfigv1beta1.SelectorTypeVm:
 		if ok := c.typeNodeIndex.DeleteConfig(key); !ok {
 			return nil
 		}

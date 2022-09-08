@@ -40,6 +40,7 @@ type Config struct {
 	K8sFields      map[string]string `yaml:"k8sFields"` // Deprecated: use typePodFields
 	TypePodFields  map[string]string `yaml:"typePodFields"`
 	TypeNodeFields map[string]string `yaml:"typeNodeFields"`
+	TypeVmFields   map[string]string `yaml:"typeVmFields"`
 	ParseStdout    bool              `yaml:"parseStdout"`
 
 	// If set to true, it means that the pipeline configuration generated does not contain specific Pod paths and meta information.
@@ -97,6 +98,14 @@ func (c *Config) Validate() error {
 
 	if c.TypeNodeFields != nil {
 		for _, v := range c.TypeNodeFields {
+			if err := pattern.Validate(v); err != nil {
+				return err
+			}
+		}
+	}
+
+	if c.TypeVmFields != nil {
+		for _, v := range c.TypeVmFields {
 			if err := pattern.Validate(v); err != nil {
 				return err
 			}
