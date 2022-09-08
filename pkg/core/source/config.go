@@ -98,7 +98,7 @@ func (c *Config) Merge(from *Config) {
 
 	c.Properties = cfg.MergeCommonCfg(c.Properties, from.Properties, false)
 
-	if c.FieldsUnderRoot == false {
+	if *c.FieldsUnderRoot == false {
 		c.FieldsUnderRoot = from.FieldsUnderRoot
 	}
 
