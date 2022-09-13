@@ -57,6 +57,10 @@ func Init(endpoints []string, runtime string) Runtime {
 	}
 }
 
+func GetRunTimeName(endpoints []string) (string, error) {
+	return getRuntimeName(endpoints)
+}
+
 func getRuntimeName(endpoints []string) (string, error) {
 	cli, conn, err := getRuntimeClient(endpoints)
 	if err != nil {
