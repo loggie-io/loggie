@@ -21,6 +21,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/global"
+	"go.uber.org/atomic"
+	"k8s.io/client-go/informers"
+	"k8s.io/client-go/tools/cache"
 	"os"
 	"strings"
 	"time"
@@ -30,9 +33,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -60,6 +61,8 @@ type KubeEvent struct {
 	event  chan interface{}
 	ctx    context.Context
 	cancel context.CancelFunc
+
+	isRun atomic.Value
 
 	startTime           time.Time
 	blackListNamespaces map[string]struct{}
@@ -147,6 +150,7 @@ func (k *KubeEvent) Start() error {
 			},
 			OnStoppedLeading: func() {
 				log.Info("leader election lost")
+				k.cancel()
 			},
 		},
 	})
@@ -155,12 +159,23 @@ func (k *KubeEvent) Start() error {
 		return nil
 	}
 
+	k.isRun.Store(true)
 	go le.Run(k.ctx)
 
 	return nil
 }
 
 func (k *KubeEvent) run(ctx context.Context, cli kubernetes.Interface) {
+	for {
+		k.eventLoop(ctx, cli)
+
+		if k.isRun.Load() == false {
+			break
+		}
+	}
+}
+
+func (k *KubeEvent) eventLoop(ctx context.Context, cli kubernetes.Interface) {
 	log.Info("starting kubernetes events informer")
 	informerFactory := informers.NewSharedInformerFactory(cli, 0)
 	eventInformer := informerFactory.Core().V1().Events()
@@ -199,6 +214,7 @@ func (k *KubeEvent) run(ctx context.Context, cli kubernetes.Interface) {
 }
 
 func (k *KubeEvent) Stop() {
+	k.isRun.Store(false)
 	k.cancel()
 }
 
