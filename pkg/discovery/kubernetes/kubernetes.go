@@ -44,6 +44,25 @@ func NewDiscovery(config *controller.Config) *Discovery {
 	}
 }
 
+func (d *Discovery) scanRunTime() {
+	if d.config.ContainerRuntime != "" {
+		return
+	}
+
+	name, err := runtime.GetRunTimeName(d.config.RuntimeEndpoints)
+	if err != nil {
+		log.Error("%s", err)
+		return
+	}
+
+	if name == "" {
+		log.Warn("No runtime found, set to docker by default")
+		name = runtime.RuntimeDocker
+	}
+
+	d.config.ContainerRuntime = name
+}
+
 func (d *Discovery) Start(stopCh <-chan struct{}) {
 	if d.config.RootFsCollectionEnabled {
 		// init runtime client
@@ -52,6 +71,9 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 		d.runtime = runtimeCli
 
 		log.Info("initial runtime %s client success", runtimeCli.Name())
+	} else {
+		// scan runtime name
+		d.scanRunTime()
 	}
 
 	cfg, err := clientcmd.BuildConfigFromFlags(d.config.Master, d.config.Kubeconfig)
