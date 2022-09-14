@@ -59,12 +59,13 @@ func TestJson_Encode(t *testing.T) {
 			want: []byte(`{"a":"b","c":{"d":"e"},"body":"this is message"}`),
 		},
 	}
+	defaultValue := false
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			j := &Json{
 				config: &Config{
-					Pretty:      false,
-					BeatsFormat: false,
+					Pretty:      &defaultValue,
+					BeatsFormat: &defaultValue,
 				},
 			}
 			got, err := j.Encode(tt.args.event)

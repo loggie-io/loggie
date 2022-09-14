@@ -103,6 +103,7 @@ func TestMergeSourceList(t *testing.T) {
 		base []*Config
 		from []*Config
 	}
+	defaultValue := false
 	tests := []struct {
 		name string
 		args args
@@ -113,8 +114,9 @@ func TestMergeSourceList(t *testing.T) {
 			args: args{
 				base: []*Config{
 					{
-						Type: "file",
-						Name: "test",
+						FieldsUnderRoot: &defaultValue,
+						Type:            "file",
+						Name:            "test",
 						Properties: cfg.CommonCfg{
 							"paths": []string{
 								"/log1",
@@ -127,7 +129,8 @@ func TestMergeSourceList(t *testing.T) {
 				},
 				from: []*Config{
 					{
-						Type: "file",
+						FieldsUnderRoot: &defaultValue,
+						Type:            "file",
 						Properties: cfg.CommonCfg{
 							"ignoreOlder": "10d",
 						},
@@ -146,8 +149,9 @@ func TestMergeSourceList(t *testing.T) {
 			},
 			want: []*Config{
 				{
-					Type: "file",
-					Name: "test",
+					FieldsUnderRoot: &defaultValue,
+					Type:            "file",
+					Name:            "test",
 					Properties: cfg.CommonCfg{
 						"paths": []string{
 							"/log1",

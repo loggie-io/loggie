@@ -6,7 +6,7 @@ require (
 	github.com/aliyun/aliyun-log-go-sdk v0.1.35
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129
 	github.com/bmatcuk/doublestar/v4 v4.0.2
-	github.com/creasty/defaults v1.5.1
+	github.com/creasty/defaults v1.6.0
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200706150819-a40b877fbb9e+incompatible
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-playground/validator/v10 v10.4.1
@@ -122,3 +122,5 @@ replace (
 	google.golang.org/protobuf => google.golang.org/protobuf v1.26.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 => github.com/machine3/lumberjack v0.2.0
 )
+
+replace github.com/creasty/defaults v1.5.1 => github.com/creasty/defaults v1.6.0

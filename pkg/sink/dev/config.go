@@ -17,5 +17,5 @@ limitations under the License.
 package dev
 
 type Config struct {
-	PrintEvents bool `yaml:"printEvents" default:"false"`
+	PrintEvents *bool `yaml:"printEvents" default:"false"`
 }

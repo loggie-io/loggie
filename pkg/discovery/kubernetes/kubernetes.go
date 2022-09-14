@@ -64,7 +64,7 @@ func (d *Discovery) scanRunTime() {
 }
 
 func (d *Discovery) Start(stopCh <-chan struct{}) {
-	if d.config.RootFsCollectionEnabled {
+	if *d.config.RootFsCollectionEnabled {
 		// init runtime client
 		log.Info("rootFsCollection is enabled, initializing runtime client")
 		runtimeCli := runtime.Init(d.config.RuntimeEndpoints, d.config.ContainerRuntime)
@@ -110,7 +110,7 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 	nodeInformerFactory.Start(stopCh)
 
 	external.InitGlobalPodIndexer(kubeInformerFactory.Core().V1().Pods().Informer().GetIndexer(), kubeInformerFactory.Core().V1().Pods().Lister())
-	if d.config.DynamicContainerLog {
+	if *d.config.DynamicContainerLog {
 		external.InitDynamicLogIndexer()
 	}
 	external.Cluster = d.config.Cluster

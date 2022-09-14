@@ -228,7 +228,7 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 
 	// update index
 	c.typePodIndex.SetConfigs(pod.Namespace, pod.Name, lgc.Name, pipeRaw, lgc)
-	if c.config.DynamicContainerLog {
+	if *c.config.DynamicContainerLog {
 		paths := helper.GetPathsFromSources(pipeRaw.Sources)
 		log.Info("[pipeline: %s] [pod: %s/%s] set dynamic paths: %+v", pipeRaw.Name, pod.Namespace, pod.Name, paths)
 	}
@@ -275,7 +275,7 @@ func (c *Controller) getConfigFromContainerAndLogConfig(lgc *logconfigv1beta1.Lo
 	if err != nil {
 		return nil, err
 	}
-	pipecfg, err := toPipeConfig(c.config.DynamicContainerLog, lgc.Namespace, lgc.Name, logConf.Spec.Pipeline, filesources, sinkLister, interceptorLister)
+	pipecfg, err := toPipeConfig(*c.config.DynamicContainerLog, lgc.Namespace, lgc.Name, logConf.Spec.Pipeline, filesources, sinkLister, interceptorLister)
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +336,7 @@ func (c *Controller) makeConfigPerSource(s *source.Config, pod *corev1.Pod, logc
 		filesrc.Name = helper.GenTypePodSourceName(pod.Name, status.Name, filesrc.Name)
 
 		// inject default pod metadata
-		if err := c.injectTypePodFields(c.config.DynamicContainerLog, filesrc, extra.MatchFields, pod, logconfigName, status.Name); err != nil {
+		if err := c.injectTypePodFields(*c.config.DynamicContainerLog, filesrc, extra.MatchFields, pod, logconfigName, status.Name); err != nil {
 			return nil, err
 		}
 
@@ -363,7 +363,7 @@ func (c *Controller) updatePaths(source *source.Config, pod *corev1.Pod, contain
 	}
 
 	// parse the stdout raw logs
-	if c.config.ParseStdout && len(filecfg.CollectConfig.Paths) == 1 && filecfg.CollectConfig.Paths[0] == logconfigv1beta1.PathStdout {
+	if *c.config.ParseStdout && len(filecfg.CollectConfig.Paths) == 1 && filecfg.CollectConfig.Paths[0] == logconfigv1beta1.PathStdout {
 		source.Codec = &codec.Config{}
 		if c.config.ContainerRuntime == runtime.RuntimeDocker {
 			// e.g.: `{"log":"example: 17 Tue Feb 16 09:15:17 UTC 2021\n","stream":"stdout","time":"2021-02-16T09:15:17.511829776Z"}`
@@ -401,7 +401,7 @@ func (c *Controller) getPathsInNode(containerPaths []string, pod *corev1.Pod, co
 		return nil, errors.New("path is empty")
 	}
 
-	return helper.PathsInNode(c.config.PodLogDirPrefix, c.config.KubeletRootDir, c.config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
+	return helper.PathsInNode(c.config.PodLogDirPrefix, c.config.KubeletRootDir, *c.config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
 }
 
 func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.Config, match *matchFields, pod *corev1.Pod, lgcName string, containerName string) error {

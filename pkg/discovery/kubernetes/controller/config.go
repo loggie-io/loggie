@@ -32,7 +32,7 @@ type Config struct {
 
 	ContainerRuntime        string   `yaml:"containerRuntime"`
 	RuntimeEndpoints        []string `yaml:"runtimeEndpoints" default:"[\"unix:///run/containerd/containerd.sock\", \"unix:///var/run/dockershim.sock\", \"unix:///run/crio/crio.sock\"]"`
-	RootFsCollectionEnabled bool     `yaml:"rootFsCollectionEnabled"`
+	RootFsCollectionEnabled *bool    `yaml:"rootFsCollectionEnabled" default:"false"`
 	PodLogDirPrefix         string   `yaml:"podLogDirPrefix" default:"/var/log/pods"`
 	KubeletRootDir          string   `yaml:"kubeletRootDir" default:"/var/lib/kubelet"`
 
@@ -40,11 +40,11 @@ type Config struct {
 	K8sFields      map[string]string `yaml:"k8sFields"` // Deprecated: use typePodFields
 	TypePodFields  map[string]string `yaml:"typePodFields"`
 	TypeNodeFields map[string]string `yaml:"typeNodeFields"`
-	ParseStdout    bool              `yaml:"parseStdout"`
+	ParseStdout    *bool             `yaml:"parseStdout" default:"false"`
 
 	// If set to true, it means that the pipeline configuration generated does not contain specific Pod paths and meta information.
 	// These data will be dynamically obtained by the file source, thereby reducing the number of configuration changes and reloads.
-	DynamicContainerLog bool `yaml:"dynamicContainerLog"`
+	DynamicContainerLog *bool `yaml:"dynamicContainerLog" default:"false"`
 }
 
 // Fields Deprecated
