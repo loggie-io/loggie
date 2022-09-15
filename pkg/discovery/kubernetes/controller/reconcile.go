@@ -140,7 +140,12 @@ func (c *Controller) reconcileInterceptor(name string) error {
 
 		if lgc.Spec.Pipeline.InterceptorRef == name {
 			// flush pipeline config
-			err, _ := c.reconcileLogConfigAddOrUpdate(lgc)
+			if lgc.Namespace != "" {
+				err, _ := c.reconcileLogConfigAddOrUpdate(lgc)
+				return err
+			}
+
+			err, _ := c.reconcileClusterLogConfigAddOrUpdate(lgc.ToClusterLogConfig())
 			return err
 		}
 
@@ -169,7 +174,12 @@ func (c *Controller) reconcileSink(name string) error {
 
 		if lgc.Spec.Pipeline.SinkRef == name {
 			// flush pipeline config
-			err, _ := c.reconcileLogConfigAddOrUpdate(lgc)
+			if lgc.Namespace != "" {
+				err, _ := c.reconcileLogConfigAddOrUpdate(lgc)
+				return err
+			}
+
+			err, _ := c.reconcileClusterLogConfigAddOrUpdate(lgc.ToClusterLogConfig())
 			return err
 		}
 

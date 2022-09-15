@@ -64,3 +64,16 @@ type LogConfigList struct {
 
 	Items []LogConfig `json:"items"`
 }
+
+func (in *LogConfig) ToClusterLogConfig() *ClusterLogConfig {
+	lgc := in.DeepCopy()
+
+	out := &ClusterLogConfig{}
+	out.Name = lgc.Name
+	out.Labels = lgc.Labels
+	out.Annotations = lgc.Annotations
+
+	out.Spec = lgc.Spec
+
+	return out
+}
