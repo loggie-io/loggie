@@ -429,7 +429,7 @@ func (w *Watcher) createOrRename(filename string, watchTask *WatchTask, jobField
 
 		err := job.GenerateIdentifier()
 		if err != nil {
-			log.Info("file(%s) ignored because generate id fail: %s", name, err)
+			log.Info("file(%s) ignored: %s", name, err)
 			return
 		}
 		existJob, ok := w.allJobs[job.WatchUid()]
