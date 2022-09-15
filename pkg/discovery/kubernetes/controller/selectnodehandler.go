@@ -27,6 +27,14 @@ import (
 )
 
 func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) error {
+	// check node selector
+	if lgc.Spec.Selector.NodeSelector.NodeSelector != nil {
+		if !helper.LabelsSubset(lgc.Spec.Selector.NodeSelector.NodeSelector, c.nodeInfo.Labels) {
+			log.Debug("logConfig %s/%s is not belong to this node", lgc.Namespace, lgc.Name)
+			return nil
+		}
+	}
+
 	pipRaws, err := helper.ToPipeline(lgc, c.sinkLister, c.interceptorLister)
 	if err != nil {
 		return errors.WithMessage(err, "convert to pipeline config failed")
@@ -39,14 +47,6 @@ func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) er
 	lgcKey := helper.MetaNamespaceKey(lgc.Namespace, lgc.Name)
 	if err = c.typeNodeIndex.ValidateAndSetConfig(lgcKey, pipRaws.Pipelines, lgc); err != nil {
 		return err
-	}
-
-	// check node selector
-	if lgc.Spec.Selector.NodeSelector.NodeSelector != nil {
-		if !helper.LabelsSubset(lgc.Spec.Selector.NodeSelector.NodeSelector, c.nodeInfo.Labels) {
-			log.Debug("logConfig %s/%s is not belong to this node", lgc.Namespace, lgc.Name)
-			return nil
-		}
 	}
 
 	for i := range pipRaws.Pipelines {
