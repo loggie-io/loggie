@@ -19,9 +19,11 @@ type Regex struct {
 }
 
 type Config struct {
-	Pattern    string `yaml:"pattern,omitempty" validate:"required"`
-	BodyFields string `yaml:"bodyFields,omitempty" validate:"required"` // use the fields as `Body`
-	Prune      *bool  `yaml:"prune,omitempty"`                          // we drop all the fields except `Body` in default
+	Pattern      string `yaml:"pattern,omitempty" validate:"required"`
+	BodyFields   string `yaml:"bodyFields,omitempty" validate:"required"`                    // use the fields as `Body`
+	TimeFields   string `yaml:"timeFields,omitempty" default:"time" validate:"required"`     // use the fields as `Time`
+	StreamFields string `yaml:"streamFields,omitempty" default:"stream" validate:"required"` // use the fields as `Stream`
+	Prune        *bool  `yaml:"prune,omitempty"`                                             // we drop all the fields except `Body` in default
 }
 
 func (c *Config) Validate() error {
@@ -68,6 +70,14 @@ func (j *Regex) Decode(e api.Event) (api.Event, error) {
 			log.Debug("cannot find bodyFields %s", j.config.BodyFields)
 			log.Debug("body: %s", e.Body())
 			return e, nil
+		}
+		stream, ok := paramsMap[j.config.StreamFields]
+		if ok {
+			e.Header()[j.config.StreamFields] = stream
+		}
+		time, ok := paramsMap[j.config.TimeFields]
+		if ok {
+			e.Header()[j.config.TimeFields] = time
 		}
 
 		e.Fill(e.Meta(), e.Header(), []byte(body))

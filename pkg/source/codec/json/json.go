@@ -37,8 +37,10 @@ type Json struct {
 }
 
 type Config struct {
-	BodyFields string `yaml:"bodyFields,omitempty" validate:"required"` // use the fields as `Body`
-	Prune      *bool  `yaml:"prune,omitempty"`                          // we drop all the fields except `Body` in default
+	BodyFields   string `yaml:"bodyFields,omitempty" validate:"required"` // use the fields as `Body`
+	TimeFields   string `yaml:"timeFields,omitempty" validate:"required"` // use the fields as `Time`
+	StreamFields string `yaml:"stream,omitempty" validate:"required"`     // use the fields as `Stream`
+	Prune        *bool  `yaml:"prune,omitempty"`                          // we drop all the fields except `Body` in default
 }
 
 func init() {
@@ -86,6 +88,14 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 		}
 		if err != nil {
 			return nil, err
+		}
+		stream, err := getBytes(header, j.config.StreamFields)
+		if len(stream) != 0 && err == nil {
+			e.Header()[j.config.StreamFields] = stream
+		}
+		time, err := getBytes(header, j.config.TimeFields)
+		if len(time) != 0 && err == nil {
+			e.Header()[j.config.TimeFields] = time
 		}
 
 		body = pruneCLRF(body)
