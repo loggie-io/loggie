@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/global"
+	"go.uber.org/atomic"
 	"os"
 	"strings"
 	"time"
@@ -57,9 +58,11 @@ type KubeEvent struct {
 	config    *Config
 	eventPool *event.Pool
 
-	event  chan interface{}
-	ctx    context.Context
-	cancel context.CancelFunc
+	event        chan interface{}
+	ctx          context.Context
+	cancel       context.CancelFunc
+	bindInformer atomic.Bool
+	le           *leaderelection.LeaderElector
 
 	startTime           time.Time
 	blackListNamespaces map[string]struct{}
@@ -97,6 +100,7 @@ func (k *KubeEvent) Init(context api.Context) error {
 		k.blacklistEnabled = true
 	}
 
+	k.bindInformer.Store(false)
 	return nil
 }
 
@@ -136,17 +140,28 @@ func (k *KubeEvent) Start() error {
 		log.Error("error creating lock: %v", err)
 	}
 
-	le, err := leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
+	k.le, err = leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
 		Lock:          rl,
 		LeaseDuration: 15 * time.Second,
 		RenewDeadline: 10 * time.Second,
 		RetryPeriod:   2 * time.Second,
 		Callbacks: leaderelection.LeaderCallbacks{
 			OnStartedLeading: func(ctx context.Context) {
+				if k.bindInformer.Load() == true {
+					return
+				}
 				k.run(ctx, client)
 			},
 			OnStoppedLeading: func() {
-				log.Info("leader election lost")
+				select {
+				case <-k.ctx.Done():
+					// We were asked to terminate. Exit 0.
+					log.Info("Requested to terminate. Exiting.")
+				default:
+					// We lost the lock.
+					log.Info("leader election lost")
+					k.le.Run(k.ctx)
+				}
 			},
 		},
 	})
@@ -155,7 +170,7 @@ func (k *KubeEvent) Start() error {
 		return nil
 	}
 
-	go le.Run(k.ctx)
+	go k.le.Run(k.ctx)
 
 	return nil
 }
@@ -208,6 +223,7 @@ func (k *KubeEvent) ProductLoop(productFunc api.ProductFunc) {
 	for {
 		select {
 		case <-k.ctx.Done():
+			k.bindInformer.Store(false)
 			return
 
 		case obj := <-k.event:
