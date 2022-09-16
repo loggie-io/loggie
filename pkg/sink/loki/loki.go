@@ -117,9 +117,9 @@ func (s *Sink) sendBatch(c context.Context, batch api.Batch) api.Result {
 	var req *http.Request
 	var err error
 	if s.config.ContentType == "json" {
-		req, err = genJsonRequest(streams, s.config.URL, s.config.TenantId)
+		req, err = genJsonRequest(streams, s.config.URL, s.config.TenantId, s.config.Headers)
 	} else {
-		req, err = genProtoRequest(streams, s.config.URL, s.config.TenantId)
+		req, err = genProtoRequest(streams, s.config.URL, s.config.TenantId, s.config.Headers)
 	}
 	if err != nil {
 		return result.Drop().WithError(err)
@@ -210,7 +210,7 @@ func tryConvertKeyToUnderscore(key string) string {
 	return key
 }
 
-func genJsonRequest(streams []logproto.Stream, url string, tenantId string) (*http.Request, error) {
+func genJsonRequest(streams []logproto.Stream, url string, tenantId string, headers map[string]string) (*http.Request, error) {
 	pushReq := logproto.PushRequest{
 		Streams: streams,
 	}
@@ -231,10 +231,16 @@ func genJsonRequest(streams []logproto.Stream, url string, tenantId string) (*ht
 		req.Header.Set("X-Scope-OrgID", tenantId)
 	}
 
+	if len(headers) > 0 {
+		for key, value := range headers {
+			req.Header.Set(key, value)
+		}
+	}
+
 	return req, nil
 }
 
-func genProtoRequest(streams []logproto.Stream, url string, tenantId string) (*http.Request, error) {
+func genProtoRequest(streams []logproto.Stream, url string, tenantId string, headers map[string]string) (*http.Request, error) {
 	pushReq := logproto.PushRequest{
 		Streams: streams,
 	}
@@ -254,6 +260,12 @@ func genProtoRequest(streams []logproto.Stream, url string, tenantId string) (*h
 
 	if tenantId != "" {
 		req.Header.Set("X-Scope-OrgID", tenantId)
+	}
+
+	if len(headers) > 0 {
+		for key, value := range headers {
+			req.Header.Set(key, value)
+		}
 	}
 
 	return req, nil
