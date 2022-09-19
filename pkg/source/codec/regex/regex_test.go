@@ -29,4 +29,7 @@ func Test_decoder(t *testing.T) {
 	assert.Equal(t, err, nil)
 	assert.NotNil(t, eventData, nil)
 	fmt.Println(eventData)
+	assert.Contains(t, eventData.Header(), "time")
+	assert.Contains(t, eventData.Header(), "stream")
+	assert.Contains(t, eventData.Header(), "logtag")
 }

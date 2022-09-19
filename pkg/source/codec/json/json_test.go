@@ -1,7 +1,6 @@
 package json
 
 import (
-	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -82,5 +81,6 @@ func Test_decoder(t *testing.T) {
 	eventData, err := j.Decode(e)
 	assert.Equal(t, err, nil)
 	assert.NotNil(t, eventData, nil)
-	fmt.Println(eventData)
+	assert.Contains(t, eventData.Header(), "time")
+	assert.Contains(t, eventData.Header(), "stream")
 }

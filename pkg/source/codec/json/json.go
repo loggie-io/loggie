@@ -71,7 +71,6 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 		header = make(map[string]interface{})
 	}
 
-	//tmpForUnmarshal := make(map[string]interface{})
 	if err := json.Unmarshal(e.Body(), &header); err != nil {
 		log.Error("source codec json unmarshal error: %v", err)
 		log.Debug("body: %s", string(e.Body()))
