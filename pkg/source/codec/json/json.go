@@ -96,16 +96,12 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 	}
 
 	// TODO decode event to header this when refactor multiline
-	foundBody := false
 	if err == nil {
-		foundBody = true
 		delete(header, j.config.BodyFields)
-	}
-
-	if foundBody {
 		e.Fill(e.Meta(), e.Header(), body)
 		return e, nil
 	}
+
 	return e, nil
 }
 
