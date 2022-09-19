@@ -37,10 +37,8 @@ type Json struct {
 }
 
 type Config struct {
-	BodyFields   string `yaml:"bodyFields,omitempty" validate:"required"` // use the fields as `Body`
-	TimeFields   string `yaml:"timeFields,omitempty" validate:"required"` // use the fields as `Time`
-	StreamFields string `yaml:"stream,omitempty" validate:"required"`     // use the fields as `Stream`
-	Prune        *bool  `yaml:"prune,omitempty"`                          // we drop all the fields except `Body` in default
+	BodyFields string `yaml:"bodyFields,omitempty" validate:"required"` // use the fields as `Body`
+	Prune      *bool  `yaml:"prune,omitempty"`                          // we drop all the fields except `Body` in default
 }
 
 func init() {
@@ -73,14 +71,15 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 		header = make(map[string]interface{})
 	}
 
+	//tmpForUnmarshal := make(map[string]interface{})
+	if err := json.Unmarshal(e.Body(), &header); err != nil {
+		log.Error("source codec json unmarshal error: %v", err)
+		log.Debug("body: %s", string(e.Body()))
+		return nil, err
+	}
+
 	// prune mode
 	if j.config.Prune == nil || *j.config.Prune == true {
-		//tmpForUnmarshal := make(map[string]interface{})
-		if err := json.Unmarshal(e.Body(), &header); err != nil {
-			log.Error("source codec json unmarshal error: %v", err)
-			log.Debug("body: %s", string(e.Body()))
-			return nil, err
-		}
 
 		body, err := getBytes(header, j.config.BodyFields)
 		if len(body) == 0 {
@@ -88,14 +87,6 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 		}
 		if err != nil {
 			return nil, err
-		}
-		stream, err := getBytes(header, j.config.StreamFields)
-		if len(stream) != 0 && err == nil {
-			e.Header()[j.config.StreamFields] = stream
-		}
-		time, err := getBytes(header, j.config.TimeFields)
-		if len(time) != 0 && err == nil {
-			e.Header()[j.config.TimeFields] = time
 		}
 
 		body = pruneCLRF(body)
@@ -105,7 +96,18 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 	}
 
 	// TODO decode event to header this when refactor multiline
+	foundBody := false
+	body, err := getBytes(header, j.config.BodyFields)
+	if err == nil {
+		foundBody = true
+		delete(header, j.config.BodyFields)
+	}
 
+	if foundBody {
+		e.Fill(e.Meta(), e.Header(), body)
+		return e, nil
+	}
+	e.Fill(e.Meta(), e.Header(), e.Body())
 	return e, nil
 }
 

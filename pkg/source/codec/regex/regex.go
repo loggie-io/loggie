@@ -19,11 +19,9 @@ type Regex struct {
 }
 
 type Config struct {
-	Pattern      string `yaml:"pattern,omitempty" validate:"required"`
-	BodyFields   string `yaml:"bodyFields,omitempty" validate:"required"`                    // use the fields as `Body`
-	TimeFields   string `yaml:"timeFields,omitempty" default:"time" validate:"required"`     // use the fields as `Time`
-	StreamFields string `yaml:"streamFields,omitempty" default:"stream" validate:"required"` // use the fields as `Stream`
-	Prune        *bool  `yaml:"prune,omitempty"`                                             // we drop all the fields except `Body` in default
+	Pattern    string `yaml:"pattern,omitempty" validate:"required"`
+	BodyFields string `yaml:"bodyFields,omitempty" validate:"required"` // use the fields as `Body`
+	Prune      *bool  `yaml:"prune,omitempty"`                          // we drop all the fields except `Body` in default
 }
 
 func (c *Config) Validate() error {
@@ -71,20 +69,26 @@ func (j *Regex) Decode(e api.Event) (api.Event, error) {
 			log.Debug("body: %s", e.Body())
 			return e, nil
 		}
-		stream, ok := paramsMap[j.config.StreamFields]
-		if ok {
-			e.Header()[j.config.StreamFields] = stream
-		}
-		time, ok := paramsMap[j.config.TimeFields]
-		if ok {
-			e.Header()[j.config.TimeFields] = time
-		}
 
-		e.Fill(e.Meta(), e.Header(), []byte(body))
+		e.Fill(e.Meta(), e.Header(), util.StringToByteUnsafe(body))
 		return e, nil
 	}
 
 	// TODO add all the params to header when refactor multiline
+	foundBody := false
+	body, ok := paramsMap[j.config.BodyFields]
+	if ok {
+		foundBody = true
+		delete(paramsMap, j.config.BodyFields)
+	}
+	for k, v := range paramsMap {
+		e.Header()[k] = v
+	}
 
+	if foundBody {
+		e.Fill(e.Meta(), e.Header(), util.StringToByteUnsafe(body))
+		return e, nil
+	}
+	e.Fill(e.Meta(), e.Header(), e.Body())
 	return e, nil
 }
