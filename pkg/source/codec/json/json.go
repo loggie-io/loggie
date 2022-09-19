@@ -71,31 +71,29 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 		header = make(map[string]interface{})
 	}
 
+	if err := json.Unmarshal(e.Body(), &header); err != nil {
+		log.Error("source codec json unmarshal error: %v", err)
+		log.Debug("body: %s", string(e.Body()))
+		return nil, err
+	}
+
+	body, err := getBytes(header, j.config.BodyFields)
+	if len(body) == 0 {
+		return e, nil
+	}
+	if err != nil {
+		return e, err
+	}
+	body = pruneCLRF(body)
+
 	// prune mode
 	if j.config.Prune == nil || *j.config.Prune == true {
-		//tmpForUnmarshal := make(map[string]interface{})
-		if err := json.Unmarshal(e.Body(), &header); err != nil {
-			log.Error("source codec json unmarshal error: %v", err)
-			log.Debug("body: %s", string(e.Body()))
-			return nil, err
-		}
-
-		body, err := getBytes(header, j.config.BodyFields)
-		if len(body) == 0 {
-			return e, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		body = pruneCLRF(body)
 		e.Fill(e.Meta(), nil, body)
-
 		return e, nil
 	}
 
-	// TODO decode event to header this when refactor multiline
-
+	delete(header, j.config.BodyFields)
+	e.Fill(e.Meta(), e.Header(), body)
 	return e, nil
 }
 

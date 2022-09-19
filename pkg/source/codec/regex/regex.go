@@ -70,11 +70,20 @@ func (j *Regex) Decode(e api.Event) (api.Event, error) {
 			return e, nil
 		}
 
-		e.Fill(e.Meta(), e.Header(), []byte(body))
+		e.Fill(e.Meta(), e.Header(), util.StringToByteUnsafe(body))
 		return e, nil
 	}
 
-	// TODO add all the params to header when refactor multiline
+	body, ok := paramsMap[j.config.BodyFields]
+	for k, v := range paramsMap {
+		e.Header()[k] = v
+	}
+	if ok {
+		delete(e.Header(), j.config.BodyFields)
+		e.Fill(e.Meta(), e.Header(), util.StringToByteUnsafe(body))
+		return e, nil
+	}
 
+	e.Fill(e.Meta(), e.Header(), e.Body())
 	return e, nil
 }

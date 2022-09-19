@@ -101,6 +101,7 @@ type MultiHolder struct {
 
 	lineEnd       []byte
 	lineEndLength int64
+	lastHeader    map[string]interface{}
 }
 
 func (mh *MultiHolder) key() string {
@@ -171,7 +172,7 @@ func (mh *MultiHolder) flush() {
 
 	e := mh.mTask.eventPool.Get()
 	e.Meta().Set(SystemStateKey, state)
-	e.Fill(e.Meta(), e.Header(), contentBuffer)
+	e.Fill(e.Meta(), mh.lastHeader, contentBuffer)
 	mh.mTask.productFunc(e)
 
 	mh.content = make([]byte, 0)
@@ -255,6 +256,7 @@ func (mp *MultiProcessor) run() {
 			state := getState(e)
 			watchUid := state.WatchUid()
 			if mh, ok := mp.holderMap[watchUid]; ok {
+				mh.lastHeader = e.Header()
 				mh.append(e)
 			} else {
 				create := false
@@ -263,6 +265,7 @@ func (mp *MultiProcessor) run() {
 						create = true
 						mh := task.newMultiHolder(*state)
 						mp.holderMap[mh.key()] = mh
+						mh.lastHeader = e.Header()
 						mh.append(e)
 						break
 					}
