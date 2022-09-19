@@ -74,21 +74,16 @@ func (j *Regex) Decode(e api.Event) (api.Event, error) {
 		return e, nil
 	}
 
-	// TODO add all the params to header when refactor multiline
-	foundBody := false
 	body, ok := paramsMap[j.config.BodyFields]
-	if ok {
-		foundBody = true
-		delete(paramsMap, j.config.BodyFields)
-	}
 	for k, v := range paramsMap {
 		e.Header()[k] = v
 	}
-
-	if foundBody {
+	if ok {
+		delete(e.Header(), j.config.BodyFields)
 		e.Fill(e.Meta(), e.Header(), util.StringToByteUnsafe(body))
 		return e, nil
 	}
+
 	e.Fill(e.Meta(), e.Header(), e.Body())
 	return e, nil
 }

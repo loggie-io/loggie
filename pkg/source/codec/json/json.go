@@ -78,30 +78,22 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 	}
 
 	body, err := getBytes(header, j.config.BodyFields)
+	if len(body) == 0 {
+		return e, nil
+	}
+	if err != nil {
+		return e, err
+	}
+	body = pruneCLRF(body)
 
 	// prune mode
 	if j.config.Prune == nil || *j.config.Prune == true {
-
-		if len(body) == 0 {
-			return e, nil
-		}
-		if err != nil {
-			return nil, err
-		}
-
-		body = pruneCLRF(body)
 		e.Fill(e.Meta(), nil, body)
-
 		return e, nil
 	}
 
-	// TODO decode event to header this when refactor multiline
-	if err == nil {
-		delete(header, j.config.BodyFields)
-		e.Fill(e.Meta(), e.Header(), body)
-		return e, nil
-	}
-
+	delete(header, j.config.BodyFields)
+	e.Fill(e.Meta(), e.Header(), body)
 	return e, nil
 }
 
