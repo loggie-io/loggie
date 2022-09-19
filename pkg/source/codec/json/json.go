@@ -77,10 +77,11 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 		return nil, err
 	}
 
+	body, err := getBytes(header, j.config.BodyFields)
+
 	// prune mode
 	if j.config.Prune == nil || *j.config.Prune == true {
 
-		body, err := getBytes(header, j.config.BodyFields)
 		if len(body) == 0 {
 			return e, nil
 		}
@@ -96,7 +97,6 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 
 	// TODO decode event to header this when refactor multiline
 	foundBody := false
-	body, err := getBytes(header, j.config.BodyFields)
 	if err == nil {
 		foundBody = true
 		delete(header, j.config.BodyFields)
@@ -106,7 +106,6 @@ func (j *Json) Decode(e api.Event) (api.Event, error) {
 		e.Fill(e.Meta(), e.Header(), body)
 		return e, nil
 	}
-	e.Fill(e.Meta(), e.Header(), e.Body())
 	return e, nil
 }
 
