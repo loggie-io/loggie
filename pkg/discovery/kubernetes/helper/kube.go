@@ -168,7 +168,14 @@ func PathsInNode(podLogDirPrefix string, kubeletRootDir string, rootFsCollection
 
 	for _, path := range paths {
 		if path == logconfigv1beta1.PathStdout {
-			nodePaths = append(nodePaths, GenContainerStdoutLog(podLogDirPrefix, pod.Namespace, pod.Name, string(pod.UID), containerName)...)
+			// Since many pods in the kube-system namespace belong to static pods.
+			// The corresponding log directory pod uid is kubernetes.io/config.hash in the pod annotation. (#245)
+			staticPodHash, ok := pod.Annotations["kubernetes.io/config.hash"]
+			if !ok {
+				nodePaths = append(nodePaths, GenContainerStdoutLog(podLogDirPrefix, pod.Namespace, pod.Name, string(pod.UID), containerName)...)
+				continue
+			}
+			nodePaths = append(nodePaths, GenContainerStdoutLog(podLogDirPrefix, pod.Namespace, pod.Name, staticPodHash, containerName)...)
 			continue
 		}
 
