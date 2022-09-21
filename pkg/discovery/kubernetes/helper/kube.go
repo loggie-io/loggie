@@ -19,6 +19,8 @@ package helper
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	dockerclient "github.com/docker/docker/client"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
@@ -538,4 +540,16 @@ func PathEqual(p1 string, p2 string) bool {
 	}
 
 	return p1 == p2
+}
+
+func MakeLabelsMd5Hash(labels map[string]string) string {
+	var builder strings.Builder
+	for k, v := range labels {
+		builder.WriteString(k)
+		builder.WriteString("=")
+		builder.WriteString(v)
+		builder.WriteString("&")
+	}
+	out := md5.Sum([]byte(builder.String()))
+	return hex.EncodeToString(out[:])
 }

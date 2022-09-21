@@ -25,6 +25,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -35,6 +36,14 @@ const (
 	K8sFieldsKey = "@privateK8sFields"
 )
 
+type PodCache struct {
+	Namespace   string
+	PodName     string
+	ContainerId map[string]string
+	Labels      map[string]string
+	LabelHash   string
+}
+
 type LogConfigTypePodIndex struct {
 	pipeConfigs  map[string]*TypePodPipeConfig // key: podKey/lgcKey, value: related pipeline configs
 	lgcToPodSets map[string]sets.String        // key: lgcKey(namespace/lgcName), value: podKey(namespace/podName)
@@ -44,8 +53,55 @@ type LogConfigTypePodIndex struct {
 }
 
 type TypePodPipeConfig struct {
-	Raw *pipeline.Config
-	Lgc *v1beta1.LogConfig
+	Raw     *pipeline.Config
+	Lgc     *v1beta1.LogConfig
+	PodInfo *PodCache
+}
+
+func (cache *PodCache) HasChange(pod *corev1.Pod) bool {
+	if cache.PodName != pod.Name {
+		return true
+	}
+
+	if len(pod.Status.ContainerStatuses) != len(cache.ContainerId) {
+		return true
+	}
+
+	md5Hash := helper.MakeLabelsMd5Hash(pod.Labels)
+	if md5Hash != cache.LabelHash {
+		return true
+	}
+
+	for _, status := range pod.Status.ContainerStatuses {
+		containerId := helper.ExtractContainerId(status.ContainerID)
+		if cache.containsContainerId(containerId) {
+			continue
+		} else {
+			return true
+		}
+	}
+	return false
+}
+
+func (cache *PodCache) Init(pod *corev1.Pod) {
+	podCache := pod.DeepCopy()
+	cache.Labels = podCache.Labels
+	cache.Namespace = podCache.Namespace
+	//cache.ContainerId = pod.Status.ContainerStatuses
+	for _, status := range pod.Status.ContainerStatuses {
+		containerId := helper.ExtractContainerId(status.ContainerID)
+		cache.ContainerId[containerId] = containerId
+	}
+	cache.LabelHash = helper.MakeLabelsMd5Hash(pod.Labels)
+	return
+}
+
+func (cache *PodCache) containsContainerId(containerId string) bool {
+	_, ok := cache.ContainerId[containerId]
+	if !ok {
+		return false
+	}
+	return true
 }
 
 func NewLogConfigTypePodIndex() *LogConfigTypePodIndex {
@@ -55,6 +111,30 @@ func NewLogConfigTypePodIndex() *LogConfigTypePodIndex {
 		podToLgcSets:     make(map[string]sets.String),
 		lgcToOverrideLgc: make(map[string]string),
 	}
+}
+
+// HasChange Check if pods have changed
+func (p *LogConfigTypePodIndex) HasChange(pod *corev1.Pod) bool {
+
+	if !p.IsPodExist(pod.Namespace, pod.Name) {
+		return true
+	}
+
+	podKey := helper.MetaNamespaceKey(pod.Namespace, pod.Name)
+
+	lgcSets, ok := p.podToLgcSets[podKey]
+	if !ok || lgcSets.Len() == 0 {
+		return false
+	}
+	for _, lgcKey := range lgcSets.List() {
+		podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
+		pipeCfg, ok := p.pipeConfigs[podAndLgc]
+		if ok == false {
+			return true
+		}
+		return pipeCfg.PodInfo.HasChange(pod)
+	}
+	return false
 }
 
 func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string, lgcNamespace string, lgcName string) *pipeline.Config {
@@ -79,8 +159,8 @@ func (p *LogConfigTypePodIndex) IsPodExist(namespace string, podName string) boo
 	return true
 }
 
-func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgcName string, cfg *pipeline.Config, lgc *v1beta1.LogConfig) {
-	podKey := helper.MetaNamespaceKey(namespace, podName)
+func (p *LogConfigTypePodIndex) SetConfigs(pod *corev1.Pod, lgcName string, cfg *pipeline.Config, lgc *v1beta1.LogConfig) {
+	podKey := helper.MetaNamespaceKey(pod.Namespace, pod.Name)
 	lgcKey := helper.MetaNamespaceKey(lgc.Namespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
 
@@ -91,7 +171,11 @@ func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgc
 	p.pipeConfigs[podAndLgc] = &TypePodPipeConfig{
 		Raw: cfg,
 		Lgc: lgc,
+		PodInfo: &PodCache{
+			ContainerId: make(map[string]string),
+		},
 	}
+	p.pipeConfigs[podAndLgc].PodInfo.Init(pod)
 	if _, ok := p.lgcToPodSets[lgcKey]; !ok {
 		p.lgcToPodSets[lgcKey] = sets.NewString(podKey)
 	} else {
@@ -103,6 +187,7 @@ func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgc
 	} else {
 		p.podToLgcSets[podKey].Insert(lgcKey)
 	}
+
 }
 
 func (p *LogConfigTypePodIndex) DeletePipeConfigsByLogConfigKey(lgcKey string) bool {

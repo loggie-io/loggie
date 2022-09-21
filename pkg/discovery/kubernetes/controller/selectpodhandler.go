@@ -134,16 +134,13 @@ func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.Log
 
 func (c *Controller) handlePodAddOrUpdate(pod *corev1.Pod) error {
 
-	// check if pod is in the index
-	if c.typePodIndex.IsPodExist(pod.Namespace, pod.Name) {
+	if !c.typePodIndex.HasChange(pod) {
 		log.Info("pod: %s/%s is in index, ignore pod addOrUpdate event", pod.Namespace, pod.Name)
 		return nil
 	}
 
 	c.handlePodAddOrUpdateOfLogConfig(pod)
-
 	c.handlePodAddOrUpdateOfClusterLogConfig(pod)
-
 	return nil
 }
 
@@ -227,7 +224,7 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 	}
 
 	// update index
-	c.typePodIndex.SetConfigs(pod.Namespace, pod.Name, lgc.Name, pipeRaw, lgc)
+	c.typePodIndex.SetConfigs(pod, lgc.Name, pipeRaw, lgc)
 	if c.config.DynamicContainerLog {
 		paths := helper.GetPathsFromSources(pipeRaw.Sources)
 		log.Info("[pipeline: %s] [pod: %s/%s] set dynamic paths: %+v", pipeRaw.Name, pod.Namespace, pod.Name, paths)
