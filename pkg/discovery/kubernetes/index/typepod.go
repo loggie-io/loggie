@@ -126,15 +126,20 @@ func (p *LogConfigTypePodIndex) HasChange(pod *corev1.Pod) bool {
 	if !ok || lgcSets.Len() == 0 {
 		return false
 	}
+	hasChange := false
 	for _, lgcKey := range lgcSets.List() {
 		podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
 		pipeCfg, ok := p.pipeConfigs[podAndLgc]
 		if ok == false {
-			return true
+			hasChange = true
+			break
 		}
-		return pipeCfg.PodInfo.HasChange(pod)
+		hasChange = pipeCfg.PodInfo.HasChange(pod)
+		if hasChange == true {
+			break
+		}
 	}
-	return false
+	return hasChange
 }
 
 func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string, lgcNamespace string, lgcName string) *pipeline.Config {
