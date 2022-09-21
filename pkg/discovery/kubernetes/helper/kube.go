@@ -543,6 +543,9 @@ func PathEqual(p1 string, p2 string) bool {
 }
 
 func MakeLabelsMd5Hash(labels map[string]string) string {
+	if len(labels) == 0 {
+		return ""
+	}
 	var builder strings.Builder
 	for k, v := range labels {
 		builder.WriteString(k)
