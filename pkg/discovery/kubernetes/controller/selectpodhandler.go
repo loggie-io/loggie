@@ -119,7 +119,7 @@ func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.Log
 		podKeyMap[podKey] = 0
 	}
 
-	for podKey, _ := range c.typePodIndex.GetPodToLgcSets() {
+	for podKey := range c.typePodIndex.GetPodToLgcSets() {
 		_, ok := podKeyMap[podKey]
 		if !ok {
 			err = c.reconcilePodDelete(podKey)
