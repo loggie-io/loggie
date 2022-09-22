@@ -57,10 +57,6 @@ func NewLogConfigTypePodIndex() *LogConfigTypePodIndex {
 	}
 }
 
-func (p *LogConfigTypePodIndex) GetPodToLgcSets() map[string]sets.String {
-	return p.podToLgcSets
-}
-
 func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string, lgcNamespace string, lgcName string) *pipeline.Config {
 	podKey := helper.MetaNamespaceKey(namespace, podName)
 	lgcKey := helper.MetaNamespaceKey(lgcNamespace, lgcName)

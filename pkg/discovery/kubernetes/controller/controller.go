@@ -229,6 +229,13 @@ func NewController(
 				return
 			}
 
+			if !helper.MatchLabelSelectorEqual(newConfig.Spec.Selector.LabelSelector, oldConfig.Spec.Selector.LabelSelector) {
+				lgcKey := helper.MetaNamespaceKey(oldConfig.Namespace, oldConfig.Name)
+				err = controller.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypePod)
+				if err != nil {
+					log.Error("%s", err)
+				}
+			}
 			controller.enqueue(new, EventLogConf, newConfig.Spec.Selector.Type)
 		},
 		DeleteFunc: func(obj interface{}) {

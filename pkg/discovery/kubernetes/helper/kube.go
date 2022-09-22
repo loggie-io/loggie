@@ -539,3 +539,25 @@ func PathEqual(p1 string, p2 string) bool {
 
 	return p1 == p2
 }
+
+func MatchLabelSelectorEqual(new map[string]string, old map[string]string) bool {
+	if new == nil && old == nil {
+		return true
+	}
+	if len(new) != len(old) {
+		return false
+	}
+	for k, v := range new {
+		oldValue, ok := old[k]
+		if !ok {
+			return false
+		}
+		if oldValue == MatchAllToken || v == MatchAllToken {
+			return true
+		}
+		if oldValue != v {
+			return false
+		}
+	}
+	return true
+}
