@@ -113,20 +113,25 @@ func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.Log
 		return nil, nil
 	}
 
-	podKeyMap := make(map[string]int)
+	podKeyMap := make(map[string]struct{})
 	for _, pod := range podList {
 		podKey := helper.MetaNamespaceKey(pod.Namespace, pod.Name)
-		podKeyMap[podKey] = 0
+		podKeyMap[podKey] = struct{}{}
 	}
 
-	for podKey := range c.typePodIndex.GetPodToLgcSets() {
+	for podKey, lgcSets := range c.typePodIndex.GetPodToLgcSets() {
 		_, ok := podKeyMap[podKey]
-		if !ok {
-			err = c.reconcilePodDelete(podKey)
+		if ok {
+			continue
+		}
+
+		for _, v := range lgcSets.List() {
+			err = c.handleAllTypesDelete(v, logconfigv1beta1.SelectorTypePod)
 			if err != nil {
 				log.Warn("%s", err)
 			}
 		}
+
 	}
 
 	var successPodNames []string
