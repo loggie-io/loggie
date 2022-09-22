@@ -17,9 +17,10 @@ loggie:
       normalize: ~
 
   discovery:
-    enabled: false
+    enabled: true
+    containerRuntime: containerd
     kubernetes:
-      kubeconfig: ~/.kube/config
+      kubeconfig: /home/zhanglei/.kube/config
       k8sFields:
         namespace: "${_k8s.pod.namespace}"
         podname: "${_k8s.pod.name}"
