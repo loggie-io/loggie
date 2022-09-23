@@ -229,13 +229,8 @@ func NewController(
 				return
 			}
 
-			if !helper.MatchLabelSelectorEqual(newConfig.Spec.Selector.LabelSelector, oldConfig.Spec.Selector.LabelSelector) {
-				lgcKey := helper.MetaNamespaceKey(oldConfig.Namespace, oldConfig.Name)
-				err = controller.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypePod)
-				if err != nil {
-					log.Error("%s", err)
-				}
-			}
+			controller.clearInvalidLogConfig(newConfig, oldConfig)
+
 			controller.enqueue(new, EventLogConf, newConfig.Spec.Selector.Type)
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -347,6 +342,32 @@ func (c *Controller) InitK8sFieldsPattern() {
 	}
 
 	c.extraTypeNodeFieldsPattern = typeNodePattern
+}
+
+func (c *Controller) clearInvalidLogConfig(new *logconfigv1beta1.LogConfig, old *logconfigv1beta1.LogConfig) {
+	var err error
+	lgcKey := helper.MetaNamespaceKey(old.Namespace, old.Name)
+	switch new.Spec.Selector.Type {
+	case logconfigv1beta1.SelectorTypePod:
+		if !helper.MatchLabelSelectorEqual(new.Spec.Selector.LabelSelector,
+			old.Spec.Selector.LabelSelector) {
+			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypePod)
+			if err != nil {
+				log.Error("delete %s failed: %s", lgcKey, err)
+			}
+		}
+		break
+
+	case logconfigv1beta1.SelectorTypeNode:
+		if !helper.MatchLabelSelectorEqual(new.Spec.Selector.NodeSelector.NodeSelector,
+			old.Spec.Selector.NodeSelector.NodeSelector) {
+			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypeNode)
+			if err != nil {
+				log.Error("delete %s failed: %s", lgcKey, err)
+			}
+		}
+		break
+	}
 }
 
 func (c *Controller) enqueue(obj interface{}, eleType string, selectorType string) {
