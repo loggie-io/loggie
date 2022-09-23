@@ -346,7 +346,6 @@ func (c *Controller) InitK8sFieldsPattern() {
 }
 
 // handleSelectorHasChange
-// After the labelSelector or nodeSelector is changed, the old pipeline will still be collected, so this patch is applied.
 // After the labelSelector and nodeSelector are changed, delete the old pipeline
 func (c *Controller) handleLogConfigSelectorHasChange(new *logconfigv1beta1.LogConfig, old *logconfigv1beta1.LogConfig) {
 	var err error
