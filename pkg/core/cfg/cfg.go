@@ -142,7 +142,7 @@ func UnPackFromFile(path string, config interface{}) *UnPack {
 // UnpackFromCommonCfg create an Unpack struct from CommonCfg
 func UnpackFromCommonCfg(c CommonCfg, config interface{}) *UnPack {
 	if c == nil {
-		c = CommonCfg{}
+		c = NewCommonCfg()
 	}
 
 	out, err := yaml.Marshal(c)
