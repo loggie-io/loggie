@@ -229,7 +229,7 @@ func NewController(
 				return
 			}
 
-			controller.clearInvalidLogConfig(newConfig, oldConfig)
+			controller.handleSelectorHasChange(newConfig, oldConfig)
 
 			controller.enqueue(new, EventLogConf, newConfig.Spec.Selector.Type)
 		},
@@ -344,29 +344,30 @@ func (c *Controller) InitK8sFieldsPattern() {
 	c.extraTypeNodeFieldsPattern = typeNodePattern
 }
 
-func (c *Controller) clearInvalidLogConfig(new *logconfigv1beta1.LogConfig, old *logconfigv1beta1.LogConfig) {
+// handleSelectorHasChange
+// After the labelSelector or nodeSelector is changed, the old pipeline will still be collected, so this patch is applied.
+// After the labelSelector and nodeSelector are changed, delete the old pipeline
+func (c *Controller) handleSelectorHasChange(new *logconfigv1beta1.LogConfig, old *logconfigv1beta1.LogConfig) {
 	var err error
 	lgcKey := helper.MetaNamespaceKey(old.Namespace, old.Name)
 	switch new.Spec.Selector.Type {
 	case logconfigv1beta1.SelectorTypePod:
-		if !helper.MatchLabelSelectorEqual(new.Spec.Selector.LabelSelector,
+		if !helper.MatchStringMap(new.Spec.Selector.LabelSelector,
 			old.Spec.Selector.LabelSelector) {
 			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypePod)
 			if err != nil {
 				log.Error("delete %s failed: %s", lgcKey, err)
 			}
 		}
-		break
 
 	case logconfigv1beta1.SelectorTypeNode:
-		if !helper.MatchLabelSelectorEqual(new.Spec.Selector.NodeSelector.NodeSelector,
+		if !helper.MatchStringMap(new.Spec.Selector.NodeSelector.NodeSelector,
 			old.Spec.Selector.NodeSelector.NodeSelector) {
 			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypeNode)
 			if err != nil {
 				log.Error("delete %s failed: %s", lgcKey, err)
 			}
 		}
-		break
 	}
 }
 

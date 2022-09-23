@@ -540,7 +540,7 @@ func PathEqual(p1 string, p2 string) bool {
 	return p1 == p2
 }
 
-func MatchLabelSelectorEqual(new map[string]string, old map[string]string) bool {
+func MatchStringMap(new map[string]string, old map[string]string) bool {
 	if new == nil && old == nil {
 		return true
 	}

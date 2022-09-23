@@ -1,6 +1,9 @@
 package helper
 
-import "testing"
+import (
+	"github.com/stretchr/testify/assert"
+	"testing"
+)
 
 func TestLabelsSubset(t *testing.T) {
 	type args struct {
@@ -72,4 +75,49 @@ func TestLabelsSubset(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMatchSelector(t *testing.T) {
+	ret := MatchStringMap(map[string]string{
+		"a": "b",
+	}, map[string]string{
+		"a": "b",
+	})
+	assert.Equal(t, ret, true)
+
+	ret = MatchStringMap(map[string]string{
+		"a": "b",
+	}, map[string]string{
+		"a": "1",
+	})
+	assert.Equal(t, ret, false)
+
+	ret = MatchStringMap(nil, nil)
+	assert.Equal(t, ret, true)
+
+	ret = MatchStringMap(map[string]string{
+		"a": "b",
+	}, nil)
+	assert.Equal(t, ret, false)
+
+	ret = MatchStringMap(map[string]string{
+		"a": "b",
+	}, map[string]string{})
+	assert.Equal(t, ret, false)
+
+	ret = MatchStringMap(map[string]string{
+		"a": "b",
+	}, map[string]string{
+		"a": "b",
+		"c": "d",
+	})
+	assert.Equal(t, ret, false)
+
+	ret = MatchStringMap(map[string]string{
+		"a": "b",
+		"c": "d",
+	}, map[string]string{
+		"a": "b",
+	})
+	assert.Equal(t, ret, false)
 }
