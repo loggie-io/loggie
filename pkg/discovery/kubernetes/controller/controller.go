@@ -383,24 +383,24 @@ func (c *Controller) handleClusterLogConfigSelectorHasChange(new *logconfigv1bet
 		return
 	}
 
-	lgcKey := helper.MetaNamespaceKey(old.Namespace, old.Name)
+	clgcKey := helper.MetaNamespaceKey(old.Namespace, old.Name)
 
 	switch new.Spec.Selector.Type {
 	case logconfigv1beta1.SelectorTypePod:
 		if !helper.MatchStringMap(new.Spec.Selector.LabelSelector,
 			old.Spec.Selector.LabelSelector) {
-			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypePod)
+			err = c.reconcileClusterLogConfigDelete(clgcKey, logconfigv1beta1.SelectorTypePod)
 			if err != nil {
-				log.Error("delete %s failed: %s", lgcKey, err)
+				log.Error("delete %s failed: %s", clgcKey, err)
 			}
 		}
 
 	case logconfigv1beta1.SelectorTypeNode:
 		if !helper.MatchStringMap(new.Spec.Selector.NodeSelector.NodeSelector,
 			old.Spec.Selector.NodeSelector.NodeSelector) {
-			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypeNode)
+			err = c.reconcileClusterLogConfigDelete(clgcKey, logconfigv1beta1.SelectorTypeNode)
 			if err != nil {
-				log.Error("delete %s failed: %s", lgcKey, err)
+				log.Error("delete %s failed: %s", clgcKey, err)
 			}
 		}
 	}
