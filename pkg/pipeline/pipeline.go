@@ -390,9 +390,6 @@ func (p *Pipeline) validateComponent(ctx api.Context) error {
 	if err != nil {
 		return err
 	}
-	if ctx.Properties() == nil {
-		return nil
-	}
 	return cfg.UnpackFromCommonCfg(ctx.Properties(), component.Config()).Defaults().Validate().Do()
 }
 
