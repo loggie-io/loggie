@@ -350,6 +350,11 @@ func (c *Controller) InitK8sFieldsPattern() {
 // After the labelSelector and nodeSelector are changed, delete the old pipeline
 func (c *Controller) handleLogConfigSelectorHasChange(new *logconfigv1beta1.LogConfig, old *logconfigv1beta1.LogConfig) {
 	var err error
+
+	if old.Spec.Selector == nil {
+		return
+	}
+
 	lgcKey := helper.MetaNamespaceKey(old.Namespace, old.Name)
 	switch new.Spec.Selector.Type {
 	case logconfigv1beta1.SelectorTypePod:
@@ -374,7 +379,13 @@ func (c *Controller) handleLogConfigSelectorHasChange(new *logconfigv1beta1.LogC
 
 func (c *Controller) handleClusterLogConfigSelectorHasChange(new *logconfigv1beta1.ClusterLogConfig, old *logconfigv1beta1.ClusterLogConfig) {
 	var err error
+
+	if old.Spec.Selector == nil {
+		return
+	}
+
 	lgcKey := helper.MetaNamespaceKey(old.Namespace, old.Name)
+
 	switch new.Spec.Selector.Type {
 	case logconfigv1beta1.SelectorTypePod:
 		if !helper.MatchStringMap(new.Spec.Selector.LabelSelector,
