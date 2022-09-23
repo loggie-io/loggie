@@ -19,6 +19,7 @@ loggie:
   discovery:
     enabled: false
     kubernetes:
+      containerRuntime: containerd
       kubeconfig: ~/.kube/config
       k8sFields:
         namespace: "${_k8s.pod.namespace}"
