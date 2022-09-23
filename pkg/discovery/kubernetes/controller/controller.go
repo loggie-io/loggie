@@ -182,7 +182,7 @@ func NewController(
 				return
 			}
 
-			controller.handleClusterLogConfigSelectorHasChange(newConfig, oldConfig)
+			controller.handleLogConfigSelectorHasChange(newConfig.ToLogConfig(), oldConfig.ToLogConfig())
 			controller.enqueue(new, EventClusterLogConf, newConfig.Spec.Selector.Type)
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -371,36 +371,6 @@ func (c *Controller) handleLogConfigSelectorHasChange(new *logconfigv1beta1.LogC
 			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypeNode)
 			if err != nil {
 				log.Error("delete %s failed: %s", lgcKey, err)
-			}
-		}
-	}
-}
-
-func (c *Controller) handleClusterLogConfigSelectorHasChange(new *logconfigv1beta1.ClusterLogConfig, old *logconfigv1beta1.ClusterLogConfig) {
-	var err error
-
-	if old.Spec.Selector == nil {
-		return
-	}
-
-	clgcKey := helper.MetaNamespaceKey(old.Namespace, old.Name)
-
-	switch new.Spec.Selector.Type {
-	case logconfigv1beta1.SelectorTypePod:
-		if !helper.MatchStringMap(new.Spec.Selector.LabelSelector,
-			old.Spec.Selector.LabelSelector) {
-			err = c.reconcileClusterLogConfigDelete(clgcKey, logconfigv1beta1.SelectorTypePod)
-			if err != nil {
-				log.Error("delete %s failed: %s", clgcKey, err)
-			}
-		}
-
-	case logconfigv1beta1.SelectorTypeNode:
-		if !helper.MatchStringMap(new.Spec.Selector.NodeSelector.NodeSelector,
-			old.Spec.Selector.NodeSelector.NodeSelector) {
-			err = c.reconcileClusterLogConfigDelete(clgcKey, logconfigv1beta1.SelectorTypeNode)
-			if err != nil {
-				log.Error("delete %s failed: %s", clgcKey, err)
 			}
 		}
 	}
