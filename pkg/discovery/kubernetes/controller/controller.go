@@ -182,6 +182,7 @@ func NewController(
 				return
 			}
 
+			controller.handleClusterLogConfigSelectorHasChange(newConfig, oldConfig)
 			controller.enqueue(new, EventClusterLogConf, newConfig.Spec.Selector.Type)
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -229,7 +230,7 @@ func NewController(
 				return
 			}
 
-			controller.handleSelectorHasChange(newConfig, oldConfig)
+			controller.handleLogConfigSelectorHasChange(newConfig, oldConfig)
 
 			controller.enqueue(new, EventLogConf, newConfig.Spec.Selector.Type)
 		},
@@ -347,7 +348,31 @@ func (c *Controller) InitK8sFieldsPattern() {
 // handleSelectorHasChange
 // After the labelSelector or nodeSelector is changed, the old pipeline will still be collected, so this patch is applied.
 // After the labelSelector and nodeSelector are changed, delete the old pipeline
-func (c *Controller) handleSelectorHasChange(new *logconfigv1beta1.LogConfig, old *logconfigv1beta1.LogConfig) {
+func (c *Controller) handleLogConfigSelectorHasChange(new *logconfigv1beta1.LogConfig, old *logconfigv1beta1.LogConfig) {
+	var err error
+	lgcKey := helper.MetaNamespaceKey(old.Namespace, old.Name)
+	switch new.Spec.Selector.Type {
+	case logconfigv1beta1.SelectorTypePod:
+		if !helper.MatchStringMap(new.Spec.Selector.LabelSelector,
+			old.Spec.Selector.LabelSelector) {
+			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypePod)
+			if err != nil {
+				log.Error("delete %s failed: %s", lgcKey, err)
+			}
+		}
+
+	case logconfigv1beta1.SelectorTypeNode:
+		if !helper.MatchStringMap(new.Spec.Selector.NodeSelector.NodeSelector,
+			old.Spec.Selector.NodeSelector.NodeSelector) {
+			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypeNode)
+			if err != nil {
+				log.Error("delete %s failed: %s", lgcKey, err)
+			}
+		}
+	}
+}
+
+func (c *Controller) handleClusterLogConfigSelectorHasChange(new *logconfigv1beta1.ClusterLogConfig, old *logconfigv1beta1.ClusterLogConfig) {
 	var err error
 	lgcKey := helper.MetaNamespaceKey(old.Namespace, old.Name)
 	switch new.Spec.Selector.Type {
