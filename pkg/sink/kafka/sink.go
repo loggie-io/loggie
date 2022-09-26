@@ -19,6 +19,7 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
@@ -117,7 +118,7 @@ func (s *Sink) Stop() {
 	}
 }
 
-func (s *Sink) Consume(batch api.Batch) api.Result {
+func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 	events := batch.Events()
 	l := len(events)
 	if l == 0 {
@@ -144,10 +145,15 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	}
 
 	if s.writer != nil {
+		t1 := time.Now()
 		err := s.writer.WriteMessages(context.Background(), km...)
 		if err != nil {
-			return result.Fail(errors.WithMessage(err, "write to kafka"))
+			fail := result.Fail(errors.WithMessage(err, "write to kafka"))
+			pool.PutFailedResult(fail)
+			return fail
 		}
+		t2 := time.Now()
+		pool.EnqueueRTT(t2.Sub(t1).Microseconds())
 
 		return result.Success()
 	}

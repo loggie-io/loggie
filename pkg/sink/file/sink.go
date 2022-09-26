@@ -120,18 +120,20 @@ func (s *Sink) Stop() {
 	}
 }
 
-func (s *Sink) Consume(batch api.Batch) api.Result {
+func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 	events := batch.Events()
 	l := len(events)
 	if l == 0 {
 		return result.Success()
 	}
+	t1 := time.Now()
 	msgs := make([]Message, 0, l)
 	for _, e := range events {
 		filename, err := s.selectFilename(e)
 		if err != nil {
 			log.Error("select filename error: %+v", err)
-			return result.Fail(err)
+			fail := result.Fail(err)
+			return fail
 		}
 		data, err := s.cod.Encode(e)
 		if err != nil {
@@ -146,8 +148,12 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	err := s.writer.Write(msgs...)
 	if err != nil {
 		log.Error("write to file error: %v", err)
-		return result.Fail(err)
+		fail := result.Fail(err)
+		pool.PutFailedResult(fail)
+		return fail
 	}
+	t2 := time.Now()
+	pool.EnqueueRTT(t2.Sub(t1).Microseconds())
 	return result.Success()
 }
 

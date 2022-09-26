@@ -104,7 +104,7 @@ type Producer interface {
 }
 
 type Consumer interface {
-	Consume(batch Batch) Result
+	Consume(batch Batch, pool FlowDataPool) Result
 }
 
 type Source interface {

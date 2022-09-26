@@ -1,35 +1,17 @@
-/*
-Copyright 2021 Loggie Authors
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
-package dev
+package localserver
 
 import (
-	"errors"
 	"fmt"
-	"math/rand"
-	"time"
-
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"math/rand"
+	"time"
 )
 
-const Type = "dev"
+const Type = "localserver"
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)
@@ -91,9 +73,6 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 		return nil
 	}
 
-	if !s.config.PrintEvents {
-		return result.NewResult(api.SUCCESS)
-	}
 	t1 := time.Now()
 	for _, e := range events {
 		// json encode
@@ -108,13 +87,7 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 	time.Sleep(time.Second * time.Duration(rand.Intn(10)))
 	t2 := time.Now()
 	microseconds := t2.Sub(t1).Microseconds()
-	log.Info("%d", microseconds)
 	pool.EnqueueRTT(microseconds)
-
-	if rand.Intn(10) > 7 {
-		log.Info("put error")
-		pool.PutFailedResult(result.Fail(errors.New("11")))
-	}
 
 	return result.NewResult(api.SUCCESS)
 }

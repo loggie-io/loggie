@@ -107,7 +107,7 @@ func (s *Sink) Stop() {
 	}
 }
 
-func (s *Sink) Consume(batch api.Batch) api.Result {
+func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 	// convert events to sls logs
 	logs := genSlsLogs(batch)
 
@@ -117,9 +117,14 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		Logs:   logs,
 	}
 
+	t1 := time.Now()
 	if err := s.client.PutLogs(s.config.Project, s.config.LogStore, logGroup); err != nil {
-		return result.Fail(err)
+		fail := result.Fail(err)
+		pool.PutFailedResult(fail)
+		return fail
 	}
+	t2 := time.Now()
+	pool.EnqueueRTT(t2.Sub(t1).Microseconds())
 
 	return result.NewResult(api.SUCCESS)
 }

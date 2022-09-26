@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/pkg/errors"
+	"time"
 
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 
@@ -96,15 +97,19 @@ func (s *Sink) Stop() {
 	}
 }
 
-func (s *Sink) Consume(batch api.Batch) api.Result {
+func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 	if s.cli == nil {
 		return result.Fail(clientNotInitError)
 	}
-
+	t1 := time.Now()
 	err := s.cli.BulkIndex(context.TODO(), batch)
 	if err != nil {
-		return result.Fail(errors.WithMessage(err, "send events to elasticsearch"))
+		fail := result.Fail(errors.WithMessage(err, "send events to elasticsearch"))
+		pool.PutFailedResult(fail)
+		return fail
 	}
+	t2 := time.Now()
+	pool.EnqueueRTT(t2.Sub(t1).Microseconds())
 
 	return result.Success()
 }

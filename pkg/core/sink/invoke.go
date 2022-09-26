@@ -19,8 +19,9 @@ package sink
 import "github.com/loggie-io/loggie/pkg/core/api"
 
 type Invocation struct {
-	Batch api.Batch
-	Sink  api.Sink
+	Batch    api.Batch
+	Sink     api.Sink
+	FlowPool api.FlowDataPool
 }
 
 type Invoker interface {
@@ -39,5 +40,5 @@ type SubscribeInvoker struct {
 }
 
 func (si *SubscribeInvoker) Invoke(invocation Invocation) api.Result {
-	return invocation.Sink.Consume(invocation.Batch)
+	return invocation.Sink.Consume(invocation.Batch, invocation.FlowPool)
 }

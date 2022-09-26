@@ -1,14 +1,16 @@
 pipelines:
   - name: local
     sources:
-      - type: file
-        name: demo
-        paths:
-          - /tmp/log/*.log
-        fields:
-          topic: "loggie"
+      - type: dev
+        name: benchmark
+        qps: 10000
+        byteSize: 1024
+        eventsTotal: -1
     sink:
-      type: dev
+      type: kafka
       printEvents: true
       codec:
         pretty: true
+      brokers: ["localhost:9092"]
+      topic: "loggie-test-10"
+      requiredAcks: 1

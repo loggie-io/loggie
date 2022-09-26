@@ -120,7 +120,7 @@ func (s *Sink) Stop() {
 	}
 }
 
-func (s *Sink) Consume(batch api.Batch) api.Result {
+func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
 	defer cancel()
 
@@ -171,13 +171,17 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			}
 			logMsg.PackedHeader = packedHeader
 		}
-
+		t1 := time.Now()
 		err = stream.Send(logMsg)
 		if err != nil && errors.Is(err, io.EOF) {
 			ls := logMsg.String()
 			log.Error("%s => grpc sink send error. err: %v; raw log content: %v", s.String(), err, ls)
-			return result.Fail(err)
+			fail := result.Fail(err)
+			pool.PutFailedResult(fail)
+			return fail
 		}
+		t2 := time.Now()
+		pool.EnqueueRTT(t2.Sub(t1).Microseconds())
 	}
 	logResp, err := stream.CloseAndRecv()
 	if err != nil {
