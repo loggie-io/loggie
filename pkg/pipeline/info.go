@@ -17,6 +17,7 @@ limitations under the License.
 package pipeline
 
 import (
+	"github.com/loggie-io/loggie/pkg/core/concurrency"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"time"
 
@@ -36,6 +37,7 @@ type Config struct {
 	Interceptors []*interceptor.Config `yaml:"interceptors,omitempty"`
 	Sources      []*source.Config      `yaml:"sources,omitempty" validate:"dive,required"`
 	Sink         *sink.Config          `yaml:"sink,omitempty" validate:"dive,required"`
+	Concurrency  *concurrency.Config   `yaml:"concurrency,omitempty" validate:"dive,required"`
 }
 
 func (c *Config) SetDefaults() {
@@ -74,6 +76,12 @@ func (c *Config) merge() {
 		c.Sources = source.MergeSourceList(c.Sources, defaults.Sources)
 	} else {
 		c.Sources = defaults.Sources
+	}
+
+	if c.Concurrency != nil {
+		c.Concurrency.Merge(defaults.Concurrency)
+	} else {
+		c.Concurrency = defaults.Concurrency
 	}
 }
 

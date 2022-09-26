@@ -17,6 +17,7 @@ limitations under the License.
 package sysconfig
 
 import (
+	"github.com/loggie-io/loggie/pkg/core/concurrency"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/queue"
 	"github.com/loggie-io/loggie/pkg/core/reloader"
@@ -48,6 +49,7 @@ type Defaults struct {
 	Queue        *queue.Config         `yaml:"queue"`
 	Interceptors []*interceptor.Config `yaml:"interceptors"`
 	Sink         *sink.Config          `yaml:"sink"`
+	Concurrency  *concurrency.Config   `yaml:"concurrency"`
 }
 
 var defaultInterceptors = []*interceptor.Config{
@@ -81,6 +83,7 @@ func (d *Defaults) SetDefaults() {
 		Queue:        d.Queue,
 		Interceptors: d.Interceptors,
 		Sink:         d.Sink,
+		Concurrency:  d.Concurrency,
 	})
 }
 

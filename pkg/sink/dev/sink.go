@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -102,16 +103,30 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 			log.Warn("codec event error: %+v", err)
 			continue
 		}
+
 		//log.Info("event: %s", string(out))
 	}
 
-	time.Sleep(time.Second * time.Duration(rand.Intn(10)))
-	t2 := time.Now()
-	microseconds := t2.Sub(t1).Microseconds()
-	log.Info("%d", microseconds)
-	pool.EnqueueRTT(microseconds)
+	host := s.config.Host
+	if len(host) > 0 {
+		resp, err := http.Get(host)
+		if err != nil {
+			log.Warn(err.Error())
+			pool.PutFailedResult(result.Fail(err))
+			return result.Fail(err)
+		}
 
-	if rand.Intn(10) > 7 {
+		err = resp.Body.Close()
+		if err != nil {
+			log.Warn(err.Error())
+		}
+
+		t2 := time.Now()
+		microseconds := t2.Sub(t1).Microseconds()
+		pool.EnqueueRTT(microseconds)
+	}
+
+	if rand.Intn(10000) > 9982 {
 		log.Info("put error")
 		pool.PutFailedResult(result.Fail(errors.New("11")))
 	}

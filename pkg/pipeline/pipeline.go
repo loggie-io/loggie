@@ -19,6 +19,7 @@ package pipeline
 import (
 	"bufio"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/concurrency"
 	"github.com/loggie-io/loggie/pkg/core/flowdatapool"
 	"github.com/panjf2000/ants/v2"
 	"os"
@@ -77,6 +78,7 @@ type Pipeline struct {
 	outfunc       api.OutFunc
 	retryoutfunc  api.OutFunc
 	sinkinfo      sink.Info
+	concurrency   concurrency.Config
 
 	Running bool
 }
@@ -92,7 +94,8 @@ func NewPipeline(pipelineConfig *Config) *Pipeline {
 			R:           registerCenter,
 			SurviveChan: make(chan api.Batch, pipelineConfig.Sink.Parallelism+1),
 		},
-		r: registerCenter,
+		r:           registerCenter,
+		concurrency: *pipelineConfig.Concurrency,
 	}
 }
 
@@ -292,7 +295,7 @@ func (p *Pipeline) init(pipelineConfig Config) {
 	// init event pool
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
 
-	p.gpoolMaxSize = 40
+	p.gpoolMaxSize = p.concurrency.Goroutine.MaxGoroutine
 	p.flowPool = flowdatapool.InitDataPool(100)
 }
 
@@ -536,8 +539,13 @@ func (p *Pipeline) startSinkConsumer(sinkConfig *sink.Config) {
 	gpool, _ := ants.NewPool(10)
 	p.gpool = gpool
 
-	p.tuneGPool(2)
-	p.startGPoolCalculator()
+	concurrencyEnabled := p.concurrency.Enable
+	if *concurrencyEnabled {
+		p.tuneGPool(2)
+		p.startGPoolCalculator()
+	} else {
+		p.tuneGPool(sinkConfig.Parallelism)
+	}
 
 }
 
@@ -611,13 +619,22 @@ func (p *Pipeline) startGPoolCalculator() {
 	targets := make([]int, 0)
 	var averageTarget int
 
-	threshold := 16
-	blockJudgeThreshold := 1.3
-	newRttWeigh := 0.7
-	multiIncreaseRatio := 2
-	linearIncreaseRatio := 2
-	linearIncreaseRatioSourceBlocked := 4
-	tickDuration := 15
+	config := p.concurrency
+	threshold := config.Goroutine.InitThreshold
+	unstableTolerate := config.Goroutine.UnstableTolerate
+	channelLenOfCap := config.Goroutine.ChannelLenOfCap
+
+	blockJudgeThreshold := config.Rtt.BlockJudgeThreshold
+	newRttWeigh := config.Rtt.NewRttWeigh
+
+	multiIncreaseRatio := config.Ratio.Multi
+	linearIncreaseRatio := config.Ratio.Linear
+	linearIncreaseRatioSourceBlocked := config.Ratio.LinearWhenBlocked
+
+	unstableDuration := config.Duration.Unstable
+	stableDuration := config.Duration.Stable
+
+	tickDuration := unstableDuration
 
 	decreaseReq := make([]bool, 0)
 	increaseReq := make([]bool, 0)
@@ -631,7 +648,7 @@ func (p *Pipeline) startGPoolCalculator() {
 		file, _ := os.OpenFile(filePath, os.O_RDWR|os.O_APPEND|os.O_TRUNC, 0666)
 		defer file.Close()
 		writer := bufio.NewWriter(file)
-		writer.WriteString(fmt.Sprintf("%15s\t%15s\t%15s\t%15s\n", "rttT", "rttD", "target", "failed"))
+		writer.WriteString(fmt.Sprintf("%15s\t%15s\t%15s\t%15s\t%15s\n", "rttT", "rttD", "target", "failed", "channel"))
 		writer.Flush()
 		for {
 			select {
@@ -647,7 +664,7 @@ func (p *Pipeline) startGPoolCalculator() {
 						}
 						averageTarget = sum / 10
 						stable = true
-						tickDuration = tickDuration * 2
+						tickDuration = stableDuration
 						timer.Reset(time.Second * time.Duration(tickDuration))
 						log.Info("now stable mode, average target %d", averageTarget)
 					}
@@ -659,7 +676,7 @@ func (p *Pipeline) startGPoolCalculator() {
 				count := len(allRtt)
 
 				if !stable {
-					target := p.gpool.Running() - 2
+					target := p.gpool.Running() - linearIncreaseRatio
 					threshold = target
 					log.Info("target append %d", target)
 					targets = append(targets, target)
@@ -667,13 +684,18 @@ func (p *Pipeline) startGPoolCalculator() {
 				} else {
 					decreaseReq = append(decreaseReq, true)
 					increaseReq = make([]bool, 0)
-					if len(decreaseReq) >= 2 {
-						target := p.gpool.Running() - 2
-						if target > averageTarget-2 {
-							averageTarget = averageTarget - 2
-							threshold = averageTarget
-							p.tuneGPool(averageTarget)
+					if len(decreaseReq) >= unstableTolerate {
+						target := p.gpool.Running() - linearIncreaseRatio
+						if target <= averageTarget-linearIncreaseRatio {
+							averageTarget = averageTarget - linearIncreaseRatio
+							target = averageTarget
 						}
+
+						if target < p.gpool.Running() {
+							threshold = target
+							p.tuneGPool(target)
+						}
+
 					} else {
 						log.Info("stable mode describe req, ignored")
 					}
@@ -705,7 +727,7 @@ func (p *Pipeline) startGPoolCalculator() {
 						}
 						averageTarget = sum / 10
 						stable = true
-						tickDuration = tickDuration * 2
+						tickDuration = stableDuration
 						timer.Reset(time.Second * time.Duration(tickDuration))
 						log.Info("now stable mode, average target %d", averageTarget)
 					}
@@ -725,9 +747,9 @@ func (p *Pipeline) startGPoolCalculator() {
 					rttD = float64(sum) / float64(count)
 					if rttT != 0 {
 						if rttD/rttT > blockJudgeThreshold {
-							log.Info("rtt too long, decrease gpool size")
+							log.Info("rtt too long, decrease gpool size ,rrtD %f,rttT %f", rttD, rttT)
 							if !stable {
-								target := p.gpool.Running() - 2
+								target := p.gpool.Running() - linearIncreaseRatio
 								threshold = target
 								log.Info("target append %d", target)
 								targets = append(targets, target)
@@ -735,12 +757,15 @@ func (p *Pipeline) startGPoolCalculator() {
 							} else {
 								decreaseReq = append(decreaseReq, true)
 								increaseReq = make([]bool, 0)
-								if len(decreaseReq) >= 3 {
-									target := p.gpool.Running() - 2
-									if target > averageTarget-2 {
-										averageTarget = averageTarget - 2
-										threshold = averageTarget
-										p.tuneGPool(averageTarget)
+								if len(decreaseReq) >= unstableTolerate {
+									target := p.gpool.Running() - linearIncreaseRatio
+									if target <= averageTarget-linearIncreaseRatio {
+										averageTarget = averageTarget - linearIncreaseRatio
+										target = averageTarget
+									}
+									if target < p.gpool.Running() {
+										threshold = target
+										p.tuneGPool(target)
 									}
 								} else {
 									log.Info("stable mode describe req, ignored")
@@ -753,7 +778,6 @@ func (p *Pipeline) startGPoolCalculator() {
 							writer.Flush()
 							continue
 						} else {
-							decreaseReq = make([]bool, 0)
 							rttT = newRttWeigh*rttD + (1-newRttWeigh)*rttT
 							log.Info("current rttT = %f, rttD = %f", rttT, rttD)
 						}
@@ -764,18 +788,21 @@ func (p *Pipeline) startGPoolCalculator() {
 					pool := p.gpool
 					currentPoolCap := pool.Running()
 					var targetCap int
+					var aaa float64
+					log.Info("threshold %d", threshold)
 					if currentPoolCap < threshold {
 						targetCap = currentPoolCap * multiIncreaseRatio
 					} else {
 						currentChannelLen := len(q)
 						currentChannelCap := cap(q)
+						aaa = float64(currentChannelLen) / float64(currentChannelCap)
 						if q == nil {
 							log.Warn("channel is nil")
 						}
-						log.Info("channel len %d, channel cap %d", currentChannelLen, currentPoolCap)
+						log.Info("channel len %d, channel cap %d", currentChannelLen, currentChannelCap)
 						if currentChannelLen == currentChannelCap {
 							targetCap = currentPoolCap + linearIncreaseRatioSourceBlocked
-						} else if float64(currentChannelLen) > float64(currentChannelCap)*0.5 {
+						} else if float64(currentChannelLen) > float64(currentChannelCap)*channelLenOfCap {
 							targetCap = currentPoolCap + linearIncreaseRatio
 						} else {
 							targetCap = currentPoolCap
@@ -792,12 +819,14 @@ func (p *Pipeline) startGPoolCalculator() {
 						if !stable {
 							p.tuneGPool(targetCap)
 						} else {
+							decreaseReq = make([]bool, 0)
 							increaseReq = append(increaseReq, true)
-							if len(increaseReq) >= 3 {
-								if targetCap > averageTarget+2 {
-									averageTarget = averageTarget + 2
+							if len(increaseReq) >= unstableTolerate {
+								if targetCap >= averageTarget+linearIncreaseRatio {
+									averageTarget = averageTarget + linearIncreaseRatio
 									targetCap = averageTarget
 								}
+								threshold = targetCap
 								p.tuneGPool(targetCap)
 							} else {
 								log.Info("stable mode increase req, ignored")
@@ -806,7 +835,7 @@ func (p *Pipeline) startGPoolCalculator() {
 					}
 
 					log.Info("current rttT = %f, rttD = %f", rttT, rttD)
-					writer.WriteString(fmt.Sprintf("%15f\t%15f\t%15d\t\n", oldrttT, rttD, p.gpool.Cap()))
+					writer.WriteString(fmt.Sprintf("%15f\t%15f\t%15d\t%15s\t%15f\n", oldrttT, rttD, p.gpool.Cap(), "", aaa))
 					writer.Flush()
 				}
 
@@ -822,6 +851,12 @@ func (p *Pipeline) tuneGPool(targetCap int) {
 		log.Info("gpool size should be larger than 1")
 		targetCap = 2
 	}
+
+	if targetCap > p.gpoolMaxSize {
+		log.Info("gpool size should be smaller than %d", p.gpoolMaxSize)
+		targetCap = p.gpoolMaxSize
+	}
+
 	pool := p.gpool
 	if pool.IsClosed() {
 		pool.Reboot()
@@ -852,9 +887,7 @@ func (p *Pipeline) stopGPool() {
 	pool := p.gpool
 	currentPoolRunning := pool.Running()
 	log.Info("currentPoolRunning %d", currentPoolRunning)
-	for i := 0; i < currentPoolRunning; i++ {
-		p.flowPoolDone <- struct{}{}
-	}
+	close(p.flowPoolDone)
 	pool.Release()
 
 	log.Info("running goroutines: %d , total %d ,free %d", pool.Running(), pool.Cap(), pool.Free())
