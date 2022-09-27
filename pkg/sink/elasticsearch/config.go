@@ -28,6 +28,7 @@ type Config struct {
 	Schema     string   `yaml:"schema,omitempty"`
 	Sniff      *bool    `yaml:"sniff,omitempty"`
 	Gzip       *bool    `yaml:"gzip,omitempty"`
+	OpType     string   `yaml:"opType,omitempty"`
 }
 
 func (c *Config) Validate() error {
