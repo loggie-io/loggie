@@ -99,8 +99,11 @@ func (c *ClientSet) BulkIndex(ctx context.Context, batch api.Batch) error {
 		}
 
 		bulkIndexRequest := es.NewBulkIndexRequest().Index(idx).Doc(json.RawMessage(data))
-		if len(c.config.Etype) > 0 {
+		if c.config.Etype != "" {
 			bulkIndexRequest.Type(c.config.Etype)
+		}
+		if c.config.OpType != "" {
+			bulkIndexRequest.OpType(c.config.OpType)
 		}
 		if c.config.DocumentId != "" {
 			id, err := c.documentIdPattern.WithObject(headerObj).Render()
