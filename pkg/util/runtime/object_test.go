@@ -19,6 +19,7 @@ package runtime
 import (
 	"github.com/stretchr/testify/assert"
 	"reflect"
+	"regexp"
 	"testing"
 )
 
@@ -319,6 +320,93 @@ func TestObject_FlatKeyValue(t *testing.T) {
 			got, err := obj.FlatKeyValue("_")
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestObject_ConvertKeys(t *testing.T) {
+	type fields struct {
+		data interface{}
+	}
+	type args struct {
+		keyFunc convertKeyFunc
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   *Object
+	}{
+		{
+			name: "update keys ok",
+			fields: fields{
+				data: map[string]interface{}{
+					"a": "b",
+					"c": "d",
+					"e": map[string]interface{}{
+						"f": "g",
+					},
+				},
+			},
+			args: args{
+				keyFunc: func(key string) string {
+					if key == "a" {
+						return "aa"
+					}
+					if key == "f" {
+						return "ff"
+					}
+					return ""
+				},
+			},
+			want: &Object{
+				data: map[string]interface{}{
+					"aa": "b",
+					"c":  "d",
+					"e": map[string]interface{}{
+						"ff": "g",
+					},
+				},
+			},
+		},
+		{
+			name: "regex keys ok",
+			fields: fields{
+				data: map[string]interface{}{
+					"a": "b",
+					"e": map[string]interface{}{
+						"foo.bar/test": "g",
+					},
+				},
+			},
+			args: args{
+				keyFunc: func(key string) string {
+					reg := regexp.MustCompile("foo.bar/(.*)")
+					matched := reg.FindStringSubmatch(key)
+					if len(matched) > 0 {
+						return reg.ReplaceAllString(key, "pre-${1}")
+					}
+					return ""
+				},
+			},
+			want: &Object{
+				data: map[string]interface{}{
+					"a": "b",
+					"e": map[string]interface{}{
+						"pre-test": "g",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			obj := &Object{
+				data: tt.fields.data,
+			}
+			err := obj.ConvertKeys(tt.args.keyFunc)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, obj)
 		})
 	}
 }

@@ -21,7 +21,7 @@ loggie:
     kubernetes:
       containerRuntime: containerd
       kubeconfig: ~/.kube/config
-      k8sFields:
+      typePodFields:
         namespace: "${_k8s.pod.namespace}"
         podname: "${_k8s.pod.name}"
         containername: "${_k8s.pod.container.name}"
@@ -32,9 +32,9 @@ loggie:
     sink:
       type: dev
       printEvents: true
-#      codec:
-#        type: json
-#        pretty: true
+      codec:
+        type: json
+        pretty: true
     sources:
       - type: file
         watcher:
