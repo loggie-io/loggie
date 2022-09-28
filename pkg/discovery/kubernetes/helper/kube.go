@@ -534,6 +534,21 @@ func ExtractContainerId(containerID string) string {
 	return statusContainerId[1]
 }
 
+func GetContainerIds(pod *corev1.Pod) sets.String {
+	if len(pod.Status.ContainerStatuses) == 0 {
+		return nil
+	}
+
+	var ids []string
+	for _, status := range pod.Status.ContainerStatuses {
+		containerId := ExtractContainerId(status.ContainerID)
+		if containerId != "" {
+			ids = append(ids, containerId)
+		}
+	}
+	return sets.NewString(ids...)
+}
+
 // PathEqual Compare whether the two paths are same, ignoring the suffix '/'
 func PathEqual(p1 string, p2 string) bool {
 	if !strings.HasSuffix(p1, "/") {
