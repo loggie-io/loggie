@@ -207,3 +207,36 @@ func flatten(token string, prefix string, src map[string]interface{}, dest map[s
 		}
 	}
 }
+
+type convertKeyFunc func(key string) string
+
+// ConvertKeys All keys in the object are processed by the convertKeyFunc function.
+// If convertKeyFunc returns empty, the key will not be processed.
+func (obj *Object) ConvertKeys(keyFunc convertKeyFunc) error {
+	m, err := obj.Map()
+	if err != nil {
+		return err
+	}
+	if len(m) == 0 {
+		return nil
+	}
+
+	convertKeys(m, keyFunc)
+	return nil
+}
+
+func convertKeys(src map[string]interface{}, keyFunc convertKeyFunc) {
+	for k, v := range src {
+		switch child := v.(type) {
+		case map[string]interface{}:
+			convertKeys(child, keyFunc)
+
+		default:
+			out := keyFunc(k)
+			if out != "" {
+				src[out] = v
+				delete(src, k)
+			}
+		}
+	}
+}

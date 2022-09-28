@@ -182,6 +182,7 @@ func NewController(
 				return
 			}
 
+			controller.handleLogConfigSelectorHasChange(newConfig.ToLogConfig(), oldConfig.ToLogConfig())
 			controller.enqueue(new, EventClusterLogConf, newConfig.Spec.Selector.Type)
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -228,6 +229,8 @@ func NewController(
 			if !controller.belongOfCluster(newConfig.Spec.Selector.Cluster) {
 				return
 			}
+
+			controller.handleLogConfigSelectorHasChange(newConfig, oldConfig)
 
 			controller.enqueue(new, EventLogConf, newConfig.Spec.Selector.Type)
 		},
@@ -340,6 +343,37 @@ func (c *Controller) InitK8sFieldsPattern() {
 	}
 
 	c.extraTypeNodeFieldsPattern = typeNodePattern
+}
+
+// handleSelectorHasChange
+// After the labelSelector and nodeSelector are changed, delete the old pipeline
+func (c *Controller) handleLogConfigSelectorHasChange(new *logconfigv1beta1.LogConfig, old *logconfigv1beta1.LogConfig) {
+	var err error
+
+	if old.Spec.Selector == nil {
+		return
+	}
+
+	lgcKey := helper.MetaNamespaceKey(old.Namespace, old.Name)
+	switch new.Spec.Selector.Type {
+	case logconfigv1beta1.SelectorTypePod:
+		if !helper.MatchStringMap(new.Spec.Selector.LabelSelector,
+			old.Spec.Selector.LabelSelector) {
+			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypePod)
+			if err != nil {
+				log.Error("delete %s failed: %s", lgcKey, err)
+			}
+		}
+
+	case logconfigv1beta1.SelectorTypeNode:
+		if !helper.MatchStringMap(new.Spec.Selector.NodeSelector.NodeSelector,
+			old.Spec.Selector.NodeSelector.NodeSelector) {
+			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypeNode)
+			if err != nil {
+				log.Error("delete %s failed: %s", lgcKey, err)
+			}
+		}
+	}
 }
 
 func (c *Controller) enqueue(obj interface{}, eleType string, selectorType string) {

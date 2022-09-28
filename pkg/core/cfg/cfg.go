@@ -142,7 +142,7 @@ func UnPackFromFile(path string, config interface{}) *UnPack {
 // UnpackFromCommonCfg create an Unpack struct from CommonCfg
 func UnpackFromCommonCfg(c CommonCfg, config interface{}) *UnPack {
 	if c == nil {
-		c = CommonCfg{}
+		c = NewCommonCfg()
 	}
 
 	out, err := yaml.Marshal(c)
@@ -224,6 +224,9 @@ func Pack(config interface{}) (CommonCfg, error) {
 
 // setDefault will affect by `default` tag, and call setDefaults() function.
 func setDefault(config interface{}) error {
+	if config == nil {
+		return nil
+	}
 	return defaults.Set(config)
 }
 

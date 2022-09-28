@@ -411,6 +411,7 @@ func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.
 
 	k8sFields := make(map[string]interface{})
 
+	// Deprecated
 	m := c.config.Fields
 	if m.Namespace != "" {
 		k8sFields[m.Namespace] = pod.Namespace
