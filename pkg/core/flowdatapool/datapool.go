@@ -6,9 +6,9 @@ import (
 )
 
 type DataPool struct {
-	q             *sliceQueue
-	failedResult  chan api.Result
-	sourceBlocked bool
+	q            *sliceQueue
+	failedResult chan api.Result
+	enabled      bool
 }
 
 type sliceQueue struct {
@@ -63,14 +63,15 @@ func (q *sliceQueue) dequeueAll() []int64 {
 
 func InitDataPool(n int) *DataPool {
 	return &DataPool{
-		q:             newSliceQueue(n),
-		failedResult:  make(chan api.Result),
-		sourceBlocked: false,
+		q:            newSliceQueue(n),
+		failedResult: make(chan api.Result),
 	}
 }
 
 func (dataPool *DataPool) EnqueueRTT(f int64) {
-	dataPool.q.enqueue(f)
+	if dataPool.enabled {
+		dataPool.q.enqueue(f)
+	}
 }
 
 func (dataPool *DataPool) DequeueAllRtt() []int64 {
@@ -78,21 +79,19 @@ func (dataPool *DataPool) DequeueAllRtt() []int64 {
 }
 
 func (dataPool *DataPool) PutFailedResult(result api.Result) {
-	dataPool.failedResult <- result
+	if dataPool.enabled {
+		dataPool.failedResult <- result
+	}
 }
 
 func (dataPool *DataPool) GetFailedChannel() chan api.Result {
 	return dataPool.failedResult
 }
 
-func (dataPool *DataPool) SetSourceBlocked() {
-	dataPool.sourceBlocked = true
+func (dataPool *DataPool) IsEnabled() bool {
+	return dataPool.enabled
 }
 
-func (dataPool *DataPool) UnSetSourceBlocked() {
-	dataPool.sourceBlocked = false
-}
-
-func (dataPool *DataPool) GetSourceBlocked() bool {
-	return dataPool.sourceBlocked
+func (dataPool *DataPool) SetEnabled(enabled bool) {
+	dataPool.enabled = enabled
 }

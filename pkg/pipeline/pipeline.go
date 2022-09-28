@@ -17,7 +17,6 @@ limitations under the License.
 package pipeline
 
 import (
-	"bufio"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/concurrency"
 	"github.com/loggie-io/loggie/pkg/core/flowdatapool"
@@ -95,7 +94,7 @@ func NewPipeline(pipelineConfig *Config) *Pipeline {
 			SurviveChan: make(chan api.Batch, pipelineConfig.Sink.Parallelism+1),
 		},
 		r:           registerCenter,
-		concurrency: *pipelineConfig.Concurrency,
+		concurrency: *pipelineConfig.Sink.Concurrency,
 	}
 }
 
@@ -294,9 +293,6 @@ func (p *Pipeline) init(pipelineConfig Config) {
 
 	// init event pool
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
-
-	p.gpoolMaxSize = p.concurrency.Goroutine.MaxGoroutine
-	p.flowPool = flowdatapool.InitDataPool(100)
 }
 
 func (p *Pipeline) startInterceptor(interceptorConfigs []*interceptor.Config) error {
@@ -511,6 +507,8 @@ func (p *Pipeline) startSinkConsumer(sinkConfig *sink.Config) {
 	interceptors = append(interceptors, collectComponentDependencySinkInterceptors(si.Sink)...)
 	interceptors = append(interceptors, collectComponentDependencySinkInterceptors(si.Queue)...)
 
+	p.flowPool = flowdatapool.InitDataPool(100)
+	p.flowPool.SetEnabled(p.concurrency.Enable)
 	invoker := &sink.SubscribeInvoker{}
 	sinkInvokerChain := buildSinkInvokerChain(invoker, interceptors, false)
 	retrySinkInvokerChain := buildSinkInvokerChain(invoker, interceptors, true)
@@ -540,36 +538,16 @@ func (p *Pipeline) startSinkConsumer(sinkConfig *sink.Config) {
 	p.gpool = gpool
 
 	concurrencyEnabled := p.concurrency.Enable
-	if *concurrencyEnabled {
+	if concurrencyEnabled {
+		p.gpoolMaxSize = p.concurrency.Goroutine.MaxGoroutine
 		p.tuneGPool(2)
 		p.startGPoolCalculator()
 	} else {
+		p.gpoolMaxSize = sinkConfig.Parallelism
 		p.tuneGPool(sinkConfig.Parallelism)
 	}
 
 }
-
-// outfunc may have been combined, but batch has been released in advance
-//func (p *Pipeline) sinkInvokeLoop(index int, info sink.Info, outFunc api.OutFunc) {
-//	p.countDown.Add(1)
-//	s := info.Sink
-//	log.Info("pipeline sink(%s)-%d invoke loop start", s.String(), index)
-//	defer func() {
-//		p.countDown.Done()
-//		log.Info("pipeline sink(%s)-%d invoke loop stop", s.String(), index)
-//	}()
-//	q := info.Queue
-//	outChan := q.OutChan()
-//	for {
-//		select {
-//		case <-p.done:
-//			return
-//		case b := <-outChan:
-//			result := outFunc(b)
-//			p.afterSinkConsumer(b, result)
-//		}
-//	}
-//}
 
 func GetGoid() int64 {
 	var (
@@ -587,6 +565,7 @@ func GetGoid() int64 {
 	return int64(id)
 }
 
+// outfunc may have been combined, but batch has been released in advance
 func (p *Pipeline) sinkInvokeLoop(info sink.Info, outFunc api.OutFunc) {
 	p.countDown.Add(1)
 	s := info.Sink
@@ -644,12 +623,6 @@ func (p *Pipeline) startGPoolCalculator() {
 	go func() {
 		timer := time.NewTicker(time.Second * time.Duration(tickDuration))
 		defer timer.Stop()
-		filePath := "/Users/zzy/Downloads/test.txt"
-		file, _ := os.OpenFile(filePath, os.O_RDWR|os.O_APPEND|os.O_TRUNC, 0666)
-		defer file.Close()
-		writer := bufio.NewWriter(file)
-		writer.WriteString(fmt.Sprintf("%15s\t%15s\t%15s\t%15s\t%15s\n", "rttT", "rttD", "target", "failed", "channel"))
-		writer.Flush()
 		for {
 			select {
 			case <-p.done:
@@ -671,14 +644,12 @@ func (p *Pipeline) startGPoolCalculator() {
 				}
 
 				log.Info("failed response received")
-				log.Info("current rttT = %f, rttD = %f", rttT, rttD)
 				allRtt := p.flowPool.DequeueAllRtt()
 				count := len(allRtt)
 
 				if !stable {
 					target := p.gpool.Running() - linearIncreaseRatio
 					threshold = target
-					log.Info("target append %d", target)
 					targets = append(targets, target)
 					p.tuneGPool(target)
 				} else {
@@ -697,11 +668,10 @@ func (p *Pipeline) startGPoolCalculator() {
 						}
 
 					} else {
-						log.Info("stable mode describe req, ignored")
+						log.Info("stable mode decrease req, ignored %d", len(decreaseReq))
 					}
 				}
 
-				oldrttT := rttT
 				if count > 0 {
 					var sum int64
 					for i := 0; i < count; i++ {
@@ -714,9 +684,6 @@ func (p *Pipeline) startGPoolCalculator() {
 						rttT = rttD
 					}
 				}
-				log.Info("calculated rttT = %f, rttD = %f", rttT, rttD)
-				writer.WriteString(fmt.Sprintf("%15f\t%15f\t%15d\t%15s\n", oldrttT, rttD, p.gpool.Cap(), "failed"))
-				writer.Flush()
 
 			case <-timer.C:
 				if !stable {
@@ -734,11 +701,8 @@ func (p *Pipeline) startGPoolCalculator() {
 				}
 
 				log.Info("regular gpool resize")
-				log.Info("current rttT = %f, rttD = %f", rttT, rttD)
 				allRtt := p.flowPool.DequeueAllRtt()
 				count := len(allRtt)
-				log.Info("current rtt count %d", count)
-				oldrttT := rttT
 				if count > 0 {
 					var sum int64
 					for i := 0; i < count; i++ {
@@ -751,7 +715,6 @@ func (p *Pipeline) startGPoolCalculator() {
 							if !stable {
 								target := p.gpool.Running() - linearIncreaseRatio
 								threshold = target
-								log.Info("target append %d", target)
 								targets = append(targets, target)
 								p.tuneGPool(threshold)
 							} else {
@@ -768,18 +731,14 @@ func (p *Pipeline) startGPoolCalculator() {
 										p.tuneGPool(target)
 									}
 								} else {
-									log.Info("stable mode describe req, ignored")
+									log.Info("stable mode decrease req, ignored %d", len(decreaseReq))
 								}
 							}
 
 							rttT = newRttWeigh*rttD + (1-newRttWeigh)*rttT
-							log.Info("current rttT = %f, rttD = %f", rttT, rttD)
-							writer.WriteString(fmt.Sprintf("%15f\t%15f\t%15d\t\n", oldrttT, rttD, p.gpool.Cap()))
-							writer.Flush()
 							continue
 						} else {
 							rttT = newRttWeigh*rttD + (1-newRttWeigh)*rttT
-							log.Info("current rttT = %f, rttD = %f", rttT, rttD)
 						}
 					} else {
 						rttT = rttD
@@ -788,18 +747,14 @@ func (p *Pipeline) startGPoolCalculator() {
 					pool := p.gpool
 					currentPoolCap := pool.Running()
 					var targetCap int
-					var aaa float64
-					log.Info("threshold %d", threshold)
 					if currentPoolCap < threshold {
 						targetCap = currentPoolCap * multiIncreaseRatio
 					} else {
 						currentChannelLen := len(q)
 						currentChannelCap := cap(q)
-						aaa = float64(currentChannelLen) / float64(currentChannelCap)
 						if q == nil {
 							log.Warn("channel is nil")
 						}
-						log.Info("channel len %d, channel cap %d", currentChannelLen, currentChannelCap)
 						if currentChannelLen == currentChannelCap {
 							targetCap = currentPoolCap + linearIncreaseRatioSourceBlocked
 						} else if float64(currentChannelLen) > float64(currentChannelCap)*channelLenOfCap {
@@ -829,16 +784,24 @@ func (p *Pipeline) startGPoolCalculator() {
 								threshold = targetCap
 								p.tuneGPool(targetCap)
 							} else {
-								log.Info("stable mode increase req, ignored")
+								log.Info("stable mode increase req, ignored %d", len(increaseReq))
 							}
 						}
 					}
-
-					log.Info("current rttT = %f, rttD = %f", rttT, rttD)
-					writer.WriteString(fmt.Sprintf("%15f\t%15f\t%15d\t%15s\t%15f\n", oldrttT, rttD, p.gpool.Cap(), "", aaa))
-					writer.Flush()
 				}
 
+			}
+			sources := p.config.Sources
+			for _, source := range sources {
+				sinkMetricData := eventbus.SinkMetricData{
+					BaseMetric: eventbus.BaseMetric{
+						PipelineName: p.name,
+						SourceName:   source.Name,
+					},
+					GoroutinePoolSize: p.gpool.Cap(),
+				}
+				fmt.Println(sinkMetricData)
+				eventbus.PublishOrDrop(eventbus.SinkMetricTopic, sinkMetricData)
 			}
 		}
 	}()
@@ -879,18 +842,14 @@ func (p *Pipeline) tuneGPool(targetCap int) {
 		}
 		pool.Tune(targetCap)
 	}
-
-	log.Info("running goroutines: %d , total %d ,free %d", pool.Running(), pool.Cap(), pool.Free())
 }
 
 func (p *Pipeline) stopGPool() {
 	pool := p.gpool
-	currentPoolRunning := pool.Running()
-	log.Info("currentPoolRunning %d", currentPoolRunning)
 	close(p.flowPoolDone)
 	pool.Release()
 
-	log.Info("running goroutines: %d , total %d ,free %d", pool.Running(), pool.Cap(), pool.Free())
+	log.Info("goroutine pool released")
 }
 
 func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor, retry bool) sink.Invoker {

@@ -75,6 +75,7 @@ type SinkMetricData struct {
 	BaseMetric
 	SuccessEventCount int
 	FailEventCount    int
+	GoroutinePoolSize int
 }
 
 type QueueMetricData struct {

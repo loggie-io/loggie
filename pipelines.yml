@@ -1,15 +1,16 @@
 pipelines:
   - name: local
     sources:
-      - type: dev
-        name: benchmark
-        qps: 10000
-        byteSize: 1024
-        eventsTotal: -1
+      - type: file
+        name: demo
+        paths:
+          - /tmp/log/*.log
+        fields:
+          topic: "loggie"
     sink:
       type: dev
-      parallelism: 16
-      host: "http://127.0.0.1:8080/loggie"
-    concurrency:
-      enable: true
+      printEvents: true
+      codec:
+        pretty: true
+
 

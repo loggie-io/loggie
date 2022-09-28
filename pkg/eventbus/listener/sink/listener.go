@@ -63,7 +63,8 @@ type data struct {
 	SuccessEventCount int64 `json:"successEvent"`
 	FailEventCount    int64 `json:"failedEvent"`
 
-	EventQps float64 `json:"eventQps"`
+	EventQps          float64 `json:"eventQps"`
+	GoroutinePoolSize int     `json:"goroutinePoolSize"`
 }
 
 func (l *Listener) Name() string {
@@ -148,6 +149,15 @@ func (l *Listener) exportPrometheus() {
 				Eval:    d.EventQps,
 				ValType: prometheus.GaugeValue,
 			},
+			{
+				Desc: prometheus.NewDesc(
+					prometheus.BuildFQName(promeExporter.Loggie, eventbus.SinkMetricTopic, "goroutine_pool_size"),
+					"sink goroutine pool size",
+					nil, prometheus.Labels{promeExporter.PipelineNameKey: d.PipelineName, promeExporter.SourceNameKey: d.SourceName},
+				),
+				Eval:    float64(d.GoroutinePoolSize),
+				ValType: prometheus.GaugeValue,
+			},
 		}
 
 		metrics = append(metrics, m...)
@@ -162,8 +172,11 @@ func (l *Listener) compute() {
 }
 
 func (l *Listener) clean() {
-	for k := range l.data {
-		delete(l.data, k)
+
+	for _, d := range l.data {
+		d.SuccessEventCount = 0
+		d.FailEventCount = 0
+		d.EventQps = 0
 	}
 }
 
@@ -185,4 +198,8 @@ func (l *Listener) consumer(e eventbus.SinkMetricData) {
 
 	d.SuccessEventCount += int64(e.SuccessEventCount)
 	d.FailEventCount += int64(e.FailEventCount)
+	if e.GoroutinePoolSize != 0 {
+		d.GoroutinePoolSize = e.GoroutinePoolSize
+	}
+
 }

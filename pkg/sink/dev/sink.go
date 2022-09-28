@@ -98,13 +98,13 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 	t1 := time.Now()
 	for _, e := range events {
 		// json encode
-		_, err := s.codec.Encode(e)
+		out, err := s.codec.Encode(e)
 		if err != nil {
 			log.Warn("codec event error: %+v", err)
 			continue
 		}
 
-		//log.Info("event: %s", string(out))
+		log.Info("event: %s", string(out))
 	}
 
 	host := s.config.Host
@@ -120,13 +120,12 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 		if err != nil {
 			log.Warn(err.Error())
 		}
-
-		t2 := time.Now()
-		microseconds := t2.Sub(t1).Microseconds()
-		pool.EnqueueRTT(microseconds)
 	}
+	t2 := time.Now()
+	microseconds := t2.Sub(t1).Microseconds()
+	pool.EnqueueRTT(microseconds)
 
-	if rand.Intn(10000) > 9982 {
+	if rand.Intn(10000) > 9985 {
 		log.Info("put error")
 		pool.PutFailedResult(result.Fail(errors.New("11")))
 	}

@@ -25,7 +25,6 @@ type FlowDataPool interface {
 	DequeueAllRtt() []int64
 	PutFailedResult(result Result)
 	GetFailedChannel() chan Result
-	SetSourceBlocked()
-	UnSetSourceBlocked()
-	GetSourceBlocked() bool
+	IsEnabled() bool
+	SetEnabled(enabled bool)
 }
