@@ -36,18 +36,6 @@ func (q *sliceQueue) enqueue(V int64) {
 	q.mu.Unlock()
 }
 
-func (q *sliceQueue) dequeue() int64 {
-	q.mu.Lock()
-	if len(q.data) == 0 {
-		q.mu.Unlock()
-		return 0
-	}
-	v := q.data[0]
-	q.data = q.data[1:]
-	q.mu.Unlock()
-	return v
-}
-
 func (q *sliceQueue) dequeueAll() []int64 {
 	q.mu.Lock()
 	if len(q.data) == 0 {

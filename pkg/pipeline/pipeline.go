@@ -22,8 +22,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/flowdatapool"
 	"github.com/panjf2000/ants/v2"
 	"os"
-	"runtime"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -549,30 +547,14 @@ func (p *Pipeline) startSinkConsumer(sinkConfig *sink.Config) {
 
 }
 
-func GetGoid() int64 {
-	var (
-		buf [64]byte
-		n   = runtime.Stack(buf[:], false)
-		stk = strings.TrimPrefix(string(buf[:n]), "goroutine")
-	)
-
-	idField := strings.Fields(stk)[0]
-	id, err := strconv.Atoi(idField)
-	if err != nil {
-		panic(fmt.Errorf("can not get goroutine id: %v", err))
-	}
-
-	return int64(id)
-}
-
 // outfunc may have been combined, but batch has been released in advance
 func (p *Pipeline) sinkInvokeLoop(info sink.Info, outFunc api.OutFunc) {
 	p.countDown.Add(1)
 	s := info.Sink
-	log.Info("pipeline sink(%s)-%d invoke loop start", s.String(), GetGoid())
+	log.Info("pipeline sink(%s) invoke loop start", s.String())
 	defer func() {
 		p.countDown.Done()
-		log.Info("pipeline sink(%s)-%d invoke loop stop", s.String(), GetGoid())
+		log.Info("pipeline sink(%s) invoke loop stop", s.String())
 	}()
 	q := info.Queue
 	outChan := q.OutChan()
