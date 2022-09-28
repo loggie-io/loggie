@@ -25,6 +25,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -46,6 +47,9 @@ type LogConfigTypePodIndex struct {
 type TypePodPipeConfig struct {
 	Raw *pipeline.Config
 	Lgc *v1beta1.LogConfig
+	// ContainerIds is used to check whether containers in the Pod have been restarted or crashed.
+	// If the containerId changes, the log path needs to be generated again
+	ContainerIds sets.String
 }
 
 func NewLogConfigTypePodIndex() *LogConfigTypePodIndex {
@@ -69,18 +73,29 @@ func (p *LogConfigTypePodIndex) GetPipeConfigs(namespace string, podName string,
 	return cfgs.Raw
 }
 
-func (p *LogConfigTypePodIndex) IsPodExist(namespace string, podName string) bool {
-	podKey := helper.MetaNamespaceKey(namespace, podName)
+// IsPodUpdated check weather pod is in the index or pod containers has changed.
+func (p *LogConfigTypePodIndex) IsPodUpdated(pod *corev1.Pod) bool {
+	podKey := helper.MetaNamespaceKey(pod.Namespace, pod.Name)
 
 	lgcSets, ok := p.podToLgcSets[podKey]
 	if !ok || lgcSets.Len() == 0 {
-		return false
+		return true
 	}
-	return true
+
+	// pod is in the index, then check the container id
+	anyLgcKey := lgcSets.List()[0]
+	podAndLgc := helper.MetaNamespaceKey(podKey, anyLgcKey)
+	cfgs, ok := p.pipeConfigs[podAndLgc]
+	if !ok {
+		return true
+	}
+
+	newContainerIds := helper.GetContainerIds(pod)
+	return !newContainerIds.Equal(cfgs.ContainerIds)
 }
 
-func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgcName string, cfg *pipeline.Config, lgc *v1beta1.LogConfig) {
-	podKey := helper.MetaNamespaceKey(namespace, podName)
+func (p *LogConfigTypePodIndex) SetConfigs(pod *corev1.Pod, lgcName string, cfg *pipeline.Config, lgc *v1beta1.LogConfig) {
+	podKey := helper.MetaNamespaceKey(pod.Namespace, pod.Name)
 	lgcKey := helper.MetaNamespaceKey(lgc.Namespace, lgcName)
 	podAndLgc := helper.MetaNamespaceKey(podKey, lgcKey)
 
@@ -89,8 +104,9 @@ func (p *LogConfigTypePodIndex) SetConfigs(namespace string, podName string, lgc
 	}
 
 	p.pipeConfigs[podAndLgc] = &TypePodPipeConfig{
-		Raw: cfg,
-		Lgc: lgc,
+		Raw:          cfg,
+		Lgc:          lgc,
+		ContainerIds: helper.GetContainerIds(pod),
 	}
 	if _, ok := p.lgcToPodSets[lgcKey]; !ok {
 		p.lgcToPodSets[lgcKey] = sets.NewString(podKey)
