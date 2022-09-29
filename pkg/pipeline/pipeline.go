@@ -92,7 +92,7 @@ func NewPipeline(pipelineConfig *Config) *Pipeline {
 			SurviveChan: make(chan api.Batch, pipelineConfig.Sink.Parallelism+1),
 		},
 		r:           registerCenter,
-		concurrency: *pipelineConfig.Sink.Concurrency,
+		concurrency: pipelineConfig.Sink.Concurrency,
 	}
 }
 
@@ -782,7 +782,6 @@ func (p *Pipeline) startGPoolCalculator() {
 					},
 					GoroutinePoolSize: p.gpool.Cap(),
 				}
-				fmt.Println(sinkMetricData)
 				eventbus.PublishOrDrop(eventbus.SinkMetricTopic, sinkMetricData)
 			}
 		}

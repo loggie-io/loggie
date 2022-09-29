@@ -3,6 +3,7 @@ package configuration
 import (
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/concurrency"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/queue"
 	"github.com/loggie-io/loggie/pkg/core/sink"
@@ -112,6 +113,28 @@ pipelines:
 						},
 					},
 					Parallelism: 1,
+					Concurrency: concurrency.Config{
+						Enable: false,
+						Goroutine: &concurrency.Goroutine{
+							InitThreshold:    16,
+							MaxGoroutine:     30,
+							UnstableTolerate: 3,
+							ChannelLenOfCap:  0.4,
+						},
+						Rtt: &concurrency.Rtt{
+							BlockJudgeThreshold: 1.2,
+							NewRttWeigh:         0.5,
+						},
+						Ratio: &concurrency.Ratio{
+							Multi:             2,
+							Linear:            2,
+							LinearWhenBlocked: 4,
+						},
+						Duration: &concurrency.Duration{
+							Unstable: 15,
+							Stable:   30,
+						},
+					},
 				},
 			},
 		},
