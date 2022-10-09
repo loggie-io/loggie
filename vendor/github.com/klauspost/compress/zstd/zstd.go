@@ -4,13 +4,30 @@
 package zstd
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"log"
+	"math"
 	"math/bits"
 )
 
+// enable debug printing
 const debug = false
+
+// enable encoding debug printing
+const debugEncoder = debug
+
+// enable decoding debug printing
+const debugDecoder = debug
+
+// Enable extra assertions.
+const debugAsserts = debug || false
+
+// print sequence details
 const debugSequences = false
+
+// print detailed matching information
 const debugMatches = false
 
 // force encoder to use predefined tables.
@@ -18,6 +35,12 @@ const forcePreDef = false
 
 // zstdMinMatch is the minimum zstd match length.
 const zstdMinMatch = 3
+
+// Reset the buffer offset when reaching this.
+const bufferReset = math.MaxInt32 - MaxWindowSize
+
+// fcsUnknown is used for unknown frame content size.
+const fcsUnknown = math.MaxUint64
 
 var (
 	// ErrReservedBlockType is returned when a reserved block type is found.
@@ -31,6 +54,10 @@ var (
 	// ErrBlockTooSmall is returned when a block is too small to be decoded.
 	// Typically returned on invalid input.
 	ErrBlockTooSmall = errors.New("block too small")
+
+	// ErrUnexpectedBlockSize is returned when a block has unexpected size.
+	// Typically returned on invalid input.
+	ErrUnexpectedBlockSize = errors.New("unexpected block size")
 
 	// ErrMagicMismatch is returned when a "magic" number isn't what is expected.
 	// Typically this indicates wrong or corrupted input.
@@ -55,22 +82,30 @@ var (
 	// This is only returned if SingleSegment is specified on the frame.
 	ErrFrameSizeExceeded = errors.New("frame size exceeded")
 
+	// ErrFrameSizeMismatch is returned if the stated frame size does not match the expected size.
+	// This is only returned if SingleSegment is specified on the frame.
+	ErrFrameSizeMismatch = errors.New("frame size does not match size on stream")
+
 	// ErrCRCMismatch is returned if CRC mismatches.
 	ErrCRCMismatch = errors.New("CRC check failed")
 
 	// ErrDecoderClosed will be returned if the Decoder was used after
 	// Close has been called.
 	ErrDecoderClosed = errors.New("decoder used after Close")
+
+	// ErrDecoderNilInput is returned when a nil Reader was provided
+	// and an operation other than Reset/DecodeAll/Close was attempted.
+	ErrDecoderNilInput = errors.New("nil input provided as reader")
 )
 
 func println(a ...interface{}) {
-	if debug {
+	if debug || debugDecoder || debugEncoder {
 		log.Println(a...)
 	}
 }
 
 func printf(format string, a ...interface{}) {
-	if debug {
+	if debug || debugDecoder || debugEncoder {
 		log.Printf(format, a...)
 	}
 }
@@ -85,52 +120,33 @@ func matchLen(a, b []byte) int {
 			return i + (bits.TrailingZeros64(diff) >> 3)
 		}
 	}
+
 	checked := (len(a) >> 3) << 3
 	a = a[checked:]
 	b = b[checked:]
-	// TODO: We could do a 4 check.
 	for i := range a {
 		if a[i] != b[i] {
-			return int(i) + checked
+			return i + checked
 		}
 	}
 	return len(a) + checked
 }
 
-// matchLen returns a match length in src between index s and t
-func matchLenIn(src []byte, s, t int32) int32 {
-	s1 := len(src)
-	b := src[t:]
-	a := src[s:s1]
-	b = b[:len(a)]
-	// Extend the match to be as long as possible.
-	for i := range a {
-		if a[i] != b[i] {
-			return int32(i)
-		}
-	}
-	return int32(len(a))
-}
-
 func load3232(b []byte, i int32) uint32 {
-	// Help the compiler eliminate bounds checks on the read so it can be done in a single read.
-	b = b[i:]
-	b = b[:4]
-	return uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24
+	return binary.LittleEndian.Uint32(b[i:])
 }
 
 func load6432(b []byte, i int32) uint64 {
-	// Help the compiler eliminate bounds checks on the read so it can be done in a single read.
-	b = b[i:]
-	b = b[:8]
-	return uint64(b[0]) | uint64(b[1])<<8 | uint64(b[2])<<16 | uint64(b[3])<<24 |
-		uint64(b[4])<<32 | uint64(b[5])<<40 | uint64(b[6])<<48 | uint64(b[7])<<56
+	return binary.LittleEndian.Uint64(b[i:])
 }
 
 func load64(b []byte, i int) uint64 {
-	// Help the compiler eliminate bounds checks on the read so it can be done in a single read.
-	b = b[i:]
-	b = b[:8]
-	return uint64(b[0]) | uint64(b[1])<<8 | uint64(b[2])<<16 | uint64(b[3])<<24 |
-		uint64(b[4])<<32 | uint64(b[5])<<40 | uint64(b[6])<<48 | uint64(b[7])<<56
+	return binary.LittleEndian.Uint64(b[i:])
 }
+
+type byter interface {
+	Bytes() []byte
+	Len() int
+}
+
+var _ byter = &bytes.Buffer{}
