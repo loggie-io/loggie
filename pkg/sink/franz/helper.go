@@ -26,13 +26,13 @@ const (
 
 func getGroupBalancer(name string) kgo.GroupBalancer {
 	switch name {
-	case "roundrobin":
+	case "roundRobin":
 		return kgo.RoundRobinBalancer()
 	case "range":
 		return kgo.RangeBalancer()
 	case "sticky":
 		return kgo.StickyBalancer()
-	case "cooperative-sticky":
+	case "cooperativeSticky":
 		return kgo.CooperativeStickyBalancer()
 	}
 	return nil

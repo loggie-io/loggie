@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
+	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -28,6 +30,7 @@ type Sink struct {
 	writer *kgo.Client
 	cod    codec.Codec
 
+	cleanupFn    func()
 	topicPattern *pattern.Pattern
 }
 
@@ -62,15 +65,12 @@ func (s *Sink) Start() error {
 	c := s.config
 	// One client can both produce and consume!
 	// Consuming can either be direct (no consumer group), or through a group. Below, we use a group.
-	balancer := getGroupBalancer(s.config.Balance)
-	if balancer == nil {
-		log.Error("GetGroupBalancer(%s) is nil", s.config.Balance)
-		return errors.New(fmt.Sprintf("GetGroupBalancer(%s) is nil", s.config.Balance))
-	}
 
+	if len(c.Brokers) == 0 {
+
+	}
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(c.Brokers...),
-		kgo.Balancers(balancer),
 		kgo.MaxBufferedRecords(c.BatchSize),
 		kgo.ProducerBatchMaxBytes(c.BatchBytes),
 		kgo.ProduceRequestTimeout(c.WriteTimeout),
@@ -79,6 +79,12 @@ func (s *Sink) Start() error {
 		kgo.FetchMaxBytes(c.FetchMaxBytes), //134 MB
 		kgo.BrokerMaxReadBytes(c.BrokerMaxReadBytes),
 		kgo.ProducerBatchCompression(getCompression(c.Compression)),
+	}
+
+	balancer := getGroupBalancer(s.config.Balance)
+
+	if balancer != nil {
+		opts = append(opts, kgo.Balancers(balancer))
 	}
 
 	if c.SASL.Enable != nil && *c.SASL.Enable == true {
@@ -115,23 +121,42 @@ func (s *Sink) Stop() {
 }
 
 func (s *Sink) Consume(batch api.Batch) api.Result {
+	events := batch.Events()
+	l := len(events)
+	if l == 0 {
+		return nil
+	}
+
+	records := make([]*kgo.Record, 0, l)
+
+	for _, e := range events {
+		topic, err := s.selectTopic(e)
+		if err != nil {
+			log.Error("select kafka topic error: %+v", err)
+			return result.Fail(err)
+		}
+
+		msg, err := s.cod.Encode(e)
+		if err != nil {
+			log.Warn("encode event error: %+v", err)
+			return result.Fail(err)
+		}
+
+		records = append(records, &kgo.Record{
+			Value: msg,
+			Topic: topic,
+		})
+	}
+
 	ctx := context.Background()
 
-	record := &kgo.Record{Topic: "foo", Value: []byte("bar")}
-	s.writer.ProduceSync(ctx, record, func(_ *kgo.Record, err error) {
-		if err != nil {
-			fmt.Printf("record had a produce error: %v\n", err)
-		}
-	})
+	if s.writer != nil {
+		s.writer.ProduceSync(ctx, records...)
+	}
 
-	return nil
+	return result.Fail(errors.New("kafka sink writer not initialized"))
 }
 
-func (s *Sink) onPartitionRevoked(_ context.Context, _ *kgo.Client, _ map[string][]int32) {
-	//begin := time.Now()
-	//k.cleanupFn()
-	//util.Logger.Info("consumer group cleanup",
-	//	zap.String("task", k.taskCfg.Name),
-	//	zap.String("consumer group", k.taskCfg.ConsumerGroup),
-	//	zap.Duration("cost", time.Since(begin)))
+func (s *Sink) selectTopic(e api.Event) (string, error) {
+	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).Render()
 }
