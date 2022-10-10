@@ -6,22 +6,17 @@ import (
 	krb5client "github.com/jcmturner/gokrb5/v8/client"
 	krb5config "github.com/jcmturner/gokrb5/v8/config"
 	"github.com/jcmturner/gokrb5/v8/keytab"
-	"github.com/pkg/errors"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"github.com/twmb/franz-go/pkg/sasl"
-	"os"
-	"strings"
-	"time"
-
 	"github.com/twmb/franz-go/pkg/sasl/kerberos"
 	"github.com/twmb/franz-go/pkg/sasl/plain"
 	"github.com/twmb/franz-go/pkg/sasl/scram"
+	"os"
+	"strings"
 )
 
 const (
 	Krb5KeytabAuth = 2
-	CommitRetries  = 6
-	RetryBackoff   = 5 * time.Second
 )
 
 func getGroupBalancer(name string) kgo.GroupBalancer {
@@ -83,12 +78,10 @@ func getMechanism(sasl SASL) sasl.Mechanism {
 		var kt *keytab.Keytab
 		var err error
 		if krbCfg, err = krb5config.Load(gssapiCfg.KerberosConfigPath); err != nil {
-			err = errors.Wrapf(err, "")
 			return nil
 		}
 		if gssapiCfg.AuthType == Krb5KeytabAuth {
 			if kt, err = keytab.Load(gssapiCfg.KeyTabPath); err != nil {
-				err = errors.Wrapf(err, "")
 				return nil
 			}
 			auth.Client = krb5client.NewWithKeytab(sasl.UserName, gssapiCfg.Realm, kt, krbCfg, krb5client.DisablePAFXFAST(*gssapiCfg.DisablePAFXFAST))
@@ -113,7 +106,6 @@ func NewTLSConfig(caCertFiles, clientCertFile, clientKeyFile string, insecureSki
 	if clientCertFile != "" && clientKeyFile != "" {
 		cert, err := tls.LoadX509KeyPair(clientCertFile, clientKeyFile)
 		if err != nil {
-			err = errors.Wrapf(err, "")
 			return &tlsConfig, err
 		}
 		tlsConfig.Certificates = []tls.Certificate{cert}
@@ -124,7 +116,6 @@ func NewTLSConfig(caCertFiles, clientCertFile, clientKeyFile string, insecureSki
 	for _, caCertFile := range strings.Split(caCertFiles, ",") {
 		caCert, err := os.ReadFile(caCertFile)
 		if err != nil {
-			err = errors.Wrapf(err, "")
 			return &tlsConfig, err
 		}
 		caCertPool.AppendCertsFromPEM(caCert)
