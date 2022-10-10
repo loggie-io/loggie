@@ -30,7 +30,6 @@ type Sink struct {
 	writer *kgo.Client
 	cod    codec.Codec
 
-	cleanupFn    func()
 	topicPattern *pattern.Pattern
 }
 
