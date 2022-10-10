@@ -6,22 +6,11 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/twmb/franz-go/pkg/kgo"
-	"io"
 	"testing"
-	"time"
 )
 
 func Test_SinkerWrite(t *testing.T) {
 	log.InitDefaultLogger()
-	type fields struct {
-		W             io.Writer
-		Size          int
-		FlushInterval time.Duration
-	}
-	type args struct {
-		bs []byte
-	}
-
 	var c Config
 	c.Brokers = []string{
 		"192.168.110.8:9092",
