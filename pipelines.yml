@@ -4,11 +4,9 @@ pipelines:
       - type: file
         name: demo
         paths:
-          - /home/zhanglei/*.log
+          - /tmp/log/*.log
         fields:
           topic: "loggie"
-        watcher:
-          maxOpenFds: 65535
     sink:
       type: dev
       printEvents: true

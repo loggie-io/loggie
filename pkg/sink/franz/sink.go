@@ -61,24 +61,42 @@ func (s *Sink) Init(context api.Context) error {
 	return nil
 }
 
+func (s *Sink) SetCodec(c codec.Codec) {
+	s.cod = c
+}
+
 func (s *Sink) Start() error {
 	c := s.config
 	// One client can both produce and consume!
 	// Consuming can either be direct (no consumer group), or through a group. Below, we use a group.
 
-	if len(c.Brokers) == 0 {
-
-	}
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(c.Brokers...),
-		kgo.MaxBufferedRecords(c.BatchSize),
-		kgo.ProducerBatchMaxBytes(c.BatchBytes),
-		kgo.ProduceRequestTimeout(c.WriteTimeout),
-		kgo.RetryTimeout(c.RetryTimeout),
-		kgo.MaxConcurrentFetches(c.MaxConcurrentFetches),
-		kgo.FetchMaxBytes(c.FetchMaxBytes), //134 MB
-		kgo.BrokerMaxReadBytes(c.BrokerMaxReadBytes),
 		kgo.ProducerBatchCompression(getCompression(c.Compression)),
+	}
+
+	if c.MaxConcurrentFetches > 0 {
+		opts = append(opts, kgo.MaxConcurrentFetches(c.MaxConcurrentFetches))
+	}
+
+	if c.FetchMaxBytes > 0 {
+		opts = append(opts, kgo.FetchMaxBytes(c.FetchMaxBytes))
+	}
+
+	if c.BrokerMaxReadBytes > 0 {
+		opts = append(opts, kgo.FetchMaxBytes(c.BrokerMaxReadBytes))
+	}
+
+	if c.BatchSize > 0 {
+		opts = append(opts, kgo.MaxBufferedRecords(c.BatchSize))
+	}
+
+	if c.WriteTimeout != 0 {
+		opts = append(opts, kgo.ProduceRequestTimeout(c.WriteTimeout))
+	}
+
+	if c.RetryTimeout != 0 {
+		opts = append(opts, kgo.ProduceRequestTimeout(c.RetryTimeout))
 	}
 
 	balancer := getGroupBalancer(s.config.Balance)
@@ -151,7 +169,11 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	ctx := context.Background()
 
 	if s.writer != nil {
-		s.writer.ProduceSync(ctx, records...)
+		ret := s.writer.ProduceSync(ctx, records...)
+		if ret.FirstErr() != nil {
+			return result.Fail(errors.New(fmt.Sprintf("franz ProduceSync error:%s", ret.FirstErr())))
+		}
+		return result.Success()
 	}
 
 	return result.Fail(errors.New("kafka sink writer not initialized"))
