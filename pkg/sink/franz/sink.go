@@ -15,7 +15,7 @@ import (
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
-const Type = "franz"
+const Type = "franzKafka"
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)
@@ -66,24 +66,14 @@ func (s *Sink) SetCodec(c codec.Codec) {
 
 func (s *Sink) Start() error {
 	c := s.config
+
+	c.convertKfkSecurity()
 	// One client can both produce and consume!
 	// Consuming can either be direct (no consumer group), or through a group. Below, we use a group.
 
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(c.Brokers...),
 		kgo.ProducerBatchCompression(getCompression(c.Compression)),
-	}
-
-	if c.MaxConcurrentFetches > 0 {
-		opts = append(opts, kgo.MaxConcurrentFetches(c.MaxConcurrentFetches))
-	}
-
-	if c.FetchMaxBytes > 0 {
-		opts = append(opts, kgo.FetchMaxBytes(c.FetchMaxBytes))
-	}
-
-	if c.BrokerMaxReadBytes > 0 {
-		opts = append(opts, kgo.FetchMaxBytes(c.BrokerMaxReadBytes))
 	}
 
 	if c.BatchSize > 0 {
@@ -104,14 +94,14 @@ func (s *Sink) Start() error {
 		opts = append(opts, kgo.Balancers(balancer))
 	}
 
-	if c.SASL.Enable != nil && *c.SASL.Enable == true {
+	if c.SASL.Enabled != nil && *c.SASL.Enabled == true {
 		mch := getMechanism(c.SASL)
 		if mch != nil {
 			opts = append(opts, kgo.SASL(mch))
 		}
 	}
 
-	if c.TLS.Enable != nil && *c.TLS.Enable == true {
+	if c.TLS.Enabled != nil && *c.TLS.Enabled == true {
 		var tlsCfg *tls.Config
 		var err error
 		if tlsCfg, err = NewTLSConfig(c.TLS.CaCertFiles, c.TLS.ClientCertFile, c.TLS.ClientKeyFile, c.TLS.EndpIdentAlgo == ""); err != nil {

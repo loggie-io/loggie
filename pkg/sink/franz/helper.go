@@ -49,7 +49,7 @@ func getCompression(name string) kgo.CompressionCodec {
 }
 
 func getMechanism(sasl SASL) sasl.Mechanism {
-	switch sasl.Type {
+	switch sasl.Mechanism {
 	case "PLAIN":
 		auth := plain.Auth{
 			User: sasl.UserName,
@@ -62,7 +62,7 @@ func getMechanism(sasl SASL) sasl.Mechanism {
 			User: sasl.UserName,
 			Pass: sasl.Password,
 		}
-		switch sasl.Type {
+		switch sasl.Mechanism {
 		case "SCRAM-SHA-256":
 			return auth.AsSha256Mechanism()
 		case "SCRAM-SHA-512":
@@ -87,7 +87,7 @@ func getMechanism(sasl SASL) sasl.Mechanism {
 			auth.Client = krb5client.NewWithKeytab(sasl.UserName, gssapiCfg.Realm, kt, krbCfg, krb5client.DisablePAFXFAST(*gssapiCfg.DisablePAFXFAST))
 		} else {
 			auth.Client = krb5client.NewWithPassword(sasl.UserName,
-				gssapiCfg.Realm, sasl.Password, krbCfg, krb5client.DisablePAFXFAST(*gssapiCfg.DisablePAFXFAST))
+				gssapiCfg.Realm, sasl.GSSAPI.Password, krbCfg, krb5client.DisablePAFXFAST(*gssapiCfg.DisablePAFXFAST))
 		}
 		return auth.AsMechanismWithClose()
 	}
