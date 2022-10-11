@@ -100,6 +100,30 @@ type matchFields struct {
 	LabelKey      []string `yaml:"labelKey,omitempty"`
 	AnnotationKey []string `yaml:"annotationKey,omitempty"`
 	Env           []string `yaml:"env,omitempty"`
+
+	// Reformat the key of label/annotation/env in the pod, the value remains unchanged
+	// Example: According to the regular, extract values, and then add a prefix
+	// Assumption: pod label is `aa.bb/foo=bar`
+	// Configure:
+	// ```
+	// reformatKeys:
+	//   label:
+	//   - regex: aa.bb/(.*)
+	//     replace: pre-${1}
+	// ```
+	// Result: the field added to the log is `pre-foo=bar`
+	FmtKey *fieldsFmt `yaml:"reformatKeys,omitempty"`
+}
+
+type fieldsFmt struct {
+	Label      []fmtKey `yaml:"label,omitempty"`
+	Annotation []fmtKey `yaml:"annotation,omitempty"`
+	Env        []fmtKey `yaml:"env,omitempty"`
+}
+
+type fmtKey struct {
+	Regex   string `yaml:"regex,omitempty"`
+	Replace string `yaml:"replace,omitempty"`
 }
 
 func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.LogConfig) (err error, podsName []string) {
@@ -462,6 +486,16 @@ func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.
 				k8sFields[k] = v
 			}
 		}
+
+		if match.FmtKey != nil {
+			ret, err := fmtFieldsKey(pod, containerName, match.FmtKey)
+			if err != nil {
+				return err
+			}
+			for k, v := range ret {
+				k8sFields[k] = v
+			}
+		}
 	}
 
 	// The k8s meta information here will not be rendered as configuration and will eventually be set to external.DynamicLogIndexer
@@ -475,6 +509,85 @@ func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.
 	}
 
 	return nil
+}
+
+func fmtFieldsKey(pod *corev1.Pod, containerName string, fmt *fieldsFmt) (map[string]string, error) {
+	result := make(map[string]string)
+	if fmt == nil {
+		return result, nil
+	}
+
+	// reformat pod label keys
+	if len(fmt.Label) > 0 {
+		for _, fmtLabel := range fmt.Label {
+			if fmtLabel.Regex == "" || fmtLabel.Replace == "" {
+				continue
+			}
+
+			ret, err := regexAndReplace(pod.Labels, fmtLabel.Regex, fmtLabel.Replace)
+			if err != nil {
+				return result, err
+			}
+			for k, v := range ret {
+				result[k] = v
+			}
+		}
+	}
+
+	// reformat pod annotation keys
+	if len(fmt.Annotation) > 0 {
+		for _, fmtAnno := range fmt.Annotation {
+			if fmtAnno.Regex == "" || fmtAnno.Replace == "" {
+				continue
+			}
+
+			ret, err := regexAndReplace(pod.Annotations, fmtAnno.Regex, fmtAnno.Replace)
+			if err != nil {
+				return result, err
+			}
+			for k, v := range ret {
+				result[k] = v
+			}
+		}
+	}
+
+	// reformat pod env keys
+	if len(fmt.Env) > 0 {
+		for _, fmtEnv := range fmt.Env {
+			if fmtEnv.Regex == "" || fmtEnv.Replace == "" {
+				continue
+			}
+
+			envs := helper.GetMatchedPodEnv([]string{"*"}, pod, containerName)
+			ret, err := regexAndReplace(envs, fmtEnv.Regex, fmtEnv.Replace)
+			if err != nil {
+				return result, err
+			}
+			for k, v := range ret {
+				result[k] = v
+			}
+		}
+	}
+
+	return result, nil
+}
+
+func regexAndReplace(in map[string]string, regex string, replace string) (map[string]string, error) {
+	result := make(map[string]string)
+	p, err := util.CompilePatternWithJavaStyle(regex)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range in {
+		matched := p.FindStringSubmatch(k)
+		if len(matched) > 0 {
+			fmtK := p.ReplaceAllString(k, replace)
+			result[fmtK] = v
+		}
+	}
+
+	return result, nil
 }
 
 func toPipeConfig(dynamicContainerLog bool, lgcNamespace string, lgcName string, lgcPipe *logconfigv1beta1.Pipeline, filesources []*source.Config, sinkLister v1beta1.SinkLister, interceptorLister v1beta1.InterceptorLister) (*pipeline.Config, error) {
