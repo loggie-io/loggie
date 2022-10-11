@@ -43,6 +43,9 @@ const (
 	queryDetail   = "detail"
 	queryPipeline = "pipeline"
 	querySource   = "source"
+	queryStatus   = "status"
+
+	statusPending = "pending"
 )
 
 var helperIns *Helper
@@ -217,6 +220,8 @@ func queryPipelineConfig(cfgInPath *control.PipelineConfig, pipelineQuery string
 }
 
 func printLogCollectionStatus(controller *control.Controller, request *http.Request) string {
+	statusQuery := request.URL.Query().Get(queryStatus)
+
 	if !hasFileSource(controller) {
 		return CRLF()
 	}
@@ -246,7 +251,24 @@ func printLogCollectionStatus(controller *control.Controller, request *http.Requ
 
 			// print file status details
 			for _, f := range in.FileInfos {
-				sb.WriteString(fmt.Sprintf("      - %s | %.2f%%(%d/%d) | %s", f.FileName, float64(f.Offset)/float64(f.Size)*100, f.Offset, f.Size, f.LastModifyTime.Local().Format(time.RFC3339)))
+				// Only show log files which is being collected (including 0 progress),
+				// ignore the collection progress 100%, NaN% and ignored
+				if statusQuery == statusPending {
+					if f.IsIgnoreOlder {
+						continue
+					}
+					if f.Size == 0 {
+						continue
+					}
+					if f.Size == f.Offset {
+						continue
+					}
+
+					sb.WriteString(fmtLogFileCollection(f))
+					continue
+				}
+
+				sb.WriteString(fmtLogFileCollection(f))
 				if f.IsIgnoreOlder {
 					sb.WriteString(SprintfWithLF(" | ignored "))
 				}
@@ -261,6 +283,10 @@ func printLogCollectionStatus(controller *control.Controller, request *http.Requ
 	sb.WriteString(CRLF())
 
 	return sb.String()
+}
+
+func fmtLogFileCollection(f eventbus.FileInfo) string {
+	return fmt.Sprintf("      - %s | %.2f%%(%d/%d) | %s", f.FileName, float64(f.Offset)/float64(f.Size)*100, f.Offset, f.Size, f.LastModifyTime.Local().Format(time.RFC3339))
 }
 
 func hasFileSource(controller *control.Controller) bool {
