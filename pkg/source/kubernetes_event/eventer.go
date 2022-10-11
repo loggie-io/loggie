@@ -247,6 +247,8 @@ func (k *KubeEvent) Commit(events []api.Event) {
 
 func (k *KubeEvent) filter(ev *corev1.Event) bool {
 	if k.config.LatestEventsEnabled {
+		m, _ := time.ParseDuration(fmt.Sprintf("-%s", k.config.LatestEventsPreviousTime.String()))
+		k.startTime = k.startTime.Add(m)
 		if !ev.CreationTimestamp.After(k.startTime) {
 			return true
 		}
