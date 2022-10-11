@@ -255,7 +255,8 @@ func (j *Job) GenerateIdentifier() error {
 	readSize := j.task.config.FirstNBytesForIdentifier
 	fileSize := stat.Size()
 	if fileSize < int64(readSize) {
-		return fmt.Errorf("file size is smaller than firstNBytesForIdentifier: %d < %d", fileSize, readSize)
+		log.Debug("file size is smaller than firstNBytesForIdentifier: %d < %d", fileSize, readSize)
+		return nil
 	}
 	file, err := os.Open(j.filename)
 	if err != nil {
