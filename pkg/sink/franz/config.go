@@ -8,17 +8,17 @@ import (
 const defaultKerberosConfigPath = "/etc/krb5.conf"
 
 type Config struct {
-	Brokers      []string      `yaml:"brokers,omitempty" validate:"required"`
-	Topic        string        `yaml:"topic,omitempty" validate:"required" default:"loggie"`
-	Balance      string        `yaml:"balance,omitempty" default:"roundRobin"`
-	BatchSize    int           `yaml:"batchSize,omitempty"`
-	BatchBytes   int32         `yaml:"batchBytes,omitempty"`
-	RetryTimeout time.Duration `yaml:"retryTimeout,omitempty"`
-	WriteTimeout time.Duration `yaml:"writeTimeout,omitempty"`
-	Compression  string        `yaml:"compression,omitempty" default:"gzip"`
-	SASL         SASL          `yaml:"SASL,omitempty"`
-	TLS          TLS           `yaml:"tls,omitempty"`
-	Security     map[string]string
+	Brokers      []string          `yaml:"brokers,omitempty" validate:"required"`
+	Topic        string            `yaml:"topic,omitempty" validate:"required" default:"loggie"`
+	Balance      string            `yaml:"balance,omitempty" default:"roundRobin"`
+	BatchSize    int               `yaml:"batchSize,omitempty"`
+	BatchBytes   int32             `yaml:"batchBytes,omitempty"`
+	RetryTimeout time.Duration     `yaml:"retryTimeout,omitempty"`
+	WriteTimeout time.Duration     `yaml:"writeTimeout,omitempty"`
+	Compression  string            `yaml:"compression,omitempty" default:"gzip"`
+	SASL         SASL              `yaml:"SASL,omitempty"`
+	TLS          TLS               `yaml:"tls,omitempty"`
+	Security     map[string]string `yaml:"security,omitempty"`
 }
 
 type SASL struct {
@@ -35,11 +35,11 @@ type TLS struct {
 	ClientCertFile string `yaml:"clientCertFile,omitempty"`
 	ClientKeyFile  string `yaml:"clientKeyFile,omitempty"`
 
-	TrustStoreLocation string //JKS format of CA certificate, used to extract CA cert.pem.
-	TrustStorePassword string
-	KeystoreLocation   string //JKS format of client certificate and key, used to extrace client cert.pem and key.pem.
-	KeystorePassword   string
-	EndpIdentAlgo      string
+	TrustStoreLocation string `yaml:"trustStoreLocation,omitempty"`
+	TrustStorePassword string `yaml:"trustStorePassword,omitempty"`
+	KeystoreLocation   string `yaml:"keystoreLocation,omitempty"`
+	KeystorePassword   string `yaml:"keystorePassword,omitempty"`
+	EndpIdentAlgo      string `yaml:"endpIdentAlgo,omitempty"`
 }
 
 type GSSAPI struct {
