@@ -4,11 +4,44 @@ pipelines:
       - type: file
         name: demo
         paths:
-          - /tmp/log/*.log
+          - /Users/zzy/Downloads/test/temp.txt
         fields:
           topic: "loggie"
+    interceptors:
+      - type: logAlert
+        matcher:
+          contains: [ "WARN", "warn" ]
     sink:
-      type: dev
-      printEvents: true
-      codec:
-        pretty: true
+      type: webhook
+      addr: http://localhost:8080/loggie
+      headers:
+        api: test1
+      template: |+
+        {
+        "alerts":
+        [
+        {{$first := true}}
+        {{range .Alerts}}
+        {{if $first}}{{$first = false}}{{else}},{{end}}
+        {
+              "labels": {
+                "host": "{{.Event.Host}}",
+                "source": "{{.Event.Source}}"
+              },
+              "annotations": {
+                "message": "{{.Event.Message}}",
+                "filename": "{{.State.Filename}}",
+                "reason": "{{.Event.Reason}}"
+              },
+              "startsAt": "{{.System.Time}}",
+              "endsAt": "{{.System.Time}}"
+        }
+        {{end}}
+        ],
+        "commonLabels":{
+        "namespace":"ns-test",
+        "module":"module-test",
+        "alertname":"alert-test",
+        "cluster":"cluster"
+        }
+        }

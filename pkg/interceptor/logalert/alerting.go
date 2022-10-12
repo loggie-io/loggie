@@ -22,8 +22,8 @@ import (
 	"strings"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
@@ -87,36 +87,19 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 	ev := invocation.Event
 	matched, reason, message := i.match(ev)
 	if !matched {
-		return invoker.Invoke(invocation)
+		if !invocation.WebhookEnabled {
+			return invoker.Invoke(invocation)
+		} else {
+			return result.NewResult(api.SUCCESS)
+		}
 	}
 	log.Debug("logAlert matched: %s, %s", message, reason)
 
 	// do fire alert
-	labels := map[string]string{
-		"host":   global.NodeName,
-		"source": ev.Meta().Source(),
-	}
-	annotations := map[string]string{
-		"reason":  reason,
-		"message": message,
-	}
 
-	if len(i.config.Labels.FromHeader) != 0 {
-		for _, key := range i.config.Labels.FromHeader {
-			val, ok := ev.Header()[key]
-			if !ok {
-				continue
-			}
-			valStr, ok := val.(string)
-			if !ok {
-				continue
-			}
-			labels[key] = valStr
-		}
-	}
+	ev.Header()["reason"] = reason
 
-	d := eventbus.NewLogAlertData(labels, annotations)
-	eventbus.PublishOrDrop(eventbus.LogAlertTopic, d)
+	eventbus.PublishOrDrop(eventbus.LogAlertTopic, &ev)
 
 	return invoker.Invoke(invocation)
 }

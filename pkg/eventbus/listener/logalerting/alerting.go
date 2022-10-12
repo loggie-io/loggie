@@ -41,10 +41,13 @@ func makeListener() eventbus.Listener {
 }
 
 type Config struct {
-	AlertManagerAddress []string      `yaml:"alertManagerAddress,omitempty" validate:"required"`
-	BufferSize          int           `yaml:"bufferSize,omitempty" default:"100"`
-	BatchTimeout        time.Duration `yaml:"batchTimeout,omitempty" default:"10s"`
-	BatchSize           int           `yaml:"batchSize,omitempty" default:"10"`
+	AlertManagerAddress []string          `yaml:"alertManagerAddress,omitempty" validate:"required"`
+	BufferSize          int               `yaml:"bufferSize,omitempty" default:"100"`
+	BatchTimeout        time.Duration     `yaml:"batchTimeout,omitempty" default:"10s"`
+	BatchSize           int               `yaml:"batchSize,omitempty" default:"10"`
+	Template            *string           `yaml:"template,omitempty"`
+	Timeout             int               `yaml:"timeout,omitempty" default:"30"`
+	Headers             map[string]string `yaml:"headers,omitempty"`
 }
 
 type Listener struct {
@@ -76,9 +79,9 @@ func (l *Listener) Start() error {
 
 	var alertUrl []string
 	for _, addr := range l.config.AlertManagerAddress {
-		alertUrl = append(alertUrl, fmt.Sprintf("%s/api/v2/alerts", addr))
+		alertUrl = append(alertUrl, fmt.Sprintf("%s", addr))
 	}
-	l.alertCli = alertmanager.NewAlertManager(alertUrl)
+	l.alertCli = alertmanager.NewAlertManager(l.config.AlertManagerAddress, l.config.Timeout, l.config.Template, l.config.Headers)
 
 	log.Info("starting logAlert listener")
 	go l.run()
@@ -124,25 +127,10 @@ func (l *Listener) flush() {
 		return
 	}
 
-	var alerts []*alertmanager.AlertEvent
-	for _, e := range l.SendBatch {
-		if e.Data == nil {
-			continue
-		}
-		data, ok := e.Data.(*eventbus.LogAlertData)
-		if !ok {
-			return
-		}
+	events := make([]*eventbus.Event, len(l.SendBatch))
+	copy(events, l.SendBatch)
+	l.alertCli.SendAlert(events)
 
-		alert := alertmanager.AlertEvent{
-			StartsAt:    time.Now(),
-			Labels:      data.Labels,
-			Annotations: data.Annotations,
-		}
-
-		alerts = append(alerts, &alert)
-	}
 	l.SendBatch = l.SendBatch[:0]
 
-	l.alertCli.SendAlert(alerts)
 }
