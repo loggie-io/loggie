@@ -159,3 +159,9 @@ func MergeSourceList(base []*Config, from []*Config) []*Config {
 
 	return base
 }
+
+// InjectRawConfig only the properties in source.Config can be obtained from a single source,
+// If this interface is implemented, it can be used to get the source.Config in source
+type InjectRawConfig interface {
+	SetSourceConfig(config *Config)
+}

@@ -264,7 +264,7 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 	}
 	// TODO update status when success
 	if lgc.Namespace == "" {
-		log.Info("handle clusterLogConfig %s addOrUpdate event and sync config file success, related pod: %s", lgc.Name, pod.Name)
+		log.Info("handle clusterLogConfig %s addOrUpdate event and sync config file success, related pod: %s/%s", lgc.Name, pod.Namespace, pod.Name)
 	} else {
 		log.Info("handle logConfig %s/%s addOrUpdate event and sync config file success, related pod: %s", lgc.Namespace, lgc.Name, pod.Name)
 	}
