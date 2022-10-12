@@ -20,7 +20,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/api"
 )
 
-const DefaultOrder = 999
+const DefaultOrder = 900
 
 type Extension interface {
 	Order() int

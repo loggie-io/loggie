@@ -473,7 +473,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 
 func (p *Pipeline) startSinkConsumer(sinkConfig *sink.Config) {
 	interceptors := make([]sink.Interceptor, 0)
-	for _, inter := range p.r.LoadCodeInterceptors() {
+	for _, inter := range p.r.LoadInterceptors() {
 		i, ok := inter.(sink.Interceptor)
 		if !ok {
 			continue
@@ -625,7 +625,7 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []*source.Config) {
 
 		sourceConfig := sc
 		interceptors := make([]source.Interceptor, 0)
-		for _, inter := range p.r.LoadCodeInterceptors() {
+		for _, inter := range p.r.LoadInterceptors() {
 			i, ok := inter.(source.Interceptor)
 			if !ok {
 				continue
@@ -660,7 +660,6 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []*source.Config) {
 		}
 		go si.Source.ProductLoop(productFunc)
 	}
-	// go p.sourceInvokeLoop(si)
 }
 
 func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
