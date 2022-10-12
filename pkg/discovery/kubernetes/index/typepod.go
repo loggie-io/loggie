@@ -292,8 +292,12 @@ func (p *LogConfigTypePodIndex) getDynamicPipelines(lgcKey string, pods []string
 }
 
 func setDynamicSourcePaths(sourceConfigs []*source.Config, pipelineName string) {
+	if len(sourceConfigs) == 0 {
+		return
+	}
+
+	srcNameToPair := map[string][]external.PathFieldsPair{}
 	for _, src := range sourceConfigs {
-		var pairs []external.PathFieldsPair
 		// set dynamic paths
 		pair := external.PathFieldsPair{}
 		paths := helper.GetPathsFromSource(src)
@@ -304,9 +308,17 @@ func setDynamicSourcePaths(sourceConfigs []*source.Config, pipelineName string) 
 			pair.Fields = fields
 		}
 
-		pairs = append(pairs, pair)
 		originName := helper.GetTypePodOriginSourceName(src.Name)
-		external.SetDynamicPaths(pipelineName, originName, pairs)
+		if pairs, ok := srcNameToPair[originName]; ok {
+			pairs = append(pairs, pair)
+			srcNameToPair[originName] = pairs
+		} else {
+			srcNameToPair[originName] = []external.PathFieldsPair{pair}
+		}
+	}
+
+	for srcName, pairs := range srcNameToPair {
+		external.SetDynamicPaths(pipelineName, srcName, pairs)
 	}
 }
 
