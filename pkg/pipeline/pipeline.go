@@ -608,6 +608,10 @@ func (p *Pipeline) startSource(sourceConfigs []*source.Config) error {
 			}
 		}
 
+		if sr, ok := component.(source.InjectRawConfig); ok {
+			sr.SetSourceConfig(sourceConfig)
+		}
+
 		err := p.startWithComponent(component, ctx)
 		if err != nil {
 			return err

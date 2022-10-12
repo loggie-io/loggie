@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/result"
+	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/source/codec"
 	"time"
 
@@ -53,6 +54,7 @@ type Source struct {
 	rc                 *pipeline.RegisterCenter
 	eventPool          *event.Pool
 	config             *Config
+	rawSourceConfig    *source.Config
 	sinkCount          int
 	name               string
 	out                chan api.Event
@@ -90,15 +92,19 @@ func (s *Source) SetCodec(c codec.Codec) {
 	s.codec = c
 }
 
+func (s *Source) SetSourceConfig(config *source.Config) {
+	s.rawSourceConfig = config
+}
+
 func (s *Source) Init(context api.Context) error {
 	s.name = context.Name()
 	s.out = make(chan api.Event, s.sinkCount)
 
 	s.ackEnable = s.config.AckConfig.Enable
 	// init default multi agg timeout
-	mutiTimeout := s.config.ReaderConfig.MultiConfig.Timeout
+	multiTimeout := s.config.ReaderConfig.MultiConfig.Timeout
 	inactiveTimeout := s.config.ReaderConfig.InactiveTimeout
-	if mutiTimeout == 0 || mutiTimeout <= inactiveTimeout {
+	if multiTimeout == 0 || multiTimeout <= inactiveTimeout {
 		s.config.ReaderConfig.MultiConfig.Timeout = 2 * inactiveTimeout
 	}
 
@@ -177,7 +183,7 @@ func (s *Source) Product() api.Event {
 func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", s.String())
 	s.productFunc = productFunc
-	s.productFunc = jobFieldsProductFunc(s.productFunc)
+	s.productFunc = jobFieldsProductFunc(s.productFunc, s.rawSourceConfig)
 	if s.config.CollectConfig.AddonMeta {
 		s.productFunc = addonMetaProductFunc(s.productFunc)
 	}
@@ -217,21 +223,16 @@ func (s *Source) Commit(events []api.Event) {
 	s.eventPool.PutAll(events)
 }
 
-func jobFieldsProductFunc(productFunc api.ProductFunc) api.ProductFunc {
+func jobFieldsProductFunc(productFunc api.ProductFunc, srcCfg *source.Config) api.ProductFunc {
 	return func(event api.Event) api.Result {
-		productFunc(event)
-		// Add job fields should after base productFunc
 		s, _ := event.Meta().Get(SystemStateKey)
 		state := s.(*State)
 
 		if state.jobFields != nil {
-			header := event.Header()
-			fieldsKey, _ := event.Meta().Get(pipeline.FieldsUnderKey)
-			fieldsUnderRoot, _ := event.Meta().Get(pipeline.FieldsUnderRoot)
-
-			pipeline.AddSourceFields(header, state.jobFields, fieldsUnderRoot.(bool), fieldsKey.(string))
+			pipeline.AddSourceFields(event.Header(), state.jobFields, srcCfg.FieldsUnderRoot, srcCfg.FieldsUnderKey)
 		}
 
+		productFunc(event)
 		return result.Success()
 	}
 }
