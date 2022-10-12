@@ -259,7 +259,7 @@ func (k *KubeEvent) filter(ev *corev1.Event) bool {
 		}
 
 		if ev.Series.LastObservedTime.Time != zeroTime {
-			if !ev.CreationTimestamp.After(k.startTime) {
+			if !ev.Series.LastObservedTime.After(k.startTime) {
 				return true
 			}
 		}
