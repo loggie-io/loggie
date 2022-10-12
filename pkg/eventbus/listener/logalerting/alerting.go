@@ -17,7 +17,6 @@ limitations under the License.
 package logalerting
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -41,13 +40,13 @@ func makeListener() eventbus.Listener {
 }
 
 type Config struct {
-	AlertManagerAddress []string          `yaml:"alertManagerAddress,omitempty" validate:"required"`
-	BufferSize          int               `yaml:"bufferSize,omitempty" default:"100"`
-	BatchTimeout        time.Duration     `yaml:"batchTimeout,omitempty" default:"10s"`
-	BatchSize           int               `yaml:"batchSize,omitempty" default:"10"`
-	Template            *string           `yaml:"template,omitempty"`
-	Timeout             int               `yaml:"timeout,omitempty" default:"30"`
-	Headers             map[string]string `yaml:"headers,omitempty"`
+	Addr         []string          `yaml:"addr,omitempty" validate:"required"`
+	BufferSize   int               `yaml:"bufferSize,omitempty" default:"100"`
+	BatchTimeout time.Duration     `yaml:"batchTimeout,omitempty" default:"10s"`
+	BatchSize    int               `yaml:"batchSize,omitempty" default:"10"`
+	Template     *string           `yaml:"template,omitempty"`
+	Timeout      int               `yaml:"timeout,omitempty" default:"30"`
+	Headers      map[string]string `yaml:"headers,omitempty"`
 }
 
 type Listener struct {
@@ -77,11 +76,7 @@ func (l *Listener) Start() error {
 	l.bufferChan = make(chan *eventbus.Event, l.config.BufferSize)
 	l.SendBatch = make([]*eventbus.Event, 0)
 
-	var alertUrl []string
-	for _, addr := range l.config.AlertManagerAddress {
-		alertUrl = append(alertUrl, fmt.Sprintf("%s", addr))
-	}
-	l.alertCli = alertmanager.NewAlertManager(l.config.AlertManagerAddress, l.config.Timeout, l.config.Template, l.config.Headers)
+	l.alertCli = alertmanager.NewAlertManager(l.config.Addr, l.config.Timeout, l.config.Template, l.config.Headers)
 
 	log.Info("starting logAlert listener")
 	go l.run()
