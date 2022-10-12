@@ -20,10 +20,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/sink/webhook"
-	"github.com/loggie-io/loggie/pkg/source/file"
 	"io/ioutil"
 	"net/http"
 	"text/template"
@@ -81,29 +79,8 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 		if !ok {
 			return
 		}
-		event := *data
 
-		eventData := map[string]interface{}{
-			"Host":    global.NodeName,
-			"Source":  event.Meta().Source(),
-			"Message": string(event.Body()),
-			"Reason":  event.Header()["reason"],
-		}
-
-		systemData := map[string]interface{}{
-			"Time": time.Now(),
-		}
-
-		var state *file.State
-		if stateValue, ok := event.Meta().GetAll()[file.SystemStateKey].(*file.State); ok {
-			state = stateValue
-		}
-
-		alert := webhook.Alert{
-			Event:  eventData,
-			System: systemData,
-			State:  state,
-		}
+		alert := webhook.NewAlert(*data)
 
 		alerts = append(alerts, &alert)
 	}
@@ -140,7 +117,7 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 func (a *AlertManager) send(address string, alert []byte) {
 	req, err := http.NewRequest("POST", address, bytes.NewReader(alert))
 	if err != nil {
-		log.Warn("post alert to AlertManager error: %v", err)
+		log.Warn("post alert error: %v", err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -151,7 +128,7 @@ func (a *AlertManager) send(address string, alert []byte) {
 	}
 	resp, err := a.Client.Do(req)
 	if err != nil {
-		log.Warn("post alert to AlertManager error: %v", err)
+		log.Warn("post alert error: %v", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -161,7 +138,7 @@ func (a *AlertManager) send(address string, alert []byte) {
 		if err != nil {
 			log.Warn("read response body error: %v", err)
 		}
-		log.Warn("post alert to AlertManager failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))
+		log.Warn("post alert failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))
 	}
-	log.Debug("send alerts %s to AlertManager success", string(alert))
+	log.Debug("send alerts %s success", string(alert))
 }

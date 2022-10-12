@@ -51,7 +51,7 @@ func init() {
 	hostName, _ := os.Hostname()
 
 	flag.StringVar(&globalConfigFile, "config.system", "loggie.yml", "global config file")
-	flag.StringVar(&pipelineConfigPath, "config.pipeline", "pipelines.yml", "reloadable config file")
+	flag.StringVar(&pipelineConfigPath, "config.pipeline", "pipelines_test.yml", "reloadable config file")
 	flag.StringVar(&configType, "config.from", "file", "config from file or env")
 	flag.StringVar(&nodeName, "meta.nodeName", hostName, "override nodeName")
 }

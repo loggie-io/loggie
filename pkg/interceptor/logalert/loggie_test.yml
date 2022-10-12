@@ -8,6 +8,11 @@ loggie:
       period: 30s
       enabled: true
     listeners:
+      logAlert:
+        addr: [ "http://127.0.0.1:8080/loggie" ]
+        bufferSize: 100
+        batchTimeout: 10s
+        batchSize: 10
       filesource: ~
       filewatcher: ~
       reload: ~

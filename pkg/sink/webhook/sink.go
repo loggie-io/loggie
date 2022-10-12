@@ -5,14 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/source/file"
+	"github.com/loggie-io/loggie/pkg/core/event"
 	"io/ioutil"
 	"net/http"
 	"text/template"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
@@ -29,10 +28,28 @@ func makeSink(info pipeline.Info) api.Component {
 	return NewSink()
 }
 
-type Alert struct {
-	Event  map[string]interface{} `json:"Event,omitempty"`
-	System map[string]interface{} `json:"System,omitempty"`
-	State  *file.State            `json:"State,omitempty"`
+type Alert map[string]interface{}
+
+func NewAlert(e api.Event) Alert {
+	systemData := map[string]interface{}{
+		"sourceName":   e.Meta().GetAll()[event.SystemSourceKey],
+		"pipelineName": e.Meta().GetAll()[event.SystemPipelineKey],
+		"timestamp":    e.Meta().GetAll()[event.SystemProductTimeKey],
+	}
+
+	alert := Alert{
+		"_meta": systemData,
+	}
+
+	if len(e.Body()) > 0 {
+		alert["body"] = string(e.Body())
+	}
+
+	for k, v := range e.Header() {
+		alert[k] = v
+	}
+
+	return alert
 }
 
 type Sink struct {
@@ -106,26 +123,8 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 	var alerts []Alert
 	for _, e := range events {
-		eventData := map[string]interface{}{
-			"Host":    global.NodeName,
-			"Source":  e.Meta().Source(),
-			"Message": string(e.Body()),
-		}
 
-		systemData := map[string]interface{}{
-			"Time": time.Now(),
-		}
-
-		var state *file.State
-		if stateValue, ok := e.Meta().GetAll()[file.SystemStateKey].(*file.State); ok {
-			state = stateValue
-		}
-
-		alert := Alert{
-			Event:  eventData,
-			System: systemData,
-			State:  state,
-		}
+		alert := NewAlert(e)
 
 		alerts = append(alerts, alert)
 	}
@@ -156,7 +155,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 	req, err := http.NewRequest("POST", s.config.Addr, bytes.NewReader(request))
 	if err != nil {
-		log.Warn("post alert to AlertManager error: %v", err)
+		log.Warn("post alert error: %v", err)
 		return result.Fail(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -167,7 +166,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {
-		log.Warn("post alert to AlertCenter error: %v", err)
+		log.Warn("post alert error: %v", err)
 		return result.Fail(err)
 	}
 	defer resp.Body.Close()
@@ -178,7 +177,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			log.Warn("read response body error: %v", err)
 			return result.Fail(err)
 		}
-		log.Warn("post alert to AlertCenter failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))
+		log.Warn("post alert failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))
 		return result.Fail(
 			errors.New(
 				fmt.Sprintf("post alert to AlertCenter failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))))
