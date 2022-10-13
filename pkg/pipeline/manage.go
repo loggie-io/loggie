@@ -61,15 +61,17 @@ func GetWithType(category api.Category, typename api.Type, info Info) (api.Compo
 }
 
 type RegisterCenter struct {
-	nameComponents map[string]api.Component
-	nameListeners  map[string]spi.ComponentListener
-	lock           sync.Mutex
+	nameComponents    map[string]api.Component
+	interceptorsOrder []string
+	nameListeners     map[string]spi.ComponentListener
+	lock              sync.Mutex
 }
 
 func NewRegisterCenter() *RegisterCenter {
 	return &RegisterCenter{
-		nameComponents: make(map[string]api.Component),
-		nameListeners:  make(map[string]spi.ComponentListener),
+		nameComponents:    make(map[string]api.Component),
+		interceptorsOrder: make([]string, 0),
+		nameListeners:     make(map[string]spi.ComponentListener),
 	}
 }
 
@@ -145,6 +147,21 @@ func (r *RegisterCenter) LoadCodeInterceptors() map[string]api.Interceptor {
 	return components
 }
 
+func (r *RegisterCenter) LoadInterceptors() []api.Interceptor {
+	r.lock.Lock()
+	defer r.lock.Unlock()
+
+	var result []api.Interceptor
+	for _, c := range r.interceptorsOrder {
+		icp := r.nameComponents[c]
+		if icp.Category() == api.INTERCEPTOR {
+			result = append(result, icp)
+		}
+	}
+
+	return result
+}
+
 func (r *RegisterCenter) LoadCodeComponents() map[string]api.Component {
 	r.lock.Lock()
 	defer r.lock.Unlock()
@@ -174,6 +191,11 @@ func (r *RegisterCenter) RemoveByCode(code string) {
 	defer r.lock.Unlock()
 
 	delete(r.nameComponents, code)
+	for i := 0; i < len(r.interceptorsOrder); i++ {
+		if r.interceptorsOrder[i] == code {
+			r.interceptorsOrder = append(r.interceptorsOrder[:i], r.interceptorsOrder[i+1:]...)
+		}
+	}
 }
 
 func (r *RegisterCenter) cleanData() {
@@ -181,6 +203,7 @@ func (r *RegisterCenter) cleanData() {
 	defer r.lock.Unlock()
 
 	r.nameComponents = nil
+	r.interceptorsOrder = nil
 	r.nameListeners = nil
 }
 
@@ -194,6 +217,11 @@ func (r *RegisterCenter) Register(component api.Component, name string) error {
 		return errors.Errorf("component[%s] is duplicated, type/name should be unique", code)
 	}
 	r.nameComponents[code] = component
+
+	if component.Category() == api.INTERCEPTOR {
+		r.interceptorsOrder = append(r.interceptorsOrder, code)
+	}
+
 	return nil
 }
 
