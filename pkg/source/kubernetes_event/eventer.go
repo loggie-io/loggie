@@ -91,8 +91,7 @@ func (k *KubeEvent) Init(context api.Context) error {
 
 	if k.config.LatestEventsEnabled {
 		k.startTime = time.Now().UTC()
-		m, _ := time.ParseDuration(fmt.Sprintf("-%s", k.config.LatestEventsPreviousTime.String()))
-		k.startTime = k.startTime.Add(m)
+		k.startTime = k.startTime.Add(-k.config.LatestEventsPreviousTime)
 	}
 
 	for _, ns := range k.config.BlackListNamespaces {
