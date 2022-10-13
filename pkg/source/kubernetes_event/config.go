@@ -16,12 +16,15 @@ limitations under the License.
 
 package kubernetes_event
 
+import "time"
+
 type Config struct {
-	KubeConfig              string   `yaml:"kubeconfig,omitempty"`
-	Master                  string   `yaml:"master,omitempty"`
-	BufferSize              int      `yaml:"bufferSize,omitempty" default:"1000" validate:"gte=1"`
-	LeaderElectionNamespace string   `yaml:"electionNamespace,omitempty" default:"kube-system"`
-	LeaderElectionKey       string   `yaml:"electionKey,omitempty" default:"loggie-leader-election-key"`
-	LatestEventsEnabled     bool     `yaml:"watchLatestEvents,omitempty"`
-	BlackListNamespaces     []string `yaml:"blackListNamespaces,omitempty"`
+	KubeConfig               string        `yaml:"kubeconfig,omitempty"`
+	Master                   string        `yaml:"master,omitempty"`
+	BufferSize               int           `yaml:"bufferSize,omitempty" default:"1000" validate:"gte=1"`
+	LeaderElectionNamespace  string        `yaml:"electionNamespace,omitempty" default:"kube-system"`
+	LeaderElectionKey        string        `yaml:"electionKey,omitempty" default:"loggie-leader-election-key"`
+	LatestEventsEnabled      bool          `yaml:"watchLatestEvents,omitempty"`
+	LatestEventsPreviousTime time.Duration `yaml:"latestEventsPreviousTime,omitempty" default:"30s"`
+	BlackListNamespaces      []string      `yaml:"blackListNamespaces,omitempty"`
 }
