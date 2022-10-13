@@ -155,3 +155,15 @@ func (i *Interceptor) match(event api.Event) (matched bool, reason string, messa
 
 	return false, "", ""
 }
+
+func (i *Interceptor) Order() int {
+	return i.config.Order
+}
+
+func (i *Interceptor) BelongTo() (componentTypes []string) {
+	return i.config.BelongTo
+}
+
+func (i *Interceptor) IgnoreRetry() bool {
+	return true
+}
