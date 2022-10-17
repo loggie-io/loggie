@@ -140,7 +140,7 @@ func (i *Interceptor) Intercept(invoker sink.Invoker, invocation sink.Invocation
 	if i.isStop() {
 		return r
 	}
-	if r.Status() != api.SUCCESS {
+	if r.Status() == api.FAIL {
 		rm := i.retryMeta(batch)
 		retryMaxCount := i.config.RetryMaxCount
 		if rm != nil && retryMaxCount > 0 && retryMaxCount < rm.count {
