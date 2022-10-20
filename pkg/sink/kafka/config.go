@@ -60,6 +60,7 @@ type Config struct {
 	WriteTimeout time.Duration `yaml:"writeTimeout,omitempty"`
 	RequiredAcks int           `yaml:"requiredAcks,omitempty"`
 	SASL         SASL          `yaml:"sasl,omitempty"`
+	PartitionKey string        `yaml:"partitionKey,omitempty"`
 }
 
 type SASL struct {
@@ -73,6 +74,12 @@ func (c *Config) Validate() error {
 
 	if err := pattern.Validate(c.Topic); err != nil {
 		return err
+	}
+
+	if c.PartitionKey != "" {
+		if err := pattern.Validate(c.PartitionKey); err != nil {
+			return err
+		}
 	}
 
 	if c.Balance != "" && c.Balance != BalanceHash && c.Balance != BalanceRoundRobin && c.Balance != BalanceLeastBytes {
