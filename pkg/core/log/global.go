@@ -123,6 +123,10 @@ func newRollingFile(directory string, filename string, maxBackups int, maxSize i
 	}
 }
 
+func (logger *Logger) Level() zerolog.Level {
+	return logger.l.GetLevel()
+}
+
 func (logger *Logger) Debug(format string, a ...interface{}) {
 	if a == nil {
 		logger.l.Debug().Msg(format)
@@ -224,4 +228,8 @@ func afterErrorOpt(format string, a ...interface{}) {
 		msg = fmt.Sprintf(format, a...)
 	}
 	AfterError(msg)
+}
+
+func Level() zerolog.Level {
+	return defaultLogger.l.GetLevel()
 }

@@ -84,10 +84,10 @@ func getMechanism(sasl SASL) sasl.Mechanism {
 			if kt, err = keytab.Load(gssapiCfg.KeyTabPath); err != nil {
 				return nil
 			}
-			auth.Client = krb5client.NewWithKeytab(sasl.UserName, gssapiCfg.Realm, kt, krbCfg, krb5client.DisablePAFXFAST(*gssapiCfg.DisablePAFXFAST))
+			auth.Client = krb5client.NewWithKeytab(gssapiCfg.UserName, gssapiCfg.Realm, kt, krbCfg, krb5client.DisablePAFXFAST(gssapiCfg.DisablePAFXFAST))
 		} else {
-			auth.Client = krb5client.NewWithPassword(sasl.UserName,
-				gssapiCfg.Realm, sasl.GSSAPI.Password, krbCfg, krb5client.DisablePAFXFAST(*gssapiCfg.DisablePAFXFAST))
+			auth.Client = krb5client.NewWithPassword(gssapiCfg.UserName,
+				gssapiCfg.Realm, gssapiCfg.Password, krbCfg, krb5client.DisablePAFXFAST(gssapiCfg.DisablePAFXFAST))
 		}
 		return auth.AsMechanismWithClose()
 	}

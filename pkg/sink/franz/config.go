@@ -23,14 +23,14 @@ type Config struct {
 
 type SASL struct {
 	Mechanism string `yaml:"mechanism,omitempty"`
-	Enabled   *bool  `yaml:"enabled,omitempty"`
+	Enabled   bool   `yaml:"enabled,omitempty"`
 	UserName  string `yaml:"UserName,omitempty"`
 	Password  string `yaml:"password,omitempty"`
 	GSSAPI    GSSAPI `yaml:"gssapi,omitempty"`
 }
 
 type TLS struct {
-	Enabled        *bool  `yaml:"enabled,omitempty"`
+	Enabled        bool   `yaml:"enabled,omitempty"`
 	CaCertFiles    string `yaml:"caCertFiles,omitempty"`
 	ClientCertFile string `yaml:"clientCertFile,omitempty"`
 	ClientKeyFile  string `yaml:"clientKeyFile,omitempty"`
@@ -50,21 +50,21 @@ type GSSAPI struct {
 	UserName           string `yaml:"UserName,omitempty"`
 	Password           string `yaml:"password,omitempty"`
 	Realm              string `yaml:"realm,omitempty"`
-	DisablePAFXFAST    *bool  `yaml:"disablePAFXFAST,omitempty"`
+	DisablePAFXFAST    bool   `yaml:"disablePAFXFAST,omitempty"`
 }
 
 // convert java client style configuration into sinker
 func (cfg *Config) convertKfkSecurity() {
 	if protocol, ok := cfg.Security["security.protocol"]; ok {
 		if strings.Contains(protocol, "SASL") {
-			*cfg.SASL.Enabled = true
+			cfg.SASL.Enabled = true
 		}
 		if strings.Contains(protocol, "SSL") {
-			*cfg.TLS.Enabled = true
+			cfg.TLS.Enabled = true
 		}
 	}
 
-	if cfg.TLS.Enabled != nil && *cfg.TLS.Enabled == true {
+	if cfg.TLS.Enabled == true {
 		if endpIdentAlgo, ok := cfg.Security["ssl.endpoint.identification.algorithm"]; ok {
 			cfg.TLS.EndpIdentAlgo = endpIdentAlgo
 		}
@@ -81,15 +81,15 @@ func (cfg *Config) convertKfkSecurity() {
 			cfg.TLS.KeystorePassword = keyStorePassword
 		}
 	}
-	if cfg.TLS.Enabled != nil && *cfg.TLS.Enabled == true {
-		if mechanism, ok := cfg.Security["SASL.mechanism"]; ok {
+	if cfg.SASL.Enabled == true {
+		if mechanism, ok := cfg.Security["sasl.mechanism"]; ok {
 			cfg.SASL.Mechanism = mechanism
 		}
-		if config, ok := cfg.Security["SASL.jaas.config"]; ok {
+		if config, ok := cfg.Security["sasl.jaas.config"]; ok {
 			configMap := readConfig(config)
 			if strings.Contains(cfg.SASL.Mechanism, "SCRAM") {
 				// SCRAM-SHA-256 or SCRAM-SHA-512
-				if UserName, ok := configMap["UserName"]; ok {
+				if UserName, ok := configMap["username"]; ok {
 					cfg.SASL.UserName = UserName
 				}
 				if password, ok := configMap["password"]; ok {
@@ -107,7 +107,7 @@ func (cfg *Config) convertKfkSecurity() {
 				}
 				if cfg.SASL.GSSAPI.AuthType == 1 {
 					//UserName and password
-					if UserName, ok := configMap["UserName"]; ok {
+					if UserName, ok := configMap["username"]; ok {
 						cfg.SASL.GSSAPI.UserName = UserName
 					}
 					if password, ok := configMap["password"]; ok {
@@ -124,7 +124,7 @@ func (cfg *Config) convertKfkSecurity() {
 						cfg.SASL.GSSAPI.UserName = UserName
 						cfg.SASL.GSSAPI.Realm = realm
 					}
-					if servicename, ok := cfg.Security["SASL.kerberos.service.name"]; ok {
+					if servicename, ok := cfg.Security["sasl.kerberos.service.name"]; ok {
 						cfg.SASL.GSSAPI.ServiceName = servicename
 					}
 					if cfg.SASL.GSSAPI.KerberosConfigPath == "" {

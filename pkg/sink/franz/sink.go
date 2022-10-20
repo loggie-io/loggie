@@ -71,9 +71,11 @@ func (s *Sink) Start() error {
 	// One client can both produce and consume!
 	// Consuming can either be direct (no consumer group), or through a group. Below, we use a group.
 
+	var logger Logger
 	opts := []kgo.Opt{
 		kgo.SeedBrokers(c.Brokers...),
 		kgo.ProducerBatchCompression(getCompression(c.Compression)),
+		kgo.WithLogger(&logger),
 	}
 
 	if c.BatchSize > 0 {
@@ -94,14 +96,14 @@ func (s *Sink) Start() error {
 		opts = append(opts, kgo.Balancers(balancer))
 	}
 
-	if c.SASL.Enabled != nil && *c.SASL.Enabled == true {
+	if c.SASL.Enabled == true {
 		mch := getMechanism(c.SASL)
 		if mch != nil {
 			opts = append(opts, kgo.SASL(mch))
 		}
 	}
 
-	if c.TLS.Enabled != nil && *c.TLS.Enabled == true {
+	if c.TLS.Enabled == true {
 		var tlsCfg *tls.Config
 		var err error
 		if tlsCfg, err = NewTLSConfig(c.TLS.CaCertFiles, c.TLS.ClientCertFile, c.TLS.ClientKeyFile, c.TLS.EndpIdentAlgo == ""); err != nil {
