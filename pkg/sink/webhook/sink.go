@@ -5,13 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/eventbus"
 	"io/ioutil"
 	"net/http"
 	"text/template"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
@@ -31,10 +32,30 @@ func makeSink(info pipeline.Info) api.Component {
 type Alert map[string]interface{}
 
 func NewAlert(e api.Event) Alert {
-	systemData := map[string]interface{}{
-		"sourceName":   e.Meta().GetAll()[event.SystemSourceKey],
-		"pipelineName": e.Meta().GetAll()[event.SystemPipelineKey],
-		"timestamp":    e.Meta().GetAll()[event.SystemProductTimeKey],
+	systemData := map[string]interface{}{}
+
+	allMeta := e.Meta().GetAll()
+
+	if value, ok := allMeta[event.SystemSourceKey]; ok {
+		systemData["sourceName"] = value
+	}
+
+	if value, ok := allMeta[event.SystemPipelineKey]; ok {
+		systemData["pipelineName"] = value
+	}
+
+	if value, ok := allMeta[event.SystemProductTimeKey]; ok {
+		t, valueToTime := value.(time.Time)
+		if !valueToTime {
+			systemData["timestamp"] = value
+		} else {
+			textTime, err := t.MarshalText()
+			if err == nil {
+				systemData["timestamp"] = string(textTime)
+			} else {
+				systemData["timestamp"] = value
+			}
+		}
 	}
 
 	alert := Alert{
@@ -53,12 +74,14 @@ func NewAlert(e api.Event) Alert {
 }
 
 type Sink struct {
-	name   string
-	config *Config
-	codec  codec.Codec
-	temp   *template.Template
-	bp     *BufferPool
-	client *http.Client
+	name      string
+	config    *Config
+	codec     codec.Codec
+	temp      *template.Template
+	bp        *BufferPool
+	client    *http.Client
+	subscribe *eventbus.Subscribe
+	listener  *Listener
 }
 
 func NewSink() *Sink {
@@ -88,6 +111,14 @@ func (s *Sink) String() string {
 }
 
 func (s *Sink) Init(context api.Context) error {
+	s.listener = &Listener{
+		done: make(chan struct{}),
+		sink: s,
+	}
+	s.subscribe = eventbus.RegistryTemporary(name, func() eventbus.Listener {
+		return s.listener
+	}, eventbus.WithTopic(eventbus.WebhookTopic))
+
 	s.name = context.Name()
 	s.bp = newBufferPool(1024)
 	s.client = &http.Client{
@@ -108,10 +139,14 @@ func (s *Sink) Start() error {
 		s.temp = temp
 	}
 
+	_ = s.listener.Start()
+
 	return nil
 }
 
 func (s *Sink) Stop() {
+	eventbus.UnRegistrySubscribeTemporary(s.subscribe)
+	s.listener.Stop()
 }
 
 func (s *Sink) Consume(batch api.Batch) api.Result {

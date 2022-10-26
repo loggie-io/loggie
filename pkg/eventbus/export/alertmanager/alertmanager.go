@@ -19,15 +19,16 @@ package alertmanager
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/eventbus"
-	"github.com/loggie-io/loggie/pkg/sink/webhook"
 	"io/ioutil"
 	"net/http"
+	"sync"
 	"text/template"
 	"time"
 
+	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/sink/webhook"
 )
 
 type AlertManager struct {
@@ -37,6 +38,11 @@ type AlertManager struct {
 	temp    *template.Template
 	bp      *BufferPool
 	headers map[string]string
+
+	lock sync.Mutex
+}
+
+type ResetTempEvent struct {
 }
 
 func NewAlertManager(addr []string, timeout int, temp *string, headers map[string]string) *AlertManager {
@@ -71,12 +77,14 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 
 	var alerts []*webhook.Alert
 	for _, e := range events {
+
 		if e.Data == nil {
 			continue
 		}
 
 		data, ok := e.Data.(*api.Event)
 		if !ok {
+			log.Info("fail to convert data to event")
 			return
 		}
 
@@ -91,6 +99,7 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 
 	var request []byte
 
+	a.lock.Lock()
 	if a.temp != nil {
 		buffer := a.bp.Get()
 		defer a.bp.Put(buffer)
@@ -108,6 +117,7 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 		}
 		request = out
 	}
+	a.lock.Unlock()
 
 	for _, address := range a.Address { // send alerts to alertManager cluster, no need to retry
 		a.send(address, request)
@@ -141,4 +151,12 @@ func (a *AlertManager) send(address string, alert []byte) {
 		log.Warn("post alert failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))
 	}
 	log.Debug("send alerts %s success", string(alert))
+}
+
+func (a *AlertManager) UpdateTemp(temp string) {
+	t, err := template.New("test").Parse(temp)
+	if err != nil {
+		log.Error("fail to generate temp %s", temp)
+	}
+	a.temp = t
 }

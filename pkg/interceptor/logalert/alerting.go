@@ -17,19 +17,25 @@ limitations under the License.
 package logalert
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/interceptor/logalert/condition"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/util"
 )
 
 const Type = "logAlert"
+const NoDataKey = "NoDataAlert"
 
 func init() {
 	pipeline.Register(api.INTERCEPTOR, Type, makeInterceptor)
@@ -44,7 +50,23 @@ func makeInterceptor(info pipeline.Info) api.Component {
 type Interceptor struct {
 	config *Config
 
-	regex []*regexp.Regexp
+	regex       []*regexp.Regexp
+	ignoreRegex []*regexp.Regexp
+	rules       []advancedRule
+
+	nodataMode bool
+	ticker     *time.Ticker
+	eventFlag  chan struct{}
+	done       chan struct{}
+
+	pipelineName string
+}
+
+type advancedRule struct {
+	regex        *regexp.Regexp
+	key          string
+	operatorFunc condition.OperatorFunc
+	target       string
 }
 
 func (i *Interceptor) Config() interface{} {
@@ -72,19 +94,110 @@ func (i *Interceptor) Init(context api.Context) error {
 			i.regex = append(i.regex, regex)
 		}
 	}
+
+	if len(i.config.Ignore) > 0 {
+		for _, r := range i.config.Ignore {
+			regex := regexp.MustCompile(r)
+
+			i.ignoreRegex = append(i.ignoreRegex, regex)
+		}
+	}
+
+	if i.config.Advanced.Enable {
+		for _, mode := range i.config.Advanced.Mode {
+			if mode == ModeRegexp {
+				for _, rule := range i.config.Advanced.Rules {
+					regex := util.MustCompilePatternWithJavaStyle(rule.Regexp)
+					aRule := advancedRule{
+						regex:        regex,
+						key:          rule.Key,
+						operatorFunc: condition.OperatorMap[rule.Operator],
+						target:       rule.Value,
+					}
+					i.rules = append(i.rules, aRule)
+				}
+			} else if mode == ModeNoData {
+				i.nodataMode = true
+				i.eventFlag = make(chan struct{})
+				i.done = make(chan struct{})
+			}
+		}
+
+	}
+
 	return nil
 }
 
 func (i *Interceptor) Start() error {
+	if i.nodataMode {
+		i.runTicker()
+	}
+	if i.config.Template != nil {
+		eventbus.PublishOrDrop(eventbus.AlertTempTopic, *i.config.Template)
+	}
+
 	return nil
 }
 
 func (i *Interceptor) Stop() {
+	if i.nodataMode {
+		close(i.done)
+	}
+}
+
+func (i *Interceptor) runTicker() {
+	duration := i.config.Advanced.Duration
+	go func() {
+		i.ticker = time.NewTicker(time.Duration(duration) * time.Second)
+		defer i.ticker.Stop()
+
+		for {
+			select {
+			case <-i.done:
+				return
+			case <-i.ticker.C:
+				log.Info("long time no message!")
+
+				go func() {
+					header := make(map[string]interface{})
+
+					var e api.Event
+					var meta api.Meta
+					meta = event.NewDefaultMeta()
+
+					meta.Set(event.SystemProductTimeKey, time.Now())
+					if len(i.pipelineName) > 0 {
+						meta.Set(event.SystemPipelineKey, i.pipelineName)
+					}
+
+					e = event.NewEvent(header, []byte("long time no message!"))
+					e.Header()["reason"] = NoDataKey
+					e.Fill(meta, header, e.Body())
+
+					eventbus.PublishOrDrop(eventbus.LogAlertTopic, &e)
+
+					eventbus.Publish(eventbus.WebhookTopic, &e)
+				}()
+
+			case <-i.eventFlag:
+				i.ticker.Reset(time.Duration(duration) * time.Second)
+			}
+		}
+	}()
+
 }
 
 func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invocation) api.Result {
+	i.eventFlag <- struct{}{}
 
 	ev := invocation.Event
+	if len(i.pipelineName) == 0 {
+		value, exist := ev.Meta().Get(event.SystemPipelineKey)
+		if exist {
+			i.pipelineName = value.(string)
+		}
+	}
+
 	matched, reason, message := i.match(ev)
 	if !matched {
 		if !invocation.WebhookEnabled {
@@ -96,7 +209,6 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 	log.Debug("logAlert matched: %s, %s", message, reason)
 
 	// do fire alert
-
 	ev.Header()["reason"] = reason
 
 	eventbus.PublishOrDrop(eventbus.LogAlertTopic, &ev)
@@ -118,6 +230,15 @@ func (i *Interceptor) match(event api.Event) (matched bool, reason string, messa
 		target = string(event.Body())
 	}
 
+	// ignore
+	if len(i.ignoreRegex) > 0 {
+		for _, regex := range i.ignoreRegex {
+			if regex.MatchString(target) {
+				return false, "", ""
+			}
+		}
+	}
+
 	// containers matcher
 	if len(matcher.Contains) != 0 {
 		for _, substr := range matcher.Contains {
@@ -136,5 +257,59 @@ func (i *Interceptor) match(event api.Event) (matched bool, reason string, messa
 		}
 	}
 
+	if i.config.Advanced.Enable {
+		if i.config.Advanced.MatchType == MatchTypeAll && i.matchAll(target) {
+			return true, "matches all rules", target
+		}
+
+		if i.config.Advanced.MatchType == MatchTypeAny && i.matchAny(target) {
+			return true, "matches some rules", target
+		}
+	}
+
 	return false, "", ""
+}
+
+func (i *Interceptor) matchAll(target string) bool {
+	for _, rule := range i.rules {
+		match, _ := matchAdvRule(target, rule)
+		if !match {
+			//log.Info("target %s does not match rule %s", target, rule.regex.String())
+			return false
+		}
+	}
+	return true
+}
+
+func (i *Interceptor) matchAny(target string) bool {
+	for _, rule := range i.rules {
+		match, _ := matchAdvRule(target, rule)
+		if match {
+			//log.Info("target %s matches rule %s", target, rule.regex.String())
+			return true
+		}
+	}
+	return false
+}
+
+func matchAdvRule(target string, rule advancedRule) (bool, error) {
+	paramsMap := util.MatchGroupWithRegex(rule.regex, target)
+	s, ok := paramsMap[rule.key]
+	if ok {
+		return rule.operatorFunc(s, rule.target)
+	} else {
+		return false, errors.New(fmt.Sprintf("target %s does not contain key %s", target, rule.key))
+	}
+}
+
+func (i *Interceptor) Order() int {
+	return i.config.Order
+}
+
+func (i *Interceptor) BelongTo() (componentTypes []string) {
+	return i.config.BelongTo
+}
+
+func (i *Interceptor) IgnoreRetry() bool {
+	return true
 }

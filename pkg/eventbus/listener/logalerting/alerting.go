@@ -28,7 +28,7 @@ import (
 const name = "logAlert"
 
 func init() {
-	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.LogAlertTopic))
+	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.LogAlertTopic), eventbus.WithTopic(eventbus.AlertTempTopic))
 }
 
 func makeListener() eventbus.Listener {
@@ -110,6 +110,14 @@ func (l *Listener) run() {
 }
 
 func (l *Listener) process(event *eventbus.Event) {
+	if event.Topic == eventbus.AlertTempTopic {
+		s, ok := event.Data.(string)
+		if ok {
+			l.alertCli.UpdateTemp(s)
+		}
+
+	}
+
 	l.SendBatch = append(l.SendBatch, event)
 
 	if len(l.SendBatch) >= l.config.BatchSize {

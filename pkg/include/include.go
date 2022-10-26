@@ -32,6 +32,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/interceptor/json_decode"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/limit"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/logalert"
+	_ "github.com/loggie-io/loggie/pkg/interceptor/logalert/condition"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/maxbytes"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/metric"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/normalize"

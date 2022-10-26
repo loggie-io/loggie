@@ -10,11 +10,23 @@ pipelines:
     interceptors:
       - type: logAlert
         matcher:
-          contains: [ "WARN", "warn" ]
-          target: message
-      - type: transformer
-        actions:
-          - action: move(body,message)
+          contains: ["error","err"]
+          regexp: ['.*WARN.*']
+        ignore: ['.*INFO.*']
+        advanced:
+          enable: true
+          mode: [ "noData","regexp" ]
+          duration: 20
+          matchType: "any"
+          rules:
+            - regexp: '(?<date>.*?) (?<time>[\S|\\.]+)  (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>.*)'
+              key: status
+              operator: "eq"
+              value: WARN
+            - regexp: '(?<date>.*?) (?<time>[\S|\\.]+)  (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>.*)'
+              key: u
+              operator: "eq"
+              value: 0.5
     sink:
       type: webhook
       addr: http://localhost:8080/loggie
@@ -32,7 +44,7 @@ pipelines:
                 "topic": "{{.fields.topic}}"
               },
               "annotations": {
-                "message": "{{.message}}",
+                "message": "{{.body}}",
                 "reason": "{{.reason}}"
               },
               "startsAt": "{{._meta.timestamp}}",

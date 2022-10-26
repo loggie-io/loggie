@@ -17,6 +17,8 @@ limitations under the License.
 package logalert
 
 import (
+	"github.com/loggie-io/loggie/pkg/interceptor/logalert/condition"
+	"github.com/loggie-io/loggie/pkg/util"
 	"regexp"
 	"testing"
 
@@ -82,6 +84,31 @@ func TestInterceptor_match(t *testing.T) {
 			},
 			wantMatched: true,
 		},
+		{
+			name: "containers string",
+			fields: fields{
+				config: &Config{
+					Advanced: Advanced{
+						Enable:    true,
+						Mode:      []string{"regexp"},
+						Duration:  0,
+						MatchType: "any",
+						Rules: []Rule{
+							{
+								Regexp:   `(?<date>.*?) (?<time>[\S|\\.]+)  (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>.*)`,
+								Key:      "status",
+								Operator: "eq",
+								Value:    "WARN",
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				event: event.NewEvent(map[string]interface{}{}, []byte("2022-10-26 09:39:24.101  WARN 98019 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]")),
+			},
+			wantMatched: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -94,6 +121,24 @@ func TestInterceptor_match(t *testing.T) {
 				regex = append(regex, regexp.MustCompile(reg))
 			}
 			i.regex = regex
+
+			if i.config.Advanced.Enable {
+				for _, mode := range i.config.Advanced.Mode {
+					if mode == ModeRegexp {
+						for _, rule := range i.config.Advanced.Rules {
+							regex := util.MustCompilePatternWithJavaStyle(rule.Regexp)
+							aRule := advancedRule{
+								regex:        regex,
+								key:          rule.Key,
+								operatorFunc: condition.OperatorMap[rule.Operator],
+								target:       rule.Value,
+							}
+							i.rules = append(i.rules, aRule)
+						}
+					}
+				}
+
+			}
 
 			gotMatched, reason, message := i.match(tt.args.event)
 			t.Logf("match() gotMatched = %v, want %v, reason: %s, message: %s", gotMatched, tt.wantMatched, reason, message)

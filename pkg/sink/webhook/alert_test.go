@@ -11,6 +11,7 @@ import (
 
 func TestNewAlert(t *testing.T) {
 	now := time.Now()
+	text, _ := now.MarshalText()
 
 	tests := []struct {
 		name  string
@@ -42,7 +43,7 @@ func TestNewAlert(t *testing.T) {
 				"_meta": map[string]interface{}{
 					"pipelineName": "local",
 					"sourceName":   "demo",
-					"timestamp":    now,
+					"timestamp":    string(text),
 				},
 			},
 		},
