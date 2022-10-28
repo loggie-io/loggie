@@ -34,10 +34,11 @@ import (
 type AlertManager struct {
 	Address []string
 
-	Client  http.Client
-	temp    *template.Template
-	bp      *BufferPool
-	headers map[string]string
+	Client    http.Client
+	temp      *template.Template
+	bp        *BufferPool
+	headers   map[string]string
+	LineLimit int
 
 	lock sync.Mutex
 }
@@ -45,15 +46,16 @@ type AlertManager struct {
 type ResetTempEvent struct {
 }
 
-func NewAlertManager(addr []string, timeout int, temp *string, headers map[string]string) *AlertManager {
+func NewAlertManager(addr []string, timeout, lineLimit int, temp *string, headers map[string]string) *AlertManager {
 	cli := http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 	}
 	manager := &AlertManager{
-		Address: addr,
-		Client:  cli,
-		headers: headers,
-		bp:      newBufferPool(1024),
+		Address:   addr,
+		Client:    cli,
+		headers:   headers,
+		bp:        newBufferPool(1024),
+		LineLimit: lineLimit,
 	}
 
 	if temp != nil {
@@ -88,7 +90,7 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 			return
 		}
 
-		alert := webhook.NewAlert(*data)
+		alert := webhook.NewAlert(*data, a.LineLimit)
 
 		alerts = append(alerts, &alert)
 	}

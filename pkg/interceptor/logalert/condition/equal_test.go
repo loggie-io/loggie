@@ -23,8 +23,8 @@ func TestEqual(t *testing.T) {
 		},
 		{
 			name:   "string eq",
-			val1:   "aaa",
-			val2:   "aaa",
+			val1:   "ERROR",
+			val2:   "ERROR",
 			wanted: true,
 		},
 	}

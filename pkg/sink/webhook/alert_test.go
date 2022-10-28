@@ -35,7 +35,7 @@ func TestNewAlert(t *testing.T) {
 				}},
 			},
 			want: Alert{
-				"body":   "message",
+				"body":   []string{"message"},
 				"reason": "reason",
 				"fields": map[string]interface{}{
 					"topic": "loggie",
@@ -50,7 +50,7 @@ func TestNewAlert(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			alert := NewAlert(tt.event)
+			alert := NewAlert(tt.event, 10)
 			assert.EqualValues(t, tt.want, alert, "should be same")
 		})
 	}

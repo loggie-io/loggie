@@ -63,7 +63,12 @@ type Interceptor struct {
 }
 
 type advancedRule struct {
-	regex        *regexp.Regexp
+	regex     *regexp.Regexp
+	matchType string
+	groups    []advancedRuleGroup
+}
+
+type advancedRuleGroup struct {
 	key          string
 	operatorFunc condition.OperatorFunc
 	target       string
@@ -109,11 +114,18 @@ func (i *Interceptor) Init(context api.Context) error {
 				for _, rule := range i.config.Advanced.Rules {
 					regex := util.MustCompilePatternWithJavaStyle(rule.Regexp)
 					aRule := advancedRule{
-						regex:        regex,
-						key:          rule.Key,
-						operatorFunc: condition.OperatorMap[rule.Operator],
-						target:       rule.Value,
+						regex:     regex,
+						matchType: rule.MatchType,
 					}
+					groups := make([]advancedRuleGroup, 0)
+					for _, group := range rule.Groups {
+						groups = append(groups, advancedRuleGroup{
+							key:          group.Key,
+							operatorFunc: condition.OperatorMap[group.Operator],
+							target:       group.Value,
+						})
+					}
+					aRule.groups = groups
 					i.rules = append(i.rules, aRule)
 				}
 			} else if mode == ModeNoData {
@@ -203,7 +215,8 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 		if !invocation.WebhookEnabled {
 			return invoker.Invoke(invocation)
 		} else {
-			return result.NewResult(api.SUCCESS)
+			//return result.NewResult(api.SUCCESS)
+			return result.Drop()
 		}
 	}
 	log.Debug("logAlert matched: %s, %s", message, reason)
@@ -211,7 +224,8 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 	// do fire alert
 	ev.Header()["reason"] = reason
 
-	eventbus.PublishOrDrop(eventbus.LogAlertTopic, &ev)
+	e := ev.DeepCopy()
+	eventbus.PublishOrDrop(eventbus.LogAlertTopic, &e)
 
 	return invoker.Invoke(invocation)
 }
@@ -272,9 +286,8 @@ func (i *Interceptor) match(event api.Event) (matched bool, reason string, messa
 
 func (i *Interceptor) matchAll(target string) bool {
 	for _, rule := range i.rules {
-		match, _ := matchAdvRule(target, rule)
+		match := matchRule(target, rule)
 		if !match {
-			//log.Info("target %s does not match rule %s", target, rule.regex.String())
 			return false
 		}
 	}
@@ -283,22 +296,44 @@ func (i *Interceptor) matchAll(target string) bool {
 
 func (i *Interceptor) matchAny(target string) bool {
 	for _, rule := range i.rules {
-		match, _ := matchAdvRule(target, rule)
+		match := matchRule(target, rule)
 		if match {
-			//log.Info("target %s matches rule %s", target, rule.regex.String())
 			return true
 		}
 	}
 	return false
 }
 
-func matchAdvRule(target string, rule advancedRule) (bool, error) {
+func matchRule(target string, rule advancedRule) bool {
 	paramsMap := util.MatchGroupWithRegex(rule.regex, target)
+	if rule.matchType == MatchTypeAll {
+		for _, group := range rule.groups {
+			match, _ := matchAdvRule(paramsMap, group)
+			if !match {
+				//log.Info("target %s does not match rule %s", target, rule.regex.String())
+				return false
+			}
+		}
+		return true
+	} else if rule.matchType == MatchTypeAny {
+		for _, group := range rule.groups {
+			match, _ := matchAdvRule(paramsMap, group)
+			if match {
+				//log.Info("target %s matches rule %s", target, rule.regex.String())
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
+func matchAdvRule(paramsMap map[string]string, rule advancedRuleGroup) (bool, error) {
 	s, ok := paramsMap[rule.key]
 	if ok {
 		return rule.operatorFunc(s, rule.target)
 	} else {
-		return false, errors.New(fmt.Sprintf("target %s does not contain key %s", target, rule.key))
+		return false, errors.New(fmt.Sprintf("body does not contain key %s", rule.key))
 	}
 }
 

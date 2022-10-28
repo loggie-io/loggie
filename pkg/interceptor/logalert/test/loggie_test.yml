@@ -12,7 +12,35 @@ loggie:
         addr: [ "http://127.0.0.1:8080/loggie" ]
         bufferSize: 100
         batchTimeout: 10s
-        batchSize: 10
+        batchSize: 1
+        lineLimit: 10
+        template: |
+          {
+                  "alerts":
+                        [
+                        {{$first := true}}
+                        {{range .Alerts}}
+                        {{if $first}}{{$first = false}}{{else}},{{end}}
+                        {
+                              "labels": {
+                                "topic": "{{.fields.topic}}"
+                              },
+                              "annotations": {
+                                "message": "\n新的报错：\nbody:\n{{range .body}}{{.}}\n{{end}}\ncontainerid: {{._meta.pipelineName}}\nsource: {{._meta.sourceName}}\ncontainername: {{.fields.containername}}\nlogconfig: {{.fields.logconfig}}\nname: {{.fields.name}}\nnamespace: {{.fields.namespace}}\nnodename: {{.fields.nodename}}\npodname: {{.fields.podname}}\nfilename: {{.state.filename}}\n",
+                                "reason": "{{.reason}}"
+                              },
+                              "startsAt": "{{._meta.timestamp}}",
+                              "endsAt": "{{._meta.timestamp}}"
+                        }
+                        {{end}}
+                        ],
+                        "commonLabels": {
+                        "namespace": "ns",
+                        "module": "loggie-test",
+                        "alertname": "test-alert",
+                        "cluster": "cluster"
+                        }
+          }
       filesource: ~
       filewatcher: ~
       reload: ~
@@ -36,7 +64,7 @@ loggie:
   defaults:
     sink:
       type: dev
-      printEvents: true
+      printEvents: false
       codec:
         type: json
         pretty: true

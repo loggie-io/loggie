@@ -18,16 +18,16 @@ package file
 
 import (
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/global"
-	"github.com/loggie-io/loggie/pkg/core/result"
-	"github.com/loggie-io/loggie/pkg/core/source"
-	"github.com/loggie-io/loggie/pkg/source/codec"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/result"
+	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/source/codec"
 )
 
 const Type = "file"

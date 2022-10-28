@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/eventbus"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"text/template"
 	"time"
 
@@ -15,6 +15,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
+	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 )
@@ -31,7 +32,7 @@ func makeSink(info pipeline.Info) api.Component {
 
 type Alert map[string]interface{}
 
-func NewAlert(e api.Event) Alert {
+func NewAlert(e api.Event, lineLimit int) Alert {
 	systemData := map[string]interface{}{}
 
 	allMeta := e.Meta().GetAll()
@@ -63,10 +64,33 @@ func NewAlert(e api.Event) Alert {
 	}
 
 	if len(e.Body()) > 0 {
-		alert["body"] = string(e.Body())
+		s := string(e.Body())
+		split := make([]string, 0)
+		for i, s := range strings.Split(s, "\n") {
+			if i > lineLimit {
+				log.Info("body exceeds line limit %d", lineLimit)
+				break
+			}
+			split = append(split, strings.TrimSpace(s))
+		}
+		alert["body"] = split
 	}
 
 	for k, v := range e.Header() {
+		if k == "body" {
+			if value, ok := v.(string); ok {
+				split := make([]string, 0)
+				for i, s := range strings.Split(value, "\n") {
+					if i > lineLimit {
+						log.Info("body exceeds line limit %d", lineLimit)
+						break
+					}
+					split = append(split, strings.TrimSpace(s))
+				}
+				alert["body"] = split
+				continue
+			}
+		}
 		alert[k] = v
 	}
 
@@ -159,7 +183,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	var alerts []Alert
 	for _, e := range events {
 
-		alert := NewAlert(e)
+		alert := NewAlert(e, s.config.LineLimit)
 
 		alerts = append(alerts, alert)
 	}

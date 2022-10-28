@@ -18,6 +18,7 @@ package logalert
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
@@ -61,7 +62,12 @@ type Advanced struct {
 }
 
 type Rule struct {
-	Regexp   string `yaml:"regexp,omitempty"`
+	Regexp    string  `yaml:"regexp,omitempty"`
+	MatchType string  `yaml:"matchType,omitempty"`
+	Groups    []Group `yaml:"groups,omitempty"`
+}
+
+type Group struct {
 	Key      string `yaml:"key,omitempty"`
 	Operator string `yaml:"operator,omitempty"`
 	Value    string `yaml:"value,omitempty"`
@@ -114,10 +120,10 @@ func (a *Advanced) validate() error {
 					}
 				}
 			} else {
-				return errors.New("advanced logAlert match type not supported")
+				return errors.New(fmt.Sprintf("advanced logAlert match type %s not supported", a.MatchType))
 			}
 		} else {
-			return errors.New("advanced logAlert mode not supported")
+			return errors.New(fmt.Sprintf("advanced logAlert mode %s not supported", a.Mode))
 		}
 	}
 	return nil
@@ -129,8 +135,18 @@ func (r *Rule) validate() error {
 		return err
 	}
 
-	if _, ok := condition.OperatorMap[r.Operator]; !ok {
-		return errors.New("operator not supported")
+	if r.MatchType != MatchTypeAny && r.MatchType != MatchTypeAll {
+		return errors.New(fmt.Sprintf("advanced logAlert match type %s not supported", r.MatchType))
+	}
+
+	if len(r.Groups) == 0 {
+		return errors.New("rule has no group")
+	}
+
+	for _, group := range r.Groups {
+		if _, ok := condition.OperatorMap[group.Operator]; !ok {
+			return errors.New(fmt.Sprintf("operator %s not supported", group.Operator))
+		}
 	}
 
 	return nil

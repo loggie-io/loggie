@@ -4,13 +4,18 @@ pipelines:
       - type: file
         name: demo
         paths:
-          - /Users/zzy/Downloads/test/temp.txt
+          - /Users/user/Downloads/test/temp.txt
         fields:
           topic: "loggie"
+        addonMeta: true
+        multi:
+          active: true
+          pattern: '^(\d{4})-(\d{2})-(\d{2})'
+          maxLines: 100
     interceptors:
       - type: logAlert
         matcher:
-          contains: ["error","err"]
+          contains: ["error","ERROR"]
           regexp: ['.*WARN.*']
         ignore: ['.*INFO.*']
         advanced:
@@ -19,20 +24,28 @@ pipelines:
           duration: 20
           matchType: "any"
           rules:
-            - regexp: '(?<date>.*?) (?<time>[\S|\\.]+)  (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>.*)'
-              key: status
-              operator: "eq"
-              value: WARN
-            - regexp: '(?<date>.*?) (?<time>[\S|\\.]+)  (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>.*)'
-              key: u
-              operator: "eq"
-              value: 0.5
+            - regexp: '(?<date>.*?) (?<time>[\S|\\.]+)  (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>(.|\n|\t)*)'
+              matchType: "any"
+              groups:
+                - key: status
+                  operator: "eq"
+                  value: WARN
+                - key: status
+                  operator: "eq"
+                  value: ERROR
+            - regexp: '(?<date>.*?) (?<time>[\S|\\.]+) (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>(.|\n|\t)*)'
+              matchType: "any"
+              groups:
+                - key: status
+                  operator: "eq"
+                  value: ERROR
+
     sink:
       type: webhook
       addr: http://localhost:8080/loggie
       headers:
         api: test1
-      template: |+
+      template: |
         {
         "alerts":
         [
@@ -41,10 +54,10 @@ pipelines:
         {{if $first}}{{$first = false}}{{else}},{{end}}
         {
               "labels": {
-                "topic": "{{.fields.topic}}"
+                "topic": "{{._meta.pipelineName}}"
               },
               "annotations": {
-                "message": "{{.body}}",
+                "message": "新的报错：\nbody:\n{{range .body}}{{.}}\n{{end}}\ncontainerid: {{._meta.pipelineName}}\nsource: {{._meta.sourceName}}\ncontainername: {{.fields.containername}}\nlogconfig: {{.fields.logconfig}}\nname: {{.fields.name}}\nnamespace: {{.fields.namespace}}\nnodename: {{.fields.nodename}}\npodname: {{.fields.podname}}\nfilename: {{.state.filename}}",
                 "reason": "{{.reason}}"
               },
               "startsAt": "{{._meta.timestamp}}",
@@ -52,10 +65,10 @@ pipelines:
         }
         {{end}}
         ],
-        "commonLabels":{
-        "namespace":"ns-test",
-        "module":"module-test",
-        "alertname":"alert-test",
-        "cluster":"cluster"
+        "commonLabels": {
+        "namespace": "ns",
+        "module": "loggie-test",
+        "alertname": "test-alert",
+        "cluster": "cluster"
         }
         }

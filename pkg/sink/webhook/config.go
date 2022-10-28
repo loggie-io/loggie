@@ -17,8 +17,9 @@ limitations under the License.
 package webhook
 
 type Config struct {
-	Addr     string            `yaml:"addr,omitempty"`
-	Template string            `yaml:"template,omitempty"`
-	Timeout  int               `yaml:"timeout,omitempty" default:"30"`
-	Headers  map[string]string `yaml:"headers,omitempty"`
+	Addr      string            `yaml:"addr,omitempty"`
+	Template  string            `yaml:"template,omitempty"`
+	Timeout   int               `yaml:"timeout,omitempty" default:"30"`
+	Headers   map[string]string `yaml:"headers,omitempty"`
+	LineLimit int               `yaml:"lineLimit" default:"10"`
 }
