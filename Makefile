@@ -83,7 +83,7 @@ benchmark: ## Run benchmark
 ##@ Build
 
 build: ## go build
-	CGO_ENABLED=1 GOOS=${GOOS} GOARCH=${GOARCH} go build -mod=vendor -a ${extra_flags} -o loggie cmd/loggie/main.go
+	CGO_ENABLED=1 GOOS=${GOOS} GOARCH=${GOARCH} go build -mod=vendor -a ${extra_flags} -o loggie-${GOOS}-${GOARCH} cmd/loggie/main.go
 
 ##@ Images
 
