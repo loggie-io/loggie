@@ -30,6 +30,8 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/smartystreets-prototypes/go-disruptor v0.0.0-20200316140655-c96477fd7a6a
 	github.com/stretchr/testify v1.7.5
+	github.com/thinkeridea/go-extend v1.3.2
+	go.uber.org/atomic v1.7.0
 	go.uber.org/automaxprocs v0.0.0-20200415073007-b685be8c1c23
 	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd
 	golang.org/x/text v0.3.7
@@ -94,7 +96,6 @@ require (
 	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
 	github.com/xdg/stringprep v1.0.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 // indirect
 	golang.org/x/mod v0.4.2 // indirect
 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c // indirect
