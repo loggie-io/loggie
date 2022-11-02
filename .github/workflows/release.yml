@@ -25,4 +25,4 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            loggie-linux-amd64
+            loggie
