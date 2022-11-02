@@ -50,7 +50,7 @@ func MatchGroupWithRegex(compRegEx *regexp.Regexp, context string) (paramsMap ma
 	}
 	paramsMap = make(map[string]string, l)
 	for i, name := range compRegEx.SubexpNames() {
-		if i > 0 && i <= l {
+		if i > 0 && i <= l && name != "" {
 			paramsMap[name] = match[i]
 		}
 	}
@@ -64,7 +64,7 @@ func MatchGroupWithRegexAndHeader(compRegEx *regexp.Regexp, context string, head
 		return 0
 	}
 	for i, name := range compRegEx.SubexpNames() {
-		if i > 0 && i <= l {
+		if i > 0 && i <= l && name != "" {
 			header[name] = match[i]
 		}
 	}

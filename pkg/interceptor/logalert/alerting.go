@@ -200,7 +200,9 @@ func (i *Interceptor) runTicker() {
 }
 
 func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invocation) api.Result {
-	i.eventFlag <- struct{}{}
+	if i.nodataMode {
+		i.eventFlag <- struct{}{}
+	}
 
 	ev := invocation.Event
 	if len(i.pipelineName) == 0 {
