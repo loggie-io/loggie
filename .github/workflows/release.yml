@@ -1,0 +1,28 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go 1.17
+        uses: actions/setup-go@v2
+        with:
+          go-version: 1.17
+        id: go
+      - uses: actions/checkout@v2
+      - name: Run build-amd64-bin
+        run: make build GOOS=linux GOARCH=amd64
+      - name: Create Release and Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          body: See the [CHANGELOG](https://github.com/loggie-io/loggie/blob/${{ github.ref }}/doc/changelog/CHANGELOG-v1.md) for more details.
+          draft: false
+          prerelease: false
+          files: |
+            loggie-linux-amd64
