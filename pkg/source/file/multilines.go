@@ -165,9 +165,8 @@ func (mh *MultiHolder) flush() {
 		EventUid:     mh.state.EventUid,
 		LineNumber:   mh.state.LineNumber,
 		watchUid:     mh.state.watchUid,
+		jobFields:    mh.state.jobFields,
 	}
-	// contentBuffer := make([]byte, mh.currentSize)
-	// copy(contentBuffer, mh.content)
 	contentBuffer := mh.content
 
 	e := mh.mTask.eventPool.Get()
