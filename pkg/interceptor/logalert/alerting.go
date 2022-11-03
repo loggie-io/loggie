@@ -225,6 +225,9 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 
 	// do fire alert
 	ev.Header()["reason"] = reason
+	if len(i.config.Additions) > 0 {
+		ev.Header()["_additions"] = i.config.Additions
+	}
 
 	e := ev.DeepCopy()
 	eventbus.PublishOrDrop(eventbus.LogAlertTopic, &e)

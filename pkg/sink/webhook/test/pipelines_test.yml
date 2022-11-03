@@ -18,6 +18,10 @@ pipelines:
           contains: ["error","ERROR"]
           regexp: ['.*WARN.*']
         ignore: ['.*INFO.*']
+        additions:
+          module: "loggie-alert"
+          alertname: "zzy-alert-test"
+          cluster: "local-cluster"
         advanced:
           enable: true
           mode: [ "noData","regexp" ]
@@ -65,10 +69,15 @@ pipelines:
         }
         {{end}}
         ],
+        {{$first := true}}
+        {{range .Alerts}}
+        {{if $first}}{{$first = false}}{{else}}
         "commonLabels": {
-        "namespace": "ns",
-        "module": "loggie-test",
-        "alertname": "test-alert",
-        "cluster": "cluster"
+        "namespace": "{{.fields.namespace}}",
+        "module": "{{._additions.module}}",
+        "alertname": "{{._additions.alertname}}",
+        "cluster": "{{._additions.cluster}}"
         }
+        {{end}}
+        {{end}}
         }
