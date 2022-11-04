@@ -18,6 +18,8 @@ package event
 
 import (
 	"fmt"
+	jsoniter "github.com/json-iterator/go"
+	"github.com/pkg/errors"
 	"strings"
 	"sync"
 
@@ -34,6 +36,8 @@ const (
 
 	Body = "body"
 )
+
+var ErrorDropEvent = errors.New("drop event")
 
 type DefaultMeta struct {
 	Properties map[string]interface{} `json:"properties"`
@@ -123,22 +127,12 @@ func (de *DefaultEvent) Release() {
 
 func (de *DefaultEvent) String() string {
 	var sb strings.Builder
-	sb.WriteString("meta:")
-	if de.M != nil {
-		sb.WriteString(de.M.String())
-	}
-	sb.WriteString(";")
-	sb.WriteString("header:")
-	sb.WriteString("{")
-	for k, v := range de.Header() {
-		sb.WriteString(k)
-		sb.WriteString(" : ")
-		sb.WriteString(fmt.Sprintf("%+v", v))
-		sb.WriteString(", ")
-	}
-	sb.WriteString("}; body:{")
+	sb.WriteString(`header:`)
+	header, _ := jsoniter.Marshal(de.Header())
+	sb.Write(header)
+	sb.WriteString(`, body:"`)
 	sb.WriteString(string(de.Body()))
-	sb.WriteString("}")
+	sb.WriteString(`"`)
 	return sb.String()
 }
 

@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	eventer "github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"strings"
 
@@ -88,9 +90,10 @@ func (c *ClientSet) BulkIndex(ctx context.Context, batch api.Batch) error {
 		headerObj := runtime.NewObject(event.Header())
 
 		// select index
-		idx, err := c.indexPattern.WithObject(headerObj).Render()
+		idx, err := c.indexPattern.WithObject(headerObj).RenderWithStrict()
 		if err != nil {
-			return errors.WithMessagef(err, "select index pattern error")
+			log.Error("render index pattern err: %v; event is: %s", err, event.String())
+			continue
 		}
 
 		data, err := c.codec.Encode(event)
@@ -115,6 +118,11 @@ func (c *ClientSet) BulkIndex(ctx context.Context, batch api.Batch) error {
 
 		req.Add(bulkIndexRequest)
 	}
+
+	if req.NumberOfActions() == 0 {
+		return errors.WithMessagef(eventer.ErrorDropEvent, "request to elasticsearch bulk is null")
+	}
+
 	ret, err := req.Do(ctx)
 	if err != nil {
 		return err
