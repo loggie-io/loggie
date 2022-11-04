@@ -19,7 +19,6 @@ package kafka
 import (
 	"context"
 	"fmt"
-
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/pkg/errors"
@@ -127,8 +126,8 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	for _, e := range events {
 		topic, err := s.selectTopic(e)
 		if err != nil {
-			log.Error("select kafka topic error: %+v", err)
-			return result.Fail(err)
+			log.Error("select kafka topic error: %v; event is: %s", err, e.String())
+			continue
 		}
 
 		msg, err := s.cod.Encode(e)
@@ -141,6 +140,10 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			Value: msg,
 			Topic: topic,
 		})
+	}
+
+	if len(km) == 0 {
+		return result.DropWith(errors.New("send to kafka message batch is null"))
 	}
 
 	if s.writer != nil {
@@ -156,5 +159,5 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 }
 
 func (s *Sink) selectTopic(e api.Event) (string, error) {
-	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).Render()
+	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).RenderWithStrict()
 }
