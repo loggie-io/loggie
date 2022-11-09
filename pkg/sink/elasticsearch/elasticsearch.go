@@ -19,8 +19,8 @@ package elasticsearch
 import (
 	"context"
 	"fmt"
+	eventer "github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/pkg/errors"
-	"time"
 
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 
@@ -97,19 +97,18 @@ func (s *Sink) Stop() {
 	}
 }
 
-func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
+func (s *Sink) Consume(batch api.Batch) api.Result {
 	if s.cli == nil {
 		return result.Fail(clientNotInitError)
 	}
-	t1 := time.Now()
+
 	err := s.cli.BulkIndex(context.TODO(), batch)
 	if err != nil {
-		fail := result.Fail(errors.WithMessage(err, "send events to elasticsearch"))
-		pool.PutFailedResult(fail)
-		return fail
+		if errors.Is(err, eventer.ErrorDropEvent) {
+			return result.DropWith(err)
+		}
+		return result.Fail(errors.WithMessage(err, "send events to elasticsearch"))
 	}
-	t2 := time.Now()
-	pool.EnqueueRTT(t2.Sub(t1).Microseconds())
 
 	return result.Success()
 }

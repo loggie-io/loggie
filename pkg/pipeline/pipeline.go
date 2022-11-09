@@ -18,6 +18,7 @@ package pipeline
 
 import (
 	"fmt"
+	"io/ioutil"
 	"github.com/loggie-io/loggie/pkg/core/concurrency"
 	"github.com/loggie-io/loggie/pkg/core/flowdatapool"
 	"github.com/panjf2000/ants/v2"
@@ -71,7 +72,8 @@ type Pipeline struct {
 	retryOutFuncs []api.OutFunc
 	index         uint32
 	epoch         *Epoch
-	envMap        map[string]string
+	envMap        map[string]interface{}
+	pathMap       map[string]interface{}
 	outfunc       api.OutFunc
 	retryoutfunc  api.OutFunc
 	sinkinfo      sink.Info
@@ -283,11 +285,8 @@ func (p *Pipeline) init(pipelineConfig Config) {
 	p.info.Stop = false
 	p.ns = make(map[string]api.Source)
 	p.nq = make(map[string]api.Queue)
-	p.envMap = make(map[string]string)
-	for _, e := range os.Environ() {
-		env := strings.SplitN(e, "=", 2)
-		p.envMap[env[0]] = env[1]
-	}
+	p.envMap = make(map[string]interface{})
+	p.pathMap = make(map[string]interface{})
 
 	// init event pool
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
@@ -487,7 +486,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 
 func (p *Pipeline) startSinkConsumer(sinkConfig *sink.Config) {
 	interceptors := make([]sink.Interceptor, 0)
-	for _, inter := range p.r.LoadCodeInterceptors() {
+	for _, inter := range p.r.LoadInterceptors() {
 		i, ok := inter.(sink.Interceptor)
 		if !ok {
 			continue
@@ -905,6 +904,10 @@ func (p *Pipeline) startSource(sourceConfigs []*source.Config) error {
 			}
 		}
 
+		if sr, ok := component.(source.InjectRawConfig); ok {
+			sr.SetSourceConfig(sourceConfig)
+		}
+
 		err := p.startWithComponent(component, ctx)
 		if err != nil {
 			return err
@@ -922,7 +925,7 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []*source.Config) {
 
 		sourceConfig := sc
 		interceptors := make([]source.Interceptor, 0)
-		for _, inter := range p.r.LoadCodeInterceptors() {
+		for _, inter := range p.r.LoadInterceptors() {
 			i, ok := inter.(source.Interceptor)
 			if !ok {
 				continue
@@ -937,6 +940,9 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []*source.Config) {
 			Interceptors: interceptors,
 		}
 		p.ns[sourceConfig.Name] = si.Source
+
+		p.initFieldsFromEnv(sc.FieldsFromEnv)
+		p.initFieldsFromPath(sc.FieldsFromPath)
 
 		sourceInvokerChain := buildSourceInvokerChain(sourceConfig.Name, &source.PublishInvoker{}, si.Interceptors)
 		productFunc := func(e api.Event) api.Result {
@@ -957,7 +963,47 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []*source.Config) {
 		}
 		go si.Source.ProductLoop(productFunc)
 	}
-	// go p.sourceInvokeLoop(si)
+}
+
+func (p *Pipeline) initFieldsFromEnv(fieldsFromEnv map[string]string) {
+	if len(fieldsFromEnv) == 0 {
+		return
+	}
+
+	for k, envKey := range fieldsFromEnv {
+		val := os.Getenv(envKey)
+		if val == "" {
+			log.Error("init fieldsFromEnv %s failed, env %s value is null", k, envKey)
+			continue
+		}
+		p.envMap[k] = val
+	}
+}
+
+func (p *Pipeline) initFieldsFromPath(fieldsFromPath map[string]string) {
+	if len(fieldsFromPath) == 0 {
+		return
+	}
+
+	for k, pathKey := range fieldsFromPath {
+		out, err := ioutil.ReadFile(pathKey)
+		if err != nil {
+			log.Error("init fieldsFromPath %s failed, read file %s err: %v", k, pathKey, err)
+			continue
+		}
+
+		size := len(out)
+		if size > fieldsFromPathMaxBytes {
+			log.Error("init fieldsFromPath %s failed, file size is: %d, which exceeds the maximum limit of %d", k, size, fieldsFromPathMaxBytes)
+			continue
+		}
+
+		str := string(out)
+		replacer := strings.NewReplacer("\n", "", "\r", "")
+		str = replacer.Replace(str)
+
+		p.pathMap[k] = str
+	}
 }
 
 func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
@@ -977,28 +1023,10 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 	AddSourceFields(header, config.Fields, config.FieldsUnderRoot, config.FieldsUnderKey)
 
 	// add header source fields from env
-	if len(config.FieldsFromEnv) > 0 {
-		for k, envKey := range config.FieldsFromEnv {
-			envVal, ok := p.envMap[envKey]
-			if !ok || len(envVal) == 0 {
-				continue
-			}
-			if config.FieldsUnderRoot {
-				header[k] = envVal
-				continue
-			}
-			fieldsInHeader, exist := header[config.FieldsUnderKey]
-			if !exist {
-				f := make(map[string]interface{})
-				f[k] = envVal
-				header[config.FieldsUnderKey] = f
-				continue
-			}
-			if fieldsMap, ok := fieldsInHeader.(map[string]interface{}); ok {
-				fieldsMap[k] = envVal
-			}
-		}
-	}
+	AddSourceFields(header, p.envMap, config.FieldsUnderRoot, config.FieldsUnderKey)
+
+	// add header source fields from file
+	AddSourceFields(header, p.pathMap, config.FieldsUnderRoot, config.FieldsUnderKey)
 }
 
 func AddSourceFields(header map[string]interface{}, fields map[string]interface{}, underRoot bool, fieldsKey string) {

@@ -118,7 +118,7 @@ func (s *Sink) Stop() {
 	}
 }
 
-func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
+func (s *Sink) Consume(batch api.Batch) api.Result {
 	events := batch.Events()
 	l := len(events)
 	if l == 0 {
@@ -128,8 +128,8 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 	for _, e := range events {
 		topic, err := s.selectTopic(e)
 		if err != nil {
-			log.Error("select kafka topic error: %+v", err)
-			return result.Fail(err)
+			log.Error("select kafka topic error: %v; event is: %s", err, e.String())
+			continue
 		}
 
 		msg, err := s.cod.Encode(e)
@@ -144,16 +144,15 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 		})
 	}
 
+	if len(km) == 0 {
+		return result.DropWith(errors.New("send to kafka message batch is null"))
+	}
+
 	if s.writer != nil {
-		t1 := time.Now()
 		err := s.writer.WriteMessages(context.Background(), km...)
 		if err != nil {
-			fail := result.Fail(errors.WithMessage(err, "write to kafka"))
-			pool.PutFailedResult(fail)
-			return fail
+			return result.Fail(errors.WithMessage(err, "write to kafka"))
 		}
-		t2 := time.Now()
-		pool.EnqueueRTT(t2.Sub(t1).Microseconds())
 
 		return result.Success()
 	}
@@ -162,5 +161,5 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 }
 
 func (s *Sink) selectTopic(e api.Event) (string, error) {
-	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).Render()
+	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).RenderWithStrict()
 }

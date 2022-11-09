@@ -17,10 +17,13 @@ limitations under the License.
 package logalert
 
 import (
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"regexp"
 )
 
 type Config struct {
+	interceptor.ExtensionConfig `yaml:",inline"`
+
 	Matcher Matcher `yaml:"matcher,omitempty"`
 	Labels  Labels  `yaml:"labels,omitempty"`
 }

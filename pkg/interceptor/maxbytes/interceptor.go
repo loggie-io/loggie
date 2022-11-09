@@ -18,10 +18,10 @@ package maxbytes
 
 import (
 	"fmt"
-
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/thinkeridea/go-extend/exunicode/exutf8"
 )
 
 const Type = "maxbytes"
@@ -75,7 +75,7 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 	event := invocation.Event
 	body := event.Body()
 	if len(body) > i.config.MaxBytes {
-		event.Fill(event.Meta(), event.Header(), body[:i.config.MaxBytes])
+		event.Fill(event.Meta(), event.Header(), exutf8.RuneSub(body, 0, i.config.MaxBytes))
 	}
 	return invoker.Invoke(invocation)
 }

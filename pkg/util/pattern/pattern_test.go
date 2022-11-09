@@ -207,6 +207,43 @@ func TestObjectPattern(t *testing.T) {
 	}
 }
 
+func TestObjectPatternWithStrict(t *testing.T) {
+	type args struct {
+		pattern string
+		obj     *runtime.Object
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "got object fields",
+			args: args{
+				pattern: "${a.b}-${a.none}",
+				obj: runtime.NewObject(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b": "c",
+					}}),
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, err := Init(tt.args.pattern)
+			if err != nil {
+				t.Errorf("init pattern error: %v", err)
+			}
+
+			_, err = p.WithObject(tt.args.obj).RenderWithStrict()
+			assert.ErrorIs(t, err, ErrEmptyMatcher)
+
+		})
+	}
+}
+
 func TestK8sPattern(t *testing.T) {
 
 	testpod := &corev1.Pod{}

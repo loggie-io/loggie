@@ -123,8 +123,8 @@ func TestTypePodIndex(t *testing.T) {
 		},
 	}
 
-	index.SetConfigs(podA.Namespace, podA.Name, lgc.Name, pipeconfigA, lgc)
-	index.SetConfigs(podB.Namespace, podB.Name, lgc.Name, pipeconfigB, lgc)
+	index.SetConfigs(&podA, lgc.Name, pipeconfigA, lgc)
+	index.SetConfigs(&podB, lgc.Name, pipeconfigB, lgc)
 
 	want := &control.PipelineConfig{
 		Pipelines: []pipeline.Config{

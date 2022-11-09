@@ -144,3 +144,53 @@ func TestGetConfigFromPodAndLogConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, want, got)
 }
+
+func Test_regexAndReplace(t *testing.T) {
+	type args struct {
+		in      map[string]string
+		regex   string
+		replace string
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]string
+	}{
+		{
+			name: "ok",
+			args: args{
+				in: map[string]string{
+					"a":          "b",
+					"foo.bar/cc": "dd",
+				},
+				regex:   "foo.bar/(.*)",
+				replace: "pre-${1}",
+			},
+			want: map[string]string{
+				"pre-cc": "dd",
+			},
+		},
+		{
+			name: "prefix",
+			args: args{
+				in: map[string]string{
+					"a": "b",
+					"c": "d",
+				},
+				regex:   "(.*)",
+				replace: "pre-${1}",
+			},
+			want: map[string]string{
+				"pre-a": "b",
+				"pre-c": "d",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := regexAndReplace(tt.args.in, tt.args.regex, tt.args.replace)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

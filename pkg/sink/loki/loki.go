@@ -28,6 +28,8 @@ import (
 
 const Type = "loki"
 
+var clientNotInitError = errors.New("loki client not initialized yet")
+
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)
 }
@@ -88,7 +90,7 @@ func (s *Sink) Stop() {
 
 func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 	if s.client == nil {
-		return result.Drop() // FIXME fix this in issues(#117)
+		return result.Fail(clientNotInitError)
 	}
 
 	events := batch.Events()
@@ -122,6 +124,7 @@ func (s *Sink) sendBatch(c context.Context, batch api.Batch, pool api.FlowDataPo
 		req, err = genProtoRequest(streams, s.config.URL, s.config.TenantId, s.config.Headers)
 	}
 	if err != nil {
+		log.Warn("marshal failed streams: %#v", streams)
 		return result.Drop().WithError(err)
 	}
 	req = req.WithContext(ctx)

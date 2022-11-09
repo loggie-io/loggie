@@ -36,6 +36,7 @@ type Config struct {
 	FieldsUnderKey  string                 `yaml:"fieldsUnderKey,omitempty" default:"fields"`
 	Fields          map[string]interface{} `yaml:"fields,omitempty"`
 	FieldsFromEnv   map[string]string      `yaml:"fieldsFromEnv,omitempty"`
+	FieldsFromPath  map[string]string      `yaml:"fieldsFromPath,omitempty"`
 	Codec           *codec.Config          `yaml:"codec,omitempty"`
 }
 
@@ -61,6 +62,15 @@ func (c *Config) DeepCopy() *Config {
 		newFieldsFromEnv = fe
 	}
 
+	var newFieldsFromPath map[string]string
+	if c.FieldsFromPath != nil {
+		fp := make(map[string]string)
+		for k, v := range c.FieldsFromPath {
+			fp[k] = v
+		}
+		newFieldsFromPath = fp
+	}
+
 	out := &Config{
 		Enabled:         c.Enabled,
 		Name:            c.Name,
@@ -70,6 +80,7 @@ func (c *Config) DeepCopy() *Config {
 		FieldsUnderKey:  c.FieldsUnderKey,
 		Fields:          newFields,
 		FieldsFromEnv:   newFieldsFromEnv,
+		FieldsFromPath:  newFieldsFromPath,
 		Codec:           c.Codec.DeepCopy(),
 	}
 
@@ -128,6 +139,17 @@ func (c *Config) Merge(from *Config) {
 		}
 	}
 
+	if c.FieldsFromPath == nil {
+		c.FieldsFromPath = from.FieldsFromPath
+	} else {
+		for k, v := range from.FieldsFromPath {
+			_, ok := c.FieldsFromPath[k]
+			if !ok {
+				c.FieldsFromPath[k] = v
+			}
+		}
+	}
+
 	if c.Codec == nil {
 		c.Codec = from.Codec
 	} else {
@@ -158,4 +180,10 @@ func MergeSourceList(base []*Config, from []*Config) []*Config {
 	}
 
 	return base
+}
+
+// InjectRawConfig only the properties in source.Config can be obtained from a single source,
+// If this interface is implemented, it can be used to get the source.Config in source
+type InjectRawConfig interface {
+	SetSourceConfig(config *Config)
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package file
 
 import (
+	"github.com/loggie-io/loggie/pkg/util"
 	timeutil "github.com/loggie-io/loggie/pkg/util/time"
 	"os"
 	"regexp"
@@ -125,4 +126,15 @@ type MultiConfig struct {
 	MaxLines int           `yaml:"maxLines,omitempty" default:"500"`
 	MaxBytes int64         `yaml:"maxBytes,omitempty" default:"131072"` // default 128KB
 	Timeout  time.Duration `yaml:"timeout,omitempty" default:"5s"`      // default 2 * read.timeout
+}
+
+func (c *Config) Validate() error {
+	if c.ReaderConfig.MultiConfig.Active {
+		_, err := util.Compile(c.ReaderConfig.MultiConfig.Pattern)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

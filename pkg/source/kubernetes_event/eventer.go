@@ -91,6 +91,7 @@ func (k *KubeEvent) Init(context api.Context) error {
 
 	if k.config.LatestEventsEnabled {
 		k.startTime = time.Now().UTC()
+		k.startTime = k.startTime.Add(-k.config.LatestEventsPreviousTime)
 	}
 
 	for _, ns := range k.config.BlackListNamespaces {
@@ -247,6 +248,21 @@ func (k *KubeEvent) Commit(events []api.Event) {
 
 func (k *KubeEvent) filter(ev *corev1.Event) bool {
 	if k.config.LatestEventsEnabled {
+
+		zeroTime := time.Time{}
+
+		if ev.LastTimestamp.Time != zeroTime {
+			if !ev.CreationTimestamp.After(k.startTime) {
+				return true
+			}
+		}
+
+		if ev.Series.LastObservedTime.Time != zeroTime {
+			if !ev.Series.LastObservedTime.After(k.startTime) {
+				return true
+			}
+		}
+
 		if !ev.CreationTimestamp.After(k.startTime) {
 			return true
 		}
