@@ -21,15 +21,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loggie-io/loggie/pkg/util/pattern"
-
-	"github.com/loggie-io/loggie/pkg/util/consistent"
-
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/util/consistent"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 )
 
@@ -120,13 +118,12 @@ func (s *Sink) Stop() {
 	}
 }
 
-func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
+func (s *Sink) Consume(batch api.Batch) api.Result {
 	events := batch.Events()
 	l := len(events)
 	if l == 0 {
 		return result.Success()
 	}
-	t1 := time.Now()
 	msgs := make([]Message, 0, l)
 	for _, e := range events {
 		filename, err := s.selectFilename(e)
@@ -148,12 +145,9 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 	err := s.writer.Write(msgs...)
 	if err != nil {
 		log.Error("write to file error: %v", err)
-		fail := result.Fail(err)
-		pool.PutFailedResult(fail)
-		return fail
+		return result.Fail(err)
 	}
-	t2 := time.Now()
-	pool.EnqueueRTT(t2.Sub(t1).Microseconds())
+
 	return result.Success()
 }
 

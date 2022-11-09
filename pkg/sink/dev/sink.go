@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
-	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -85,26 +84,25 @@ func (s *Sink) Start() error {
 func (s *Sink) Stop() {
 }
 
-func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
+func (s *Sink) Consume(batch api.Batch) api.Result {
 	events := batch.Events()
 	l := len(events)
 	if l == 0 {
-		return nil
+		return result.Success()
 	}
 
 	if !s.config.PrintEvents {
 		return result.NewResult(api.SUCCESS)
 	}
-	t1 := time.Now()
 	for _, e := range events {
 		// json encode
-		out, err := s.codec.Encode(e)
+		_, err := s.codec.Encode(e)
 		if err != nil {
 			log.Warn("codec event error: %+v", err)
 			continue
 		}
 
-		log.Info("event: %s", string(out))
+		//log.Info("event: %s", string(out))
 	}
 
 	host := s.config.Host
@@ -112,7 +110,6 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 		resp, err := http.Get(host)
 		if err != nil {
 			log.Warn(err.Error())
-			pool.PutFailedResult(result.Fail(err))
 			return result.Fail(err)
 		}
 
@@ -121,13 +118,10 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 			log.Warn(err.Error())
 		}
 	}
-	t2 := time.Now()
-	microseconds := t2.Sub(t1).Microseconds()
-	pool.EnqueueRTT(microseconds)
 
 	if rand.Intn(10000) > 9985 {
 		log.Info("put error")
-		pool.PutFailedResult(result.Fail(errors.New("11")))
+		return result.Fail(errors.New("11"))
 	}
 
 	return result.NewResult(api.SUCCESS)

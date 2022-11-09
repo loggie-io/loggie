@@ -122,7 +122,7 @@ pipelines:
 							ChannelLenOfCap:  0.4,
 						},
 						Rtt: &concurrency.Rtt{
-							BlockJudgeThreshold: 1.2,
+							BlockJudgeThreshold: "120%",
 							NewRttWeigh:         0.5,
 						},
 						Ratio: &concurrency.Ratio{

@@ -1,5 +1,12 @@
 package concurrency
 
+import (
+	"strconv"
+	"strings"
+
+	"github.com/loggie-io/loggie/pkg/core/log"
+)
+
 type Config struct {
 	Enable    bool       `yaml:"enable,omitempty"`
 	Goroutine *Goroutine `yaml:"goroutine,omitempty"`
@@ -9,6 +16,24 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
+	if c.Rtt != nil {
+		log.Debug("check blockJudgeThreshold")
+		blockJudgeThreshold := c.Rtt.BlockJudgeThreshold
+		if len(blockJudgeThreshold) > 0 {
+			if strings.Contains(blockJudgeThreshold, "%") {
+				_, err := strconv.ParseFloat(blockJudgeThreshold[:len(blockJudgeThreshold)-1], 64)
+				if err != nil {
+					return err
+				}
+			} else {
+				_, err := strconv.ParseFloat(blockJudgeThreshold, 64)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -37,12 +62,12 @@ func (c *Config) SetDefaults() {
 
 	if c.Rtt == nil {
 		c.Rtt = &Rtt{
-			BlockJudgeThreshold: 1.2,
+			BlockJudgeThreshold: "120%",
 			NewRttWeigh:         0.5,
 		}
 	} else {
-		if c.Rtt.BlockJudgeThreshold == 0 {
-			c.Rtt.BlockJudgeThreshold = 1.2
+		if len(c.Rtt.BlockJudgeThreshold) == 0 {
+			c.Rtt.BlockJudgeThreshold = "120%"
 		}
 		if c.Rtt.NewRttWeigh == 0 {
 			c.Rtt.NewRttWeigh = 0.5
@@ -90,7 +115,7 @@ type Goroutine struct {
 }
 
 type Rtt struct {
-	BlockJudgeThreshold float64 `yaml:"blockJudgeThreshold,omitempty" default:"1.2" validate:"gt=1"`
+	BlockJudgeThreshold string  `yaml:"blockJudgeThreshold,omitempty" default:"120%"`
 	NewRttWeigh         float64 `yaml:"newRttWeigh,omitempty" default:"0.5" validate:"gte=0,lte=1"`
 }
 

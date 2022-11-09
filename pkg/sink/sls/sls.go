@@ -18,6 +18,8 @@ package sls
 
 import (
 	"fmt"
+	"time"
+
 	sls "github.com/aliyun/aliyun-log-go-sdk"
 	"github.com/gogo/protobuf/proto"
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -28,7 +30,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/pkg/errors"
-	"time"
 )
 
 const Type = "sls"
@@ -107,7 +108,7 @@ func (s *Sink) Stop() {
 	}
 }
 
-func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
+func (s *Sink) Consume(batch api.Batch) api.Result {
 	// convert events to sls logs
 	logs := genSlsLogs(batch)
 
@@ -117,14 +118,9 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 		Logs:   logs,
 	}
 
-	t1 := time.Now()
 	if err := s.client.PutLogs(s.config.Project, s.config.LogStore, logGroup); err != nil {
-		fail := result.Fail(err)
-		pool.PutFailedResult(fail)
-		return fail
+		return result.Fail(err)
 	}
-	t2 := time.Now()
-	pool.EnqueueRTT(t2.Sub(t1).Microseconds())
 
 	return result.NewResult(api.SUCCESS)
 }

@@ -19,12 +19,8 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"time"
 
-	"github.com/loggie-io/loggie/pkg/util/pattern"
-	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/pkg/errors"
-
 	"github.com/segmentio/kafka-go"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -32,6 +28,8 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
+	"github.com/loggie-io/loggie/pkg/util/runtime"
 )
 
 const Type = "kafka"

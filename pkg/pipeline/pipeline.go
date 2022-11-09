@@ -19,18 +19,21 @@ package pipeline
 import (
 	"fmt"
 	"io/ioutil"
-	"github.com/loggie-io/loggie/pkg/core/concurrency"
-	"github.com/loggie-io/loggie/pkg/core/flowdatapool"
-	"github.com/panjf2000/ants/v2"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/panjf2000/ants/v2"
+	"github.com/pkg/errors"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/concurrency"
 	"github.com/loggie-io/loggie/pkg/core/context"
 	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/flowdatapool"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/queue"
@@ -40,12 +43,13 @@ import (
 	sinkcodec "github.com/loggie-io/loggie/pkg/sink/codec"
 	sourcecodec "github.com/loggie-io/loggie/pkg/source/codec"
 	"github.com/loggie-io/loggie/pkg/util"
-	"github.com/pkg/errors"
 )
 
 const (
 	FieldsUnderRoot = event.PrivateKeyPrefix + "FieldsUnderRoot"
 	FieldsUnderKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
+
+	fieldsFromPathMaxBytes = 1024
 )
 
 var (
@@ -570,6 +574,8 @@ func (p *Pipeline) sinkInvokeLoop(info sink.Info, outFunc api.OutFunc) {
 	}
 }
 
+type checkRttFunc func(new, old float64) bool
+
 func (p *Pipeline) startGPoolCalculator() {
 	failedChannel := p.flowPool.GetFailedChannel()
 	var rttD float64
@@ -584,7 +590,34 @@ func (p *Pipeline) startGPoolCalculator() {
 	unstableTolerate := config.Goroutine.UnstableTolerate
 	channelLenOfCap := config.Goroutine.ChannelLenOfCap
 
+	var check checkRttFunc
+
 	blockJudgeThreshold := config.Rtt.BlockJudgeThreshold
+	if strings.Contains(blockJudgeThreshold, "%") {
+		float, err := strconv.ParseFloat(blockJudgeThreshold[:len(blockJudgeThreshold)-1], 64)
+		if err != nil {
+			log.Warn("fail to get blockJudgeThreshold, use default: 120%%")
+			float = 120
+		}
+		log.Debug("blockJudgeThreshold: %f%%", float)
+		check = func(v1, v2 float64) bool {
+			log.Debug("v1: %f, v2: %f, blockJudgeThreshold: %f%%", v1, v2, float)
+			return v1/v2 > float/100
+		}
+	} else {
+		float, err := strconv.ParseFloat(blockJudgeThreshold, 64)
+		if err != nil {
+			log.Warn("fail to get blockJudgeThreshold, use default: 2.0 s")
+			float = 2
+		}
+		log.Debug("blockJudgeThreshold %f s", float)
+		float = float * 1000000
+		check = func(v1, v2 float64) bool {
+			log.Debug("v1: %f, v2: %f, blockJudgeThreshold: %f", v1, v2, float)
+			return (v1 - v2) > float
+		}
+	}
+
 	newRttWeigh := config.Rtt.NewRttWeigh
 
 	multiIncreaseRatio := config.Ratio.Multi
@@ -627,6 +660,7 @@ func (p *Pipeline) startGPoolCalculator() {
 				log.Info("failed response received")
 				allRtt := p.flowPool.DequeueAllRtt()
 				count := len(allRtt)
+				log.Debug("rtt count %d", count)
 
 				if !stable {
 					target := p.gpool.Running() - linearIncreaseRatio
@@ -660,7 +694,9 @@ func (p *Pipeline) startGPoolCalculator() {
 					}
 					rttD = float64(sum) / float64(count)
 					if rttT != 0 {
+						oldRttT := rttT
 						rttT = newRttWeigh*rttD + (1-newRttWeigh)*rttT
+						log.Debug("old rttT: %f, rttD: %f, new rttT: %f", oldRttT, rttD, rttT)
 					} else {
 						rttT = rttD
 					}
@@ -684,6 +720,7 @@ func (p *Pipeline) startGPoolCalculator() {
 				log.Info("regular gpool resize")
 				allRtt := p.flowPool.DequeueAllRtt()
 				count := len(allRtt)
+				log.Debug("rtt count %d", count)
 				if count > 0 {
 					var sum int64
 					for i := 0; i < count; i++ {
@@ -691,7 +728,7 @@ func (p *Pipeline) startGPoolCalculator() {
 					}
 					rttD = float64(sum) / float64(count)
 					if rttT != 0 {
-						if rttD/rttT > blockJudgeThreshold {
+						if check(rttD, rttT) {
 							log.Info("rtt too long, decrease gpool size ,rrtD %f,rttT %f", rttD, rttT)
 							if !stable {
 								target := p.gpool.Running() - linearIncreaseRatio
@@ -716,10 +753,14 @@ func (p *Pipeline) startGPoolCalculator() {
 								}
 							}
 
+							oldRttT := rttT
 							rttT = newRttWeigh*rttD + (1-newRttWeigh)*rttT
+							log.Debug("old rttT: %f, rttD: %f, new rttT: %f", oldRttT, rttD, rttT)
 							continue
 						} else {
+							oldRttT := rttT
 							rttT = newRttWeigh*rttD + (1-newRttWeigh)*rttT
+							log.Debug("old rttT: %f, rttD: %f, new rttT: %f", oldRttT, rttD, rttT)
 						}
 					} else {
 						rttT = rttD
@@ -736,6 +777,7 @@ func (p *Pipeline) startGPoolCalculator() {
 						if q == nil {
 							log.Warn("channel is nil")
 						}
+						log.Debug("currentChannelLen: %d, currentChannelCap %d", currentChannelLen, currentChannelCap)
 						if currentChannelLen == currentChannelCap {
 							targetCap = currentPoolCap + linearIncreaseRatioSourceBlocked
 						} else if float64(currentChannelLen) > float64(currentChannelCap)*channelLenOfCap {

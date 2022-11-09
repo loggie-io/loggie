@@ -88,7 +88,7 @@ func (s *Sink) Start() error {
 func (s *Sink) Stop() {
 }
 
-func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
+func (s *Sink) Consume(batch api.Batch) api.Result {
 	if s.client == nil {
 		return result.Fail(clientNotInitError)
 	}
@@ -99,10 +99,10 @@ func (s *Sink) Consume(batch api.Batch, pool api.FlowDataPool) api.Result {
 		return result.Success()
 	}
 
-	return s.sendBatch(context.Background(), batch, pool)
+	return s.sendBatch(context.Background(), batch)
 }
 
-func (s *Sink) sendBatch(c context.Context, batch api.Batch, pool api.FlowDataPool) api.Result {
+func (s *Sink) sendBatch(c context.Context, batch api.Batch) api.Result {
 	ctx, cancel := context.WithTimeout(c, s.config.Timeout)
 	defer cancel()
 
@@ -129,12 +129,9 @@ func (s *Sink) sendBatch(c context.Context, batch api.Batch, pool api.FlowDataPo
 	}
 	req = req.WithContext(ctx)
 
-	t1 := time.Now()
 	resp, err := s.client.Do(req)
 	if err != nil {
-		fail := result.Fail(errors.WithMessage(err, "do http request failed when sending events to loki"))
-		pool.PutFailedResult(fail)
-		return fail
+		return result.Fail(errors.WithMessage(err, "do http request failed when sending events to loki"))
 	}
 	defer resp.Body.Close()
 
@@ -144,12 +141,8 @@ func (s *Sink) sendBatch(c context.Context, batch api.Batch, pool api.FlowDataPo
 		if scanner.Scan() {
 			line = scanner.Text()
 		}
-		fail := result.Fail(errors.Errorf("server returned HTTP status %s (%d): %s", resp.Status, resp.StatusCode, line))
-		pool.PutFailedResult(fail)
-		return fail
+		return result.Fail(errors.Errorf("server returned HTTP status %s (%d): %s", resp.Status, resp.StatusCode, line))
 	}
-	t2 := time.Now()
-	pool.EnqueueRTT(t2.Sub(t1).Microseconds())
 
 	return result.Success()
 }
