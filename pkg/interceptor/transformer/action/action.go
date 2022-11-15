@@ -33,6 +33,7 @@ type Config cfg.CommonCfg
 type ConfigAction struct {
 	Expression  string        `yaml:"action,omitempty"`
 	IgnoreError bool          `yaml:"ignoreError,omitempty"`
+	DropIfError bool          `yaml:"dropIfError,omitempty"`
 	Extra       cfg.CommonCfg `yaml:",inline,omitempty"`
 }
 
@@ -116,6 +117,11 @@ func (a *Instance) Exec(e api.Event) error {
 	if a.Config.IgnoreError {
 		log.Debug("action: %s execute failed, but ignored error", a.Name)
 		return nil
+	}
+
+	if a.Config.DropIfError {
+		log.Debug("action: %s execute failed, drop the event", a.Name)
+		return ErrorDropEvent
 	}
 
 	return errors.WithMessagef(err, "failed to execute action %s", a.Name)
