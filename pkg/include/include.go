@@ -20,6 +20,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/eventbus/export/prometheus"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/filesource"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/filewatcher"
+	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/info"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/logalerting"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/normalize"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/pipeline"
