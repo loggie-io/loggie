@@ -939,6 +939,7 @@ func (w *Watcher) reportWatchMetric(watchTask *WatchTask, paths []string, pipeli
 			PipelineName: pipelineName,
 			SourceName:   sourceName,
 		},
+		Paths:           paths,
 		FileInfos:       fileInfos,
 		ActiveFileCount: activeFdCount,
 		InactiveFdCount: inActiveFdCount,
