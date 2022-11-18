@@ -57,7 +57,7 @@ func (d *Docker) GetRootfsPath(ctx context.Context, containerId string, containe
 	if containerJson.GraphDriver.Name != "overlay2" {
 		return nil, errors.Errorf("docker graphDriver name is not overlay2")
 	}
-	rootfsPrePath := containerJson.GraphDriver.Data["MergedDir"]
+	rootfsPrePath := containerJson.GraphDriver.Data["UpperDir"]
 
 	var rootfsPaths []string
 	for _, p := range containerPaths {
