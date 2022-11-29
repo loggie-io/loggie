@@ -140,7 +140,7 @@ func compression(compression string) kafka.Compression {
 	}
 }
 
-func mechanism(saslType, userName, password, algo string) (sasl.Mechanism, error) {
+func Mechanism(saslType, userName, password, algo string) (sasl.Mechanism, error) {
 	switch saslType {
 	case SASLPlainType:
 		return plain.Mechanism{

@@ -23,6 +23,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/segmentio/kafka-go"
+
+	kakfasink "github.com/loggie-io/loggie/pkg/sink/kafka"
 )
 
 const (
@@ -31,19 +33,20 @@ const (
 )
 
 type Config struct {
-	Brokers            []string      `yaml:"brokers,omitempty" validate:"required"`
-	Topic              string        `yaml:"topic,omitempty" validate:"required"`
-	GroupId            string        `yaml:"groupId,omitempty" default:"loggie"`
-	QueueCapacity      int           `yaml:"queueCapacity" default:"100"`
-	MinAcceptedBytes   int           `yaml:"minAcceptedBytes" default:"1"`
-	MaxAcceptedBytes   int           `yaml:"maxAcceptedBytes" default:"1024000"`
-	ReadMaxAttempts    int           `yaml:"readMaxAttempts" default:"3"`
-	MaxReadWait        time.Duration `yaml:"maxPollWait" default:"10s"`
-	ReadBackoffMin     time.Duration `yaml:"readBackoffMin" default:"100ms"`
-	ReadBackoffMax     time.Duration `yaml:"readBackoffMax" default:"1s"`
-	EnableAutoCommit   bool          `yaml:"enableAutoCommit"`
-	AutoCommitInterval time.Duration `yaml:"autoCommitInterval" default:"1s"`
-	AutoOffsetReset    string        `yaml:"autoOffsetReset" default:"latest" validate:"oneof=earliest latest"`
+	Brokers            []string       `yaml:"brokers,omitempty" validate:"required"`
+	Topic              string         `yaml:"topic,omitempty" validate:"required"`
+	GroupId            string         `yaml:"groupId,omitempty" default:"loggie"`
+	QueueCapacity      int            `yaml:"queueCapacity" default:"100"`
+	MinAcceptedBytes   int            `yaml:"minAcceptedBytes" default:"1"`
+	MaxAcceptedBytes   int            `yaml:"maxAcceptedBytes" default:"1024000"`
+	ReadMaxAttempts    int            `yaml:"readMaxAttempts" default:"3"`
+	MaxReadWait        time.Duration  `yaml:"maxPollWait" default:"10s"`
+	ReadBackoffMin     time.Duration  `yaml:"readBackoffMin" default:"100ms"`
+	ReadBackoffMax     time.Duration  `yaml:"readBackoffMax" default:"1s"`
+	EnableAutoCommit   bool           `yaml:"enableAutoCommit"`
+	AutoCommitInterval time.Duration  `yaml:"autoCommitInterval" default:"1s"`
+	AutoOffsetReset    string         `yaml:"autoOffsetReset" default:"latest" validate:"oneof=earliest latest"`
+	SASL               kakfasink.SASL `yaml:"SASL,omitempty"`
 }
 
 func getAutoOffset(autoOffsetReset string) int64 {

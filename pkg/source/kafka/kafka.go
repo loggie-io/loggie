@@ -31,6 +31,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	kakfasink "github.com/loggie-io/loggie/pkg/sink/kafka"
 )
 
 const Type = "kafka"
@@ -78,6 +79,13 @@ func (k *Source) Init(context api.Context) error {
 }
 
 func (k *Source) Start() error {
+	c := k.config
+	mechanism, err := kakfasink.Mechanism(c.SASL.Type, c.SASL.UserName, c.SASL.Password, c.SASL.Algorithm)
+	if err != nil {
+		log.Error("kafka sink sasl mechanism with error: %s", err.Error())
+		return err
+	}
+
 	topicRegx, err := regexp.Compile(k.config.Topic)
 	if err != nil {
 		log.Error("compile kafka topic regex %s error: %s", k.config.Topic, err.Error())
@@ -113,6 +121,11 @@ func (k *Source) Start() error {
 		ReadBackoffMax: k.config.ReadBackoffMax,
 		CommitInterval: k.config.AutoCommitInterval,
 		StartOffset:    getAutoOffset(k.config.AutoOffsetReset),
+		Dialer: &kafka.Dialer{
+			Timeout:       10 * time.Second,
+			DualStack:     true,
+			SASLMechanism: mechanism,
+		},
 	}
 
 	k.consumer = kafka.NewReader(readerCfg)
