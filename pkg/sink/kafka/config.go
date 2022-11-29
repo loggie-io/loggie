@@ -88,17 +88,25 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("kafka sink sasl type %s not supported", c.SASL.Type)
 	}
 
-	if c.SASL.Type != SASLNoneType {
-		if c.SASL.UserName == "" {
-			return fmt.Errorf("kafka sink %s sasl with empty user name", c.SASL.Type)
+	if err := c.SASL.Validate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SASL) Validate() error {
+	if s.Type != SASLNoneType {
+		if s.UserName == "" {
+			return fmt.Errorf("kafka sink %s sasl with empty user name", s.Type)
 		}
-		if c.SASL.Password == "" {
-			return fmt.Errorf("kafka sink %s sasl with empty password", c.SASL.Type)
+		if s.Password == "" {
+			return fmt.Errorf("kafka sink %s sasl with empty password", s.Type)
 		}
 
-		if c.SASL.Type == SASLSCRAMType {
-			if c.SASL.Algorithm != "" && c.SASL.Algorithm != AlgorithmSHA512 && c.SASL.Algorithm != AlgorithmSHA256 {
-				return fmt.Errorf("kafka sink %s sasl hash algorithm %s not supported", c.SASL.Type, c.SASL.Algorithm)
+		if s.Type == SASLSCRAMType {
+			if s.Algorithm != "" && s.Algorithm != AlgorithmSHA512 && s.Algorithm != AlgorithmSHA256 {
+				return fmt.Errorf("kafka sink %s sasl hash algorithm %s not supported", s.Type, s.Algorithm)
 			}
 		}
 	}

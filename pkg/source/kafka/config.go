@@ -68,5 +68,9 @@ func (c *Config) Validate() error {
 		}
 	}
 
+	if err := c.SASL.Validate(); err != nil {
+		return err
+	}
+
 	return nil
 }
