@@ -98,15 +98,15 @@ func (c *Config) Validate() error {
 func (s *SASL) Validate() error {
 	if s.Type != SASLNoneType {
 		if s.UserName == "" {
-			return fmt.Errorf("kafka sink %s sasl with empty user name", s.Type)
+			return fmt.Errorf("kafka sink or source %s sasl with empty user name", s.Type)
 		}
 		if s.Password == "" {
-			return fmt.Errorf("kafka sink %s sasl with empty password", s.Type)
+			return fmt.Errorf("kafka sink or source %s sasl with empty password", s.Type)
 		}
 
 		if s.Type == SASLSCRAMType {
 			if s.Algorithm != "" && s.Algorithm != AlgorithmSHA512 && s.Algorithm != AlgorithmSHA256 {
-				return fmt.Errorf("kafka sink %s sasl hash algorithm %s not supported", s.Type, s.Algorithm)
+				return fmt.Errorf("kafka sink or source %s sasl hash algorithm %s not supported", s.Type, s.Algorithm)
 			}
 		}
 	}
