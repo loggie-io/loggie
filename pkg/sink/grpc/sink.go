@@ -102,7 +102,8 @@ func (s *Sink) Start() error {
 		fmt.Sprintf("%s:///%s", collectorScheme, collectorServiceName),
 		grpc.WithInsecure(),
 		grpc.WithDefaultServiceConfig(fmt.Sprintf(`{"loadBalancingConfig": [{"%s":{}}]}`, s.loadBalance)),
-		grpc.WithInitialWindowSize(256),
+		grpc.WithInitialConnWindowSize(int32(s.config.AvgMessageSize*2)),
+		grpc.WithInitialWindowSize(int32(s.config.AvgMessageSize)),
 	)
 	if err != nil {
 		log.Error("grpc client connect error. err: %v. server hosts: %s", err, s.hosts)

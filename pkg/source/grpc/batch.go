@@ -75,13 +75,15 @@ type batch struct {
 }
 
 func (b *batch) Append(e api.Event) {
-	e.Meta().Set(batchEventIndexKey, b.eventIndex)
 	e.Meta().Set(batchIndexKey, b.index)
+	currentEventIndex := b.eventIndex
 	b.eventIndex++
+	e.Meta().Set(batchEventIndexKey, currentEventIndex)
 
 	o := opt{
-		o: appendEventOpt,
-		e: e,
+		o:  appendEventOpt,
+		bi: b.index,
+		ei: currentEventIndex,
 	}
 	b.bc.optChan <- o
 }
@@ -127,8 +129,8 @@ type optType int32
 type opt struct {
 	o  optType
 	b  *batch
-	e  api.Event
 	bi uint32
+	ei uint32
 }
 
 type batchChain struct {
@@ -170,9 +172,15 @@ func (bc *batchChain) NewBatch(timeout time.Duration) *batch {
 
 func (bc *batchChain) ack(events []api.Event) {
 	for _, e := range events {
+		index, eventIndex := bc.parseIndex(e)
+		if index < 0 || eventIndex < 0 {
+			log.Error("event cannot find batchIndex or batchEventIndex: %s; meta: %s", e.String(), e.Meta().String())
+			continue
+		}
 		o := opt{
-			o: ackEventOpt,
-			e: e,
+			o:  ackEventOpt,
+			bi: uint32(index),
+			ei: uint32(eventIndex),
 		}
 		select {
 		case <-bc.done:
@@ -184,11 +192,13 @@ func (bc *batchChain) ack(events []api.Event) {
 
 func (bc *batchChain) run() {
 	bc.countDown.Add(1)
+	log.Info("grpc batch chain start")
 	bs := make(map[uint32]*batch)
 	ticker := time.NewTicker(bc.maintenanceInterval)
 	defer func() {
 		ticker.Stop()
 		bc.countDown.Done()
+		log.Info("grpc batch chain stop")
 	}()
 	for {
 		select {
@@ -200,25 +210,15 @@ func (bc *batchChain) run() {
 				b := o.b
 				bs[b.index] = b
 			} else if t == appendEventOpt {
-				e := o.e
-				index, eventIndex := bc.parseIndex(e)
-				if index >= 0 && eventIndex >= 0 {
-					b := bs[uint32(index)]
-					b.eventMarks[uint32(eventIndex)] = false
-					b.size++
-				}
+				b := bs[o.bi]
+				b.eventMarks[o.ei] = false
+				b.size++
 			} else if t == ackEventOpt {
-				e := o.e
-				index, eventIndex := bc.parseIndex(e)
-				if index >= 0 && eventIndex >= 0 {
-					// may be removed prematurely due to timeout
-					if b, exist := bs[uint32(index)]; exist {
-						if b.ack(uint32(eventIndex)) {
-							delete(bs, b.index)
-						}
+				// may be removed prematurely due to timeout
+				if b, exist := bs[o.bi]; exist {
+					if b.ack(o.ei) {
+						delete(bs, b.index)
 					}
-				} else {
-					log.Error("event cannot find batchIndex or batchEventIndex: %s", e.String())
 				}
 			} else if t == finishBatchOpt {
 				index := o.bi

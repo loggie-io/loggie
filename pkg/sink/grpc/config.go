@@ -19,8 +19,9 @@ package grpc
 import "time"
 
 type Config struct {
-	Host          string        `yaml:"host,omitempty" validate:"required"`
-	LoadBalance   string        `yaml:"loadBalance,omitempty" default:"round_robin"`
-	Timeout       time.Duration `yaml:"timeout,omitempty" default:"30s"`
-	GrpcHeaderKey string        `yaml:"grpcHeaderKey,omitempty"`
+	Host           string        `yaml:"host,omitempty" validate:"required"`
+	LoadBalance    string        `yaml:"loadBalance,omitempty" default:"round_robin"`
+	Timeout        time.Duration `yaml:"timeout,omitempty" default:"30s"`
+	GrpcHeaderKey  string        `yaml:"grpcHeaderKey,omitempty"`
+	AvgMessageSize int           `yaml:"avgMessageSize,omitempty" default:"65536"` // default 64k
 }
