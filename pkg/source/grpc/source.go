@@ -50,11 +50,12 @@ func makeSource(info pipeline.Info) api.Component {
 
 type Source struct {
 	pb.UnimplementedLogServiceServer
-	name       string
-	eventPool  *event.Pool
-	config     *Config
-	grpcServer *grpc.Server
-	bc         *batchChain
+	name        string
+	eventPool   *event.Pool
+	config      *Config
+	grpcServer  *grpc.Server
+	bc          *batchChain
+	productFunc api.ProductFunc
 }
 
 func (s *Source) Config() interface{} {
@@ -83,17 +84,18 @@ func (s *Source) Start() error {
 }
 
 func (s *Source) Stop() {
-	if s.bc != nil {
-		s.bc.stop()
-	}
 	if s.grpcServer != nil {
 		s.grpcServer.GracefulStop()
+	}
+	if s.bc != nil {
+		s.bc.stop()
 	}
 }
 
 func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", s.String())
-	s.bc = newBatchChain(productFunc, s.config.MaintenanceInterval)
+	s.productFunc = productFunc
+	s.bc = newBatchChain(s.config.MaintenanceInterval)
 	go s.bc.run()
 	// start grpc server
 	ip := fmt.Sprintf("%s:%s", s.config.Bind, s.config.Port)
@@ -114,7 +116,7 @@ func (s *Source) Commit(events []api.Event) {
 }
 
 func (s *Source) LogStream(ls pb.LogService_LogStreamServer) error {
-	b := newBatch(s.config.Timeout)
+	b := s.bc.NewBatch(s.config.Timeout)
 	for {
 		logMsg, err := ls.Recv()
 		if errors.Is(err, io.EOF) {
@@ -147,19 +149,13 @@ func (s *Source) LogStream(ls pb.LogService_LogStreamServer) error {
 		}
 		e := s.eventPool.Get()
 		e.Fill(e.Meta(), header, logMsg.GetRawLog())
-		b.append(e)
+		b.Append(e)
+		s.productFunc(e)
 	}
-	if b.size() > 0 {
-		s.bc.append(b)
-		logResp := b.wait()
-		err := ls.SendAndClose(logResp)
-		if err != nil {
-			log.Error("send response fail: %s", err)
-		}
-		return err
+	logResp := b.Wait()
+	err := ls.SendAndClose(logResp)
+	if err != nil {
+		log.Error("send response fail: %s", err)
 	}
-	return ls.SendAndClose(&pb.LogResp{
-		Success: true,
-		Count:   0,
-	})
+	return err
 }

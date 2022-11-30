@@ -30,6 +30,30 @@ import (
 const (
 	batchEventIndexKey = event.PrivateKeyPrefix + "BatchEventIndex"
 	batchIndexKey      = event.PrivateKeyPrefix + "BatchIndex"
+
+	newBatchOpt    = optType(0)
+	appendEventOpt = optType(1)
+	ackEventOpt    = optType(2)
+	finishBatchOpt = optType(3)
+)
+
+var (
+	serverStopResponse = &pb.LogResp{
+		Success:  false,
+		ErrorMsg: "server stop",
+	}
+
+	serverProcessTimeout = &pb.LogResp{
+		Success:  false,
+		ErrorMsg: "ack timeout",
+	}
+
+	serverProcessSuccessFunc = func(eventIndex int32) *pb.LogResp {
+		return &pb.LogResp{
+			Success: true,
+			Count:   eventIndex,
+		}
+	}
 )
 
 var batchIndex uint32
@@ -39,100 +63,85 @@ func nextIndex() uint32 {
 }
 
 type batch struct {
-	events     map[int32]api.Event
+	finish     bool
+	eventIndex uint32
+	eventMarks map[uint32]bool
+	size       int32
 	start      time.Time
-	eventIndex int32
 	index      uint32
 	timeout    time.Duration
-	countDown  sync.WaitGroup
-	resp       *pb.LogResp
+	respChan   chan *pb.LogResp
+	bc         *batchChain
 }
 
-func newBatch(timeout time.Duration) *batch {
-	b := &batch{
-		events:  make(map[int32]api.Event),
-		start:   time.Now(),
-		index:   nextIndex(),
-		timeout: timeout,
-	}
-	b.countDown.Add(1)
-	return b
-}
-
-func (b *batch) size() int {
-	return len(b.events)
-}
-
-func (b *batch) append(e api.Event) {
-	currentIndex := b.eventIndex
-	e.Meta().Set(batchEventIndexKey, currentIndex)
+func (b *batch) Append(e api.Event) {
+	e.Meta().Set(batchEventIndexKey, b.eventIndex)
 	e.Meta().Set(batchIndexKey, b.index)
-
-	b.events[currentIndex] = e
 	b.eventIndex++
+
+	o := opt{
+		o: appendEventOpt,
+		e: e,
+	}
+	b.bc.optChan <- o
 }
 
-func (b *batch) ack(e api.Event) {
-	indexRaw, exist := e.Meta().Get(batchEventIndexKey)
-	if !exist {
-		return
-	}
-	index := indexRaw.(int32)
-	delete(b.events, index)
+func (b *batch) ack(eventIndex uint32) bool {
+	delete(b.eventMarks, eventIndex)
+	return b.checkDoneOrTimeout()
+}
 
-	if len(b.events) == 0 {
+func (b *batch) checkDoneOrTimeout() bool {
+	if !b.finish {
+		return false
+	}
+
+	if len(b.eventMarks) == 0 {
 		// all event ack
-		b.resp = &pb.LogResp{
-			Success: true,
-			Count:   b.eventIndex,
-		}
-		b.done()
-	} else {
-		// lazy check timeout
-		b.checkTimeout()
+		b.respChan <- serverProcessSuccessFunc(b.size)
+		return true
 	}
-}
 
-func (b *batch) checkTimeout() {
 	if time.Since(b.start) > b.timeout {
-		b.resp = &pb.LogResp{
-			Success:  false,
-			ErrorMsg: "ack timeout",
-		}
-		b.done()
+		b.respChan <- serverProcessTimeout
+		return true
+	}
+	return false
+}
+
+func (b *batch) Wait() *pb.LogResp {
+	b.bc.optChan <- opt{
+		o:  finishBatchOpt,
+		bi: b.index,
+	}
+	select {
+	case <-b.bc.done:
+		return serverStopResponse
+	case r := <-b.respChan:
+		return r
 	}
 }
 
-func (b *batch) done() {
-	b.eventIndex = 0
-	b.events = nil
-	b.countDown.Done()
-}
+type optType int32
 
-func (b *batch) isDone() bool {
-	return b.size() == 0
-}
-
-func (b *batch) wait() *pb.LogResp {
-	b.countDown.Wait()
-	return b.resp
+type opt struct {
+	o  optType
+	b  *batch
+	e  api.Event
+	bi uint32
 }
 
 type batchChain struct {
 	done                chan struct{}
+	optChan             chan opt
 	countDown           sync.WaitGroup
-	batchChan           chan *batch
-	ackEvents           chan []api.Event
-	productFunc         api.ProductFunc
 	maintenanceInterval time.Duration
 }
 
-func newBatchChain(productFunc api.ProductFunc, maintenanceInterval time.Duration) *batchChain {
+func newBatchChain(maintenanceInterval time.Duration) *batchChain {
 	return &batchChain{
 		done:                make(chan struct{}),
-		batchChan:           make(chan *batch),
-		ackEvents:           make(chan []api.Event),
-		productFunc:         productFunc,
+		optChan:             make(chan opt),
 		maintenanceInterval: maintenanceInterval,
 	}
 }
@@ -142,12 +151,35 @@ func (bc *batchChain) stop() {
 	bc.countDown.Wait()
 }
 
-func (bc *batchChain) append(b *batch) {
-	bc.batchChan <- b
+func (bc *batchChain) NewBatch(timeout time.Duration) *batch {
+	b := &batch{
+		eventMarks: make(map[uint32]bool),
+		start:      time.Now(),
+		index:      nextIndex(),
+		timeout:    timeout,
+		bc:         bc,
+		respChan:   make(chan *pb.LogResp, 1),
+	}
+	o := opt{
+		o: newBatchOpt,
+		b: b,
+	}
+	bc.optChan <- o
+	return b
 }
 
 func (bc *batchChain) ack(events []api.Event) {
-	bc.ackEvents <- events
+	for _, e := range events {
+		o := opt{
+			o: ackEventOpt,
+			e: e,
+		}
+		select {
+		case <-bc.done:
+			return
+		case bc.optChan <- o:
+		}
+	}
 }
 
 func (bc *batchChain) run() {
@@ -162,31 +194,67 @@ func (bc *batchChain) run() {
 		select {
 		case <-bc.done:
 			return
-		case b := <-bc.batchChan:
-			bs[b.index] = b
-			for _, e := range b.events {
-				bc.productFunc(e)
-			}
-		case es := <-bc.ackEvents:
-			for _, e := range es {
-				if batchIndex, ok := e.Meta().Get(batchIndexKey); ok {
-					if b, exist := bs[batchIndex.(uint32)]; exist {
-						b.ack(e)
-						if b.isDone() {
+		case o := <-bc.optChan:
+			t := o.o
+			if t == newBatchOpt {
+				b := o.b
+				bs[b.index] = b
+			} else if t == appendEventOpt {
+				e := o.e
+				index, eventIndex := bc.parseIndex(e)
+				if index >= 0 && eventIndex >= 0 {
+					b := bs[uint32(index)]
+					b.eventMarks[uint32(eventIndex)] = false
+					b.size++
+				}
+			} else if t == ackEventOpt {
+				e := o.e
+				index, eventIndex := bc.parseIndex(e)
+				if index >= 0 && eventIndex >= 0 {
+					// may be removed prematurely due to timeout
+					if b, exist := bs[uint32(index)]; exist {
+						if b.ack(uint32(eventIndex)) {
 							delete(bs, b.index)
 						}
 					}
 				} else {
-					log.Error("event cannot find batchIndex: %s", e.String())
+					log.Error("event cannot find batchIndex or batchEventIndex: %s", e.String())
+				}
+			} else if t == finishBatchOpt {
+				index := o.bi
+				b := bs[index]
+				b.finish = true
+				if b.checkDoneOrTimeout() {
+					delete(bs, b.index)
 				}
 			}
 		case <-ticker.C:
 			for _, b := range bs {
-				b.checkTimeout()
-				if b.isDone() {
+				if b.checkDoneOrTimeout() {
 					delete(bs, b.index)
 				}
 			}
 		}
 	}
+}
+
+func (bc *batchChain) parseIndex(e api.Event) (batchIndex, batchEventIndex int32) {
+	{
+		bi, exist := e.Meta().Get(batchIndexKey)
+		if !exist {
+			batchIndex = -1
+		} else {
+			batchIndex = int32(bi.(uint32))
+		}
+	}
+
+	{
+		ei, exist := e.Meta().Get(batchEventIndexKey)
+		if !exist {
+			batchEventIndex = -1
+		} else {
+			batchEventIndex = int32(ei.(uint32))
+		}
+	}
+	return batchIndex, batchEventIndex
 }
