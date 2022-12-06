@@ -14,7 +14,7 @@ type pulsarConfig struct {
 	URL   string `yaml:"url,omitempty" validate:"required"`
 	Topic string `yaml:"topic,omitempty" validate:"required"`
 	// Set the operation timeout. Producer-create, subscribe and unsubscribe operations will be retried until this interval, after which the operation will be marked as failed
-	OperationTimeoutSeconds    time.Duration `yaml:"operation_timeout_seconds,omitempty" default:"30s" validate:"gt=0"`
+	OperationTimeoutSeconds    time.Duration `yaml:"operationTimeoutSeconds,omitempty" default:"30s" validate:"gt=0"`
 	UseTLS                     bool          `yaml:"useTLS,omitempty"`
 	TLSTrustCertsFilePath      string        `yaml:"tlsTrustCertsFilePath,omitempty"`
 	TLSAllowInsecureConnection bool          `yaml:"tlsAllowInsecureConnection,omitempty"`
