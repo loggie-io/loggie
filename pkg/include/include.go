@@ -52,6 +52,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/sink/kafka"
 	_ "github.com/loggie-io/loggie/pkg/sink/loki"
 	_ "github.com/loggie-io/loggie/pkg/sink/sls"
+	_ "github.com/loggie-io/loggie/pkg/sink/zinc"
 	_ "github.com/loggie-io/loggie/pkg/source/codec/json"
 	_ "github.com/loggie-io/loggie/pkg/source/codec/regex"
 	_ "github.com/loggie-io/loggie/pkg/source/dev"
