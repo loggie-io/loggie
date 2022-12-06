@@ -1,9 +1,24 @@
+/*
+Copyright 2022 Loggie Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package webhook
 
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -237,9 +252,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			return result.Fail(err)
 		}
 		log.Warn("post alert failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))
-		return result.Fail(
-			errors.New(
-				fmt.Sprintf("post alert to AlertCenter failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))))
+		return result.Fail(fmt.Errorf("post alert to AlertCenter failed, response statusCode: %d, body: %v", resp.StatusCode, string(r)))
 	}
 
 	return result.NewResult(api.SUCCESS)
