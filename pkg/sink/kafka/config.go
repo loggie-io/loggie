@@ -60,6 +60,7 @@ type Config struct {
 	WriteTimeout time.Duration `yaml:"writeTimeout,omitempty"`
 	RequiredAcks int           `yaml:"requiredAcks,omitempty"`
 	SASL         SASL          `yaml:"sasl,omitempty"`
+	PartitionKey string        `yaml:"partitionKey,omitempty"`
 }
 
 type SASL struct {
@@ -75,6 +76,12 @@ func (c *Config) Validate() error {
 		return err
 	}
 
+	if c.PartitionKey != "" {
+		if err := pattern.Validate(c.PartitionKey); err != nil {
+			return err
+		}
+	}
+
 	if c.Balance != "" && c.Balance != BalanceHash && c.Balance != BalanceRoundRobin && c.Balance != BalanceLeastBytes {
 		return fmt.Errorf("kafka sink balance %s is not supported", c.Balance)
 	}
@@ -88,17 +95,25 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("kafka sink sasl type %s not supported", c.SASL.Type)
 	}
 
-	if c.SASL.Type != SASLNoneType {
-		if c.SASL.UserName == "" {
-			return fmt.Errorf("kafka sink %s sasl with empty user name", c.SASL.Type)
+	if err := c.SASL.Validate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *SASL) Validate() error {
+	if s.Type != SASLNoneType {
+		if s.UserName == "" {
+			return fmt.Errorf("kafka sink or source %s sasl with empty user name", s.Type)
 		}
-		if c.SASL.Password == "" {
-			return fmt.Errorf("kafka sink %s sasl with empty password", c.SASL.Type)
+		if s.Password == "" {
+			return fmt.Errorf("kafka sink or source %s sasl with empty password", s.Type)
 		}
 
-		if c.SASL.Type == SASLSCRAMType {
-			if c.SASL.Algorithm != "" && c.SASL.Algorithm != AlgorithmSHA512 && c.SASL.Algorithm != AlgorithmSHA256 {
-				return fmt.Errorf("kafka sink %s sasl hash algorithm %s not supported", c.SASL.Type, c.SASL.Algorithm)
+		if s.Type == SASLSCRAMType {
+			if s.Algorithm != "" && s.Algorithm != AlgorithmSHA512 && s.Algorithm != AlgorithmSHA256 {
+				return fmt.Errorf("kafka sink or source %s sasl hash algorithm %s not supported", s.Type, s.Algorithm)
 			}
 		}
 	}
@@ -140,7 +155,7 @@ func compression(compression string) kafka.Compression {
 	}
 }
 
-func mechanism(saslType, userName, password, algo string) (sasl.Mechanism, error) {
+func Mechanism(saslType, userName, password, algo string) (sasl.Mechanism, error) {
 	switch saslType {
 	case SASLPlainType:
 		return plain.Mechanism{

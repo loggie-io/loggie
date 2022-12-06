@@ -44,6 +44,7 @@ var (
 	ComponentBaseTopic    = "component"
 	SystemTopic           = "sys"
 	NormalizeTopic        = "normalize"
+	InfoTopic             = "info"
 )
 
 type BaseMetric struct {
