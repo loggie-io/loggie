@@ -28,8 +28,6 @@ type Sink struct {
 	config *pulsarConfig
 	clt    *ProducerClient
 	cod    codec.Codec
-
-	topicMatcher [][]string
 }
 
 type ProducerClient struct {
@@ -73,6 +71,9 @@ func (s *Sink) Start() error {
 		return err
 	}
 	client, err := newPulsarClient(*clientOptions, *producerOptions)
+	if err != nil {
+		return errors.WithMessagef(err, "new pulsar client failed")
+	}
 	if client == nil {
 		return errors.New("client nil")
 	}
