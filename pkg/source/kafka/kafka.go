@@ -82,7 +82,7 @@ func (k *Source) Start() error {
 	c := k.config
 	mechanism, err := kakfasink.Mechanism(c.SASL.Type, c.SASL.UserName, c.SASL.Password, c.SASL.Algorithm)
 	if err != nil {
-		log.Error("kafka sink sasl mechanism with error: %s", err.Error())
+		log.Error("kafka source sasl mechanism with error: %s", err.Error())
 		return err
 	}
 
