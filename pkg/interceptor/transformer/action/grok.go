@@ -61,7 +61,6 @@ var DefaultgrokPattern = map[string]string{
 	"DATESTAMP": "%{DATE}[- ]%{TIME}",
 }
 
-
 func init() {
 	RegisterAction(grokName, func(args []string, extra cfg.CommonCfg) (Action, error) {
 		return NewGrokAction(args, extra)
@@ -69,10 +68,10 @@ func init() {
 }
 
 type grokAction struct {
-	key   string
-	to    string
-	config      *grokConfig
-	grok       *grok
+	key    string
+	to     string
+	config *grokConfig
+	grok   *grok
 }
 
 type grokConfig struct {
@@ -91,7 +90,6 @@ type grok struct {
 	patternPaths []string
 }
 
-
 func NewGrokAction(args []string, extra cfg.CommonCfg) (*grokAction, error) {
 	aCount := len(args)
 	if aCount != 1 && aCount != 2 {
@@ -107,8 +105,8 @@ func NewGrokAction(args []string, extra cfg.CommonCfg) (*grokAction, error) {
 	}
 
 	g := &grokAction{
-		key:   args[0],
-		to:    args[1],
+		key:    args[0],
+		to:     args[1],
 		config: extraCfg,
 	}
 	g.initGrok()
@@ -125,11 +123,6 @@ func (r *grokAction) initGrok() {
 }
 
 func (r *grokAction) act(e api.Event) error {
-	header := e.Header()
-	if header == nil {
-		header = make(map[string]interface{})
-	}
-
 	// get field value
 	val := eventops.GetString(e, r.key)
 
@@ -139,12 +132,12 @@ func (r *grokAction) act(e api.Event) error {
 	}
 
 	if r.to == HeaderRoot {
-			for field, value := range rst {
-				eventops.Set(e, field, value)
-			}
+		for field, value := range rst {
+			eventops.Set(e, field, value)
+		}
 
 	} else {
-			eventops.Set(e, r.to, rst)
+		eventops.Set(e, r.to, rst)
 	}
 
 	if r.key != r.to {
@@ -153,7 +146,6 @@ func (r *grokAction) act(e api.Event) error {
 
 	return nil
 }
-
 
 func NewGrok(match string, patternPaths []string, ignoreBlank bool, pattern map[string]string) *grok {
 	grok := &grok{

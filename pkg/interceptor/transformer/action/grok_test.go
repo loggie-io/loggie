@@ -11,7 +11,7 @@ import (
 func Test_grokAction_act(t *testing.T) {
 	type fields struct {
 		config *grokConfig
-		key string
+		key    string
 	}
 	type args struct {
 		e api.Event
@@ -27,10 +27,10 @@ func Test_grokAction_act(t *testing.T) {
 		{
 			name: "normal IgnoreBlank Overwrite UseDefaultPattern",
 			fields: fields{config: &grokConfig{
-				Match: "^%{DATESTAMP:datetime} (?P<file>[a-zA-Z0-9._-]+):%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
+				Match:       "^%{DATESTAMP:datetime} (?P<file>[a-zA-Z0-9._-]+):%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 				IgnoreBlank: &T,
 			},
-				key:      "body",
+				key: "body",
 			},
 			args: args{e: &event.DefaultEvent{
 				H: map[string]interface{}{
@@ -50,10 +50,10 @@ func Test_grokAction_act(t *testing.T) {
 		{
 			name: "IgnoreBlank false",
 			fields: fields{config: &grokConfig{
-				Match: "^%{DATESTAMP:datetime} (?P<file>[a-zA-Z0-9._-]+):%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
+				Match:       "^%{DATESTAMP:datetime} (?P<file>[a-zA-Z0-9._-]+):%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 				IgnoreBlank: &F,
 			},
-				key:      "body",
+				key: "body",
 			},
 			args: args{e: &event.DefaultEvent{
 				H: map[string]interface{}{
@@ -74,14 +74,13 @@ func Test_grokAction_act(t *testing.T) {
 		{
 			name: "use Pattern by user",
 			fields: fields{config: &grokConfig{
-				Match: "^%{DATESTAMP:datetime} %{FILE:file}:%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
+				Match:       "^%{DATESTAMP:datetime} %{FILE:file}:%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 				IgnoreBlank: &T,
 				Pattern: map[string]string{
 					"FILE": "[a-zA-Z0-9._-]+",
 				},
 			},
-				key:      "body",
-
+				key: "body",
 			},
 			args: args{e: &event.DefaultEvent{
 				H: map[string]interface{}{
@@ -101,13 +100,13 @@ func Test_grokAction_act(t *testing.T) {
 		{
 			name: "use user Pattern to overwrite DefaultPattern",
 			fields: fields{config: &grokConfig{
-				Match: "^%{DATESTAMP:datetime} %{WORD:file}:%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
+				Match:       "^%{DATESTAMP:datetime} %{WORD:file}:%{INT:line}: %{IPV4:ip} %{PATH:path} %{UUID:uuid}(?P<space>[a-zA-Z]?)",
 				IgnoreBlank: &T,
 				Pattern: map[string]string{
 					"WORD": "[a-zA-Z0-9._-]+",
 				},
 			},
-				key:      "body",
+				key: "body",
 			},
 			args: args{e: &event.DefaultEvent{
 				H: map[string]interface{}{
@@ -130,8 +129,8 @@ func Test_grokAction_act(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := &grokAction{
-				key: tt.fields.key,
-				to: HeaderRoot,
+				key:    tt.fields.key,
+				to:     HeaderRoot,
 				config: tt.fields.config,
 			}
 			p.initGrok()
