@@ -87,7 +87,7 @@ func (s *Sink) Init(context api.Context) error {
 
 func (s *Sink) Start() error {
 	c := s.config
-	mechanism, err := mechanism(c.SASL.Type, c.SASL.UserName, c.SASL.Password, c.SASL.Algorithm)
+	mechanism, err := Mechanism(c.SASL.Type, c.SASL.UserName, c.SASL.Password, c.SASL.Algorithm)
 	if err != nil {
 		log.Error("kafka sink sasl mechanism with error: %s", err.Error())
 		return err
