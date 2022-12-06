@@ -79,12 +79,12 @@ func (s *Sink) Start() error {
 	}
 	client.pulsarClient, err = pulsar.NewClient(client.clientOptions)
 	if err != nil {
-		log.Debug("Pulsar", "Create pulsar producer failed: %v", err)
+		log.Debug("Create pulsar producer failed: %v", err)
 		return err
 	}
 	client.producer, err = client.pulsarClient.CreateProducer(client.producerOptions)
 	if err != nil {
-		log.Debug("Pulsar", "Create pulsar producer failed: %v", err)
+		log.Debug("Create pulsar producer failed: %v", err)
 		return err
 	}
 	s.clt = client
