@@ -46,6 +46,7 @@ var (
 	SystemTopic           = "sys"
 	NormalizeTopic        = "normalize"
 	WebhookTopic          = "webhook"
+	InfoTopic             = "info"
 )
 
 type BaseMetric struct {

@@ -19,6 +19,7 @@ package pattern
 import (
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/loggie-io/loggie/pkg/util/time"
+	"github.com/pkg/errors"
 	"os"
 	"regexp"
 	"strings"
@@ -38,6 +39,8 @@ const (
 	kindK8s    = "k8s"
 	kindObject = "object"
 )
+
+var ErrEmptyMatcher = errors.New("render matcher is empty")
 
 type Pattern struct {
 	Raw            string
@@ -141,7 +144,18 @@ func makeMatch(m []string) matcher {
 	return item
 }
 
+// RenderWithStrict any placeholder rendering empty will return an error
+func (p *Pattern) RenderWithStrict() (string, error) {
+	return p.render(true)
+}
+
 func (p *Pattern) Render() (string, error) {
+	return p.render(false)
+}
+
+// Render to actual results based on placeholders
+// If `strict` is set to true, any placeholder rendering empty will return an error.
+func (p *Pattern) render(strict bool) (string, error) {
 	if p.isConstVal || len(p.matcher) == 0 {
 		return p.Raw, nil
 	}
@@ -162,6 +176,10 @@ func (p *Pattern) Render() (string, error) {
 			alt = o
 		} else if m.kind == kindK8s {
 			alt = p.K8sMatcherRender(m.key)
+		}
+
+		if alt == "" && strict {
+			return "", errors.WithMessagef(ErrEmptyMatcher, "with %s", m.keyWrap)
 		}
 
 		// add old

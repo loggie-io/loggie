@@ -205,7 +205,7 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 		s.ackChainHandler.StartTask(s.ackTask)
 		log.Info("%s ack start", s.String())
 	}
-	s.watchTask = NewWatchTask(s.epoch, s.pipelineName, s.name, s.config.CollectConfig, s.eventPool, s.productFunc, s.r.jobChan, s.config.Fields)
+	s.watchTask = NewWatchTask(s.epoch, s.pipelineName, s.name, s.config.CollectConfig, s.eventPool, s.productFunc, s.r.jobChan, s.rawSourceConfig.Fields)
 	// start watch source paths
 	s.watcher.StartWatchTask(s.watchTask)
 }

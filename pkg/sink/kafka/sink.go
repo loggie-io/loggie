@@ -19,7 +19,6 @@ package kafka
 import (
 	"context"
 	"fmt"
-
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/pkg/errors"
@@ -48,7 +47,8 @@ type Sink struct {
 	writer *kafka.Writer
 	cod    codec.Codec
 
-	topicPattern *pattern.Pattern
+	topicPattern        *pattern.Pattern
+	partitionKeyPattern *pattern.Pattern
 }
 
 func NewSink() *Sink {
@@ -79,12 +79,15 @@ func (s *Sink) String() string {
 
 func (s *Sink) Init(context api.Context) error {
 	s.topicPattern, _ = pattern.Init(s.config.Topic)
+	if s.config.PartitionKey != "" {
+		s.partitionKeyPattern, _ = pattern.Init(s.config.PartitionKey)
+	}
 	return nil
 }
 
 func (s *Sink) Start() error {
 	c := s.config
-	mechanism, err := mechanism(c.SASL.Type, c.SASL.UserName, c.SASL.Password, c.SASL.Algorithm)
+	mechanism, err := Mechanism(c.SASL.Type, c.SASL.UserName, c.SASL.Password, c.SASL.Algorithm)
 	if err != nil {
 		log.Error("kafka sink sasl mechanism with error: %s", err.Error())
 		return err
@@ -127,8 +130,8 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	for _, e := range events {
 		topic, err := s.selectTopic(e)
 		if err != nil {
-			log.Error("select kafka topic error: %+v", err)
-			return result.Fail(err)
+			log.Error("select kafka topic error: %v; event is: %s", err, e.String())
+			continue
 		}
 
 		msg, err := s.cod.Encode(e)
@@ -137,10 +140,26 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			return result.Fail(err)
 		}
 
-		km = append(km, kafka.Message{
+		message := kafka.Message{
 			Value: msg,
 			Topic: topic,
-		})
+		}
+
+		if s.partitionKeyPattern != nil {
+			key, err := s.getPartitionKey(e)
+			if err == nil {
+				message.Key = []byte(key)
+			} else {
+				log.Warn("fail to get kafka key: %+v", err)
+			}
+
+		}
+
+		km = append(km, message)
+	}
+
+	if len(km) == 0 {
+		return result.DropWith(errors.New("send to kafka message batch is null"))
 	}
 
 	if s.writer != nil {
@@ -156,5 +175,9 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 }
 
 func (s *Sink) selectTopic(e api.Event) (string, error) {
-	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).Render()
+	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).RenderWithStrict()
+}
+
+func (s *Sink) getPartitionKey(e api.Event) (string, error) {
+	return s.partitionKeyPattern.WithObject(runtime.NewObject(e.Header())).Render()
 }
