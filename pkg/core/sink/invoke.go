@@ -55,8 +55,7 @@ func (si *SubscribeInvoker) Invoke(invocation Invocation) api.Result {
 			pool.PutFailedResult(result)
 		}
 		return result
-	} else {
-		return invocation.Sink.Consume(invocation.Batch)
 	}
 
+	return invocation.Sink.Consume(invocation.Batch)
 }

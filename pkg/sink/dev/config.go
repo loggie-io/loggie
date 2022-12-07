@@ -17,6 +17,5 @@ limitations under the License.
 package dev
 
 type Config struct {
-	PrintEvents bool   `yaml:"printEvents" default:"false"`
-	Host        string `yaml:"host,omitempty"`
+	PrintEvents bool `yaml:"printEvents" default:"false"`
 }

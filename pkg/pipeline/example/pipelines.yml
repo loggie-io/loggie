@@ -11,7 +11,7 @@ pipelines:
       parallelism: 16
       printEvents: true
       host: http://127.0.0.1:8080/loggie
-      concurrency:
+      concurrency:                      # 动态 sink 并发配置使用示例
         enable: true
         rtt:
           blockJudgeThreshold: 120%
