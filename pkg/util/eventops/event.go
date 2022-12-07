@@ -97,7 +97,7 @@ func Copy(e api.Event, from string, to string) {
 	obj := runtime.NewObject(e.Header())
 
 	if from == event.Body && len(e.Body()) != 0 {
-		obj.SetPath(to, e.Body())
+		obj.SetPath(to, string(e.Body()))
 		return
 	}
 
