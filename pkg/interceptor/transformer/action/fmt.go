@@ -98,4 +98,6 @@ func (f *Fmt) act(e api.Event) error {
 	return nil
 }
 
+func (f *Fmt) start() error { return nil }
+
 func (f *Fmt) stop() {}

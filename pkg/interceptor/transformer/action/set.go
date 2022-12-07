@@ -56,4 +56,6 @@ func (a *Set) act(e api.Event) error {
 	return nil
 }
 
+func (a *Set) start() error { return nil }
+
 func (a *Set) stop() {}

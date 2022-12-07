@@ -76,6 +76,10 @@ func (i *Interceptor) Init(context api.Context) error {
 }
 
 func (i *Interceptor) Start() error {
+	if i.actions != nil {
+		return i.actions.Start()
+	}
+
 	return nil
 }
 

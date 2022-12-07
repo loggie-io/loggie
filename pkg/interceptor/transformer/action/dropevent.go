@@ -51,4 +51,6 @@ func (a *DropEvent) act(e api.Event) error {
 	return ErrorDropEvent
 }
 
+func (a *DropEvent) start() error { return nil }
+
 func (a *DropEvent) stop() {}

@@ -55,4 +55,6 @@ func (a *Add) act(e api.Event) error {
 	return nil
 }
 
+func (a *Add) start() error { return nil }
+
 func (a *Add) stop() {}

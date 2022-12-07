@@ -50,4 +50,6 @@ func (a *Return) act(e api.Event) error {
 	return ErrorReturn
 }
 
+func (a *Return) start() error { return nil }
+
 func (a *Return) stop() {}

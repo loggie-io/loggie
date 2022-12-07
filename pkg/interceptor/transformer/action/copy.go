@@ -55,4 +55,6 @@ func (c *Copy) act(e api.Event) error {
 	return nil
 }
 
+func (c *Copy) start() error { return nil }
+
 func (c *Copy) stop() {}

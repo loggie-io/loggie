@@ -60,4 +60,6 @@ func (c *Move) act(e api.Event) error {
 	return nil
 }
 
+func (c *Move) start() error { return nil }
+
 func (c *Move) stop() {}

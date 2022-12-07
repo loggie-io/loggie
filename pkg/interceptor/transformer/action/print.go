@@ -68,4 +68,6 @@ func (f *Print) act(e api.Event) error {
 	return nil
 }
 
+func (f *Print) start() error { return nil }
+
 func (f *Print) stop() {}

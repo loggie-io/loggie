@@ -53,4 +53,6 @@ func (d *Del) act(e api.Event) error {
 	return nil
 }
 
+func (d *Del) start() error { return nil }
+
 func (d *Del) stop() {}

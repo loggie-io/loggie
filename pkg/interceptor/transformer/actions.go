@@ -65,6 +65,19 @@ func (a *Actions) Exec(e api.Event) error {
 	return nil
 }
 
+func (a *Actions) Start() error {
+	if len(a.steps) == 0 {
+		return nil
+	}
+	for _, step := range a.steps {
+		err := step.start()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (a *Actions) Stop() {
 	if len(a.steps) == 0 {
 		return
@@ -123,9 +136,22 @@ func (as *ActionStep) exec(e api.Event) error {
 	return nil
 }
 
+func (as *ActionStep) start() error {
+	if as.withCondition() {
+		err := as.ConditionStep.start()
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	return as.SimpleAction.Start()
+}
+
 func (as *ActionStep) stop() {
 	if as.withCondition() {
 		as.ConditionStep.stop()
+		return
 	}
 
 	as.SimpleAction.Stop()
@@ -237,6 +263,34 @@ func (ca *ConditionActionStep) exec(e api.Event) error {
 
 	// or take `else` actions
 	return multipleActionExec(ca.Else, e)
+}
+
+func (ca *ConditionActionStep) start() error {
+	err := multipleActionStart(ca.Then)
+	if err != nil {
+		return err
+	}
+
+	err = multipleActionStart(ca.Else)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func multipleActionStart(acts []*action.Instance) error {
+	if len(acts) == 0 {
+		return nil
+	}
+
+	for _, a := range acts {
+		err := a.Start()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (ca *ConditionActionStep) stop() {
