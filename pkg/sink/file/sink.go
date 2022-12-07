@@ -129,8 +129,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		filename, err := s.selectFilename(e)
 		if err != nil {
 			log.Error("select filename error: %+v", err)
-			fail := result.Fail(err)
-			return fail
+			return result.Fail(err)
 		}
 		data, err := s.cod.Encode(e)
 		if err != nil {

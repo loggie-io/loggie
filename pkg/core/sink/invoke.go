@@ -45,13 +45,18 @@ type SubscribeInvoker struct {
 
 func (si *SubscribeInvoker) Invoke(invocation Invocation) api.Result {
 	pool := invocation.FlowPool
-	t1 := time.Now()
-	result := invocation.Sink.Consume(invocation.Batch)
-	t2 := time.Now()
-	microseconds := t2.Sub(t1).Microseconds()
-	pool.EnqueueRTT(microseconds)
-	if result.Status() != api.SUCCESS {
-		pool.PutFailedResult(result)
+	if pool.IsEnabled() {
+		t1 := time.Now()
+		result := invocation.Sink.Consume(invocation.Batch)
+		t2 := time.Now()
+		microseconds := t2.Sub(t1).Microseconds()
+		pool.EnqueueRTT(microseconds)
+		if result.Status() != api.SUCCESS {
+			pool.PutFailedResult(result)
+		}
+		return result
+	} else {
+		return invocation.Sink.Consume(invocation.Batch)
 	}
-	return result
+
 }

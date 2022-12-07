@@ -17,11 +17,7 @@ limitations under the License.
 package dev
 
 import (
-	"errors"
 	"fmt"
-	"math/rand"
-	"net/http"
-
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
@@ -96,33 +92,12 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	}
 	for _, e := range events {
 		// json encode
-		_, err := s.codec.Encode(e)
+		out, err := s.codec.Encode(e)
 		if err != nil {
 			log.Warn("codec event error: %+v", err)
 			continue
 		}
-
-		//log.Info("event: %s", string(out))
+		log.Info("event: %s", string(out))
 	}
-
-	host := s.config.Host
-	if len(host) > 0 {
-		resp, err := http.Get(host)
-		if err != nil {
-			log.Warn(err.Error())
-			return result.Fail(err)
-		}
-
-		err = resp.Body.Close()
-		if err != nil {
-			log.Warn(err.Error())
-		}
-	}
-
-	if rand.Intn(10000) > 9985 {
-		log.Info("put error")
-		return result.Fail(errors.New("11"))
-	}
-
 	return result.NewResult(api.SUCCESS)
 }
