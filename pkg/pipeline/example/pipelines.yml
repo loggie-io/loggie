@@ -1,3 +1,5 @@
+# 动态 sink 并发配置使用示例
+# example config for sink adaptive concurrency
 pipelines:
   - name: local
     sources:
@@ -11,7 +13,7 @@ pipelines:
       parallelism: 16
       printEvents: true
       host: http://127.0.0.1:8080/loggie
-      concurrency:                      # 动态 sink 并发配置使用示例
+      concurrency:
         enable: true
         rtt:
           blockJudgeThreshold: 120%
