@@ -1,3 +1,4 @@
+# example for logalert in interceptor
 loggie:
   reload:
     enabled: true
@@ -26,7 +27,7 @@ loggie:
                                 "topic": "{{.fields.topic}}"
                               },
                               "annotations": {
-                                "message": "\n新的报错：\nbody:\n{{range .body}}{{.}}\n{{end}}\ncontainerid: {{._meta.pipelineName}}\nsource: {{._meta.sourceName}}\ncontainername: {{.fields.containername}}\nlogconfig: {{.fields.logconfig}}\nname: {{.fields.name}}\nnamespace: {{.fields.namespace}}\nnodename: {{.fields.nodename}}\npodname: {{.fields.podname}}\nfilename: {{.state.filename}}\n",
+                                "message": "\nNew alert: \nbody:\n{{range .body}}{{.}}\n{{end}}\ncontainerid: {{._meta.pipelineName}}\nsource: {{._meta.sourceName}}\ncontainername: {{.fields.containername}}\nlogconfig: {{.fields.logconfig}}\nname: {{.fields.name}}\nnamespace: {{.fields.namespace}}\nnodename: {{.fields.nodename}}\npodname: {{.fields.podname}}\nfilename: {{.state.filename}}\n",
                                 "reason": "{{.reason}}"
                               },
                               "startsAt": "{{._meta.timestamp}}",
@@ -38,7 +39,7 @@ loggie:
                         {{range .Alerts}}
                         {{if $first}}{{$first = false}}{{else}}
                         "commonLabels": {
-                          "namespace": "{{.fields.namespace}}",
+                          "namespace": "{{._additions.namespace}}",
                           "module": "{{._additions.module}}",
                           "alertname": "{{._additions.alertname}}",
                           "cluster": "{{._additions.cluster}}"

@@ -216,10 +216,8 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 	if !matched {
 		if !invocation.WebhookEnabled {
 			return invoker.Invoke(invocation)
-		} else {
-			//return result.NewResult(api.SUCCESS)
-			return result.Drop()
 		}
+		return result.Drop()
 	}
 	log.Debug("logAlert matched: %s, %s", message, reason)
 

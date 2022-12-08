@@ -106,27 +106,42 @@ func (c *Config) Validate() error {
 func (a *Advanced) validate() error {
 	for _, mode := range a.Mode {
 		if mode == ModeNoData {
-			if a.Duration == 0 {
-				return errors.New("advanced logAlert no data duration should > 0")
+			if err := a.validateInNodataMode(); err != nil {
+				return err
 			}
 		} else if mode == ModeRegexp {
-			if a.MatchType == MatchTypeAny || a.MatchType == MatchTypeAll {
-				if len(a.Rules) == 0 {
-					return errors.New("advanced logAlert has no rules")
-				}
-				for _, rule := range a.Rules {
-					err := rule.validate()
-					if err != nil {
-						return err
-					}
-				}
-			} else {
-				return errors.New(fmt.Sprintf("advanced logAlert match type %s not supported", a.MatchType))
+			if err := a.validateInRegexpMode(); err != nil {
+				return err
 			}
 		} else {
-			return errors.New(fmt.Sprintf("advanced logAlert mode %s not supported", a.Mode))
+			return fmt.Errorf("advanced logAlert mode %s not supported", a.Mode)
 		}
 	}
+	return nil
+}
+
+func (a *Advanced) validateInNodataMode() error {
+	if a.Duration == 0 {
+		return errors.New("advanced logAlert no data duration should > 0")
+	}
+	return nil
+}
+
+func (a *Advanced) validateInRegexpMode() error {
+	if a.MatchType == MatchTypeAny || a.MatchType == MatchTypeAll {
+		if len(a.Rules) == 0 {
+			return errors.New("advanced logAlert has no rules")
+		}
+		for _, rule := range a.Rules {
+			err := rule.validate()
+			if err != nil {
+				return err
+			}
+		}
+	} else {
+		return fmt.Errorf("advanced logAlert match type %s not supported", a.MatchType)
+	}
+
 	return nil
 }
 
@@ -137,7 +152,7 @@ func (r *Rule) validate() error {
 	}
 
 	if r.MatchType != MatchTypeAny && r.MatchType != MatchTypeAll {
-		return errors.New(fmt.Sprintf("advanced logAlert match type %s not supported", r.MatchType))
+		return fmt.Errorf("advanced logAlert match type %s not supported", r.MatchType)
 	}
 
 	if len(r.Groups) == 0 {
@@ -146,7 +161,7 @@ func (r *Rule) validate() error {
 
 	for _, group := range r.Groups {
 		if _, ok := condition.OperatorMap[group.Operator]; !ok {
-			return errors.New(fmt.Sprintf("operator %s not supported", group.Operator))
+			return fmt.Errorf("operator %s not supported", group.Operator)
 		}
 	}
 

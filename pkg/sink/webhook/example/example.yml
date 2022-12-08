@@ -1,3 +1,4 @@
+# example for logalert in webhook
 pipelines:
   - name: local
     sources:
@@ -73,7 +74,7 @@ pipelines:
         {{range .Alerts}}
         {{if $first}}{{$first = false}}{{else}}
         "commonLabels": {
-        "namespace": "{{.fields.namespace}}",
+        "namespace": "{{._additions.namespace}}",
         "module": "{{._additions.module}}",
         "alertname": "{{._additions.alertname}}",
         "cluster": "{{._additions.cluster}}"
