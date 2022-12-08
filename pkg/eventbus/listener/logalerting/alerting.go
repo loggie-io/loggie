@@ -111,6 +111,7 @@ func (l *Listener) run() {
 }
 
 func (l *Listener) process(event *eventbus.Event) {
+	log.Debug("process event %s", event)
 	if event.Topic == eventbus.AlertTempTopic {
 		s, ok := event.Data.(string)
 		if ok {

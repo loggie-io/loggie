@@ -120,7 +120,6 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 		request = out
 	}
 	a.lock.Unlock()
-	log.Debug("send alerts %s success", string(request))
 
 	for _, address := range a.Address { // send alerts to alertManager cluster, no need to retry
 		a.send(address, request)
