@@ -184,6 +184,9 @@ func (i *Interceptor) runTicker() {
 
 					e = event.NewEvent(header, []byte("long time no message!"))
 					e.Header()["reason"] = NoDataKey
+					if len(i.config.Additions) > 0 {
+						e.Header()["_additions"] = i.config.Additions
+					}
 					e.Fill(meta, header, e.Body())
 
 					eventbus.PublishOrDrop(eventbus.LogAlertTopic, &e)
