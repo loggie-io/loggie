@@ -32,6 +32,10 @@ type Config struct {
 }
 
 func (c *Config) Validate() error {
+	if !c.Enable {
+		return nil
+	}
+
 	if c.Rtt != nil {
 		log.Debug("check blockJudgeThreshold")
 		blockJudgeThreshold := c.Rtt.BlockJudgeThreshold

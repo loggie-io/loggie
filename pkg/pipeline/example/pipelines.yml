@@ -12,7 +12,6 @@ pipelines:
       type: dev
       parallelism: 16
       printEvents: true
-      host: http://127.0.0.1:8080/loggie
       concurrency:
         enable: true
         rtt:
