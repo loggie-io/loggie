@@ -225,3 +225,7 @@ func afterErrorOpt(format string, a ...interface{}) {
 	}
 	AfterError(msg)
 }
+
+func Level() zerolog.Level {
+	return defaultLogger.l.GetLevel()
+}

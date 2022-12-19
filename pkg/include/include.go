@@ -48,6 +48,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/sink/dev"
 	_ "github.com/loggie-io/loggie/pkg/sink/elasticsearch"
 	_ "github.com/loggie-io/loggie/pkg/sink/file"
+	_ "github.com/loggie-io/loggie/pkg/sink/franz"
 	_ "github.com/loggie-io/loggie/pkg/sink/grpc"
 	_ "github.com/loggie-io/loggie/pkg/sink/kafka"
 	_ "github.com/loggie-io/loggie/pkg/sink/loki"
