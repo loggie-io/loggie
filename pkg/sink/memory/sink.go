@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package dev
+package memory
 
 import (
 	"fmt"
@@ -22,10 +22,10 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"github.com/pkg/errors"
 )
 
-const Type = "dev"
+const Type = "memory"
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)
@@ -38,7 +38,14 @@ func makeSink(info pipeline.Info) api.Component {
 type Sink struct {
 	name   string
 	config *Config
-	codec  codec.Codec
+
+	targetInnerSource api.InnerSource
+}
+
+type Config struct {
+	PipelineName string `yaml:"pipelineName,omitempty"`
+	SourceType string `yaml:"sourceType,omitempty"`
+	SourceName string `yaml:"sourceName,omitempty"`
 }
 
 func NewSink() *Sink {
@@ -59,9 +66,6 @@ func (s *Sink) Config() interface{} {
 	return s.config
 }
 
-func (s *Sink) SetCodec(c codec.Codec) {
-	s.codec = c
-}
 
 func (s *Sink) String() string {
 	return fmt.Sprintf("%s/%s", api.SINK, Type)
@@ -74,6 +78,13 @@ func (s *Sink) Init(context api.Context) error {
 
 func (s *Sink) Start() error {
 	log.Info("%s start", s.String())
+
+	innerSource := pipeline.GetInnerSource(s.config.PipelineName, api.Type(s.config.SourceType), s.config.SourceName)
+	if innerSource == nil {
+		return errors.Errorf("cannot find inner source ( pipeline: %s, type: %s, name: %s )", s.config.PipelineName, s.config.SourceType, s.config.SourceName)
+	}
+
+	s.targetInnerSource = innerSource
 	return nil
 }
 
@@ -84,22 +95,9 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	events := batch.Events()
 	l := len(events)
 	if l == 0 {
-		return result.Success()
+		return nil
 	}
 
-	//return result.Fail(errors.New("test failed"))
-
-	if !s.config.PrintEvents {
-		return result.NewResult(api.SUCCESS)
-	}
-	for _, e := range events {
-		// json encode
-		out, err := s.codec.Encode(e)
-		if err != nil {
-			log.Warn("codec event error: %+v", err)
-			continue
-		}
-		log.Info("event: %s", string(out))
-	}
-	return result.NewResult(api.SUCCESS)
+	s.targetInnerSource.In(batch.Events())
+	return result.Success()
 }

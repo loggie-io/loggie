@@ -301,6 +301,6 @@ func (grok *grok) replaceFunc(s string) string {
 	}
 }
 
-func (grok *grok) start() error { return nil }
+func (r *grokAction) start() error { return nil }
 
-func (grok *grok) stop() {}
+func (r *grokAction) stop() {}

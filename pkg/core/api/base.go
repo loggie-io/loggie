@@ -130,17 +130,17 @@ type Queue interface {
 	OutChan() chan Batch
 }
 
-type Invocation interface {
-	Consumers() []Consumer
-	Selector() Selector
-	Event() Event
-	Batch() Batch
-	Queue() Queue
-}
-
-type Invoker interface {
-	Invoke(invocation Invocation) Result
-}
+//type Invocation interface {
+//	Consumers() []Consumer
+//	Selector() Selector
+//	Event() Event
+//	Batch() Batch
+//	Queue() Queue
+//}
+//
+//type Invoker interface {
+//	Invoke(invocation Invocation) Result
+//}
 
 type Interceptor interface {
 	Component
@@ -149,4 +149,12 @@ type Interceptor interface {
 type Selector interface {
 	Component
 	Select(event Event, consumers []Consumer) []Consumer
+}
+
+// InnerSource 表示内部的source类型，只能由memory sink发送
+type InnerSource interface {
+	Source
+
+	// In will be sending synchronously
+	In(events []Event)
 }
