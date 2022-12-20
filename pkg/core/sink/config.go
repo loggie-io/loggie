@@ -19,18 +19,20 @@ package sink
 import (
 	"errors"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/concurrency"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 )
 
 var ErrSinkTypeRequired = errors.New("pipelines[n].sink.type is required")
 
 type Config struct {
-	Enabled     *bool         `yaml:"enabled,omitempty"`
-	Name        string        `yaml:"name,omitempty"`
-	Type        string        `yaml:"type,omitempty" validate:"required"`
-	Properties  cfg.CommonCfg `yaml:",inline"`
-	Parallelism int           `yaml:"parallelism,omitempty" default:"1" validate:"required,gte=1,lte=100"`
-	Codec       codec.Config  `yaml:"codec,omitempty" validate:"dive"`
+	Enabled     *bool              `yaml:"enabled,omitempty"`
+	Name        string             `yaml:"name,omitempty"`
+	Type        string             `yaml:"type,omitempty" validate:"required"`
+	Properties  cfg.CommonCfg      `yaml:",inline"`
+	Parallelism int                `yaml:"parallelism,omitempty" default:"1" validate:"required,gte=1,lte=100"`
+	Codec       codec.Config       `yaml:"codec,omitempty" validate:"dive"`
+	Concurrency concurrency.Config `yaml:"concurrency,omitempty"`
 }
 
 func (c *Config) Validate() error {

@@ -171,7 +171,6 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			}
 			logMsg.PackedHeader = packedHeader
 		}
-
 		err = stream.Send(logMsg)
 		if err != nil && errors.Is(err, io.EOF) {
 			ls := logMsg.String()
