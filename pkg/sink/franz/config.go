@@ -32,7 +32,7 @@ type Config struct {
 	RetryTimeout time.Duration     `yaml:"retryTimeout,omitempty"`
 	WriteTimeout time.Duration     `yaml:"writeTimeout,omitempty"`
 	Compression  string            `yaml:"compression,omitempty" default:"gzip"`
-	SASL         SASL              `yaml:"SASL,omitempty"`
+	SASL         SASL              `yaml:"sasl,omitempty"`
 	TLS          TLS               `yaml:"tls,omitempty"`
 	Security     map[string]string `yaml:"security,omitempty"`
 }
@@ -40,7 +40,7 @@ type Config struct {
 type SASL struct {
 	Mechanism string `yaml:"mechanism,omitempty"`
 	Enabled   bool   `yaml:"enabled,omitempty"`
-	UserName  string `yaml:"UserName,omitempty"`
+	UserName  string `yaml:"userName,omitempty"`
 	Password  string `yaml:"password,omitempty"`
 	GSSAPI    GSSAPI `yaml:"gssapi,omitempty"`
 }
