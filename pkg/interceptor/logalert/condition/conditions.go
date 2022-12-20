@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,17 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package condition
 
-type ExtensionComponent interface {
-	DependencyInterceptors() []Interceptor
-}
+import "github.com/loggie-io/loggie/pkg/core/log"
 
-type FlowDataPool interface {
-	EnqueueRTT(f int64)
-	DequeueAllRtt() []int64
-	PutFailedResult(result Result)
-	GetFailedChannel() chan Result
-	IsEnabled() bool
-	SetEnabled(enabled bool)
+type OperatorFunc func(input, target interface{}) (bool, error)
+
+var OperatorMap = map[string]OperatorFunc{}
+
+func RegisterCondition(name string, f OperatorFunc) {
+	_, ok := OperatorMap[name]
+	if ok {
+		log.Panic("condition %s is duplicated", name)
+	}
+
+	OperatorMap[name] = f
 }

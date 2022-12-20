@@ -19,16 +19,16 @@ package elasticsearch
 import (
 	"context"
 	"fmt"
-	eventer "github.com/loggie-io/loggie/pkg/core/event"
+
 	"github.com/pkg/errors"
 
-	"github.com/loggie-io/loggie/pkg/util/pattern"
-
 	"github.com/loggie-io/loggie/pkg/core/api"
+	eventer "github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 )
 
 const Type = "elasticsearch"
@@ -104,6 +104,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 	err := s.cli.BulkIndex(context.TODO(), batch)
 	if err != nil {
+		return result.Fail(errors.WithMessage(err, "send events to elasticsearch"))
 		if errors.Is(err, eventer.ErrorDropEvent) {
 			return result.DropWith(err)
 		}

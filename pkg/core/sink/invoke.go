@@ -16,11 +16,16 @@ limitations under the License.
 
 package sink
 
-import "github.com/loggie-io/loggie/pkg/core/api"
+import (
+	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/api"
+)
 
 type Invocation struct {
-	Batch api.Batch
-	Sink  api.Sink
+	Batch    api.Batch
+	Sink     api.Sink
+	FlowPool api.FlowDataPool
 }
 
 type Invoker interface {
@@ -39,5 +44,18 @@ type SubscribeInvoker struct {
 }
 
 func (si *SubscribeInvoker) Invoke(invocation Invocation) api.Result {
+	pool := invocation.FlowPool
+	if pool.IsEnabled() {
+		t1 := time.Now()
+		result := invocation.Sink.Consume(invocation.Batch)
+		t2 := time.Now()
+		microseconds := t2.Sub(t1).Microseconds()
+		pool.EnqueueRTT(microseconds)
+		if result.Status() != api.SUCCESS {
+			pool.PutFailedResult(result)
+		}
+		return result
+	}
+
 	return invocation.Sink.Consume(invocation.Batch)
 }

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,17 +14,34 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package alertmanager
 
-type ExtensionComponent interface {
-	DependencyInterceptors() []Interceptor
+import (
+	"bytes"
+	"sync"
+)
+
+type BufferPool struct {
+	sync.Pool
 }
 
-type FlowDataPool interface {
-	EnqueueRTT(f int64)
-	DequeueAllRtt() []int64
-	PutFailedResult(result Result)
-	GetFailedChannel() chan Result
-	IsEnabled() bool
-	SetEnabled(enabled bool)
+func newBufferPool(s int) *BufferPool {
+	return &BufferPool{
+		Pool: sync.Pool{
+			New: func() interface{} {
+				b := bytes.NewBuffer(make([]byte, s))
+				b.Reset()
+				return b
+			},
+		},
+	}
+}
+
+func (bp *BufferPool) Get() *bytes.Buffer {
+	return bp.Pool.Get().(*bytes.Buffer)
+}
+
+func (bp *BufferPool) Put(b *bytes.Buffer) {
+	b.Reset()
+	bp.Pool.Put(b)
 }

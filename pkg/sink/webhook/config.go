@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Loggie Authors
+Copyright 2022 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,17 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package api
+package webhook
 
-type ExtensionComponent interface {
-	DependencyInterceptors() []Interceptor
-}
-
-type FlowDataPool interface {
-	EnqueueRTT(f int64)
-	DequeueAllRtt() []int64
-	PutFailedResult(result Result)
-	GetFailedChannel() chan Result
-	IsEnabled() bool
-	SetEnabled(enabled bool)
+type Config struct {
+	Addr      string            `yaml:"addr,omitempty"`
+	Template  string            `yaml:"template,omitempty"`
+	Timeout   int               `yaml:"timeout,omitempty" default:"30"`
+	Headers   map[string]string `yaml:"headers,omitempty"`
+	LineLimit int               `yaml:"lineLimit" default:"10"`
 }

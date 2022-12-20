@@ -66,6 +66,7 @@ type Event interface {
 	Fill(meta Meta, header map[string]interface{}, body []byte)
 	Release()
 	String() string
+	DeepCopy() Event
 }
 
 type Meta interface {

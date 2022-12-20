@@ -1,10 +1,11 @@
 package kubernetes_event
 
 import (
-	"github.com/loggie-io/loggie/pkg/util/yaml"
-	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/util/yaml"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_Time(t *testing.T) {

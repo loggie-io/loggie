@@ -22,6 +22,8 @@ import (
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/interceptor/logalert/condition"
+	"github.com/loggie-io/loggie/pkg/util"
 )
 
 func TestInterceptor_match(t *testing.T) {
@@ -82,6 +84,52 @@ func TestInterceptor_match(t *testing.T) {
 			},
 			wantMatched: true,
 		},
+		{
+			name: "containers string",
+			fields: fields{
+				config: &Config{
+					Advanced: Advanced{
+						Enable:    true,
+						Mode:      []string{"regexp"},
+						Duration:  0,
+						MatchType: MatchTypeAll,
+						Rules: []Rule{
+							{
+								Regexp:    `(?<date>.*?) (?<time>[\S|\\.]+)  (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>.*)`,
+								MatchType: MatchTypeAll,
+								Groups: []Group{
+									{
+										Key:      "status",
+										Operator: "eq",
+										Value:    "WARN",
+									},
+									{
+										Key:      "u",
+										Operator: "lt",
+										Value:    "100",
+									},
+								},
+							},
+							{
+								Regexp:    `(?<date>.*?) (?<time>[\S|\\.]+)  (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>.*)`,
+								MatchType: MatchTypeAny,
+								Groups: []Group{
+									{
+										Key:      "u",
+										Operator: "eq",
+										Value:    "98",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				event: event.NewEvent(map[string]interface{}{}, []byte("2022-10-26 09:39:24.101  WARN 98 --- [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]")),
+			},
+			wantMatched: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -94,6 +142,31 @@ func TestInterceptor_match(t *testing.T) {
 				regex = append(regex, regexp.MustCompile(reg))
 			}
 			i.regex = regex
+
+			if i.config.Advanced.Enable {
+				for _, mode := range i.config.Advanced.Mode {
+					if mode == ModeRegexp {
+						for _, rule := range i.config.Advanced.Rules {
+							regex := util.MustCompilePatternWithJavaStyle(rule.Regexp)
+							aRule := advancedRule{
+								regex:     regex,
+								matchType: rule.MatchType,
+							}
+							groups := make([]advancedRuleGroup, 0)
+							for _, group := range rule.Groups {
+								groups = append(groups, advancedRuleGroup{
+									key:          group.Key,
+									operatorFunc: condition.OperatorMap[group.Operator],
+									target:       group.Value,
+								})
+							}
+							aRule.groups = groups
+							i.rules = append(i.rules, aRule)
+						}
+					}
+				}
+
+			}
 
 			gotMatched, reason, message := i.match(tt.args.event)
 			t.Logf("match() gotMatched = %v, want %v, reason: %s, message: %s", gotMatched, tt.wantMatched, reason, message)
