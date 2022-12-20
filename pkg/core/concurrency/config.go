@@ -24,7 +24,7 @@ import (
 )
 
 type Config struct {
-	Enable    bool       `yaml:"enable,omitempty"`
+	Enable    bool       `yaml:"enabled,omitempty"`
 	Goroutine *Goroutine `yaml:"goroutine,omitempty"`
 	Rtt       *Rtt       `yaml:"rtt,omitempty"`
 	Ratio     *Ratio     `yaml:"ratio,omitempty"`
