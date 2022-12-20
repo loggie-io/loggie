@@ -39,11 +39,13 @@ var (
 	ReloadTopic           = "reload"
 	ErrorTopic            = "error"
 	LogAlertTopic         = "log"
+	AlertTempTopic        = "logTemp"
 	QueueMetricTopic      = "queue"
 	PipelineTopic         = "pipeline"
 	ComponentBaseTopic    = "component"
 	SystemTopic           = "sys"
 	NormalizeTopic        = "normalize"
+	WebhookTopic          = "webhook"
 	InfoTopic             = "info"
 )
 
@@ -76,6 +78,7 @@ type SinkMetricData struct {
 	BaseMetric
 	SuccessEventCount int
 	FailEventCount    int
+	GoroutinePoolSize int
 }
 
 type QueueMetricData struct {

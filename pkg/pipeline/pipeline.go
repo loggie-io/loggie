@@ -20,14 +20,20 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/panjf2000/ants/v2"
+	"github.com/pkg/errors"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/concurrency"
 	"github.com/loggie-io/loggie/pkg/core/context"
 	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/core/flowdatapool"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/queue"
@@ -37,7 +43,6 @@ import (
 	sinkcodec "github.com/loggie-io/loggie/pkg/sink/codec"
 	sourcecodec "github.com/loggie-io/loggie/pkg/source/codec"
 	"github.com/loggie-io/loggie/pkg/util"
-	"github.com/pkg/errors"
 )
 
 const (
@@ -45,6 +50,7 @@ const (
 	FieldsUnderKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
 
 	fieldsFromPathMaxBytes = 1024
+	WebhookSinkType        = "webhook"
 )
 
 var (
@@ -62,6 +68,10 @@ type Pipeline struct {
 	r             *RegisterCenter
 	ns            map[string]api.Source // key:name|value:source
 	nq            map[string]api.Queue  // key:name|value:queue
+	flowPool      api.FlowDataPool
+	flowPoolDone  chan struct{}
+	gpool         *ants.Pool
+	gpoolMaxSize  int
 	outChans      []chan api.Batch
 	countDown     sync.WaitGroup
 	retryOutFuncs []api.OutFunc
@@ -69,21 +79,28 @@ type Pipeline struct {
 	epoch         *Epoch
 	envMap        map[string]interface{}
 	pathMap       map[string]interface{}
+	outfunc       api.OutFunc
+	retryoutfunc  api.OutFunc
+	sinkinfo      sink.Info
+	concurrency   concurrency.Config
 
-	Running bool
+	Running        bool
+	WebhookEnabled bool
 }
 
 func NewPipeline(pipelineConfig *Config) *Pipeline {
 	registerCenter := NewRegisterCenter()
 	return &Pipeline{
-		config: *pipelineConfig,
-		done:   make(chan struct{}),
+		config:       *pipelineConfig,
+		done:         make(chan struct{}),
+		flowPoolDone: make(chan struct{}),
 		info: Info{
 			Stop:        false,
 			R:           registerCenter,
 			SurviveChan: make(chan api.Batch, pipelineConfig.Sink.Parallelism+1),
 		},
-		r: registerCenter,
+		r:           registerCenter,
+		concurrency: pipelineConfig.Sink.Concurrency,
 	}
 }
 
@@ -126,6 +143,7 @@ func (p *Pipeline) stopSinkConsumer() {
 	}
 	// stop sink consumer and survive
 	close(p.done)
+	p.stopGPool()
 	p.countDown.Wait()
 }
 
@@ -278,6 +296,9 @@ func (p *Pipeline) init(pipelineConfig Config) {
 
 	// init event pool
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
+	if p.config.Sink.Type == WebhookSinkType {
+		p.WebhookEnabled = true
+	}
 }
 
 func (p *Pipeline) startInterceptor(interceptorConfigs []*interceptor.Config) error {
@@ -487,42 +508,61 @@ func (p *Pipeline) startSinkConsumer(sinkConfig *sink.Config) {
 		Queue:        p.r.LoadDefaultQueue(),
 		Interceptors: interceptors,
 	}
+	p.sinkinfo = si
 	// combine component default interceptors
 	interceptors = append(interceptors, collectComponentDependencySinkInterceptors(si.Sink)...)
 	interceptors = append(interceptors, collectComponentDependencySinkInterceptors(si.Queue)...)
 
+	p.flowPool = flowdatapool.InitDataPool(100)
+	p.flowPool.SetEnabled(p.concurrency.Enable)
 	invoker := &sink.SubscribeInvoker{}
 	sinkInvokerChain := buildSinkInvokerChain(invoker, interceptors, false)
 	retrySinkInvokerChain := buildSinkInvokerChain(invoker, interceptors, true)
 	outFunc := func(batch api.Batch) api.Result {
 		result := sinkInvokerChain.Invoke(sink.Invocation{
-			Batch: batch,
-			Sink:  si.Sink,
+			Batch:    batch,
+			Sink:     si.Sink,
+			FlowPool: p.flowPool,
 		})
 		return result
 	}
+	p.outfunc = outFunc
 	retryOutFunc := func(batch api.Batch) api.Result {
 		result := retrySinkInvokerChain.Invoke(sink.Invocation{
-			Batch: batch,
-			Sink:  si.Sink,
+			Batch:    batch,
+			Sink:     si.Sink,
+			FlowPool: p.flowPool,
 		})
 		return result
 	}
+	p.retryoutfunc = retryOutFunc
 	for i := 0; i < sinkConfig.Parallelism; i++ {
-		index := i
 		p.retryOutFuncs = append(p.retryOutFuncs, retryOutFunc)
-		go p.sinkInvokeLoop(index, si, outFunc)
 	}
+
+	gpool, _ := ants.NewPool(10)
+	p.gpool = gpool
+
+	concurrencyEnabled := p.concurrency.Enable
+	if concurrencyEnabled {
+		p.gpoolMaxSize = p.concurrency.Goroutine.MaxGoroutine
+		p.tuneGPool(2)
+		p.startGPoolCalculator()
+	} else {
+		p.gpoolMaxSize = sinkConfig.Parallelism
+		p.tuneGPool(sinkConfig.Parallelism)
+	}
+
 }
 
 // outfunc may have been combined, but batch has been released in advance
-func (p *Pipeline) sinkInvokeLoop(index int, info sink.Info, outFunc api.OutFunc) {
+func (p *Pipeline) sinkInvokeLoop(info sink.Info, outFunc api.OutFunc) {
 	p.countDown.Add(1)
 	s := info.Sink
-	log.Info("pipeline sink(%s)-%d invoke loop start", s.String(), index)
+	log.Info("pipeline sink(%s) invoke loop start", s.String())
 	defer func() {
 		p.countDown.Done()
-		log.Info("pipeline sink(%s)-%d invoke loop stop", s.String(), index)
+		log.Info("pipeline sink(%s) invoke loop stop", s.String())
 	}()
 	q := info.Queue
 	outChan := q.OutChan()
@@ -533,8 +573,310 @@ func (p *Pipeline) sinkInvokeLoop(index int, info sink.Info, outFunc api.OutFunc
 		case b := <-outChan:
 			result := outFunc(b)
 			p.afterSinkConsumer(b, result)
+		case <-p.flowPoolDone:
+			return
 		}
 	}
+}
+
+type checkRttFunc func(new, old float64) bool
+
+func (p *Pipeline) startGPoolCalculator() {
+	failedChannel := p.flowPool.GetFailedChannel()
+	var rttD float64
+	var rttT float64
+
+	stable := false
+	targets := make([]int, 0)
+	var averageTarget int
+
+	config := p.concurrency
+	threshold := config.Goroutine.InitThreshold
+	unstableTolerate := config.Goroutine.UnstableTolerate
+	channelLenOfCap := config.Goroutine.ChannelLenOfCap
+
+	var check checkRttFunc
+
+	blockJudgeThreshold := config.Rtt.BlockJudgeThreshold
+	if strings.Contains(blockJudgeThreshold, "%") {
+		float, err := strconv.ParseFloat(blockJudgeThreshold[:len(blockJudgeThreshold)-1], 64)
+		if err != nil {
+			log.Warn("fail to get blockJudgeThreshold, use default: 120%%")
+			float = 120
+		}
+		log.Debug("blockJudgeThreshold: %f%%", float)
+		check = func(v1, v2 float64) bool {
+			log.Debug("v1: %f, v2: %f, blockJudgeThreshold: %f%%", v1, v2, float)
+			return v1/v2 > float/100
+		}
+	} else {
+		float, err := strconv.ParseFloat(blockJudgeThreshold, 64)
+		if err != nil {
+			log.Warn("fail to get blockJudgeThreshold, use default: 2.0 s")
+			float = 2
+		}
+		log.Debug("blockJudgeThreshold %f s", float)
+		float = float * 1000000
+		check = func(v1, v2 float64) bool {
+			log.Debug("v1: %f, v2: %f, blockJudgeThreshold: %f", v1, v2, float)
+			return (v1 - v2) > float
+		}
+	}
+
+	newRttWeigh := config.Rtt.NewRttWeigh
+
+	multiIncreaseRatio := config.Ratio.Multi
+	linearIncreaseRatio := config.Ratio.Linear
+	linearIncreaseRatioSourceBlocked := config.Ratio.LinearWhenBlocked
+
+	unstableDuration := config.Duration.Unstable
+	stableDuration := config.Duration.Stable
+
+	tickDuration := unstableDuration
+
+	decreaseReq := make([]bool, 0)
+	increaseReq := make([]bool, 0)
+
+	q := p.sinkinfo.Queue.OutChan()
+
+	go func() {
+		timer := time.NewTicker(time.Second * time.Duration(tickDuration))
+		defer timer.Stop()
+		for {
+			select {
+			case <-p.done:
+				return
+			case <-failedChannel:
+
+				if !stable {
+					if len(targets) == 15 {
+						var sum int
+						for i := 5; i < 10; i++ {
+							sum += targets[i]
+						}
+						averageTarget = sum / 10
+						stable = true
+						tickDuration = stableDuration
+						timer.Reset(time.Second * time.Duration(tickDuration))
+						log.Info("now stable mode, average target %d", averageTarget)
+					}
+				}
+
+				log.Info("failed response received")
+				allRtt := p.flowPool.DequeueAllRtt()
+				count := len(allRtt)
+				log.Debug("rtt count %d", count)
+
+				if !stable {
+					target := p.gpool.Running() - linearIncreaseRatio
+					threshold = target
+					targets = append(targets, target)
+					p.tuneGPool(target)
+				} else {
+					decreaseReq = append(decreaseReq, true)
+					increaseReq = make([]bool, 0)
+					if len(decreaseReq) >= unstableTolerate {
+						target := p.gpool.Running() - linearIncreaseRatio
+						if target <= averageTarget-linearIncreaseRatio {
+							averageTarget = averageTarget - linearIncreaseRatio
+							target = averageTarget
+						}
+
+						if target < p.gpool.Running() {
+							threshold = target
+							p.tuneGPool(target)
+						}
+
+					} else {
+						log.Info("stable mode decrease req, ignored %d", len(decreaseReq))
+					}
+				}
+
+				if count > 0 {
+					var sum int64
+					for i := 0; i < count; i++ {
+						sum += allRtt[i]
+					}
+					rttD = float64(sum) / float64(count)
+					if rttT != 0 {
+						oldRttT := rttT
+						rttT = newRttWeigh*rttD + (1-newRttWeigh)*rttT
+						log.Debug("old rttT: %f, rttD: %f, new rttT: %f", oldRttT, rttD, rttT)
+					} else {
+						rttT = rttD
+					}
+				}
+
+			case <-timer.C:
+				if !stable {
+					if len(targets) == 15 {
+						var sum int
+						for i := 5; i < 15; i++ {
+							sum += targets[i]
+						}
+						averageTarget = sum / 10
+						stable = true
+						tickDuration = stableDuration
+						timer.Reset(time.Second * time.Duration(tickDuration))
+						log.Info("now stable mode, average target %d", averageTarget)
+					}
+				}
+
+				log.Info("regular gpool resize")
+				allRtt := p.flowPool.DequeueAllRtt()
+				count := len(allRtt)
+				log.Debug("rtt count %d", count)
+				if count > 0 {
+					var sum int64
+					for i := 0; i < count; i++ {
+						sum += allRtt[i]
+					}
+					rttD = float64(sum) / float64(count)
+					if rttT != 0 {
+						if check(rttD, rttT) {
+							log.Info("rtt too long, decrease gpool size ,rrtD %f,rttT %f", rttD, rttT)
+							if !stable {
+								target := p.gpool.Running() - linearIncreaseRatio
+								threshold = target
+								targets = append(targets, target)
+								p.tuneGPool(threshold)
+							} else {
+								decreaseReq = append(decreaseReq, true)
+								increaseReq = make([]bool, 0)
+								if len(decreaseReq) >= unstableTolerate {
+									target := p.gpool.Running() - linearIncreaseRatio
+									if target <= averageTarget-linearIncreaseRatio {
+										averageTarget = averageTarget - linearIncreaseRatio
+										target = averageTarget
+									}
+									if target < p.gpool.Running() {
+										threshold = target
+										p.tuneGPool(target)
+									}
+								} else {
+									log.Info("stable mode decrease req, ignored %d", len(decreaseReq))
+								}
+							}
+
+							oldRttT := rttT
+							rttT = newRttWeigh*rttD + (1-newRttWeigh)*rttT
+							log.Debug("old rttT: %f, rttD: %f, new rttT: %f", oldRttT, rttD, rttT)
+							continue
+						} else {
+							oldRttT := rttT
+							rttT = newRttWeigh*rttD + (1-newRttWeigh)*rttT
+							log.Debug("old rttT: %f, rttD: %f, new rttT: %f", oldRttT, rttD, rttT)
+						}
+					} else {
+						rttT = rttD
+					}
+
+					pool := p.gpool
+					currentPoolCap := pool.Running()
+					var targetCap int
+					if currentPoolCap < threshold {
+						targetCap = currentPoolCap * multiIncreaseRatio
+					} else {
+						currentChannelLen := len(q)
+						currentChannelCap := cap(q)
+						if q == nil {
+							log.Warn("channel is nil")
+						}
+						log.Debug("currentChannelLen: %d, currentChannelCap %d", currentChannelLen, currentChannelCap)
+						if currentChannelLen == currentChannelCap {
+							targetCap = currentPoolCap + linearIncreaseRatioSourceBlocked
+						} else if float64(currentChannelLen) > float64(currentChannelCap)*channelLenOfCap {
+							targetCap = currentPoolCap + linearIncreaseRatio
+						} else {
+							targetCap = currentPoolCap
+						}
+
+						if !stable {
+							log.Info("target append %d", targetCap)
+							targets = append(targets, targetCap)
+						}
+
+					}
+
+					if targetCap > currentPoolCap {
+						if !stable {
+							p.tuneGPool(targetCap)
+						} else {
+							decreaseReq = make([]bool, 0)
+							increaseReq = append(increaseReq, true)
+							if len(increaseReq) >= unstableTolerate {
+								if targetCap >= averageTarget+linearIncreaseRatio {
+									averageTarget = averageTarget + linearIncreaseRatio
+									targetCap = averageTarget
+								}
+								threshold = targetCap
+								p.tuneGPool(targetCap)
+							} else {
+								log.Info("stable mode increase req, ignored %d", len(increaseReq))
+							}
+						}
+					}
+				}
+
+			}
+			sources := p.config.Sources
+			for _, source := range sources {
+				sinkMetricData := eventbus.SinkMetricData{
+					BaseMetric: eventbus.BaseMetric{
+						PipelineName: p.name,
+						SourceName:   source.Name,
+					},
+					GoroutinePoolSize: p.gpool.Cap(),
+				}
+				eventbus.PublishOrDrop(eventbus.SinkMetricTopic, sinkMetricData)
+			}
+		}
+	}()
+
+}
+
+func (p *Pipeline) tuneGPool(targetCap int) {
+
+	if targetCap <= 1 {
+		log.Info("gpool size should be larger than 1")
+		targetCap = 2
+	}
+
+	if targetCap > p.gpoolMaxSize {
+		log.Info("gpool size should be smaller than %d", p.gpoolMaxSize)
+		targetCap = p.gpoolMaxSize
+	}
+
+	pool := p.gpool
+	if pool.IsClosed() {
+		pool.Reboot()
+	}
+	currentPoolRunning := pool.Running()
+	log.Info("currentPoolRunning %d, target %d", currentPoolRunning, targetCap)
+	if targetCap > currentPoolRunning {
+		pool.Tune(targetCap)
+		for i := 0; i < targetCap-currentPoolRunning; i++ {
+			err := pool.Submit(func() {
+				p.sinkInvokeLoop(p.sinkinfo, p.outfunc)
+			})
+			if err != nil {
+				log.Warn(err.Error())
+			}
+		}
+	} else if targetCap < currentPoolRunning {
+		for i := 0; i < currentPoolRunning-targetCap; i++ {
+			p.flowPoolDone <- struct{}{}
+		}
+		pool.Tune(targetCap)
+	}
+}
+
+func (p *Pipeline) stopGPool() {
+	pool := p.gpool
+	close(p.flowPoolDone)
+	pool.Release()
+
+	log.Info("goroutine pool released")
 }
 
 func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor, retry bool) sink.Invoker {
@@ -654,8 +996,9 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []*source.Config) {
 			p.fillEventMetaAndHeader(e, *sourceConfig)
 
 			result := sourceInvokerChain.Invoke(source.Invocation{
-				Event: e,
-				Queue: q,
+				Event:          e,
+				Queue:          q,
+				WebhookEnabled: p.WebhookEnabled,
 			})
 
 			if result.Status() == api.DROP {
@@ -667,6 +1010,7 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []*source.Config) {
 			return result
 		}
 		go si.Source.ProductLoop(productFunc)
+
 	}
 }
 

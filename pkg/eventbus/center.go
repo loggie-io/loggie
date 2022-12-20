@@ -21,6 +21,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/context"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus/export/logger"
+	"sync"
 )
 
 // asyncConsumerSize should always be 1 because concurrency may cause panic
@@ -42,6 +43,20 @@ func RegistrySubscribe(subscribe *Subscribe) {
 	defaultEventCenter.registry(subscribe)
 }
 
+func RegistryTemporary(listenerName string, listenerFactory ListenerFactory, opts ...SubscribeOpt) *Subscribe {
+	subscribe := NewSubscribe(listenerName, listenerFactory, opts...)
+	RegistrySubscribeTemporary(subscribe)
+	return subscribe
+}
+
+func RegistrySubscribeTemporary(subscribe *Subscribe) {
+	defaultEventCenter.registryTemporary(subscribe)
+}
+
+func UnRegistrySubscribeTemporary(subscribe *Subscribe) {
+	defaultEventCenter.unRegistryTemporary(subscribe)
+}
+
 func AfterErrorFunc(errorMsg string) {
 	Publish(ErrorTopic, ErrorMetricData{
 		ErrorMsg: errorMsg,
@@ -54,6 +69,7 @@ type EventCenter struct {
 	activeTopic2Subscribes map[string][]*Subscribe
 	asyncConsumerSize      int
 	eventChan              chan Event
+	lock                   sync.Mutex
 }
 
 func NewEventCenter(bufferSize int64, asyncConsumerSize int) *EventCenter {
@@ -86,6 +102,27 @@ func (ec *EventCenter) registry(subscribe *Subscribe) {
 		log.Panic("listener name(%s) repeat!", subscribe.listenerName)
 	}
 	ec.name2Subscribe[subscribe.listenerName] = subscribe
+
+}
+
+func (ec *EventCenter) registryTemporary(subscribe *Subscribe) {
+	ec.lock.Lock()
+	if _, ok := ec.name2Subscribe[subscribe.listenerName]; ok {
+		log.Info("listener name(%s) repeat! Now replace", subscribe.listenerName)
+	}
+	ec.name2Subscribe[subscribe.listenerName] = subscribe
+	ec.lock.Unlock()
+
+	subscribe.listener = subscribe.factory()
+	ec.activeSubscribe(subscribe)
+}
+
+func (ec *EventCenter) unRegistryTemporary(subscribe *Subscribe) {
+	ec.lock.Lock()
+	delete(ec.name2Subscribe, subscribe.listenerName)
+	ec.lock.Unlock()
+
+	ec.inActiveSubscribe(subscribe)
 }
 
 func (ec *EventCenter) publish(event Event) {
@@ -128,6 +165,7 @@ func (ec *EventCenter) start(config Config) {
 }
 
 func (ec *EventCenter) activeSubscribe(subscribe *Subscribe) {
+	ec.lock.Lock()
 	for _, topic := range subscribe.topics {
 		if subscribes, ok := ec.activeTopic2Subscribes[topic]; ok {
 			ec.activeTopic2Subscribes[topic] = append(subscribes, subscribe)
@@ -137,6 +175,23 @@ func (ec *EventCenter) activeSubscribe(subscribe *Subscribe) {
 			ec.activeTopic2Subscribes[topic] = subscribes
 		}
 	}
+	ec.lock.Unlock()
+}
+
+func (ec *EventCenter) inActiveSubscribe(subscribe *Subscribe) {
+	ec.lock.Lock()
+	for _, topic := range subscribe.topics {
+		if subscribes, ok := ec.activeTopic2Subscribes[topic]; ok {
+			newSubscribes := make([]*Subscribe, 0)
+			for _, s := range subscribes {
+				if s.listenerName != subscribe.listenerName {
+					newSubscribes = append(newSubscribes, s)
+				}
+			}
+			ec.activeTopic2Subscribes[topic] = newSubscribes
+		}
+	}
+	ec.lock.Unlock()
 }
 
 func (ec *EventCenter) run() {
@@ -146,7 +201,12 @@ func (ec *EventCenter) run() {
 			return
 		case e := <-ec.eventChan:
 			topic := e.Topic
-			if metas, ok := ec.activeTopic2Subscribes[topic]; ok {
+
+			ec.lock.Lock()
+			metas, ok := ec.activeTopic2Subscribes[topic]
+			ec.lock.Unlock()
+
+			if ok {
 				for _, subscribe := range metas {
 					subscribe.listener.Subscribe(e)
 				}

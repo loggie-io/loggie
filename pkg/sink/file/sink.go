@@ -21,15 +21,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/loggie-io/loggie/pkg/util/pattern"
-
-	"github.com/loggie-io/loggie/pkg/util/consistent"
-
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/util/consistent"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 )
 
@@ -148,6 +146,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		log.Error("write to file error: %v", err)
 		return result.Fail(err)
 	}
+
 	return result.Success()
 }
 

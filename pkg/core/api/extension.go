@@ -19,3 +19,12 @@ package api
 type ExtensionComponent interface {
 	DependencyInterceptors() []Interceptor
 }
+
+type FlowDataPool interface {
+	EnqueueRTT(f int64)
+	DequeueAllRtt() []int64
+	PutFailedResult(result Result)
+	GetFailedChannel() chan Result
+	IsEnabled() bool
+	SetEnabled(enabled bool)
+}

@@ -136,6 +136,26 @@ func (de *DefaultEvent) String() string {
 	return sb.String()
 }
 
+func (de *DefaultEvent) DeepCopy() api.Event {
+	var e api.Event
+	var meta api.Meta
+	header := make(map[string]interface{})
+	for k, v := range de.Header() {
+		header[k] = v
+	}
+	meta = NewDefaultMeta()
+	for k, v := range de.Meta().GetAll() {
+		meta.Set(k, v)
+	}
+
+	body := make([]byte, len(de.Body()))
+	copy(body, de.Body())
+
+	e = NewEvent(header, nil)
+	e.Fill(meta, header, body)
+	return e
+}
+
 type Factory func() api.Event
 
 type Pool struct {

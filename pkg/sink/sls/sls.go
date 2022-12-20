@@ -18,6 +18,8 @@ package sls
 
 import (
 	"fmt"
+	"time"
+
 	sls "github.com/aliyun/aliyun-log-go-sdk"
 	"github.com/gogo/protobuf/proto"
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -28,7 +30,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/pkg/errors"
-	"time"
 )
 
 const Type = "sls"

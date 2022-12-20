@@ -18,7 +18,6 @@ package dev
 
 import (
 	"fmt"
-
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
@@ -85,7 +84,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	events := batch.Events()
 	l := len(events)
 	if l == 0 {
-		return nil
+		return result.Success()
 	}
 
 	if !s.config.PrintEvents {

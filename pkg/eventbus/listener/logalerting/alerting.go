@@ -17,7 +17,6 @@ limitations under the License.
 package logalerting
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -29,7 +28,7 @@ import (
 const name = "logAlert"
 
 func init() {
-	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.LogAlertTopic))
+	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.LogAlertTopic), eventbus.WithTopic(eventbus.AlertTempTopic))
 }
 
 func makeListener() eventbus.Listener {
@@ -41,10 +40,14 @@ func makeListener() eventbus.Listener {
 }
 
 type Config struct {
-	AlertManagerAddress []string      `yaml:"alertManagerAddress,omitempty" validate:"required"`
-	BufferSize          int           `yaml:"bufferSize,omitempty" default:"100"`
-	BatchTimeout        time.Duration `yaml:"batchTimeout,omitempty" default:"10s"`
-	BatchSize           int           `yaml:"batchSize,omitempty" default:"10"`
+	Addr         []string          `yaml:"addr,omitempty" validate:"required"`
+	BufferSize   int               `yaml:"bufferSize,omitempty" default:"100"`
+	BatchTimeout time.Duration     `yaml:"batchTimeout,omitempty" default:"10s"`
+	BatchSize    int               `yaml:"batchSize,omitempty" default:"10"`
+	Template     *string           `yaml:"template,omitempty"`
+	Timeout      int               `yaml:"timeout,omitempty" default:"30"`
+	Headers      map[string]string `yaml:"headers,omitempty"`
+	LineLimit    int               `yaml:"lineLimit,omitempty" default:"10"`
 }
 
 type Listener struct {
@@ -74,11 +77,7 @@ func (l *Listener) Start() error {
 	l.bufferChan = make(chan *eventbus.Event, l.config.BufferSize)
 	l.SendBatch = make([]*eventbus.Event, 0)
 
-	var alertUrl []string
-	for _, addr := range l.config.AlertManagerAddress {
-		alertUrl = append(alertUrl, fmt.Sprintf("%s/api/v2/alerts", addr))
-	}
-	l.alertCli = alertmanager.NewAlertManager(alertUrl)
+	l.alertCli = alertmanager.NewAlertManager(l.config.Addr, l.config.Timeout, l.config.LineLimit, l.config.Template, l.config.Headers)
 
 	log.Info("starting logAlert listener")
 	go l.run()
@@ -112,6 +111,15 @@ func (l *Listener) run() {
 }
 
 func (l *Listener) process(event *eventbus.Event) {
+	log.Debug("process event %s", event)
+	if event.Topic == eventbus.AlertTempTopic {
+		s, ok := event.Data.(string)
+		if ok {
+			l.alertCli.UpdateTemp(s)
+		}
+
+	}
+
 	l.SendBatch = append(l.SendBatch, event)
 
 	if len(l.SendBatch) >= l.config.BatchSize {
@@ -124,25 +132,10 @@ func (l *Listener) flush() {
 		return
 	}
 
-	var alerts []*alertmanager.AlertEvent
-	for _, e := range l.SendBatch {
-		if e.Data == nil {
-			continue
-		}
-		data, ok := e.Data.(*eventbus.LogAlertData)
-		if !ok {
-			return
-		}
+	events := make([]*eventbus.Event, len(l.SendBatch))
+	copy(events, l.SendBatch)
+	l.alertCli.SendAlert(events)
 
-		alert := alertmanager.AlertEvent{
-			StartsAt:    time.Now(),
-			Labels:      data.Labels,
-			Annotations: data.Annotations,
-		}
-
-		alerts = append(alerts, &alert)
-	}
 	l.SendBatch = l.SendBatch[:0]
 
-	l.alertCli.SendAlert(alerts)
 }

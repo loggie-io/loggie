@@ -1,0 +1,84 @@
+# example for logalert in webhook
+pipelines:
+  - name: local
+    sources:
+      - type: file
+        name: demo
+        paths:
+          - /Users/user/Downloads/test/temp.txt
+        fields:
+          topic: "loggie"
+        addonMeta: true
+        multi:
+          active: true
+          pattern: '^(\d{4})-(\d{2})-(\d{2})'
+          maxLines: 100
+    interceptors:
+      - type: logAlert
+        matcher:
+          contains: ["error","ERROR"]
+          regexp: ['.*WARN.*']
+        ignore: ['.*INFO.*']
+        additions:
+          module: "loggie-alert"
+          alertname: "zzy-alert-test"
+          cluster: "local-cluster"
+        advanced:
+          enable: true
+          mode: [ "noData","regexp" ]
+          duration: 20
+          matchType: "any"
+          rules:
+            - regexp: '(?<date>.*?) (?<time>[\S|\\.]+)  (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>(.|\n|\t)*)'
+              matchType: "any"
+              groups:
+                - key: status
+                  operator: "eq"
+                  value: WARN
+                - key: status
+                  operator: "eq"
+                  value: ERROR
+            - regexp: '(?<date>.*?) (?<time>[\S|\\.]+) (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>(.|\n|\t)*)'
+              matchType: "any"
+              groups:
+                - key: status
+                  operator: "eq"
+                  value: ERROR
+
+    sink:
+      type: webhook
+      addr: http://localhost:8080/loggie
+      headers:
+        api: test1
+      template: |
+        {
+        "alerts":
+        [
+        {{$first := true}}
+        {{range .Alerts}}
+        {{if $first}}{{$first = false}}{{else}},{{end}}
+        {
+              "labels": {
+                "topic": "{{._meta.pipelineName}}"
+              },
+              "annotations": {
+                "message": "新的报错：\nbody:\n{{range .body}}{{.}}\n{{end}}\ncontainerid: {{._meta.pipelineName}}\nsource: {{._meta.sourceName}}\ncontainername: {{.fields.containername}}\nlogconfig: {{.fields.logconfig}}\nname: {{.fields.name}}\nnamespace: {{.fields.namespace}}\nnodename: {{.fields.nodename}}\npodname: {{.fields.podname}}\nfilename: {{.state.filename}}",
+                "reason": "{{.reason}}"
+              },
+              "startsAt": "{{._meta.timestamp}}",
+              "endsAt": "{{._meta.timestamp}}"
+        }
+        {{end}}
+        ],
+        {{$first := true}}
+        {{range .Alerts}}
+        {{if $first}}{{$first = false}}{{else}}
+        "commonLabels": {
+        "namespace": "{{._additions.namespace}}",
+        "module": "{{._additions.module}}",
+        "alertname": "{{._additions.alertname}}",
+        "cluster": "{{._additions.cluster}}"
+        }
+        {{end}}
+        {{end}}
+        }
