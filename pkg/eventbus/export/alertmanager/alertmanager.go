@@ -21,23 +21,51 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"sync"
+	"text/template"
 	"time"
 
+	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/sink/webhook"
 )
 
 type AlertManager struct {
 	Address []string
 
-	Client http.Client
+	Client    http.Client
+	temp      *template.Template
+	bp        *BufferPool
+	headers   map[string]string
+	LineLimit int
+
+	lock sync.Mutex
 }
 
-func NewAlertManager(addr []string) *AlertManager {
-	cli := http.Client{}
-	return &AlertManager{
-		Address: addr,
-		Client:  cli,
+type ResetTempEvent struct {
+}
+
+func NewAlertManager(addr []string, timeout, lineLimit int, temp *string, headers map[string]string) *AlertManager {
+	cli := http.Client{
+		Timeout: time.Duration(timeout) * time.Second,
 	}
+	manager := &AlertManager{
+		Address:   addr,
+		Client:    cli,
+		headers:   headers,
+		bp:        newBufferPool(1024),
+		LineLimit: lineLimit,
+	}
+
+	if temp != nil {
+		t, err := template.New("test").Parse(*temp)
+		if err != nil {
+			log.Error("fail to generate temp %s", *temp)
+		}
+		manager.temp = t
+	}
+	return manager
 }
 
 type AlertEvent struct {
@@ -47,23 +75,72 @@ type AlertEvent struct {
 	Annotations map[string]string `json:"Annotations,omitempty"`
 }
 
-func (a *AlertManager) SendAlert(alert []*AlertEvent) {
+func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 
-	out, err := json.Marshal(alert)
-	if err != nil {
-		log.Warn("marshal alert events error: %v", err)
-		return
+	var alerts []*webhook.Alert
+	for _, e := range events {
+
+		if e.Data == nil {
+			continue
+		}
+
+		data, ok := e.Data.(*api.Event)
+		if !ok {
+			log.Info("fail to convert data to event")
+			return
+		}
+
+		alert := webhook.NewAlert(*data, a.LineLimit)
+
+		alerts = append(alerts, &alert)
 	}
 
+	alertCenterObj := map[string]interface{}{
+		"Alerts": alerts,
+	}
+
+	var request []byte
+
+	a.lock.Lock()
+	if a.temp != nil {
+		buffer := a.bp.Get()
+		defer a.bp.Put(buffer)
+		err := a.temp.Execute(buffer, alertCenterObj)
+		if err != nil {
+			log.Warn(err.Error())
+			return
+		}
+		request = bytes.Trim(buffer.Bytes(), "\x00")
+	} else {
+		out, err := json.Marshal(alertCenterObj)
+		if err != nil {
+			log.Warn(err.Error())
+			return
+		}
+		request = out
+	}
+	a.lock.Unlock()
+
 	for _, address := range a.Address { // send alerts to alertManager cluster, no need to retry
-		a.send(address, out)
+		a.send(address, request)
 	}
 }
 
 func (a *AlertManager) send(address string, alert []byte) {
-	resp, err := a.Client.Post(address, "application/json", bytes.NewReader(alert))
+	req, err := http.NewRequest("POST", address, bytes.NewReader(alert))
 	if err != nil {
-		log.Warn("post alert to AlertManager error: %v", err)
+		log.Warn("post alert error: %v", err)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if len(a.headers) > 0 {
+		for k, v := range a.headers {
+			req.Header.Set(k, v)
+		}
+	}
+	resp, err := a.Client.Do(req)
+	if err != nil {
+		log.Warn("post alert error: %v", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -73,7 +150,15 @@ func (a *AlertManager) send(address string, alert []byte) {
 		if err != nil {
 			log.Warn("read response body error: %v", err)
 		}
-		log.Warn("post alert to AlertManager failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))
+		log.Warn("post alert failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))
 	}
-	log.Debug("send alerts %s to AlertManager success", string(alert))
+	log.Debug("send alerts %s success", string(alert))
+}
+
+func (a *AlertManager) UpdateTemp(temp string) {
+	t, err := template.New("test").Parse(temp)
+	if err != nil {
+		log.Error("fail to generate temp %s", temp)
+	}
+	a.temp = t
 }

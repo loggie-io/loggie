@@ -22,8 +22,9 @@ import (
 )
 
 type Invocation struct {
-	Event api.Event
-	Queue api.Queue
+	Event          api.Event
+	Queue          api.Queue
+	WebhookEnabled bool
 }
 
 type Invoker interface {

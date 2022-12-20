@@ -1,0 +1,83 @@
+# example for logalert in interceptor
+loggie:
+  reload:
+    enabled: true
+    period: 10s
+
+  monitor:
+    logger:
+      period: 30s
+      enabled: true
+    listeners:
+      logAlert:
+        addr: [ "http://127.0.0.1:8080/loggie" ]
+        bufferSize: 100
+        batchTimeout: 10s
+        batchSize: 1
+        lineLimit: 10
+        template: |
+          {
+                  "alerts":
+                        [
+                        {{$first := true}}
+                        {{range .Alerts}}
+                        {{if $first}}{{$first = false}}{{else}},{{end}}
+                        {
+                              "labels": {
+                                "topic": "{{.fields.topic}}"
+                              },
+                              "annotations": {
+                                "message": "\nNew alert: \nbody:\n{{range .body}}{{.}}\n{{end}}\ncontainerid: {{._meta.pipelineName}}\nsource: {{._meta.sourceName}}\ncontainername: {{.fields.containername}}\nlogconfig: {{.fields.logconfig}}\nname: {{.fields.name}}\nnamespace: {{.fields.namespace}}\nnodename: {{.fields.nodename}}\npodname: {{.fields.podname}}\nfilename: {{.state.filename}}\n",
+                                "reason": "{{.reason}}"
+                              },
+                              "startsAt": "{{._meta.timestamp}}",
+                              "endsAt": "{{._meta.timestamp}}"
+                        }
+                        {{end}}
+                        ],
+                        {{$first := true}}
+                        {{range .Alerts}}
+                        {{if $first}}{{$first = false}}{{else}}
+                        "commonLabels": {
+                          "namespace": "{{._additions.namespace}}",
+                          "module": "{{._additions.module}}",
+                          "alertname": "{{._additions.alertname}}",
+                          "cluster": "{{._additions.cluster}}"
+                        }
+                        {{end}}
+                        {{end}}
+          }
+      filesource: ~
+      filewatcher: ~
+      reload: ~
+      sink: ~
+      queue: ~
+      pipeline: ~
+      normalize: ~
+
+  discovery:
+    enabled: false
+    kubernetes:
+      containerRuntime: containerd
+      kubeconfig: ~/.kube/config
+      typePodFields:
+        namespace: "${_k8s.pod.namespace}"
+        podname: "${_k8s.pod.name}"
+        containername: "${_k8s.pod.container.name}"
+        nodename: "${_k8s.node.name}"
+        logconfig: "${_k8s.logconfig}"
+
+  defaults:
+    sink:
+      type: dev
+      printEvents: false
+      codec:
+        type: json
+        pretty: true
+    sources:
+      - type: file
+        watcher:
+          cleanFiles:
+            maxHistory: 1
+  http:
+    enabled: true
