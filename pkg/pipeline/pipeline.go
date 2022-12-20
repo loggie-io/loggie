@@ -45,6 +45,7 @@ const (
 	FieldsUnderKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
 
 	fieldsFromPathMaxBytes = 1024
+	WebhookSinkType        = "webhook"
 )
 
 var (
@@ -279,7 +280,7 @@ func (p *Pipeline) init(pipelineConfig Config) {
 
 	// init event pool
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
-	if p.config.Sink.Type == "webhook" {
+	if p.config.Sink.Type == WebhookSinkType {
 		p.WebhookEnabled = true
 	}
 }

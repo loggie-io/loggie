@@ -170,29 +170,27 @@ func (i *Interceptor) runTicker() {
 			case <-i.ticker.C:
 				log.Info("long time no message!")
 
-				go func() {
-					header := make(map[string]interface{})
+				header := make(map[string]interface{})
 
-					var e api.Event
-					var meta api.Meta
-					meta = event.NewDefaultMeta()
+				var e api.Event
+				var meta api.Meta
+				meta = event.NewDefaultMeta()
 
-					meta.Set(event.SystemProductTimeKey, time.Now())
-					if len(i.pipelineName) > 0 {
-						meta.Set(event.SystemPipelineKey, i.pipelineName)
-					}
+				meta.Set(event.SystemProductTimeKey, time.Now())
+				if len(i.pipelineName) > 0 {
+					meta.Set(event.SystemPipelineKey, i.pipelineName)
+				}
 
-					e = event.NewEvent(header, []byte("long time no message!"))
-					e.Header()["reason"] = NoDataKey
-					if len(i.config.Additions) > 0 {
-						e.Header()["_additions"] = i.config.Additions
-					}
-					e.Fill(meta, header, e.Body())
+				e = event.NewEvent(header, []byte("long time no message!"))
+				e.Header()["reason"] = NoDataKey
+				if len(i.config.Additions) > 0 {
+					e.Header()["_additions"] = i.config.Additions
+				}
+				e.Fill(meta, header, e.Body())
 
-					eventbus.PublishOrDrop(eventbus.LogAlertTopic, &e)
+				eventbus.PublishOrDrop(eventbus.LogAlertTopic, &e)
 
-					eventbus.Publish(eventbus.WebhookTopic, &e)
-				}()
+				eventbus.PublishOrDrop(eventbus.WebhookTopic, &e)
 
 			case <-i.eventFlag:
 				i.ticker.Reset(time.Duration(duration) * time.Second)

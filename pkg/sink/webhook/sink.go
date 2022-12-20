@@ -35,7 +35,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 )
 
-const Type = "webhook"
+const Type = pipeline.WebhookSinkType
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)
