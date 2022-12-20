@@ -25,17 +25,6 @@ import (
 )
 
 type Logger struct {
-	//// Level returns the log level to log at.
-	////
-	//// Implementations can change their log level on the fly, but this
-	//// function must be safe to call concurrently.
-	//Level() kgo.LogLevel
-	//
-	//// Log logs a message with key, value pair arguments for the given log
-	//// level. Keys are always strings, while values can be any type.
-	////
-	//// This must be safe to call concurrently.
-	//Log(level LogLevel, msg string, keyvals ...interface{})
 }
 
 func (*Logger) Level() kgo.LogLevel {
