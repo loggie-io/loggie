@@ -18,7 +18,6 @@ package file
 
 import (
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
 	"os"
 	"path/filepath"
 	"sync"
@@ -26,8 +25,10 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
 const (
@@ -57,12 +58,12 @@ type Watcher struct {
 	zombieJobs             map[string]*Job // key:`pipelineName:sourceName:job.Uid`|value:*job
 	currentOpenFds         int
 	zombieJobChan          chan *Job
-	dbHandler              *dbHandler
+	dbHandler              *persistence.DbHandler
 	countDown              *sync.WaitGroup
 	stopOnce               *sync.Once
 }
 
-func newWatcher(config WatchConfig, dbHandler *dbHandler) *Watcher {
+func newWatcher(config WatchConfig, dbHandler *persistence.DbHandler) *Watcher {
 	w := &Watcher{
 		done:                   make(chan struct{}),
 		config:                 config,
@@ -124,21 +125,21 @@ func (w *Watcher) StartWatchTask(watchTask *WatchTask) {
 }
 
 func (w *Watcher) preAllocationOffset(size int64, job *Job) {
-	w.dbHandler.HandleOpt(DbOpt{
-		r: registry{
+	w.dbHandler.HandleOpt(persistence.DbOpt{
+		R: persistence.Registry{
 			PipelineName: job.task.pipelineName,
 			SourceName:   job.task.sourceName,
 			Filename:     job.filename,
 			JobUid:       job.Uid(),
 			Offset:       size,
 		},
-		optType:     UpsertOffsetByJobWatchIdOpt,
-		immediately: true,
+		OptType:     persistence.UpsertOffsetByJobWatchIdOpt,
+		Immediately: true,
 	})
 }
 
-func (w *Watcher) findExistJobRegistry(job *Job) registry {
-	return w.dbHandler.findBy(job.Uid(), job.task.sourceName, job.task.pipelineName)
+func (w *Watcher) findExistJobRegistry(job *Job) persistence.Registry {
+	return w.dbHandler.FindBy(job.Uid(), job.task.sourceName, job.task.pipelineName)
 }
 
 func (w *Watcher) initOsWatcher() {
@@ -329,17 +330,17 @@ func (w *Watcher) cleanWatchTaskRegistry(watchTask *WatchTask) {
 	if !w.config.CleanWhenRemoved {
 		return
 	}
-	registries := w.dbHandler.findAll()
+	registries := w.dbHandler.FindAll()
 	for _, r := range registries {
 		if r.PipelineName == watchTask.pipelineName && r.SourceName == watchTask.sourceName {
 			// file remove?
 			_, err := os.Stat(r.Filename)
 			if err != nil && os.IsNotExist(err) {
 				// delete registry
-				w.dbHandler.HandleOpt(DbOpt{
-					r:           r,
-					optType:     DeleteByIdOpt,
-					immediately: true,
+				w.dbHandler.HandleOpt(persistence.DbOpt{
+					R:           r,
+					OptType:     persistence.DeleteByIdOpt,
+					Immediately: true,
 				})
 			}
 		}
@@ -1031,17 +1032,17 @@ func (w *Watcher) handleRenameJobs(jobs ...*Job) {
 	}
 	for _, job := range jobs {
 		jt := job
-		r := registry{
+		r := persistence.Registry{
 			PipelineName: jt.task.pipelineName,
 			SourceName:   jt.task.sourceName,
 			Filename:     jt.filename,
 			JobUid:       jt.Uid(),
 		}
 		log.Info("try to rename job: %s", job.filename)
-		w.dbHandler.HandleOpt(DbOpt{
-			r:           r,
-			optType:     UpdateNameByJobWatchIdOpt,
-			immediately: false,
+		w.dbHandler.HandleOpt(persistence.DbOpt{
+			R:           r,
+			OptType:     persistence.UpdateNameByJobWatchIdOpt,
+			Immediately: false,
 		})
 		job.cleanRename()
 	}
@@ -1057,17 +1058,17 @@ func (w *Watcher) handleRemoveJobs(jobs ...*Job) {
 	}
 	for _, j := range jobs {
 		jt := j
-		r := registry{
+		r := persistence.Registry{
 			PipelineName: jt.task.pipelineName,
 			SourceName:   jt.task.sourceName,
 			JobUid:       jt.Uid(),
 			Filename:     jt.filename,
 		}
-		log.Info("try to delete registry(%+v) because CleanWhenRemoved. deleteTime: %s", r, jt.deleteTime.Load().(time.Time).Format(timeFormatPattern))
-		w.dbHandler.HandleOpt(DbOpt{
-			r:           r,
-			optType:     DeleteByJobUidOpt,
-			immediately: false,
+		log.Info("try to delete registry(%+v) because CleanWhenRemoved. deleteTime: %s", r, jt.deleteTime.Load().(time.Time).Format(persistence.TimeFormatPattern))
+		w.dbHandler.HandleOpt(persistence.DbOpt{
+			R:           r,
+			OptType:     persistence.DeleteByJobUidOpt,
+			Immediately: false,
 		})
 	}
 }

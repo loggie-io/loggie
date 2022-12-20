@@ -24,6 +24,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
 const (
@@ -68,7 +69,7 @@ func (at *AckTask) isParentOf(chain *JobAckChain) bool {
 	return at.PipelineName == chain.PipelineName && at.SourceName == chain.SourceName
 }
 
-func (at *AckTask) isContain(s *State) bool {
+func (at *AckTask) isContain(s *persistence.State) bool {
 	return at.SourceName == s.SourceName && at.Epoch.Equal(s.Epoch)
 }
 
@@ -76,17 +77,17 @@ func (at *AckTask) NewAckChain(jobWatchUid string) *JobAckChain {
 	return newJobAckChain(at.Epoch, at.PipelineName, at.SourceName, jobWatchUid, at.persistenceFunc)
 }
 
-type persistenceFunc func(state *State)
+type persistenceFunc func(state *persistence.State)
 
 type ack struct {
 	next  *ack
 	first bool
 	done  bool
-	state *State
+	state *persistence.State
 	start time.Time
 }
 
-func NewAckWith(state *State) *ack {
+func NewAckWith(state *persistence.State) *ack {
 	ack := newAck()
 	ack.state = state
 	ack.start = time.Now()
@@ -94,19 +95,19 @@ func NewAckWith(state *State) *ack {
 }
 
 func (a *ack) ChainKey() string {
-	return a.state.WatchUid()
+	return a.state.WatchUid
 }
 
 func (a *ack) Key() string {
 	return a.state.EventUid
 }
 
-func getState(e api.Event) *State {
+func getState(e api.Event) *persistence.State {
 	if e == nil {
 		panic("event is nil")
 	}
 	state, _ := e.Meta().Get(SystemStateKey)
-	return state.(*State)
+	return state.(*persistence.State)
 }
 
 var ackPool = sync.Pool{
@@ -164,7 +165,7 @@ func (ac *JobAckChain) Key() string {
 	return ac.JobWatchUid
 }
 
-func (ac *JobAckChain) Append(s *State) {
+func (ac *JobAckChain) Append(s *persistence.State) {
 	if !ac.Epoch.Equal(s.Epoch) {
 		log.Warn("state(%+v) epoch not equal ack chain: state.Epoch(%+v) vs chain.Epoch(%+v)", s, s.Epoch, ac.Epoch)
 		return
@@ -188,11 +189,11 @@ func (ac *JobAckChain) Append(s *State) {
 	// Check whether the chain is too long
 	l := len(ac.allAck)
 	if l > largeAckSize {
-		log.Error("JobAckChain is too long(%d). head(%s) fileName: %s", l, ac.tail.state.WatchUid(), ac.tail.state.Filename)
+		log.Error("JobAckChain is too long(%d). head(%s) fileName: %s", l, ac.tail.state.WatchUid, ac.tail.state.Filename)
 	}
 }
 
-func (ac *JobAckChain) Ack(s *State) {
+func (ac *JobAckChain) Ack(s *persistence.State) {
 	if !ac.Epoch.Equal(s.Epoch) {
 		log.Warn("state(%+v) epoch not equal ack chain: state.Epoch(%+v) vs chain.Epoch(%+v)", s, s.Epoch, ac.Epoch)
 		return
@@ -247,8 +248,8 @@ type AckChainHandler struct {
 	ackConfig        AckConfig
 	sinkCount        int
 	jobAckChains     map[string]*JobAckChain
-	appendChan       chan []*State
-	ackChan          chan []*State
+	appendChan       chan []*persistence.State
+	ackChan          chan []*persistence.State
 	countDown        *sync.WaitGroup
 	ackTasks         map[string]*AckTask
 	ackTaskEventChan chan AckTaskEvent
@@ -260,8 +261,8 @@ func NewAckChainHandler(sinkCount int, ackConfig AckConfig) *AckChainHandler {
 		ackConfig:        ackConfig,
 		sinkCount:        sinkCount,
 		jobAckChains:     make(map[string]*JobAckChain),
-		appendChan:       make(chan []*State),
-		ackChan:          make(chan []*State, sinkCount),
+		appendChan:       make(chan []*persistence.State),
+		ackChan:          make(chan []*persistence.State, sinkCount),
 		countDown:        &sync.WaitGroup{},
 		ackTasks:         make(map[string]*AckTask),
 		ackTaskEventChan: make(chan AckTaskEvent),
@@ -327,7 +328,7 @@ func (ach *AckChainHandler) run() {
 			}
 		case ss := <-ach.appendChan:
 			for _, s := range ss {
-				jobWatchUid := s.WatchUid()
+				jobWatchUid := s.WatchUid
 				if chain, ok := ach.jobAckChains[jobWatchUid]; ok {
 					chain.Append(s)
 				} else {
@@ -349,7 +350,7 @@ func (ach *AckChainHandler) run() {
 			}
 		case ss := <-ach.ackChan:
 			for _, s := range ss {
-				jobWatchUid := s.WatchUid()
+				jobWatchUid := s.WatchUid
 				if chain, ok := ach.jobAckChains[jobWatchUid]; ok {
 					chain.Ack(s)
 				} else {

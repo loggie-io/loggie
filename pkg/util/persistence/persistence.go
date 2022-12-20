@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package file
+package persistence
 
 import (
 	"database/sql"
@@ -31,7 +31,7 @@ import (
 
 const (
 	driver            = "sqlite3"
-	timeFormatPattern = "2006-01-02 15:04:05.999"
+	TimeFormatPattern = "2006-01-02 15:04:05.999"
 	createTable       = `
 	CREATE TABLE IF NOT EXISTS registry (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,7 +58,7 @@ const (
 	UpdateNameByJobWatchIdOpt   = DbOptType(4)
 )
 
-type registry struct {
+type Registry struct {
 	Id           int    `json:"id"`
 	PipelineName string `json:"pipelineName"`
 	SourceName   string `json:"sourceName"`
@@ -77,26 +77,26 @@ type compressStatPair struct {
 type DbOptType int
 
 type DbOpt struct {
-	r           registry
-	optType     DbOptType
-	immediately bool
+	R           Registry
+	OptType     DbOptType
+	Immediately bool
 }
 
-type dbHandler struct {
+type DbHandler struct {
 	done      chan struct{}
 	config    DbConfig
-	state     chan *State
+	State     chan *State
 	db        *sql.DB
 	dbFile    string
 	countDown sync.WaitGroup
 	optChan   chan DbOpt
 }
 
-func newDbHandler(config DbConfig) *dbHandler {
-	d := &dbHandler{
+func NewDbHandler(config DbConfig) *DbHandler {
+	d := &DbHandler{
 		done:    make(chan struct{}),
 		config:  config,
-		state:   make(chan *State, config.BufferSize),
+		State:   make(chan *State, config.BufferSize),
 		optChan: make(chan DbOpt),
 	}
 	dbFile := d.createDbFile()
@@ -112,7 +112,7 @@ func newDbHandler(config DbConfig) *dbHandler {
 	return d
 }
 
-func (d *dbHandler) createDbFile() (dbFile string) {
+func (d *DbHandler) createDbFile() (dbFile string) {
 	file := d.config.File
 	dbFile, err := filepath.Abs(file)
 	if err != nil {
@@ -135,7 +135,7 @@ func (d *dbHandler) createDbFile() (dbFile string) {
 	return dbFile
 }
 
-func (d *dbHandler) check() {
+func (d *DbHandler) check() {
 	_, err := d.db.Exec(createTable)
 	if err != nil {
 		_ = d.db.Close()
@@ -143,11 +143,11 @@ func (d *dbHandler) check() {
 	}
 }
 
-func (d *dbHandler) String() string {
+func (d *DbHandler) String() string {
 	return fmt.Sprintf("db-handler(file:%s)", d.dbFile)
 }
 
-func (d *dbHandler) Stop() {
+func (d *DbHandler) Stop() {
 	close(d.done)
 	if d.db != nil {
 		err := d.db.Close()
@@ -158,11 +158,11 @@ func (d *dbHandler) Stop() {
 	d.countDown.Wait()
 }
 
-func (d *dbHandler) HandleOpt(opt DbOpt) {
+func (d *DbHandler) HandleOpt(opt DbOpt) {
 	d.optChan <- opt
 }
 
-func (d *dbHandler) run() {
+func (d *DbHandler) run() {
 	log.Info("registry db start")
 	d.countDown.Add(1)
 	var (
@@ -191,13 +191,13 @@ func (d *dbHandler) run() {
 		select {
 		case <-d.done:
 			return
-		case s := <-d.state:
+		case s := <-d.State:
 			buffer = append(buffer, s)
 			if len(buffer) >= bufferSize {
 				flush()
 			}
 		case o := <-d.optChan:
-			if o.immediately {
+			if o.Immediately {
 				d.processOpt([]DbOpt{o})
 			} else {
 				optBuffer = append(optBuffer, o)
@@ -218,8 +218,8 @@ func (d *dbHandler) run() {
 	}
 }
 
-func (d *dbHandler) cleanData() {
-	registries := d.findAll()
+func (d *DbHandler) cleanData() {
+	registries := d.FindAll()
 	for _, r := range registries {
 		collectTime := r.CollectTime
 		if collectTime == "" {
@@ -233,7 +233,7 @@ func (d *dbHandler) cleanData() {
 	}
 }
 
-func (d *dbHandler) delete(r registry) {
+func (d *DbHandler) delete(r Registry) {
 	d.txWrapper(deleteById, func(stmt *sql.Stmt) {
 		_, err := stmt.Exec(r.Id)
 		if err != nil {
@@ -244,7 +244,7 @@ func (d *dbHandler) delete(r registry) {
 }
 
 // only one thread invoke,without lock
-func (d *dbHandler) write(stats []*State) {
+func (d *DbHandler) write(stats []*State) {
 	// start := time.Now()
 	// defer func() {
 	//	cost := time.Since(start).Milliseconds()
@@ -253,9 +253,9 @@ func (d *dbHandler) write(stats []*State) {
 
 	css := compressStats(stats)
 
-	registries := d.findAll()
-	insertRegistries := make([]registry, 0)
-	updateRegistries := make([]registry, 0)
+	registries := d.FindAll()
+	insertRegistries := make([]Registry, 0)
+	updateRegistries := make([]Registry, 0)
 
 	for _, cs := range css {
 		stat := cs.last
@@ -278,8 +278,8 @@ func (d *dbHandler) write(stats []*State) {
 	}
 }
 
-func (d *dbHandler) state2Registry(stat *State) registry {
-	return registry{
+func (d *DbHandler) state2Registry(stat *State) Registry {
+	return Registry{
 		PipelineName: stat.PipelineName,
 		SourceName:   stat.SourceName,
 		Filename:     stat.Filename,
@@ -290,7 +290,7 @@ func (d *dbHandler) state2Registry(stat *State) registry {
 	}
 }
 
-func (d *dbHandler) insertRegistry(registries []registry) {
+func (d *DbHandler) insertRegistry(registries []Registry) {
 	d.txWrapper(insertSql, func(stmt *sql.Stmt) {
 		for _, r := range registries {
 			_, err := stmt.Exec(r.PipelineName, r.SourceName, r.Filename, r.JobUid, r.Offset, r.CollectTime, r.Version)
@@ -301,7 +301,7 @@ func (d *dbHandler) insertRegistry(registries []registry) {
 	})
 }
 
-func (d *dbHandler) updateRegistry(registries []registry) {
+func (d *DbHandler) updateRegistry(registries []Registry) {
 	d.txWrapper(updateSql, func(stmt *sql.Stmt) {
 		for _, r := range registries {
 			_, err := stmt.Exec(r.Offset, r.CollectTime, r.Id)
@@ -312,7 +312,7 @@ func (d *dbHandler) updateRegistry(registries []registry) {
 	})
 }
 
-func (d *dbHandler) updateName(rs []registry) {
+func (d *DbHandler) updateName(rs []Registry) {
 	d.txWrapper(updateNameByJobWatchId, func(stmt *sql.Stmt) {
 		for _, r := range rs {
 			result, err := stmt.Exec(r.Filename, r.JobUid, r.SourceName, r.PipelineName)
@@ -330,7 +330,7 @@ func (d *dbHandler) updateName(rs []registry) {
 	})
 }
 
-func (d *dbHandler) deleteRemoved(rs []registry) {
+func (d *DbHandler) deleteRemoved(rs []Registry) {
 	d.txWrapper(deleteByJobWatchId, func(stmt *sql.Stmt) {
 		for _, r := range rs {
 			result, err := stmt.Exec(r.JobUid, r.SourceName, r.PipelineName)
@@ -348,12 +348,12 @@ func (d *dbHandler) deleteRemoved(rs []registry) {
 	})
 }
 
-func (d *dbHandler) upsertOffsetByJobWatchId(r registry) {
+func (d *DbHandler) upsertOffsetByJobWatchId(r Registry) {
 	r.CollectTime = time2text(time.Now())
 	r.Version = api.VERSION
-	rs := []registry{r}
+	rs := []Registry{r}
 
-	or := d.findBy(r.JobUid, r.SourceName, r.PipelineName)
+	or := d.FindBy(r.JobUid, r.SourceName, r.PipelineName)
 	if or.JobUid != "" {
 		// update
 		r.Id = or.Id
@@ -364,7 +364,7 @@ func (d *dbHandler) upsertOffsetByJobWatchId(r registry) {
 	}
 }
 
-func (d *dbHandler) txWrapper(sqlString string, f func(stmt *sql.Stmt)) {
+func (d *DbHandler) txWrapper(sqlString string, f func(stmt *sql.Stmt)) {
 	tx, err := d.db.Begin()
 	if err != nil {
 		log.Error("%s begin tx fail: %s", d.String(), err)
@@ -381,7 +381,7 @@ func (d *dbHandler) txWrapper(sqlString string, f func(stmt *sql.Stmt)) {
 	}
 }
 
-func (d *dbHandler) findAll() []registry {
+func (d *DbHandler) FindAll() []Registry {
 	// start := time.Now()
 	// defer func() {
 	//	cost := time.Since(start).Milliseconds()
@@ -390,22 +390,22 @@ func (d *dbHandler) findAll() []registry {
 	return d.findBySql(queryAll)
 }
 
-func (d *dbHandler) findBy(jobUid string, sourceName string, pipelineName string) registry {
+func (d *DbHandler) FindBy(jobUid string, sourceName string, pipelineName string) Registry {
 	querySql := fmt.Sprintf(queryByJobUidAndSourceAndPipeline, jobUid, sourceName, pipelineName)
 	rs := d.findBySql(querySql)
 	if len(rs) == 0 {
-		return registry{}
+		return Registry{}
 	}
 	return rs[0]
 }
 
-func (d *dbHandler) findBySql(querySql string) []registry {
+func (d *DbHandler) findBySql(querySql string) []Registry {
 	rows, err := d.db.Query(querySql)
 	if err != nil {
 		panic(fmt.Sprintf("%s query registry fail: %v", d.String(), err))
 	}
 	defer rows.Close()
-	registries := make([]registry, 0)
+	registries := make([]Registry, 0)
 	for rows.Next() {
 		var (
 			id            int
@@ -421,7 +421,7 @@ func (d *dbHandler) findBySql(querySql string) []registry {
 		if err != nil {
 			panic(fmt.Sprintf("%s query registry fail: %v", d.String(), err))
 		}
-		registries = append(registries, registry{
+		registries = append(registries, Registry{
 			Id:           id,
 			PipelineName: pipeline_name,
 			SourceName:   source_name,
@@ -439,16 +439,16 @@ func (d *dbHandler) findBySql(querySql string) []registry {
 	return registries
 }
 
-func (d *dbHandler) processOpt(optBuffer []DbOpt) {
+func (d *DbHandler) processOpt(optBuffer []DbOpt) {
 	for _, opt := range optBuffer {
-		optType := opt.optType
-		r := opt.r
+		optType := opt.OptType
+		r := opt.R
 		if optType == DeleteByIdOpt {
 			d.delete(r)
 			continue
 		}
 		if optType == DeleteByJobUidOpt {
-			d.deleteRemoved([]registry{r})
+			d.deleteRemoved([]Registry{r})
 			continue
 		}
 		if optType == UpsertOffsetByJobWatchIdOpt {
@@ -456,14 +456,14 @@ func (d *dbHandler) processOpt(optBuffer []DbOpt) {
 			continue
 		}
 		if optType == UpdateNameByJobWatchIdOpt {
-			d.updateName([]registry{r})
+			d.updateName([]Registry{r})
 			continue
 		}
 	}
 }
 
 func text2time(date string) time.Time {
-	location, err := time.ParseInLocation(timeFormatPattern, date, time.Local)
+	location, err := time.ParseInLocation(TimeFormatPattern, date, time.Local)
 	if err != nil {
 		log.Error("convert text to time fail: %v", err)
 	}
@@ -471,10 +471,10 @@ func text2time(date string) time.Time {
 }
 
 func time2text(date time.Time) string {
-	return date.Format(timeFormatPattern)
+	return date.Format(TimeFormatPattern)
 }
 
-func contain(registries []registry, state *State) (id int, ok bool) {
+func contain(registries []Registry, state *State) (id int, ok bool) {
 	for _, r := range registries {
 		if r.PipelineName == state.PipelineName && r.SourceName == state.SourceName && r.JobUid == state.JobUid {
 			return r.Id, true
@@ -494,7 +494,7 @@ func compressStats(stats []*State) []compressStatPair {
 	}
 	jobKey2Cs := make(map[string]compressStatPair)
 	for _, stat := range stats {
-		jobKey := stat.WatchUid()
+		jobKey := stat.WatchUid
 		if cs, ok := jobKey2Cs[jobKey]; ok {
 			if cs.first.Offset > stat.Offset {
 				cs.first = stat

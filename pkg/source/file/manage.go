@@ -18,6 +18,8 @@ package file
 
 import (
 	"sync"
+
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
 var (
@@ -26,9 +28,6 @@ var (
 
 	globalAckChainHandler *AckChainHandler
 	ackLock               sync.Mutex
-
-	globalDbHandler *dbHandler
-	dbLock          sync.Mutex
 
 	globalWatcher *Watcher
 	watchLock     sync.Mutex
@@ -132,7 +131,7 @@ func GetOrCreateShareReader(readerConfig ReaderConfig, watcher *Watcher) *Reader
 	return globalReader
 }
 
-func GetOrCreateShareWatcher(watchConfig WatchConfig, dbConfig DbConfig) *Watcher {
+func GetOrCreateShareWatcher(watchConfig WatchConfig, dbConfig persistence.DbConfig) *Watcher {
 	if globalWatcher != nil {
 		return globalWatcher
 	}
@@ -141,7 +140,7 @@ func GetOrCreateShareWatcher(watchConfig WatchConfig, dbConfig DbConfig) *Watche
 	if globalWatcher != nil {
 		return globalWatcher
 	}
-	globalWatcher = newWatcher(watchConfig, GetOrCreateShareDbHandler(dbConfig))
+	globalWatcher = newWatcher(watchConfig, persistence.GetOrCreateShareDbHandler(dbConfig))
 	return globalWatcher
 }
 
@@ -156,19 +155,6 @@ func GetOrCreateShareAckChainHandler(sinkCount int, ackConfig AckConfig) *AckCha
 	}
 	globalAckChainHandler = NewAckChainHandler(sinkCount, ackConfig)
 	return globalAckChainHandler
-}
-
-func GetOrCreateShareDbHandler(config DbConfig) *dbHandler {
-	if globalDbHandler != nil {
-		return globalDbHandler
-	}
-	dbLock.Lock()
-	defer dbLock.Unlock()
-	if globalDbHandler != nil {
-		return globalDbHandler
-	}
-	globalDbHandler = newDbHandler(config)
-	return globalDbHandler
 }
 
 func GetOrCreateShareMultilineProcessor() *MultiProcessor {

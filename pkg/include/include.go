@@ -61,6 +61,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/source/file"
 	_ "github.com/loggie-io/loggie/pkg/source/file/process"
 	_ "github.com/loggie-io/loggie/pkg/source/grpc"
+	_ "github.com/loggie-io/loggie/pkg/source/journal"
 	_ "github.com/loggie-io/loggie/pkg/source/kafka"
 	_ "github.com/loggie-io/loggie/pkg/source/kubernetes_event"
 	_ "github.com/loggie-io/loggie/pkg/source/prometheus_exporter"
