@@ -1,0 +1,15 @@
+pipelines:
+  - name: local
+    sources:
+      - type: journal
+        name: demo
+        dir: /var/log/journal
+        startTime: "2022-12-15 14:00:00"
+        unit: kubelet
+        addMeta:
+          cmd: _CMDLINE
+    sink:
+      type: dev
+      printEvents: true
+      codec:
+        pretty: true

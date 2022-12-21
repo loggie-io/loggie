@@ -16,6 +16,7 @@ type Config struct {
 	HistorySplitDuration time.Duration        `yaml:"historySplitDuration,omitempty" default:"1h"`
 	CollectInterval      int                  `yaml:"collectInterval,omitempty" default:"10"`
 	AddMeta              map[string]string    `yaml:"addMeta,omitempty"`
+	AddAllMeta           bool                 `yaml:"addAllMeta,omitempty"`
 	DbConfig             persistence.DbConfig `yaml:"db,omitempty"`
 }
 
@@ -25,7 +26,7 @@ func (c *Config) Validate() error {
 	}
 
 	if len(c.StartTime) > 0 {
-		_, err := time.ParseInLocation(timeFmt, c.StartTime, time.Local)
+		_, err := time.ParseInLocation(TimeFmt, c.StartTime, time.Local)
 		if err != nil {
 			return err
 		}

@@ -30,23 +30,27 @@ import (
 const (
 	ComponentStop  = ComponentEventType("stop")
 	ComponentStart = ComponentEventType("start")
+
+	JournalCollectOffset = JournalMetricType("collect")
+	JournalAckOffset     = JournalMetricType("ack")
 )
 
 var (
-	FileSourceMetricTopic = "filesource"
-	FileWatcherTopic      = "filewatcher"
-	SinkMetricTopic       = "sink"
-	ReloadTopic           = "reload"
-	ErrorTopic            = "error"
-	LogAlertTopic         = "log"
-	AlertTempTopic        = "logTemp"
-	QueueMetricTopic      = "queue"
-	PipelineTopic         = "pipeline"
-	ComponentBaseTopic    = "component"
-	SystemTopic           = "sys"
-	NormalizeTopic        = "normalize"
-	WebhookTopic          = "webhook"
-	InfoTopic             = "info"
+	FileSourceMetricTopic    = "filesource"
+	FileWatcherTopic         = "filewatcher"
+	JournalSourceMetricTopic = "journalsource"
+	SinkMetricTopic          = "sink"
+	ReloadTopic              = "reload"
+	ErrorTopic               = "error"
+	LogAlertTopic            = "log"
+	AlertTempTopic           = "logTemp"
+	QueueMetricTopic         = "queue"
+	PipelineTopic            = "pipeline"
+	ComponentBaseTopic       = "component"
+	SystemTopic              = "sys"
+	NormalizeTopic           = "normalize"
+	WebhookTopic             = "webhook"
+	InfoTopic                = "info"
 )
 
 type BaseMetric struct {
@@ -120,6 +124,16 @@ type FileInfo struct {
 	Offset         int64
 	IsIgnoreOlder  bool
 	IsRelease      bool
+}
+
+type JournalMetricType string
+
+type JournalMetricData struct {
+	PipelineName string
+	SourceName   string
+	Offset       int64
+	AckOffset    int64
+	Type         JournalMetricType
 }
 
 type LogAlertData struct {
