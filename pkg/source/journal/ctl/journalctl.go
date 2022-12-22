@@ -1,6 +1,23 @@
+/*
+Copyright 2022 Loggie Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package journalctl
 
 import (
+	"bytes"
 	"os/exec"
 	"strings"
 
@@ -34,15 +51,16 @@ func Check() error {
 	return nil
 }
 
-func (c *Command) RunCmd() ([]byte, error) {
+func (c *Command) RunCmd(buffer *bytes.Buffer) ([]byte, error) {
 	cmd := exec.Command("journalctl", c.Cmd...)
 	log.Debug("runing cmd %s", cmd.String())
-	bytes, err := cmd.CombinedOutput()
+	cmd.Stdout = buffer
+	err := cmd.Run()
 	if err != nil {
 		log.Warn("fail to run cmd due to %s", err.Error())
 		return nil, err
 	}
-	return bytes, nil
+	return buffer.Bytes(), nil
 }
 
 func (c *Command) writeCmd(args ...string) *Command {

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhook
+package bufferpool
 
 import (
 	"bytes"
@@ -25,7 +25,7 @@ type BufferPool struct {
 	sync.Pool
 }
 
-func newBufferPool(s int) *BufferPool {
+func NewBufferPool(s int) *BufferPool {
 	return &BufferPool{
 		Pool: sync.Pool{
 			New: func() interface{} {

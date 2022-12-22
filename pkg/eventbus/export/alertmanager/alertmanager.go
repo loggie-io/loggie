@@ -29,6 +29,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/sink/webhook"
+	"github.com/loggie-io/loggie/pkg/util/bufferpool"
 )
 
 type AlertManager struct {
@@ -36,7 +37,7 @@ type AlertManager struct {
 
 	Client    http.Client
 	temp      *template.Template
-	bp        *BufferPool
+	bp        *bufferpool.BufferPool
 	headers   map[string]string
 	LineLimit int
 
@@ -54,7 +55,7 @@ func NewAlertManager(addr []string, timeout, lineLimit int, temp *string, header
 		Address:   addr,
 		Client:    cli,
 		headers:   headers,
-		bp:        newBufferPool(1024),
+		bp:        bufferpool.NewBufferPool(1024),
 		LineLimit: lineLimit,
 	}
 

@@ -33,6 +33,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/util/bufferpool"
 )
 
 const Type = pipeline.WebhookSinkType
@@ -117,7 +118,7 @@ type Sink struct {
 	config    *Config
 	codec     codec.Codec
 	temp      *template.Template
-	bp        *BufferPool
+	bp        *bufferpool.BufferPool
 	client    *http.Client
 	subscribe *eventbus.Subscribe
 	listener  *Listener
@@ -159,7 +160,7 @@ func (s *Sink) Init(context api.Context) error {
 	}, eventbus.WithTopic(eventbus.WebhookTopic))
 
 	s.name = context.Name()
-	s.bp = newBufferPool(1024)
+	s.bp = bufferpool.NewBufferPool(1024)
 	s.client = &http.Client{
 		Timeout: time.Duration(s.config.Timeout) * time.Second,
 	}

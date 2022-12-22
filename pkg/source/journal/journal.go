@@ -1,3 +1,19 @@
+/*
+Copyright 2022 Loggie Authors
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
 package journal
 
 import (
@@ -6,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/util/bufferpool"
 	"sort"
 	"strconv"
 	"time"
@@ -55,6 +72,7 @@ type Source struct {
 	toCollectTime time.Time
 
 	cmd *journalctl.Command
+	bp  *bufferpool.BufferPool
 
 	dbHandler *persistence.DbHandler
 }
@@ -79,6 +97,7 @@ func (s *Source) Init(context api.Context) error {
 	s.name = context.Name()
 	s.watchId = s.pipelineName + "-" + s.name
 	s.dbHandler = persistence.GetOrCreateShareDbHandler(s.config.DbConfig)
+	s.bp = bufferpool.NewBufferPool(1024)
 	return nil
 }
 
@@ -221,7 +240,9 @@ func (s *Source) collect(dir, unit, target string, since, until time.Time, cmd *
 		cmd.WithIdentifier(target)
 	}
 	cmd.WithDir(dir).WithSince(sinceFormat).WithUntil(untilFormat).WithOutputFormat("json").WithNoPager()
-	bs, err := cmd.RunCmd()
+	buffer := s.bp.Get()
+	bs, err := cmd.RunCmd(buffer)
+	defer s.bp.Put(buffer)
 	if err != nil {
 		log.Warn("%s run cmd failed: %s", s.watchId, err.Error())
 		return err
