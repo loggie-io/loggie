@@ -17,6 +17,7 @@ limitations under the License.
 package time
 
 import (
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,20 +25,33 @@ import (
 )
 
 const (
-	year     = "YYYY"
-	stdYear  = "2006"
-	month    = "MM"
-	stdMonth = "01"
-	day      = "DD"
-	stdDay   = "02"
-	hour     = "hh"
-	stdHour  = "15"
+	year      = "yyyy"
+	stdYear   = "2006"
+	month     = "MM"
+	stdMonth  = "01"
+	day       = "dd"
+	stdDay    = "02"
+	hour      = "hh"
+	stdHour   = "15"
+	min       = "mm"
+	stdMin    = "04"
+	second    = "ss"
+	stdSecond = "05"
+	timezone  = "zz"
+	stdTZ     = "-07"
+	week      = "ww"
 )
 
 func TimeFormatNow(pattern string) string {
-	replacer := strings.NewReplacer(year, stdYear, month, stdMonth, day, stdDay, hour, stdHour)
+	replacer := strings.NewReplacer(year, stdYear, month, stdMonth, day, stdDay, hour, stdHour, min, stdMin, second, stdSecond, timezone, stdTZ)
 	layout := replacer.Replace(pattern)
-	return time.Now().Local().Format(layout)
+
+	t := time.Now().Local()
+	_, weekNow := t.ISOWeek()
+	weekString := strconv.Itoa(weekNow)
+	weekReplacer := strings.NewReplacer(week, weekString)
+
+	return weekReplacer.Replace(t.Format(layout))
 }
 
 func UnixMilli(t time.Time) int64 {
