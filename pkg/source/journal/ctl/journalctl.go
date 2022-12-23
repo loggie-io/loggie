@@ -51,16 +51,16 @@ func Check() error {
 	return nil
 }
 
-func (c *Command) RunCmd(buffer *bytes.Buffer) ([]byte, error) {
+func (c *Command) RunCmd(buffer *bytes.Buffer) error {
 	cmd := exec.Command("journalctl", c.Cmd...)
 	log.Debug("runing cmd %s", cmd.String())
 	cmd.Stdout = buffer
 	err := cmd.Run()
 	if err != nil {
 		log.Warn("fail to run cmd due to %s", err.Error())
-		return nil, err
+		return err
 	}
-	return buffer.Bytes(), nil
+	return nil
 }
 
 func (c *Command) writeCmd(args ...string) *Command {

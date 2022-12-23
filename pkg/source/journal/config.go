@@ -18,6 +18,7 @@ package journal
 
 import (
 	"errors"
+	"regexp"
 	"time"
 
 	journalctl "github.com/loggie-io/loggie/pkg/source/journal/ctl"
@@ -30,10 +31,18 @@ type Config struct {
 	Identifier           string               `yaml:"identifier,omitempty"`
 	StartTime            string               `yaml:"startTime,omitempty"`
 	HistorySplitDuration time.Duration        `yaml:"historySplitDuration,omitempty" default:"1h"`
-	CollectInterval      int                  `yaml:"collectInterval,omitempty" default:"10"`
+	CollectInterval      time.Duration        `yaml:"collectInterval,omitempty" default:"10s"`
 	AddMeta              map[string]string    `yaml:"addMeta,omitempty"`
 	AddAllMeta           bool                 `yaml:"addAllMeta,omitempty"`
 	DbConfig             persistence.DbConfig `yaml:"db,omitempty"`
+	Multi                MultiConfig          `yaml:"multi,omitempty"`
+}
+
+type MultiConfig struct {
+	Enable   bool   `yaml:"enable"`
+	Pattern  string `yaml:"pattern"`
+	MaxLine  int    `yaml:"maxLine" default:"100"`
+	MaxBytes int64  `yaml:"maxBytes" default:"131072"` // default 128KB
 }
 
 func (c *Config) Validate() error {
@@ -51,6 +60,13 @@ func (c *Config) Validate() error {
 	err := journalctl.Check()
 	if err != nil {
 		return err
+	}
+
+	if c.Multi.Enable {
+		_, err = regexp.Compile(c.Multi.Pattern)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

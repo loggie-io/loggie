@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/util/bufferpool"
+	"regexp"
 	"sort"
 	"strconv"
 	"time"
@@ -33,6 +33,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	journalctl "github.com/loggie-io/loggie/pkg/source/journal/ctl"
+	"github.com/loggie-io/loggie/pkg/util/bufferpool"
 	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
@@ -47,6 +48,8 @@ const (
 	JTimestamp = "__REALTIME_TIMESTAMP"
 )
 
+var split = []byte("\n")
+
 func init() {
 	pipeline.Register(api.SOURCE, Type, makeSource)
 }
@@ -60,6 +63,15 @@ func makeSource(info pipeline.Info) api.Component {
 	}
 }
 
+type journalLog map[string]string
+
+type multiBody struct {
+	Log       journalLog
+	Message   []byte
+	LineCount int
+	ByteCount int64
+}
+
 type Source struct {
 	pipelineName  string
 	name          string
@@ -70,11 +82,15 @@ type Source struct {
 	eventPool     *event.Pool
 	startTime     time.Time
 	toCollectTime time.Time
+	productFunc   api.ProductFunc
 
 	cmd *journalctl.Command
 	bp  *bufferpool.BufferPool
 
 	dbHandler *persistence.DbHandler
+
+	currentLog  multiBody
+	multiRegexp *regexp.Regexp
 }
 
 func (s *Source) Config() interface{} {
@@ -98,6 +114,14 @@ func (s *Source) Init(context api.Context) error {
 	s.watchId = s.pipelineName + "-" + s.name
 	s.dbHandler = persistence.GetOrCreateShareDbHandler(s.config.DbConfig)
 	s.bp = bufferpool.NewBufferPool(1024)
+	if s.config.Multi.Enable {
+		s.currentLog = multiBody{
+			Log:     make(journalLog),
+			Message: make([]byte, 0),
+		}
+		s.multiRegexp, _ = regexp.Compile(s.config.Multi.Pattern)
+	}
+
 	return nil
 }
 
@@ -138,9 +162,10 @@ func (s *Source) findExistRegistry() persistence.Registry {
 }
 
 func (s *Source) ProductLoop(productFunc api.ProductFunc) {
+	s.productFunc = productFunc
 	log.Info("%s collect from %s", s.watchId, s.startTime.Format(TimeFmt))
-	s.startCollectHistory(productFunc)
-	ticker := time.NewTicker(time.Duration(s.config.CollectInterval) * time.Second)
+	s.startCollectHistory()
+	ticker := time.NewTicker(s.config.CollectInterval)
 	defer ticker.Stop()
 	for {
 		select {
@@ -148,7 +173,7 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 			return
 		case <-ticker.C:
 			s.toCollectTime = time.Now()
-			err := s.collect(s.config.Dir, s.config.Unit, s.config.Identifier, s.startTime, s.toCollectTime, s.cmd, productFunc)
+			err := s.collect(s.config.Dir, s.config.Unit, s.config.Identifier, s.startTime, s.toCollectTime, s.cmd)
 			if err != nil {
 				log.Warn("%s collect journal logs failed: %s", s.watchId, err.Error())
 			}
@@ -174,9 +199,9 @@ func (s *Source) Commit(events []api.Event) {
 	}
 }
 
-func (s *Source) startCollectHistory(productFunc api.ProductFunc) {
+func (s *Source) startCollectHistory() {
 	s.historyDone = make(chan struct{})
-	go s.collectHistory(productFunc)
+	go s.collectHistory()
 	for {
 		select {
 		case <-s.done:
@@ -187,7 +212,7 @@ func (s *Source) startCollectHistory(productFunc api.ProductFunc) {
 	}
 }
 
-func (s *Source) collectHistory(productFunc api.ProductFunc) {
+func (s *Source) collectHistory() {
 	collectDuration := s.config.HistorySplitDuration
 	historyCollected := false
 	for {
@@ -202,7 +227,7 @@ func (s *Source) collectHistory(productFunc api.ProductFunc) {
 			}
 
 			start := time.Now()
-			err := s.collect(s.config.Dir, s.config.Unit, s.config.Identifier, s.startTime, s.toCollectTime, s.cmd, productFunc)
+			err := s.collect(s.config.Dir, s.config.Unit, s.config.Identifier, s.startTime, s.toCollectTime, s.cmd)
 			d := time.Now().Sub(start).Seconds()
 			log.Info("%s collect using %f s", s.watchId, d)
 
@@ -227,7 +252,7 @@ func (s *Source) collectHistory(productFunc api.ProductFunc) {
 
 }
 
-func (s *Source) collect(dir, unit, target string, since, until time.Time, cmd *journalctl.Command, productFunc api.ProductFunc) error {
+func (s *Source) collect(dir, unit, target string, since, until time.Time, cmd *journalctl.Command) error {
 	sinceFormat := since.Format(TimeFmt)
 	untilFormat := until.Format(TimeFmt)
 
@@ -241,25 +266,25 @@ func (s *Source) collect(dir, unit, target string, since, until time.Time, cmd *
 	}
 	cmd.WithDir(dir).WithSince(sinceFormat).WithUntil(untilFormat).WithOutputFormat("json").WithNoPager()
 	buffer := s.bp.Get()
-	bs, err := cmd.RunCmd(buffer)
+	err := cmd.RunCmd(buffer)
 	defer s.bp.Put(buffer)
 	if err != nil {
 		log.Warn("%s run cmd failed: %s", s.watchId, err.Error())
 		return err
 	}
 
-	s.processEvents(bs, productFunc)
+	s.processEvents(buffer)
 	log.Debug("%s collected logs from %s to %s", s.watchId, sinceFormat, untilFormat)
 
 	return nil
 }
 
-func (s *Source) processEvents(bs []byte, productFunc api.ProductFunc) {
+func (s *Source) processEvents(bs *bytes.Buffer) {
 
-	sc := bufio.NewScanner(bytes.NewReader(bs))
+	sc := bufio.NewScanner(bs)
 	var lasted int64
+	logBody := make(journalLog)
 	for sc.Scan() {
-		logBody := map[string]string{}
 		logBytes := sc.Bytes()
 		err := json.Unmarshal(logBytes, &logBody)
 		if err != nil {
@@ -267,42 +292,17 @@ func (s *Source) processEvents(bs []byte, productFunc api.ProductFunc) {
 			continue
 		}
 
-		e := s.eventPool.Get()
-		if s.config.AddAllMeta {
-			for k, v := range logBody {
-				e.Header()[k] = v
-			}
-		} else {
-			for k, v := range s.config.AddMeta {
-				e.Header()[k] = logBody[v]
-			}
-		}
-
-		e.Fill(e.Meta(), e.Header(), []byte(logBody[JMessage]))
-		timeStamp := logBody[JTimestamp]
-		var offset int64
-		atoi, err := strconv.Atoi(timeStamp)
-		if err != nil {
-			log.Warn("fail to get timestamp from journal log: %s", err.Error())
-			offset = s.startTime.UnixMicro()
-		} else {
-			offset = int64(atoi)
-		}
-		state := &persistence.State{
-			PipelineName: s.pipelineName,
-			SourceName:   s.name,
-			Offset:       offset,
-			NextOffset:   offset,
-			Filename:     s.watchId,
-			CollectTime:  time.Now(),
-			JobUid:       s.watchId,
-			WatchUid:     s.watchId,
-		}
+		offset := s.getOffsetFromString(logBody)
 		if offset > lasted {
 			lasted = offset
 		}
-		e.Meta().Set(SystemStateKey, state)
-		productFunc(e)
+		if s.config.Multi.Enable {
+			s.dealWithMulti(logBody, offset)
+		} else {
+			e := s.convertToEvent(logBody, offset, nil)
+			s.productFunc(e)
+		}
+
 	}
 
 	if lasted > 0 {
@@ -314,6 +314,77 @@ func (s *Source) processEvents(bs []byte, productFunc api.ProductFunc) {
 			Type:         eventbus.JournalCollectOffset,
 		})
 	}
+}
+
+func (s *Source) dealWithMulti(logBody journalLog, offset int64) {
+	message := []byte(logBody[JMessage])
+	if s.multiRegexp.Match(message) {
+		if s.currentLog.LineCount > 0 {
+			e := s.convertMultiToEvent(s.currentLog, offset)
+			s.productFunc(e)
+		}
+		s.currentLog = multiBody{
+			Log:       logBody,
+			Message:   message,
+			LineCount: 1,
+			ByteCount: int64(len(message)),
+		}
+	} else {
+		s.currentLog.Message = append(s.currentLog.Message, split...)
+		s.currentLog.Message = append(s.currentLog.Message, message...)
+		s.currentLog.LineCount++
+		s.currentLog.ByteCount += int64(len(split))
+		s.currentLog.ByteCount += int64(len(message))
+		s.currentLog.Log = logBody
+
+		if s.currentLog.LineCount >= s.config.Multi.MaxLine || s.currentLog.ByteCount >= s.config.Multi.MaxBytes {
+			log.Info("multiline log exceeds limit: currentLines(%d),maxLines(%d);currentBytes(%d),maxBytes(%d)",
+				s.currentLog.LineCount, s.config.Multi.MaxLine, s.currentLog.ByteCount, s.config.Multi.MaxBytes)
+			e := s.convertMultiToEvent(s.currentLog, offset)
+			s.productFunc(e)
+			s.currentLog = multiBody{
+				Log:     make(journalLog),
+				Message: make([]byte, 0),
+			}
+		}
+	}
+}
+
+func (s *Source) convertToEvent(logBody journalLog, offset int64, bs []byte) api.Event {
+	e := s.eventPool.Get()
+	if s.config.AddAllMeta {
+		for k, v := range logBody {
+			e.Header()[k] = v
+		}
+	} else {
+		for k, v := range s.config.AddMeta {
+			e.Header()[k] = logBody[v]
+		}
+	}
+
+	if len(bs) > 0 {
+		e.Fill(e.Meta(), e.Header(), bs)
+	} else {
+		e.Fill(e.Meta(), e.Header(), []byte(logBody[JMessage]))
+	}
+
+	state := &persistence.State{
+		PipelineName: s.pipelineName,
+		SourceName:   s.name,
+		Offset:       offset,
+		NextOffset:   offset,
+		Filename:     s.watchId,
+		CollectTime:  time.Now(),
+		JobUid:       s.watchId,
+		WatchUid:     s.watchId,
+	}
+	e.Meta().Set(SystemStateKey, state)
+	return e
+}
+
+func (s *Source) convertMultiToEvent(mBody multiBody, offset int64) api.Event {
+	logBody := mBody.Log
+	return s.convertToEvent(logBody, offset, mBody.Message)
 }
 
 func (s *Source) preAllocationOffset() {
@@ -337,4 +408,17 @@ func getState(e api.Event) *persistence.State {
 	}
 	state, _ := e.Meta().Get(SystemStateKey)
 	return state.(*persistence.State)
+}
+
+func (s *Source) getOffsetFromString(logBody journalLog) int64 {
+	timestamp := logBody[JTimestamp]
+	var offset int64
+	atoi, err := strconv.Atoi(timestamp)
+	if err != nil {
+		log.Warn("fail to get timestamp from journal log: %s", err.Error())
+		offset = s.startTime.UnixMicro()
+	} else {
+		offset = int64(atoi)
+	}
+	return offset
 }
