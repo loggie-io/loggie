@@ -43,11 +43,11 @@ const (
 		file_offset INTEGER NOT NULL,
 		collect_time TEXT NULL,
 		sys_version TEXT NOT NULL,
-		line_number INTEGER NULL;
+		line_number INTEGER default 0
 	);`
-	descTable = "RAGMA table_info(registry)"
+	descTable = "PRAGMA table_info(registry)"
 
-	queryAll                          = `SELECT id,pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version FROM registry`
+	queryAll                          = `SELECT id,pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version,line_number FROM registry`
 	insertSql                         = `INSERT INTO registry (pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version,line_number) VALUES (?, ?, ?, ?, ?, ?,?,?)`
 	updateSql                         = `UPDATE registry SET file_offset = ?,collect_time = ?,line_number = ? WHERE id = ?`
 	queryByJobUidAndSourceAndPipeline = `SELECT id,pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version,line_number FROM registry WHERE job_uid = '%s' AND source_name = "%s" AND pipeline_name = "%s"`
@@ -149,7 +149,7 @@ func (d *dbHandler) check() {
 		fieldName:    "line_number",
 		fieldType:    "INTEGER",
 		notNull:      false,
-		defaultValue: nil,
+		defaultValue: 0,
 	})
 }
 
@@ -413,7 +413,7 @@ func (d *dbHandler) findBy(jobUid string, sourceName string, pipelineName string
 func (d *dbHandler) findBySql(querySql string) []registry {
 	rows, err := d.db.Query(querySql)
 	if err != nil {
-		panic(fmt.Sprintf("%s query registry fail: %v", d.String(), err))
+		panic(fmt.Sprintf("%s query registry by sql(%s) fail: %v", d.String(), querySql, err))
 	}
 	defer rows.Close()
 	registries := make([]registry, 0)
@@ -591,7 +591,7 @@ func (cd ColumnDesc) toAlterSql() string {
 	alterSql.WriteString(" ")
 	if cd.defaultValue != nil {
 		alterSql.WriteString(" default ")
-		alterSql.WriteString(fmt.Sprintf("%s", cd.defaultValue))
+		alterSql.WriteString(fmt.Sprintf("%v", cd.defaultValue))
 		alterSql.WriteString(" ")
 	} else {
 		if cd.notNull {
