@@ -76,7 +76,7 @@ func Test_Alter(t *testing.T) {
 		TableName:    "registry",
 	}
 	file := dbConfig.File
-	dbFile, err := filepath.Abs(file)
+	dbFile, _ := filepath.Abs(file)
 	fmt.Println("db file:" + dbFile)
 	db, err := sql.Open(driver, dbFile)
 	if err != nil {
@@ -115,7 +115,7 @@ func Test_Alter(t *testing.T) {
 
 func Test_GraceAddColumn(t *testing.T) {
 	file := "./data/loggie.db"
-	dbFile, err := filepath.Abs(file)
+	dbFile, _ := filepath.Abs(file)
 	fmt.Println("db file:" + dbFile)
 	db, err := sql.Open(driver, dbFile)
 	if err != nil {
