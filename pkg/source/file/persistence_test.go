@@ -70,7 +70,7 @@ func Test_time2text(t *testing.T) {
 
 func Test_Alter(t *testing.T) {
 	dbConfig := DbConfig{
-		File:         "/Users/guoqiwen/myproject/project/loggie/data/loggie.db",
+		File:         "./data/loggie.db",
 		FlushTimeout: 2 * time.Second,
 		BufferSize:   1024,
 		TableName:    "registry",
@@ -114,7 +114,7 @@ func Test_Alter(t *testing.T) {
 }
 
 func Test_GraceAddColumn(t *testing.T) {
-	file := "/Users/guoqiwen/myproject/project/loggie/data/loggie.db"
+	file := "./data/loggie.db"
 	dbFile, err := filepath.Abs(file)
 	fmt.Println("db file:" + dbFile)
 	db, err := sql.Open(driver, dbFile)
@@ -127,12 +127,12 @@ func Test_GraceAddColumn(t *testing.T) {
 		fieldName:    "line_number",
 		fieldType:    "INTEGER",
 		notNull:      false,
-		defaultValue: nil,
+		defaultValue: 0,
 	}
 	alterSql := columnDesc.toAlterSql()
 	fmt.Println("alter sql: " + alterSql)
 	_, err = db.Exec(alterSql)
 	if err != nil {
-		log.Error("add column fail: %s", err)
+		fmt.Printf("add column fail: %s \n", err)
 	}
 }
