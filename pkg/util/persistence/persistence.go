@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -41,13 +42,15 @@ const (
 		job_uid TEXT NOT NULL,
 		file_offset INTEGER NOT NULL,
 		collect_time TEXT NULL,
-		sys_version TEXT NOT NULL
+		sys_version TEXT NOT NULL,
+		line_number INTEGER default 0
 	);`
+	descTable = "PRAGMA table_info(registry)"
 
-	queryAll                          = `SELECT id,pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version FROM registry`
-	insertSql                         = `INSERT INTO registry (pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version) VALUES (?, ?, ?, ?, ?, ?,?)`
-	updateSql                         = `UPDATE registry SET file_offset = ?,collect_time = ? WHERE id = ?`
-	queryByJobUidAndSourceAndPipeline = `SELECT id,pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version FROM registry WHERE job_uid = '%s' AND source_name = "%s" AND pipeline_name = "%s"`
+	queryAll                          = `SELECT id,pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version,line_number FROM registry`
+	insertSql                         = `INSERT INTO registry (pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version,line_number) VALUES (?, ?, ?, ?, ?, ?,?,?)`
+	updateSql                         = `UPDATE registry SET file_offset = ?,collect_time = ?,line_number = ? WHERE id = ?`
+	queryByJobUidAndSourceAndPipeline = `SELECT id,pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version,line_number FROM registry WHERE job_uid = '%s' AND source_name = "%s" AND pipeline_name = "%s"`
 	deleteById                        = `DELETE FROM registry where id = ?`
 	updateNameByJobWatchId            = `UPDATE registry SET filename = ? WHERE job_uid = ? AND source_name = ? AND pipeline_name = ?`
 	deleteByJobWatchId                = `DELETE FROM registry where job_uid = ? AND source_name = ? AND pipeline_name = ?`
@@ -67,6 +70,7 @@ type Registry struct {
 	Offset       int64  `json:"offset"`
 	CollectTime  string `json:"collectTime"`
 	Version      string `json:"version"`
+	LineNumber   int64  `json:"lineNumber"`
 }
 
 type compressStatPair struct {
@@ -141,6 +145,12 @@ func (d *DbHandler) check() {
 		_ = d.db.Close()
 		panic(fmt.Sprintf("%s check table registry fail: %s", d.String(), err))
 	}
+	d.graceAddColumn(ColumnDesc{
+		fieldName:    "line_number",
+		fieldType:    "INTEGER",
+		notNull:      false,
+		defaultValue: 0,
+	})
 }
 
 func (d *DbHandler) String() string {
@@ -287,13 +297,14 @@ func (d *DbHandler) state2Registry(stat *State) Registry {
 		Offset:       stat.NextOffset,
 		CollectTime:  time2text(stat.CollectTime),
 		Version:      api.VERSION,
+		LineNumber:   stat.LineNumber,
 	}
 }
 
 func (d *DbHandler) insertRegistry(registries []Registry) {
 	d.txWrapper(insertSql, func(stmt *sql.Stmt) {
 		for _, r := range registries {
-			_, err := stmt.Exec(r.PipelineName, r.SourceName, r.Filename, r.JobUid, r.Offset, r.CollectTime, r.Version)
+			_, err := stmt.Exec(r.PipelineName, r.SourceName, r.Filename, r.JobUid, r.Offset, r.CollectTime, r.Version, r.LineNumber)
 			if err != nil {
 				log.Error("%s stmt exec fail: %s", d.String(), err)
 			}
@@ -304,7 +315,7 @@ func (d *DbHandler) insertRegistry(registries []Registry) {
 func (d *DbHandler) updateRegistry(registries []Registry) {
 	d.txWrapper(updateSql, func(stmt *sql.Stmt) {
 		for _, r := range registries {
-			_, err := stmt.Exec(r.Offset, r.CollectTime, r.Id)
+			_, err := stmt.Exec(r.Offset, r.CollectTime, r.LineNumber, r.Id)
 			if err != nil {
 				log.Error("%s stmt exec fail: %s", d.String(), err)
 			}
@@ -402,7 +413,7 @@ func (d *DbHandler) FindBy(jobUid string, sourceName string, pipelineName string
 func (d *DbHandler) findBySql(querySql string) []Registry {
 	rows, err := d.db.Query(querySql)
 	if err != nil {
-		panic(fmt.Sprintf("%s query registry fail: %v", d.String(), err))
+		panic(fmt.Sprintf("%s query registry by sql(%s) fail: %v", d.String(), querySql, err))
 	}
 	defer rows.Close()
 	registries := make([]Registry, 0)
@@ -416,8 +427,9 @@ func (d *DbHandler) findBySql(querySql string) []Registry {
 			file_offset   int64
 			collect_time  string
 			sys_version   string
+			line_number   int64
 		)
-		err = rows.Scan(&id, &pipeline_name, &source_name, &filename, &job_uid, &file_offset, &collect_time, &sys_version)
+		err = rows.Scan(&id, &pipeline_name, &source_name, &filename, &job_uid, &file_offset, &collect_time, &sys_version, &line_number)
 		if err != nil {
 			panic(fmt.Sprintf("%s query registry fail: %v", d.String(), err))
 		}
@@ -430,6 +442,7 @@ func (d *DbHandler) findBySql(querySql string) []Registry {
 			Offset:       file_offset,
 			CollectTime:  collect_time,
 			Version:      sys_version,
+			LineNumber:   line_number,
 		})
 	}
 	err = rows.Err()
@@ -516,4 +529,77 @@ func compressStats(stats []*State) []compressStatPair {
 		compressStatPairs = append(compressStatPairs, cs)
 	}
 	return compressStatPairs
+}
+
+func (d *dbHandler) descTable() []ColumnDesc {
+	rows, err := d.db.Query(descTable)
+	if err != nil {
+		log.Error("desc table fail : %s", err)
+		return nil
+	}
+	tableDesc := make([]ColumnDesc, 0)
+	for rows.Next() {
+		var columnDesc ColumnDesc
+		err := rows.Scan(&columnDesc.cid, &columnDesc.fieldName, &columnDesc.fieldType,
+			&columnDesc.notNull, &columnDesc.defaultValue, &columnDesc.pk)
+		if err != nil {
+			fmt.Println("desc table scan err: " + err.Error())
+			return nil
+		}
+		tableDesc = append(tableDesc, columnDesc)
+	}
+	return tableDesc
+}
+
+func (d *dbHandler) graceAddColumn(desc ColumnDesc) {
+	tableDesc := d.descTable()
+	if tableDesc == nil {
+		return
+	}
+	exist := false
+	for _, columnDesc := range tableDesc {
+		if columnDesc.fieldName == desc.fieldName {
+			exist = true
+		}
+	}
+	if !exist {
+		alterSql := desc.toAlterSql()
+		log.Info("alter sql: %s", alterSql)
+		_, err := d.db.Exec(alterSql)
+		if err != nil {
+			log.Error("add column fail: %s", err)
+		}
+	}
+}
+
+type ColumnDesc struct {
+	cid          int
+	fieldName    string
+	fieldType    string
+	notNull      bool
+	defaultValue interface{}
+	pk           bool
+}
+
+func (cd ColumnDesc) toAlterSql() string {
+	var alterSql strings.Builder
+	alterSql.Grow(128)
+	alterSql.WriteString("alter table registry add column ")
+	alterSql.WriteString(cd.fieldName)
+	alterSql.WriteString(" ")
+	alterSql.WriteString(cd.fieldType)
+	alterSql.WriteString(" ")
+	if cd.defaultValue != nil {
+		alterSql.WriteString(" default ")
+		alterSql.WriteString(fmt.Sprintf("%v", cd.defaultValue))
+		alterSql.WriteString(" ")
+	} else {
+		if cd.notNull {
+			alterSql.WriteString(" NOT NULL")
+		} else {
+
+			alterSql.WriteString(" NULL")
+		}
+	}
+	return alterSql.String()
 }

@@ -17,7 +17,9 @@ limitations under the License.
 package persistence
 
 import (
+	"database/sql"
 	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -64,4 +66,73 @@ func Test_text2time(t *testing.T) {
 
 func Test_time2text(t *testing.T) {
 	fmt.Println(time2text(time.Now()))
+}
+
+func Test_Alter(t *testing.T) {
+	dbConfig := DbConfig{
+		File:         "./data/loggie.db",
+		FlushTimeout: 2 * time.Second,
+		BufferSize:   1024,
+		TableName:    "registry",
+	}
+	file := dbConfig.File
+	dbFile, _ := filepath.Abs(file)
+	fmt.Println("db file:" + dbFile)
+	db, err := sql.Open(driver, dbFile)
+	if err != nil {
+		fmt.Println("open err: " + err.Error())
+		return
+	}
+	//result, err := db.Exec(".schema")
+	//if err != nil {
+	//	fmt.Println("exec err:" + err.Error())
+	//	return
+	//}
+	//fmt.Printf("exec result: %+v \n", result)
+	rows, err := db.Query("PRAGMA table_info(registry)")
+	if err != nil {
+		fmt.Println("query err: " + err.Error())
+		return
+	}
+	type TableDesc struct {
+		cid          int
+		fieldName    string
+		fieldType    string
+		notNull      bool
+		defaultValue interface{}
+		pk           bool
+	}
+	for rows.Next() {
+		var tableDesc TableDesc
+		err := rows.Scan(&tableDesc.cid, &tableDesc.fieldName, &tableDesc.fieldType, &tableDesc.notNull, &tableDesc.defaultValue, &tableDesc.pk)
+		if err != nil {
+			fmt.Println("scan err: " + err.Error())
+			return
+		}
+		fmt.Printf("table desc: %+v \n", tableDesc)
+	}
+}
+
+func Test_GraceAddColumn(t *testing.T) {
+	file := "./data/loggie.db"
+	dbFile, _ := filepath.Abs(file)
+	fmt.Println("db file:" + dbFile)
+	db, err := sql.Open(driver, dbFile)
+	if err != nil {
+		fmt.Println("open err: " + err.Error())
+		return
+	}
+
+	columnDesc := ColumnDesc{
+		fieldName:    "line_number",
+		fieldType:    "INTEGER",
+		notNull:      false,
+		defaultValue: 0,
+	}
+	alterSql := columnDesc.toAlterSql()
+	fmt.Println("alter sql: " + alterSql)
+	_, err = db.Exec(alterSql)
+	if err != nil {
+		fmt.Printf("add column fail: %s \n", err)
+	}
 }

@@ -32,7 +32,7 @@ type Config struct {
 	RetryTimeout time.Duration     `yaml:"retryTimeout,omitempty"`
 	WriteTimeout time.Duration     `yaml:"writeTimeout,omitempty"`
 	Compression  string            `yaml:"compression,omitempty" default:"gzip"`
-	SASL         SASL              `yaml:"SASL,omitempty"`
+	SASL         SASL              `yaml:"sasl,omitempty"`
 	TLS          TLS               `yaml:"tls,omitempty"`
 	Security     map[string]string `yaml:"security,omitempty"`
 }
@@ -63,7 +63,7 @@ type GSSAPI struct {
 	KeyTabPath         string `yaml:"keyTabPath,omitempty"`
 	KerberosConfigPath string `yaml:"kerberosConfigPath,omitempty"`
 	ServiceName        string `yaml:"serviceName,omitempty"`
-	UserName           string `yaml:"UserName,omitempty"`
+	UserName           string `yaml:"username,omitempty"`
 	Password           string `yaml:"password,omitempty"`
 	Realm              string `yaml:"realm,omitempty"`
 	DisablePAFXFAST    bool   `yaml:"disablePAFXFAST,omitempty"`
