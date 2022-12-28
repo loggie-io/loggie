@@ -280,6 +280,7 @@ func (w *Watcher) eventBus(e jobEvent) {
 		}
 		existRegistry := w.findExistJobRegistry(job)
 		existAckOffset := existRegistry.Offset
+		existLineNumber := existRegistry.LineNumber
 		fileSize := stat.Size()
 		// check whether the existAckOffset is larger than the file size
 		if existAckOffset > fileSize+int64(len(job.GetEncodeLineEnd())) {
@@ -287,6 +288,7 @@ func (w *Watcher) eventBus(e jobEvent) {
 			// file was truncated，start from the beginning
 			if job.task.config.RereadTruncated {
 				existAckOffset = 0
+				existLineNumber = 0
 			}
 		}
 		// Pre-allocation offset
@@ -298,6 +300,8 @@ func (w *Watcher) eventBus(e jobEvent) {
 		}
 		// set ack offset
 		job.NextOffset(existAckOffset)
+		// set line number
+		job.currentLineNumber = existLineNumber
 		// active job
 		err, fdOpen := job.Active()
 		if fdOpen {
