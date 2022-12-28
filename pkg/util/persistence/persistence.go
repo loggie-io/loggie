@@ -531,7 +531,7 @@ func compressStats(stats []*State) []compressStatPair {
 	return compressStatPairs
 }
 
-func (d *dbHandler) descTable() []ColumnDesc {
+func (d *DbHandler) descTable() []ColumnDesc {
 	rows, err := d.db.Query(descTable)
 	if err != nil {
 		log.Error("desc table fail : %s", err)
@@ -551,7 +551,7 @@ func (d *dbHandler) descTable() []ColumnDesc {
 	return tableDesc
 }
 
-func (d *dbHandler) graceAddColumn(desc ColumnDesc) {
+func (d *DbHandler) graceAddColumn(desc ColumnDesc) {
 	tableDesc := d.descTable()
 	if tableDesc == nil {
 		return
