@@ -131,7 +131,7 @@ func GetOrCreateShareReader(readerConfig ReaderConfig, watcher *Watcher) *Reader
 	return globalReader
 }
 
-func GetOrCreateShareWatcher(watchConfig WatchConfig, dbConfig persistence.DbConfig) *Watcher {
+func GetOrCreateShareWatcher(watchConfig WatchConfig) *Watcher {
 	if globalWatcher != nil {
 		return globalWatcher
 	}
@@ -140,7 +140,7 @@ func GetOrCreateShareWatcher(watchConfig WatchConfig, dbConfig persistence.DbCon
 	if globalWatcher != nil {
 		return globalWatcher
 	}
-	globalWatcher = newWatcher(watchConfig, persistence.GetOrCreateShareDbHandler(dbConfig))
+	globalWatcher = newWatcher(watchConfig, persistence.GetOrCreateShareDbHandler())
 	return globalWatcher
 }
 

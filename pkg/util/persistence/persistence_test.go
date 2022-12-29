@@ -17,9 +17,8 @@ limitations under the License.
 package persistence
 
 import (
-	"database/sql"
 	"fmt"
-	"path/filepath"
+	"github.com/loggie-io/loggie/pkg/core/api"
 	"testing"
 	"time"
 
@@ -28,12 +27,16 @@ import (
 
 func Benchmark_dbHandler_write(b *testing.B) {
 	log.InitDefaultLogger()
-	handler := GetOrCreateShareDbHandler(DbConfig{
-		File:         "./data/loggie.db",
-		FlushTimeout: 2 * time.Second,
-		BufferSize:   1024,
-		TableName:    "registry",
+	SetConfig(DbConfig{
+		File:                 b.TempDir(),
+		FlushTimeout:         2 * time.Second,
+		BufferSize:           1024,
+		TableName:            "registry",
+		CleanInactiveTimeout: time.Hour,
+		CleanScanInterval:    time.Hour,
 	})
+	handler := GetOrCreateShareDbHandler()
+	defer StopDbHandler()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		stats := make([]*State, 0)
@@ -68,71 +71,114 @@ func Test_time2text(t *testing.T) {
 	fmt.Println(time2text(time.Now()))
 }
 
-func Test_Alter(t *testing.T) {
-	dbConfig := DbConfig{
-		File:         "./data/loggie.db",
-		FlushTimeout: 2 * time.Second,
-		BufferSize:   1024,
-		TableName:    "registry",
+func Test_group(t *testing.T) {
+	log.InitDefaultLogger()
+
+	tests := []int{706, 400, 90}
+
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("test %d", test), func(t *testing.T) {
+			size := test
+			data := make([]Registry, size)
+			for i := 0; i < len(data); i++ {
+				data[i].PipelineName = "a"
+			}
+
+			lists := group(data, 100)
+			count := 0
+			log.Info("total size %d list size %d", size, len(lists))
+			for _, list := range lists {
+				count += len(list)
+			}
+
+			if count != size {
+				t.Errorf("total count should be same")
+			}
+		})
 	}
-	file := dbConfig.File
-	dbFile, _ := filepath.Abs(file)
-	fmt.Println("db file:" + dbFile)
-	db, err := sql.Open(driver, dbFile)
-	if err != nil {
-		fmt.Println("open err: " + err.Error())
-		return
-	}
-	//result, err := db.Exec(".schema")
-	//if err != nil {
-	//	fmt.Println("exec err:" + err.Error())
-	//	return
-	//}
-	//fmt.Printf("exec result: %+v \n", result)
-	rows, err := db.Query("PRAGMA table_info(registry)")
-	if err != nil {
-		fmt.Println("query err: " + err.Error())
-		return
-	}
-	type TableDesc struct {
-		cid          int
-		fieldName    string
-		fieldType    string
-		notNull      bool
-		defaultValue interface{}
-		pk           bool
-	}
-	for rows.Next() {
-		var tableDesc TableDesc
-		err := rows.Scan(&tableDesc.cid, &tableDesc.fieldName, &tableDesc.fieldType, &tableDesc.notNull, &tableDesc.defaultValue, &tableDesc.pk)
-		if err != nil {
-			fmt.Println("scan err: " + err.Error())
-			return
-		}
-		fmt.Printf("table desc: %+v \n", tableDesc)
-	}
+
 }
 
-func Test_GraceAddColumn(t *testing.T) {
-	file := "./data/loggie.db"
-	dbFile, _ := filepath.Abs(file)
-	fmt.Println("db file:" + dbFile)
-	db, err := sql.Open(driver, dbFile)
-	if err != nil {
-		fmt.Println("open err: " + err.Error())
-		return
+func Test_dbActions(t *testing.T) {
+	log.InitDefaultLogger()
+	SetConfig(DbConfig{
+		File:                 t.TempDir(),
+		FlushTimeout:         2 * time.Second,
+		BufferSize:           1024,
+		TableName:            "registry",
+		CleanInactiveTimeout: time.Hour,
+		CleanScanInterval:    time.Hour,
+	})
+	handler := GetOrCreateShareDbHandler()
+	defer StopDbHandler()
+
+	pipelineName := "pipe"
+	sourceName := "test-source"
+	jobUid := "test-job-uid"
+
+	timeNow := time.Now()
+	handler.insertRegistry([]Registry{{
+		PipelineName: pipelineName,
+		SourceName:   sourceName,
+		Filename:     "temp.log",
+		JobUid:       jobUid,
+		Offset:       0,
+		CollectTime:  time2text(timeNow.Add(time.Minute * (-10))),
+		Version:      api.VERSION,
+		LineNumber:   1,
+	}})
+
+	if handler.FindBy(jobUid, sourceName, pipelineName).JobUid == "" || len(handler.FindAll()) != 1 {
+		t.Errorf("new registry should be created")
 	}
 
-	columnDesc := ColumnDesc{
-		fieldName:    "line_number",
-		fieldType:    "INTEGER",
-		notNull:      false,
-		defaultValue: 0,
+	handler.updateRegistry([]Registry{{
+		PipelineName: pipelineName,
+		SourceName:   sourceName,
+		JobUid:       jobUid,
+		Offset:       1024,
+	}})
+
+	updatedRegistry := handler.FindBy(jobUid, sourceName, pipelineName)
+	log.Info("updated registry %s", updatedRegistry.value())
+	if !updatedRegistry.checkIntegrity() || updatedRegistry.Offset != 1024 {
+		t.Errorf("fail to update registry")
 	}
-	alterSql := columnDesc.toAlterSql()
-	fmt.Println("alter sql: " + alterSql)
-	_, err = db.Exec(alterSql)
-	if err != nil {
-		fmt.Printf("add column fail: %s \n", err)
+
+	handler.updateRegistry([]Registry{{
+		PipelineName: pipelineName,
+		SourceName:   sourceName,
+		JobUid:       jobUid,
+		CollectTime:  time2text(timeNow),
+	}})
+
+	updatedRegistry = handler.FindBy(jobUid, sourceName, pipelineName)
+	log.Info("updated registry %s", updatedRegistry.value())
+	if !updatedRegistry.checkIntegrity() || updatedRegistry.CollectTime != time2text(timeNow) {
+		t.Errorf("fail to update registry")
 	}
+
+	handler.updateRegistry([]Registry{{
+		PipelineName: pipelineName,
+		SourceName:   sourceName,
+		Filename:     "temp1.log",
+		JobUid:       jobUid,
+	}})
+
+	updatedRegistry = handler.FindBy(jobUid, sourceName, pipelineName)
+	log.Info("updated registry %s", updatedRegistry.value())
+	if !updatedRegistry.checkIntegrity() || updatedRegistry.Filename != "temp1.log" {
+		t.Errorf("fail to update registry")
+	}
+
+	handler.deleteRemoved([]Registry{{
+		PipelineName: pipelineName,
+		SourceName:   sourceName,
+		JobUid:       jobUid,
+	}})
+
+	if handler.FindBy(jobUid, sourceName, pipelineName).JobUid != "" || len(handler.FindAll()) != 0 {
+		t.Errorf("new registry should be delete")
+	}
+
 }

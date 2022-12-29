@@ -113,7 +113,7 @@ func (s *Source) Init(context api.Context) error {
 	s.config.ReaderConfig.readChanSize = s.config.WatchConfig.MaxOpenFds
 
 	// check
-	cleanInactiveTimeout := s.config.DbConfig.CleanInactiveTimeout
+	cleanInactiveTimeout := persistence.GetConfig().CleanInactiveTimeout
 	if inactiveTimeout > cleanInactiveTimeout {
 		cleanInactiveTimeout = 2 * inactiveTimeout
 		if cleanInactiveTimeout < time.Hour {
@@ -138,7 +138,7 @@ func (s *Source) Start() error {
 	}
 	// register queue listener for ack
 	if s.ackEnable {
-		s.dbHandler = persistence.GetOrCreateShareDbHandler(s.config.DbConfig)
+		s.dbHandler = persistence.GetOrCreateShareDbHandler()
 		s.ackChainHandler = GetOrCreateShareAckChainHandler(s.sinkCount, s.config.AckConfig)
 		s.rc.RegisterListener(&AckListener{
 			sourceName:      s.name,
@@ -146,7 +146,7 @@ func (s *Source) Start() error {
 		})
 	}
 
-	s.watcher = GetOrCreateShareWatcher(s.config.WatchConfig, s.config.DbConfig)
+	s.watcher = GetOrCreateShareWatcher(s.config.WatchConfig)
 	s.r = GetOrCreateReader(s.isolation, s.config.ReaderConfig, s.watcher)
 
 	s.HandleHttp()

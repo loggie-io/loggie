@@ -17,43 +17,21 @@ limitations under the License.
 package persistence
 
 import (
-	"database/sql"
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
+	"math"
 	"sync"
 	"time"
 
+	"github.com/dgraph-io/badger/v3"
+
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
-	driver            = "sqlite3"
 	TimeFormatPattern = "2006-01-02 15:04:05.999"
-	createTable       = `
-	CREATE TABLE IF NOT EXISTS registry (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		pipeline_name TEXT NOT NULL,
-		source_name TEXT NOT NULL,
-		filename TEXT NOT NULL,
-		job_uid TEXT NOT NULL,
-		file_offset INTEGER NOT NULL,
-		collect_time TEXT NULL,
-		sys_version TEXT NOT NULL,
-		line_number INTEGER default 0
-	);`
-	descTable = "PRAGMA table_info(registry)"
-
-	queryAll                          = `SELECT id,pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version,line_number FROM registry`
-	insertSql                         = `INSERT INTO registry (pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version,line_number) VALUES (?, ?, ?, ?, ?, ?,?,?)`
-	updateSql                         = `UPDATE registry SET file_offset = ?,collect_time = ?,line_number = ? WHERE id = ?`
-	queryByJobUidAndSourceAndPipeline = `SELECT id,pipeline_name,source_name,filename,job_uid,file_offset,collect_time,sys_version,line_number FROM registry WHERE job_uid = '%s' AND source_name = "%s" AND pipeline_name = "%s"`
-	deleteById                        = `DELETE FROM registry where id = ?`
-	updateNameByJobWatchId            = `UPDATE registry SET filename = ? WHERE job_uid = ? AND source_name = ? AND pipeline_name = ?`
-	deleteByJobWatchId                = `DELETE FROM registry where job_uid = ? AND source_name = ? AND pipeline_name = ?`
 
 	DeleteByIdOpt               = DbOptType(1)
 	DeleteByJobUidOpt           = DbOptType(2)
@@ -62,7 +40,6 @@ const (
 )
 
 type Registry struct {
-	Id           int    `json:"id"`
 	PipelineName string `json:"pipelineName"`
 	SourceName   string `json:"sourceName"`
 	Filename     string `json:"filename"`
@@ -71,6 +48,76 @@ type Registry struct {
 	CollectTime  string `json:"collectTime"`
 	Version      string `json:"version"`
 	LineNumber   int64  `json:"lineNumber"`
+}
+
+func (r *Registry) key() []byte {
+	return genKey(r.JobUid, r.SourceName, r.PipelineName)
+}
+
+func genKey(jobuid, source, pipeline string) []byte {
+	var bb bytes.Buffer
+	bb.WriteString(jobuid)
+	bb.WriteString("/")
+	bb.WriteString(source)
+	bb.WriteString("/")
+	bb.WriteString(pipeline)
+	return bb.Bytes()
+}
+
+func (r *Registry) value() []byte {
+	marshal, _ := json.Marshal(r)
+	return marshal
+}
+
+func (r *Registry) checkIntegrity() bool {
+	return len(r.Filename) > 0 &&
+		r.Offset > 0 &&
+		len(r.CollectTime) > 0 &&
+		len(r.Version) > 0 &&
+		r.LineNumber > 0
+}
+
+func (r *Registry) merge(registry Registry) {
+	if len(registry.Filename) > 0 {
+		r.Filename = registry.Filename
+	}
+
+	if registry.Offset > 0 {
+		r.Offset = registry.Offset
+	}
+
+	if len(registry.CollectTime) > 0 {
+		r.CollectTime = registry.CollectTime
+	}
+
+	if len(registry.Version) > 0 {
+		r.Version = registry.Version
+	}
+
+	if registry.LineNumber > 0 {
+		r.LineNumber = registry.LineNumber
+	}
+}
+
+type registryList []Registry
+
+func group(rs []Registry, size int) []registryList {
+	l := len(rs)
+	if l <= size {
+		return []registryList{rs}
+	}
+
+	listSize := math.Ceil(float64(l) / float64(size))
+	result := make([]registryList, int(listSize))
+	for i := 0; i < len(result); i++ {
+		start := i * size
+		end := start + size
+		if end > l {
+			end = l
+		}
+		result[i] = rs[start:end]
+	}
+	return result
 }
 
 type compressStatPair struct {
@@ -90,7 +137,7 @@ type DbHandler struct {
 	done      chan struct{}
 	config    DbConfig
 	State     chan *State
-	db        *sql.DB
+	db        *badger.DB
 	dbFile    string
 	countDown sync.WaitGroup
 	optChan   chan DbOpt
@@ -103,54 +150,17 @@ func NewDbHandler(config DbConfig) *DbHandler {
 		State:   make(chan *State, config.BufferSize),
 		optChan: make(chan DbOpt),
 	}
-	dbFile := d.createDbFile()
-	d.dbFile = dbFile
-	db, err := sql.Open(driver, dbFile)
+
+	d.dbFile = d.config.File
+	db, err := badger.Open(badger.DefaultOptions(d.dbFile).WithLogger(nil))
 	if err != nil {
-		panic(fmt.Sprintf("open db(%s) fail: %s", dbFile, err))
+		panic(fmt.Sprintf("open db(%s) fail: %s", d.dbFile, err))
 	}
+
 	d.db = db
-	d.check()
 
 	go d.run()
 	return d
-}
-
-func (d *DbHandler) createDbFile() (dbFile string) {
-	file := d.config.File
-	dbFile, err := filepath.Abs(file)
-	if err != nil {
-		panic(fmt.Sprintf("get db abs file(%s) fail： %s", file, err))
-	}
-	log.Info("db file: %s", dbFile)
-	_, err = os.Stat(dbFile)
-	if err == nil || os.IsExist(err) {
-		return dbFile
-	}
-	dir := filepath.Dir(file)
-	err = os.MkdirAll(dir, os.ModePerm)
-	if err != nil {
-		log.Warn("create dir(%s) fail: %s", dir, err)
-	}
-	_, err = os.Create(dbFile)
-	if err != nil {
-		log.Warn("create db file(%s) fail: %s", dbFile, err)
-	}
-	return dbFile
-}
-
-func (d *DbHandler) check() {
-	_, err := d.db.Exec(createTable)
-	if err != nil {
-		_ = d.db.Close()
-		panic(fmt.Sprintf("%s check table registry fail: %s", d.String(), err))
-	}
-	d.graceAddColumn(ColumnDesc{
-		fieldName:    "line_number",
-		fieldType:    "INTEGER",
-		notNull:      false,
-		defaultValue: 0,
-	})
 }
 
 func (d *DbHandler) String() string {
@@ -244,12 +254,16 @@ func (d *DbHandler) cleanData() {
 }
 
 func (d *DbHandler) delete(r Registry) {
-	d.txWrapper(deleteById, func(stmt *sql.Stmt) {
-		_, err := stmt.Exec(r.Id)
+
+	_ = d.db.Update(func(txn *badger.Txn) error {
+		key := r.key()
+		err := txn.Delete(key)
 		if err != nil {
-			log.Error("%s stmt exec fail: %s", d.String(), err)
+			log.Error("%s fail to delete registry %s : %s", d.String(), key, err)
+			return err
 		}
-		log.Info("delete registry(id: %d) because db.cleanInactiveTimeout(%dh) reached. file: %s", r.Id, d.config.CleanInactiveTimeout/time.Hour, r.Filename)
+		log.Info("delete registry %s because db.cleanInactiveTimeout(%dh) reached. file: %s", key, d.config.CleanInactiveTimeout/time.Hour, r.Filename)
+		return nil
 	})
 }
 
@@ -269,10 +283,8 @@ func (d *DbHandler) write(stats []*State) {
 
 	for _, cs := range css {
 		stat := cs.last
-		r := d.state2Registry(stat)
-		if id, ok := contain(registries, stat); ok {
-			tempId := id
-			r.Id = tempId
+		if ok := contain(registries, stat); ok {
+			r := d.state2Registry(stat)
 			updateRegistries = append(updateRegistries, r)
 		} else {
 			log.Warn("The registry record corresponding to stat(%+v) has been deleted, stat will be ignore!", stat)
@@ -302,60 +314,77 @@ func (d *DbHandler) state2Registry(stat *State) Registry {
 }
 
 func (d *DbHandler) insertRegistry(registries []Registry) {
-	d.txWrapper(insertSql, func(stmt *sql.Stmt) {
-		for _, r := range registries {
-			_, err := stmt.Exec(r.PipelineName, r.SourceName, r.Filename, r.JobUid, r.Offset, r.CollectTime, r.Version, r.LineNumber)
-			if err != nil {
-				log.Error("%s stmt exec fail: %s", d.String(), err)
+	lists := group(registries, 100)
+	for _, list := range lists {
+		_ = d.db.Update(func(txn *badger.Txn) error {
+			for _, registry := range list {
+				key := registry.key()
+				value := registry.value()
+				err := txn.Set(key, value)
+				if err != nil {
+					log.Error("%s insert registry %s fail: %s", d.String(), key, err)
+				}
+				log.Debug("inserted registry %s: %s", key, value)
 			}
-		}
-	})
+			return nil
+		})
+	}
+
 }
 
 func (d *DbHandler) updateRegistry(registries []Registry) {
-	d.txWrapper(updateSql, func(stmt *sql.Stmt) {
-		for _, r := range registries {
-			_, err := stmt.Exec(r.Offset, r.CollectTime, r.LineNumber, r.Id)
-			if err != nil {
-				log.Error("%s stmt exec fail: %s", d.String(), err)
-			}
-		}
-	})
-}
+	lists := group(registries, 100)
+	for _, list := range lists {
+		_ = d.db.Update(func(txn *badger.Txn) error {
+			for _, registry := range list {
+				key := registry.key()
+				var value []byte
+				if !registry.checkIntegrity() {
+					item, err := txn.Get(key)
+					if err != nil {
+						log.Error("fail to get registry %s: %s", key, err)
+						continue
+					}
+					oldRegistry := Registry{}
+					valueCopy, err := item.ValueCopy(nil)
+					if err != nil {
+						log.Error("fail to get registry %s bytes: %s", key, err)
+						continue
+					}
+					err = json.Unmarshal(valueCopy, &oldRegistry)
+					if err != nil {
+						log.Error("fail to decode registry %s: %s", key, err)
+						continue
+					}
+					log.Debug("get old version registry before updating %s", valueCopy)
+					oldRegistry.merge(registry)
+					value = oldRegistry.value()
+				} else {
+					value = registry.value()
+				}
 
-func (d *DbHandler) updateName(rs []Registry) {
-	d.txWrapper(updateNameByJobWatchId, func(stmt *sql.Stmt) {
-		for _, r := range rs {
-			result, err := stmt.Exec(r.Filename, r.JobUid, r.SourceName, r.PipelineName)
-			if err != nil {
-				log.Error("%s stmt exec fail: %s", d.String(), err)
-				continue
+				err := txn.Set(key, value)
+				if err != nil {
+					log.Error("%s update registry %s fail: %s", d.String(), key, err)
+				}
+				log.Debug("updated registry %s : %s", key, value)
 			}
-			affected, err := result.RowsAffected()
-			if err != nil {
-				log.Error("%s get result fail: %s", d.String(), err)
-				continue
-			}
-			log.Info("updateName registry(%+v). affected: %d", r, affected)
-		}
-	})
+			return nil
+		})
+	}
 }
 
 func (d *DbHandler) deleteRemoved(rs []Registry) {
-	d.txWrapper(deleteByJobWatchId, func(stmt *sql.Stmt) {
-		for _, r := range rs {
-			result, err := stmt.Exec(r.JobUid, r.SourceName, r.PipelineName)
+	_ = d.db.Update(func(txn *badger.Txn) error {
+		for _, registry := range rs {
+			key := registry.key()
+			err := txn.Delete(key)
 			if err != nil {
-				log.Error("%s stmt exec fail: %s", d.String(), err)
-				continue
+				log.Error("%s delete registry %s fail: %s", d.String(), key, err)
 			}
-			affected, err := result.RowsAffected()
-			if err != nil {
-				log.Error("%s get result fail: %s", d.String(), err)
-				continue
-			}
-			log.Info("delete registry(%+v). affected: %d", r, affected)
+			log.Info("delete registry(%+v). ", registry)
 		}
+		return nil
 	})
 }
 
@@ -367,28 +396,10 @@ func (d *DbHandler) upsertOffsetByJobWatchId(r Registry) {
 	or := d.FindBy(r.JobUid, r.SourceName, r.PipelineName)
 	if or.JobUid != "" {
 		// update
-		r.Id = or.Id
 		d.updateRegistry(rs)
 	} else {
 		// insert
 		d.insertRegistry(rs)
-	}
-}
-
-func (d *DbHandler) txWrapper(sqlString string, f func(stmt *sql.Stmt)) {
-	tx, err := d.db.Begin()
-	if err != nil {
-		log.Error("%s begin tx fail: %s", d.String(), err)
-	}
-	stmt, err := tx.Prepare(sqlString)
-	if err != nil {
-		log.Error("%s prepare sql fail: %s", d.String(), err)
-	}
-	defer stmt.Close()
-	f(stmt)
-	err = tx.Commit()
-	if err != nil {
-		log.Error("%s tx commit fail: %s", d.String(), err)
 	}
 }
 
@@ -398,58 +409,53 @@ func (d *DbHandler) FindAll() []Registry {
 	//	cost := time.Since(start).Milliseconds()
 	//	log.Info("find by source cost: %dms", cost)
 	// }()
-	return d.findBySql(queryAll)
+	list := make([]Registry, 0)
+	_ = d.db.View(func(txn *badger.Txn) error {
+		iterator := txn.NewIterator(badger.DefaultIteratorOptions)
+		defer iterator.Close()
+
+		for iterator.Rewind(); iterator.Valid(); iterator.Next() {
+			item := iterator.Item()
+			_ = item.Value(func(val []byte) error {
+				registry := Registry{}
+				err := json.Unmarshal(val, &registry)
+				if err != nil {
+					log.Error("fail to decode registry %s: %s", item.Key(), err)
+					return err
+				}
+				list = append(list, registry)
+				return nil
+			})
+		}
+		return nil
+	})
+
+	return list
 }
 
 func (d *DbHandler) FindBy(jobUid string, sourceName string, pipelineName string) Registry {
-	querySql := fmt.Sprintf(queryByJobUidAndSourceAndPipeline, jobUid, sourceName, pipelineName)
-	rs := d.findBySql(querySql)
-	if len(rs) == 0 {
-		return Registry{}
-	}
-	return rs[0]
-}
-
-func (d *DbHandler) findBySql(querySql string) []Registry {
-	rows, err := d.db.Query(querySql)
-	if err != nil {
-		panic(fmt.Sprintf("%s query registry by sql(%s) fail: %v", d.String(), querySql, err))
-	}
-	defer rows.Close()
-	registries := make([]Registry, 0)
-	for rows.Next() {
-		var (
-			id            int
-			pipeline_name string
-			source_name   string
-			filename      string
-			job_uid       string
-			file_offset   int64
-			collect_time  string
-			sys_version   string
-			line_number   int64
-		)
-		err = rows.Scan(&id, &pipeline_name, &source_name, &filename, &job_uid, &file_offset, &collect_time, &sys_version, &line_number)
+	registry := Registry{}
+	key := genKey(jobUid, sourceName, pipelineName)
+	_ = d.db.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(key)
 		if err != nil {
-			panic(fmt.Sprintf("%s query registry fail: %v", d.String(), err))
+			return err
 		}
-		registries = append(registries, Registry{
-			Id:           id,
-			PipelineName: pipeline_name,
-			SourceName:   source_name,
-			Filename:     filename,
-			JobUid:       job_uid,
-			Offset:       file_offset,
-			CollectTime:  collect_time,
-			Version:      sys_version,
-			LineNumber:   line_number,
-		})
-	}
-	err = rows.Err()
-	if err != nil {
-		panic(fmt.Sprintf("db(%s) query registry fail: %v", d.config.File, err))
-	}
-	return registries
+		valueCopy, err := item.ValueCopy(nil)
+		if err != nil {
+			log.Error("fail to get registry %s bytes: %s", key, err)
+			return err
+		}
+		err = json.Unmarshal(valueCopy, &registry)
+		if err != nil {
+			log.Error("fail to decode registry %s: %s", key, err)
+			registry = Registry{}
+			return err
+		}
+		return nil
+	})
+
+	return registry
 }
 
 func (d *DbHandler) processOpt(optBuffer []DbOpt) {
@@ -469,7 +475,7 @@ func (d *DbHandler) processOpt(optBuffer []DbOpt) {
 			continue
 		}
 		if optType == UpdateNameByJobWatchIdOpt {
-			d.updateName([]Registry{r})
+			d.updateRegistry([]Registry{r})
 			continue
 		}
 	}
@@ -487,13 +493,13 @@ func time2text(date time.Time) string {
 	return date.Format(TimeFormatPattern)
 }
 
-func contain(registries []Registry, state *State) (id int, ok bool) {
+func contain(registries []Registry, state *State) (ok bool) {
 	for _, r := range registries {
 		if r.PipelineName == state.PipelineName && r.SourceName == state.SourceName && r.JobUid == state.JobUid {
-			return r.Id, true
+			return true
 		}
 	}
-	return -1, false
+	return false
 }
 
 func compressStats(stats []*State) []compressStatPair {
@@ -529,77 +535,4 @@ func compressStats(stats []*State) []compressStatPair {
 		compressStatPairs = append(compressStatPairs, cs)
 	}
 	return compressStatPairs
-}
-
-func (d *DbHandler) descTable() []ColumnDesc {
-	rows, err := d.db.Query(descTable)
-	if err != nil {
-		log.Error("desc table fail : %s", err)
-		return nil
-	}
-	tableDesc := make([]ColumnDesc, 0)
-	for rows.Next() {
-		var columnDesc ColumnDesc
-		err := rows.Scan(&columnDesc.cid, &columnDesc.fieldName, &columnDesc.fieldType,
-			&columnDesc.notNull, &columnDesc.defaultValue, &columnDesc.pk)
-		if err != nil {
-			fmt.Println("desc table scan err: " + err.Error())
-			return nil
-		}
-		tableDesc = append(tableDesc, columnDesc)
-	}
-	return tableDesc
-}
-
-func (d *DbHandler) graceAddColumn(desc ColumnDesc) {
-	tableDesc := d.descTable()
-	if tableDesc == nil {
-		return
-	}
-	exist := false
-	for _, columnDesc := range tableDesc {
-		if columnDesc.fieldName == desc.fieldName {
-			exist = true
-		}
-	}
-	if !exist {
-		alterSql := desc.toAlterSql()
-		log.Info("alter sql: %s", alterSql)
-		_, err := d.db.Exec(alterSql)
-		if err != nil {
-			log.Error("add column fail: %s", err)
-		}
-	}
-}
-
-type ColumnDesc struct {
-	cid          int
-	fieldName    string
-	fieldType    string
-	notNull      bool
-	defaultValue interface{}
-	pk           bool
-}
-
-func (cd ColumnDesc) toAlterSql() string {
-	var alterSql strings.Builder
-	alterSql.Grow(128)
-	alterSql.WriteString("alter table registry add column ")
-	alterSql.WriteString(cd.fieldName)
-	alterSql.WriteString(" ")
-	alterSql.WriteString(cd.fieldType)
-	alterSql.WriteString(" ")
-	if cd.defaultValue != nil {
-		alterSql.WriteString(" default ")
-		alterSql.WriteString(fmt.Sprintf("%v", cd.defaultValue))
-		alterSql.WriteString(" ")
-	} else {
-		if cd.notNull {
-			alterSql.WriteString(" NOT NULL")
-		} else {
-
-			alterSql.WriteString(" NULL")
-		}
-	}
-	return alterSql.String()
 }

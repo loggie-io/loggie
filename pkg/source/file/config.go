@@ -22,13 +22,11 @@ import (
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/util"
-	"github.com/loggie-io/loggie/pkg/util/persistence"
 	timeutil "github.com/loggie-io/loggie/pkg/util/time"
 )
 
 type Config struct {
 	AckConfig     AckConfig              `yaml:"ack,omitempty"`
-	DbConfig      persistence.DbConfig   `yaml:"db,omitempty"`
 	WatchConfig   WatchConfig            `yaml:"watcher,omitempty"`
 	ReaderConfig  ReaderConfig           `yaml:",inline,omitempty"`
 	CollectConfig CollectConfig          `yaml:",inline,omitempty" validate:"required,dive"`

@@ -167,7 +167,7 @@ func (s *Source) registryHandler(writer http.ResponseWriter, request *http.Reque
 		pretty = true
 	}
 
-	db := persistence.GetOrCreateShareDbHandler(s.config.DbConfig)
+	db := persistence.GetOrCreateShareDbHandler()
 	registry := db.FindAll()
 
 	var out []byte

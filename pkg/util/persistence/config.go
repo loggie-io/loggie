@@ -19,15 +19,18 @@ package persistence
 import (
 	"sync"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/log"
 )
 
 var (
 	globalDbHandler *DbHandler
 	dbLock          sync.Mutex
+	config          DbConfig
 )
 
 type DbConfig struct {
-	File                 string        `yaml:"file,omitempty" default:"./data/loggie.db"`
+	File                 string        `yaml:"file,omitempty" default:"./data"`
 	FlushTimeout         time.Duration `yaml:"flushTimeout,omitempty" default:"2s"`
 	BufferSize           int           `yaml:"bufferSize,omitempty" default:"2048"`
 	TableName            string        `yaml:"tableName,omitempty" default:"registry"`
@@ -35,7 +38,16 @@ type DbConfig struct {
 	CleanScanInterval    time.Duration `yaml:"cleanScanInterval,omitempty" default:"1h"`
 }
 
-func GetOrCreateShareDbHandler(config DbConfig) *DbHandler {
+func SetConfig(dbConfig DbConfig) {
+	log.Debug("db config set %+v", dbConfig)
+	config = dbConfig
+}
+
+func GetConfig() DbConfig {
+	return config
+}
+
+func GetOrCreateShareDbHandler() *DbHandler {
 	if globalDbHandler != nil {
 		return globalDbHandler
 	}
@@ -46,4 +58,13 @@ func GetOrCreateShareDbHandler(config DbConfig) *DbHandler {
 	}
 	globalDbHandler = NewDbHandler(config)
 	return globalDbHandler
+}
+
+func StopDbHandler() {
+	if globalDbHandler == nil {
+		return
+	}
+	dbLock.Lock()
+	defer dbLock.Unlock()
+	globalDbHandler.Stop()
 }
