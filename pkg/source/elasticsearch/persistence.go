@@ -24,6 +24,7 @@ import (
 )
 
 type DBConfig struct {
+	IndexPrefix          string        `yaml:"indexPrefix,omitempty" default:".loggie-db"`
 	FlushTimeout         time.Duration `yaml:"flushTimeout,omitempty" default:"2s"`
 	CleanInactiveTimeout time.Duration `yaml:"cleanInactiveTimeout,omitempty" default:"504h"` // default records not updated in 21 days will be deleted
 	CleanScanInterval    time.Duration `yaml:"cleanScanInterval,omitempty" default:"1h"`

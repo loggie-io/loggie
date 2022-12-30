@@ -65,7 +65,7 @@ func NewClient(config *Config) (*ClientSet, error) {
 	c := &ClientSet{
 		cli:    cli,
 		config: config,
-		db:     NewDB(fmt.Sprintf("loggie-%s-%s", config.PipelineName, config.Name), cli),
+		db:     NewDB(fmt.Sprintf("%s-%s-%s", config.DBConfig.IndexPrefix, config.PipelineName, config.Name), cli),
 	}
 	go c.watch()
 	return c, nil
@@ -124,7 +124,7 @@ func (c *ClientSet) cleanInactiveRecord() {
 }
 
 func (c *ClientSet) Search(ctx context.Context) ([][]byte, error) {
-	queryBuilder := c.cli.Search().Index(c.config.Index)
+	queryBuilder := c.cli.Search().Index(c.config.Indices...)
 	if c.config.Query != "" {
 		queryBuilder.Query(es.NewRawStringQuery(c.config.Query))
 	}
