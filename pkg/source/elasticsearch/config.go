@@ -32,7 +32,7 @@ type Config struct {
 	IncludeFields []string `yaml:"includeFields,omitempty"`
 	ExcludeFields []string `yaml:"excludeFields,omitempty"`
 	Query         string   `yaml:"query,omitempty"`
-	Index         string   `yaml:"index,omitempty" validate:"required"`
+	Indices       []string `yaml:"indices,omitempty" validate:"required"`
 	Size          int      `yaml:"size,omitempty" default:"100"`
 
 	Interval time.Duration `yaml:"interval,omitempty" default:"30s"`
