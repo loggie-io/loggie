@@ -872,36 +872,14 @@ func (w *Watcher) reportWatchMetricAndCleanFiles() {
 	for _, watchTask := range w.sourceWatchTasks {
 		pipelineName := watchTask.pipelineName
 		sourceName := watchTask.sourceName
+
 		paths := getPathsIfDynamicContainerLogs(watchTask.config.Paths, pipelineName, sourceName)
-		var (
-			activeCount     int
-			inActiveFdCount int
-		)
-		for _, job := range w.allJobs {
-			if job.file == nil {
-				continue
-			}
-			if job.task.pipelineName != watchTask.pipelineName {
-				continue
-			}
-			if job.task.sourceName != watchTask.sourceName {
-				continue
-			}
-			if j, ok := w.zombieJobs[job.WatchUid()]; ok {
-				if j.file != nil {
-					inActiveFdCount++
-				}
-			} else {
-				activeCount++
-			}
+		watchMetricData := w.reportWatchMetric(watchTask, paths, pipelineName, sourceName)
+		eventbus.Publish(eventbus.FileWatcherTopic, watchMetricData)
 
-			watchMetricData := w.reportWatchMetric(watchTask, paths, pipelineName, sourceName)
-			eventbus.Publish(eventbus.FileWatcherTopic, watchMetricData)
-
-			removedFiles := w.cleanFiles(watchMetricData.FileInfos)
-			if len(removedFiles) > 0 {
-				log.Info("cleanLogs: removed files %+v", removedFiles)
-			}
+		removedFiles := w.cleanFiles(watchMetricData.FileInfos)
+		if len(removedFiles) > 0 {
+			log.Info("cleanLogs: removed files %+v", removedFiles)
 		}
 	}
 }
@@ -929,6 +907,7 @@ func (w *Watcher) reportWatchMetric(watchTask *WatchTask, paths []string, pipeli
 			activeFdCount++
 		}
 	}
+
 	fileInfos := make([]eventbus.FileInfo, 0)
 	for _, path := range paths {
 		matches, err := util.GlobWithRecursive(path)
