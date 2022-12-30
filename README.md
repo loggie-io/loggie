@@ -7,39 +7,39 @@
 
 > English | [中文](./README_cn.md)
 
-Loggie is a lightweight, high-performance, cloud-native agent and aggregator based on Golang. It supports multiple pipeline and pluggable components:
+Loggie is a lightweight, high-performance, cloud-native agent and aggregator based on Golang.
 
-- **One stack logging solution**: supports data transfer, filtering, parsing, alarm, etc
-- **Cloud native**: native Kubernetes CRD usage
-- **Production level**: a full range of observability, automatic operation and reliability capabilities
+- Supports multiple pipeline and pluggable components, including data transfer, filtering, parsing, and alarm functions.
+- Uses native Kubernetes CRD for operation and management.
+- Offers a range of observability, reliability, and automation features suitable for production environments.
 
 ## Architecture
 
 ![](https://loggie-io.github.io/docs/getting-started/imgs/loggie-arch.png)
 
 
-## [Documentation](https://loggie-io.github.io/docs/)
+## [Documentation](https://loggie-io.github.io/docs-en/)
 
-### [Setup](https://loggie-io.github.io/docs/getting-started/overview/)
+### [Setup](https://loggie-io.github.io/docs-en/getting-started/overview/)
 
-- [Quickstart](https://loggie-io.github.io/docs/getting-started/quick-start/quick-start/)
-- Installation ([Kubernetes](https://loggie-io.github.io/docs/getting-started/install/kubernetes/), [Node](https://loggie-io.github.io/docs/getting-started/install/node/))
+- [Quickstart](https://loggie-io.github.io/docs-en/getting-started/quick-start/quick-start/)
+- Installation ([Kubernetes](https://loggie-io.github.io/docs-en/getting-started/install/kubernetes/), [Node](https://loggie-io.github.io/docs-en/getting-started/install/node/))
 
-### [User Guide](https://loggie-io.github.io/docs/user-guide/)
+### [User Guide](https://loggie-io.github.io/docs-en/user-guide/)
 
-- [Architecture](https://loggie-io.github.io/docs/user-guide/architecture/core-arch/)
-- [Kubernetes](https://loggie-io.github.io/docs/user-guide/use-in-kubernetes/general-usage/)
-- [Monitoring](https://loggie-io.github.io/docs/user-guide/monitor/loggie-monitor/)
+- [Architecture](https://loggie-io.github.io/docs-en/user-guide/architecture/core-arch/)
+- [Kubernetes](https://loggie-io.github.io/docs-en/user-guide/use-in-kubernetes/general-usage/)
+- [Monitoring](https://loggie-io.github.io/docs-en/user-guide/monitor/loggie-monitor/)
 
-### [Reference](https://loggie-io.github.io/docs/reference/)
+### [Reference](https://loggie-io.github.io/docs-en/reference/)
 
-- [Args](https://loggie-io.github.io/docs/reference/global/args/)
-- [System](https://loggie-io.github.io/docs/reference/global/system/)
+- [Args](https://loggie-io.github.io/docs-en/reference/global/args/)
+- [System](https://loggie-io.github.io/docs-en/reference/global/monitor/)
 - Pipelines
-    - source: [file](https://loggie-io.github.io/docs/reference/pipelines/source/file/), [kafka](https://loggie-io.github.io/docs/reference/pipelines/source/kafka/), [kubeEvent](https://loggie-io.github.io/docs/reference/pipelines/source/kubeEvent/), [grpc](https://loggie-io.github.io/docs/reference/pipelines/source/grpc/)..
-    - sink: [elassticsearch](https://loggie-io.github.io/docs/reference/pipelines/sink/elasticsearch/), [kafka](https://loggie-io.github.io/docs/reference/pipelines/sink/kafka/), [grpc](https://loggie-io.github.io/docs/reference/pipelines/sink/grpc/), [dev](https://loggie-io.github.io/docs/reference/pipelines/sink/dev/)..
-    - interceptor: [normalize](https://loggie-io.github.io/docs/reference/pipelines/interceptor/normalize/), [limit](https://loggie-io.github.io/docs/reference/pipelines/interceptor/limit/), [logAlert](https://loggie-io.github.io/docs/reference/pipelines/interceptor/logalert/), [maxbytes](https://loggie-io.github.io/docs/reference/pipelines/interceptor/maxbytes/)..
-- CRD ([logConfig](https://loggie-io.github.io/docs/reference/discovery/kubernetes/logconfig/), [sink](https://loggie-io.github.io/docs/reference/discovery/kubernetes/sink/), [interceptor](https://loggie-io.github.io/docs/reference/discovery/kubernetes/interceptors/))
+    - source: [file](https://loggie-io.github.io/docs-en/reference/pipelines/source/file/), [kafka](https://loggie-io.github.io/docs-en/reference/pipelines/source/kafka/), [kubeEvent](https://loggie-io.github.io/docs-en/reference/pipelines/source/kube-event/), [grpc](https://loggie-io.github.io/docs-en/reference/pipelines/source/grpc/)..
+    - sink: [elasticsearch](https://loggie-io.github.io/docs-en/reference/pipelines/sink/elasticsearch/), [kafka](https://loggie-io.github.io/docs-en/reference/pipelines/sink/kafka/), [grpc](https://loggie-io.github.io/docs-en/reference/pipelines/sink/grpc/), [dev](https://loggie-io.github.io/docs-en/reference/pipelines/sink/dev/)..
+    - interceptor: [transformer](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/transformer/), [limit](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/limit/), [logAlert](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/logalert/), [maxbytes](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/maxbytes/)..
+- CRD ([logConfig](https://loggie-io.github.io/docs-en/reference/discovery/kubernetes/logconfig/), [sink](https://loggie-io.github.io/docs-en/reference/discovery/kubernetes/sink/), [interceptor](https://loggie-io.github.io/docs-en/reference/discovery/kubernetes/interceptors/))
 
 ## License
 
