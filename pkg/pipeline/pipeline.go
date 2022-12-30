@@ -838,12 +838,12 @@ func (p *Pipeline) startGPoolCalculator() {
 func (p *Pipeline) tuneGPool(targetCap int) {
 
 	if targetCap <= 1 {
-		log.Info("gpool size should be larger than 1")
+		log.Debug("gpool size should be larger than 1")
 		targetCap = 2
 	}
 
 	if targetCap > p.gpoolMaxSize {
-		log.Info("gpool size should be smaller than %d", p.gpoolMaxSize)
+		log.Debug("gpool size should not be larger than %d", p.gpoolMaxSize)
 		targetCap = p.gpoolMaxSize
 	}
 
