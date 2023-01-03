@@ -38,6 +38,7 @@ type AlertManager struct {
 	temp      *template.Template
 	bp        *BufferPool
 	headers   map[string]string
+	method    string
 	LineLimit int
 
 	lock sync.Mutex
@@ -46,7 +47,7 @@ type AlertManager struct {
 type ResetTempEvent struct {
 }
 
-func NewAlertManager(addr []string, timeout, lineLimit int, temp *string, headers map[string]string) *AlertManager {
+func NewAlertManager(addr []string, timeout, lineLimit int, temp *string, headers map[string]string, method string) *AlertManager {
 	cli := http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 	}
@@ -56,10 +57,15 @@ func NewAlertManager(addr []string, timeout, lineLimit int, temp *string, header
 		headers:   headers,
 		bp:        newBufferPool(1024),
 		LineLimit: lineLimit,
+		method:    http.MethodPost,
+	}
+
+	if method == http.MethodPut {
+		manager.method = http.MethodPost
 	}
 
 	if temp != nil {
-		t, err := template.New("test").Parse(*temp)
+		t, err := template.New("alertTemplate").Parse(*temp)
 		if err != nil {
 			log.Error("fail to generate temp %s", *temp)
 		}
@@ -121,15 +127,16 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 	}
 	a.lock.Unlock()
 
+	log.Debug("sending alert %s", request)
 	for _, address := range a.Address { // send alerts to alertManager cluster, no need to retry
 		a.send(address, request)
 	}
 }
 
 func (a *AlertManager) send(address string, alert []byte) {
-	req, err := http.NewRequest("POST", address, bytes.NewReader(alert))
+	req, err := http.NewRequest(a.method, address, bytes.NewReader(alert))
 	if err != nil {
-		log.Warn("post alert error: %v", err)
+		log.Warn("send alert error: %v", err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -140,23 +147,22 @@ func (a *AlertManager) send(address string, alert []byte) {
 	}
 	resp, err := a.Client.Do(req)
 	if err != nil {
-		log.Warn("post alert error: %v", err)
+		log.Warn("send alert error: %v", err)
 		return
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if !webhook.Is2xxSuccess(resp.StatusCode) {
 		r, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Warn("read response body error: %v", err)
 		}
-		log.Warn("post alert failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))
+		log.Warn("send alert failed, response statusCode: %d, body: %s", resp.StatusCode, r)
 	}
-	log.Debug("send alerts %s success", string(alert))
 }
 
 func (a *AlertManager) UpdateTemp(temp string) {
-	t, err := template.New("test").Parse(temp)
+	t, err := template.New("alertTemplate").Parse(temp)
 	if err != nil {
 		log.Error("fail to generate temp %s", temp)
 	}

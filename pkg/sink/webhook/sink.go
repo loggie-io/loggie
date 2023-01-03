@@ -35,7 +35,16 @@ import (
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 )
 
-const Type = pipeline.WebhookSinkType
+const (
+	Type = "webhook"
+
+	sourceName   = "sourceName"
+	pipelineName = "pipelineName"
+	timestamp    = "timestamp"
+
+	meta = "_meta"
+	body = "body"
+)
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)
@@ -53,29 +62,29 @@ func NewAlert(e api.Event, lineLimit int) Alert {
 	allMeta := e.Meta().GetAll()
 
 	if value, ok := allMeta[event.SystemSourceKey]; ok {
-		systemData["sourceName"] = value
+		systemData[sourceName] = value
 	}
 
 	if value, ok := allMeta[event.SystemPipelineKey]; ok {
-		systemData["pipelineName"] = value
+		systemData[pipelineName] = value
 	}
 
 	if value, ok := allMeta[event.SystemProductTimeKey]; ok {
 		t, valueToTime := value.(time.Time)
 		if !valueToTime {
-			systemData["timestamp"] = value
+			systemData[timestamp] = value
 		} else {
 			textTime, err := t.MarshalText()
 			if err == nil {
-				systemData["timestamp"] = string(textTime)
+				systemData[timestamp] = string(textTime)
 			} else {
-				systemData["timestamp"] = value
+				systemData[timestamp] = value
 			}
 		}
 	}
 
 	alert := Alert{
-		"_meta": systemData,
+		meta: systemData,
 	}
 
 	if len(e.Body()) > 0 {
@@ -88,11 +97,11 @@ func NewAlert(e api.Event, lineLimit int) Alert {
 			}
 			split = append(split, strings.TrimSpace(s))
 		}
-		alert["body"] = split
+		alert[body] = split
 	}
 
 	for k, v := range e.Header() {
-		if k == "body" {
+		if k == body {
 			if value, ok := v.(string); ok {
 				split := make([]string, 0)
 				for i, s := range strings.Split(value, "\n") {
@@ -102,7 +111,7 @@ func NewAlert(e api.Event, lineLimit int) Alert {
 					}
 					split = append(split, strings.TrimSpace(s))
 				}
-				alert["body"] = split
+				alert[body] = split
 				continue
 			}
 		}
@@ -119,6 +128,7 @@ type Sink struct {
 	temp      *template.Template
 	bp        *BufferPool
 	client    *http.Client
+	method    string
 	subscribe *eventbus.Subscribe
 	listener  *Listener
 }
@@ -163,6 +173,13 @@ func (s *Sink) Init(context api.Context) error {
 	s.client = &http.Client{
 		Timeout: time.Duration(s.config.Timeout) * time.Second,
 	}
+
+	if s.config.Method == http.MethodPut {
+		s.method = http.MethodPut
+	} else {
+		s.method = http.MethodPost
+	}
+
 	return nil
 }
 
@@ -170,7 +187,7 @@ func (s *Sink) Start() error {
 	log.Info("%s start", s.String())
 	t := s.config.Template
 	if t != "" {
-		temp, err := template.New("test").Parse(t)
+		temp, err := template.New("alertTemplate").Parse(t)
 		if err != nil {
 			log.Error("fail to generate temp %s", t)
 			return err
@@ -227,9 +244,15 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		request = out
 	}
 
-	req, err := http.NewRequest("POST", s.config.Addr, bytes.NewReader(request))
+	log.Debug("sending data %s", request)
+	return s.sendData(request)
+
+}
+
+func (s *Sink) sendData(request []byte) api.Result {
+	req, err := http.NewRequest(s.method, s.config.Addr, bytes.NewReader(request))
 	if err != nil {
-		log.Warn("post alert error: %v", err)
+		log.Warn("send alert error: %v", err)
 		return result.Fail(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -240,21 +263,24 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	}
 	resp, err := s.client.Do(req)
 	if err != nil {
-		log.Warn("post alert error: %v", err)
+		log.Warn("send alert error: %v", err)
 		return result.Fail(err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != 200 {
+	if !Is2xxSuccess(resp.StatusCode) {
 		r, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Warn("read response body error: %v", err)
 			return result.Fail(err)
 		}
-		log.Warn("post alert failed, response statusCode: %d, body: %v", resp.StatusCode, string(r))
-		return result.Fail(fmt.Errorf("post alert to AlertCenter failed, response statusCode: %d, body: %v", resp.StatusCode, string(r)))
+		log.Warn("sending alert failed, response statusCode: %d, body: %s", resp.StatusCode, r)
+		return result.Fail(fmt.Errorf("sending alert failed, response statusCode: %d, body: %s", resp.StatusCode, r))
 	}
 
 	return result.NewResult(api.SUCCESS)
+}
 
+func Is2xxSuccess(code int) bool {
+	return code >= 200 && code <= 299
 }
