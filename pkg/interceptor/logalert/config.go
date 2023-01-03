@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/interceptor/logalert/condition"
@@ -36,12 +37,13 @@ const (
 type Config struct {
 	interceptor.ExtensionConfig `yaml:",inline"`
 
-	Matcher   Matcher           `yaml:"matcher,omitempty"`
-	Labels    Labels            `yaml:"labels,omitempty"`
-	Additions map[string]string `yaml:"additions,omitempty"`
-	Ignore    []string          `yaml:"ignore,omitempty"`
-	Advanced  Advanced          `yaml:"advanced,omitempty"`
-	Template  *string           `yaml:"template,omitempty"`
+	Matcher         Matcher           `yaml:"matcher,omitempty"`
+	Labels          Labels            `yaml:"labels,omitempty"`
+	Additions       map[string]string `yaml:"additions,omitempty"`
+	Ignore          []string          `yaml:"ignore,omitempty"`
+	Advanced        Advanced          `yaml:"advanced,omitempty"`
+	Template        *string           `yaml:"template,omitempty"`
+	SendOnlyMatched bool              `yaml:"sendOnlyMatched,omitempty"`
 }
 
 type Matcher struct {
@@ -55,11 +57,11 @@ type Labels struct {
 }
 
 type Advanced struct {
-	Enable    bool     `yaml:"enable"`
-	Mode      []string `yaml:"mode,omitempty"`
-	Duration  int      `yaml:"duration,omitempty"`
-	MatchType string   `yaml:"matchType,omitempty"`
-	Rules     []Rule   `yaml:"rules,omitempty"`
+	Enable    bool          `yaml:"enabled"`
+	Mode      []string      `yaml:"mode,omitempty"`
+	Duration  time.Duration `yaml:"duration,omitempty"`
+	MatchType string        `yaml:"matchType,omitempty"`
+	Rules     []Rule        `yaml:"rules,omitempty"`
 }
 
 type Rule struct {

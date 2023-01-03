@@ -1,4 +1,4 @@
-# example for logalert in webhook
+# example for logalert in alertwebhook
 pipelines:
   - name: local
     sources:
@@ -19,14 +19,15 @@ pipelines:
           contains: ["error","ERROR"]
           regexp: ['.*WARN.*']
         ignore: ['.*INFO.*']
+        sendOnlyMatched: true
         additions:
           module: "loggie-alert"
           alertname: "zzy-alert-test"
           cluster: "local-cluster"
         advanced:
-          enable: true
+          enabled: true
           mode: [ "noData","regexp" ]
-          duration: 20
+          duration: 20s
           matchType: "any"
           rules:
             - regexp: '(?<date>.*?) (?<time>[\S|\\.]+)  (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>(.|\n|\t)*)'
@@ -46,7 +47,7 @@ pipelines:
                   value: ERROR
 
     sink:
-      type: webhook
+      type: alertWebhook
       addr: http://localhost:8080/loggie
       headers:
         api: test1
@@ -62,7 +63,7 @@ pipelines:
                 "topic": "{{._meta.pipelineName}}"
               },
               "annotations": {
-                "message": "新的报错：\nbody:\n{{range .body}}{{.}}\n{{end}}\ncontainerid: {{._meta.pipelineName}}\nsource: {{._meta.sourceName}}\ncontainername: {{.fields.containername}}\nlogconfig: {{.fields.logconfig}}\nname: {{.fields.name}}\nnamespace: {{.fields.namespace}}\nnodename: {{.fields.nodename}}\npodname: {{.fields.podname}}\nfilename: {{.state.filename}}",
+                "message": "new alert: \nbody:\n{{range .body}}{{.}}\n{{end}}\ncontainerid: {{._meta.pipelineName}}\nsource: {{._meta.sourceName}}\ncontainername: {{.fields.containername}}\nlogconfig: {{.fields.logconfig}}\nname: {{.fields.name}}\nnamespace: {{.fields.namespace}}\nnodename: {{.fields.nodename}}\npodname: {{.fields.podname}}\nfilename: {{.state.filename}}",
                 "reason": "{{.reason}}"
               },
               "startsAt": "{{._meta.timestamp}}",

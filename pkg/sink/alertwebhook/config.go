@@ -14,34 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhook
+package alertwebhook
 
-import (
-	"bytes"
-	"sync"
-)
+import "time"
 
-type BufferPool struct {
-	sync.Pool
-}
-
-func newBufferPool(s int) *BufferPool {
-	return &BufferPool{
-		Pool: sync.Pool{
-			New: func() interface{} {
-				b := bytes.NewBuffer(make([]byte, s))
-				b.Reset()
-				return b
-			},
-		},
-	}
-}
-
-func (bp *BufferPool) Get() *bytes.Buffer {
-	return bp.Pool.Get().(*bytes.Buffer)
-}
-
-func (bp *BufferPool) Put(b *bytes.Buffer) {
-	b.Reset()
-	bp.Pool.Put(b)
+type Config struct {
+	Addr      string            `yaml:"addr,omitempty"`
+	Template  string            `yaml:"template,omitempty"`
+	Timeout   time.Duration     `yaml:"timeout,omitempty" default:"30s"`
+	Headers   map[string]string `yaml:"headers,omitempty"`
+	Method    string            `yaml:"method,omitempty"`
+	LineLimit int               `yaml:"lineLimit" default:"10"`
 }

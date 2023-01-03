@@ -50,7 +50,6 @@ const (
 	FieldsUnderKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
 
 	fieldsFromPathMaxBytes = 1024
-	WebhookSinkType        = "webhook"
 )
 
 var (
@@ -84,8 +83,7 @@ type Pipeline struct {
 	sinkinfo      sink.Info
 	concurrency   concurrency.Config
 
-	Running        bool
-	WebhookEnabled bool
+	Running bool
 }
 
 func NewPipeline(pipelineConfig *Config) *Pipeline {
@@ -296,9 +294,6 @@ func (p *Pipeline) init(pipelineConfig Config) {
 
 	// init event pool
 	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
-	if p.config.Sink.Type == WebhookSinkType {
-		p.WebhookEnabled = true
-	}
 }
 
 func (p *Pipeline) startInterceptor(interceptorConfigs []*interceptor.Config) error {
@@ -996,9 +991,8 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []*source.Config) {
 			p.fillEventMetaAndHeader(e, *sourceConfig)
 
 			result := sourceInvokerChain.Invoke(source.Invocation{
-				Event:          e,
-				Queue:          q,
-				WebhookEnabled: p.WebhookEnabled,
+				Event: e,
+				Queue: q,
 			})
 
 			if result.Status() == api.DROP {
