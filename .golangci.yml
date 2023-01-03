@@ -24,6 +24,7 @@ linters:
     - errcheck      # Errcheck is a program for checking for unchecked errors in go programs. These unchecked errors can be critical bugs in some cases
     - gosimple
     - govet         # Vet examines Go source code and reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
+    - typecheck
 
 linters-settings:
   govet:
