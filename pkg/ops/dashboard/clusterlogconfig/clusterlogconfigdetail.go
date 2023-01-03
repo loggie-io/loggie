@@ -533,9 +533,6 @@ func (l *EventsPanel) Name() string {
 	return EventsPanelName
 }
 
-func (l *EventsPanel) queryState() {
-}
-
 func (l *EventsPanel) SetData() {
 	events, err := l.gui.K8sClient.KubeClient.CoreV1().Events(l.namespace).List(context.Background(), metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("involvedObject.kind=LogConfig,involvedObject.name=%s", l.logConfigName),
