@@ -45,7 +45,7 @@ var (
 	ComponentBaseTopic    = "component"
 	SystemTopic           = "sys"
 	NormalizeTopic        = "normalize"
-	WebhookTopic          = "webhook"
+	WebhookTopic          = "alertwebhook"
 	InfoTopic             = "info"
 )
 

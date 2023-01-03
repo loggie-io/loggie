@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
@@ -28,7 +29,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
-	"github.com/loggie-io/loggie/pkg/sink/webhook"
+	"github.com/loggie-io/loggie/pkg/sink/alertwebhook"
 )
 
 type AlertManager struct {
@@ -60,7 +61,7 @@ func NewAlertManager(addr []string, timeout, lineLimit int, temp *string, header
 		method:    http.MethodPost,
 	}
 
-	if method == http.MethodPut {
+	if strings.ToUpper(method) == http.MethodPut {
 		manager.method = http.MethodPost
 	}
 
@@ -83,7 +84,7 @@ type AlertEvent struct {
 
 func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 
-	var alerts []*webhook.Alert
+	var alerts []*alertwebhook.Alert
 	for _, e := range events {
 
 		if e.Data == nil {
@@ -96,7 +97,7 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 			return
 		}
 
-		alert := webhook.NewAlert(*data, a.LineLimit)
+		alert := alertwebhook.NewAlert(*data, a.LineLimit)
 
 		alerts = append(alerts, &alert)
 	}
@@ -152,7 +153,7 @@ func (a *AlertManager) send(address string, alert []byte) {
 	}
 	defer resp.Body.Close()
 
-	if !webhook.Is2xxSuccess(resp.StatusCode) {
+	if !alertwebhook.Is2xxSuccess(resp.StatusCode) {
 		r, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			log.Warn("read response body error: %v", err)

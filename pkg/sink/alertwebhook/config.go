@@ -14,12 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhook
+package alertwebhook
+
+import "time"
 
 type Config struct {
 	Addr      string            `yaml:"addr,omitempty"`
 	Template  string            `yaml:"template,omitempty"`
-	Timeout   int               `yaml:"timeout,omitempty" default:"30"`
+	Timeout   time.Duration     `yaml:"timeout,omitempty" default:"30s"`
 	Headers   map[string]string `yaml:"headers,omitempty"`
 	Method    string            `yaml:"method,omitempty"`
 	LineLimit int               `yaml:"lineLimit" default:"10"`

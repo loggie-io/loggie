@@ -162,7 +162,7 @@ func (i *Interceptor) Stop() {
 func (i *Interceptor) runTicker() {
 	duration := i.config.Advanced.Duration
 	go func() {
-		i.ticker = time.NewTicker(time.Duration(duration) * time.Second)
+		i.ticker = time.NewTicker(duration)
 		defer i.ticker.Stop()
 
 		for {
@@ -195,7 +195,7 @@ func (i *Interceptor) runTicker() {
 				eventbus.PublishOrDrop(eventbus.WebhookTopic, &e)
 
 			case <-i.eventFlag:
-				i.ticker.Reset(time.Duration(duration) * time.Second)
+				i.ticker.Reset(duration)
 			}
 		}
 	}()
@@ -319,7 +319,6 @@ func matchRule(target string, rule advancedRule) bool {
 		for _, group := range rule.groups {
 			match, _ := matchAdvRule(paramsMap, group)
 			if !match {
-				//log.Info("target %s does not match rule %s", target, rule.regex.String())
 				return false
 			}
 		}
@@ -328,7 +327,6 @@ func matchRule(target string, rule advancedRule) bool {
 		for _, group := range rule.groups {
 			match, _ := matchAdvRule(paramsMap, group)
 			if match {
-				//log.Info("target %s matches rule %s", target, rule.regex.String())
 				return true
 			}
 		}

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhook
+package alertwebhook
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -45,7 +45,7 @@ func (l *Listener) Config() interface{} {
 
 func (l *Listener) Start() error {
 	l.bufferChan = make(chan *eventbus.Event, 0)
-	log.Info("starting webhook listener")
+	log.Info("starting alertwebhook listener")
 	go l.run()
 	return nil
 }

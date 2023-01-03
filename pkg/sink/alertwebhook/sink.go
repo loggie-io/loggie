@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package webhook
+package alertwebhook
 
 import (
 	"bytes"
@@ -36,14 +36,14 @@ import (
 )
 
 const (
-	Type = "webhook"
+	Type = "alertwebhook"
 
 	sourceName   = "sourceName"
 	pipelineName = "pipelineName"
 	timestamp    = "timestamp"
 
 	meta = "_meta"
-	body = "body"
+	body = event.Body
 )
 
 func init() {
@@ -89,36 +89,33 @@ func NewAlert(e api.Event, lineLimit int) Alert {
 
 	if len(e.Body()) > 0 {
 		s := string(e.Body())
-		split := make([]string, 0)
-		for i, s := range strings.Split(s, "\n") {
-			if i > lineLimit {
-				log.Info("body exceeds line limit %d", lineLimit)
-				break
-			}
-			split = append(split, strings.TrimSpace(s))
-		}
-		alert[body] = split
+		alert[body] = splitBody(s, lineLimit)
 	}
 
 	for k, v := range e.Header() {
-		if k == body {
-			if value, ok := v.(string); ok {
-				split := make([]string, 0)
-				for i, s := range strings.Split(value, "\n") {
-					if i > lineLimit {
-						log.Info("body exceeds line limit %d", lineLimit)
-						break
-					}
-					split = append(split, strings.TrimSpace(s))
-				}
-				alert[body] = split
-				continue
-			}
+		if k != body {
+			alert[k] = v
+			continue
 		}
-		alert[k] = v
+
+		if value, ok := v.(string); ok {
+			alert[body] = splitBody(value, lineLimit)
+		}
 	}
 
 	return alert
+}
+
+func splitBody(s string, lineLimit int) []string {
+	split := make([]string, 0)
+	for i, s := range strings.Split(s, "\n") {
+		if i > lineLimit {
+			log.Info("body exceeds line limit %d", lineLimit)
+			break
+		}
+		split = append(split, strings.TrimSpace(s))
+	}
+	return split
 }
 
 type Sink struct {
@@ -171,10 +168,10 @@ func (s *Sink) Init(context api.Context) error {
 	s.name = context.Name()
 	s.bp = newBufferPool(1024)
 	s.client = &http.Client{
-		Timeout: time.Duration(s.config.Timeout) * time.Second,
+		Timeout: s.config.Timeout,
 	}
 
-	if s.config.Method == http.MethodPut {
+	if strings.ToUpper(s.config.Method) == http.MethodPut {
 		s.method = http.MethodPut
 	} else {
 		s.method = http.MethodPost
@@ -214,9 +211,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 	var alerts []Alert
 	for _, e := range events {
-
 		alert := NewAlert(e, s.config.LineLimit)
-
 		alerts = append(alerts, alert)
 	}
 
@@ -234,6 +229,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			log.Warn(err.Error())
 			return result.Fail(err)
 		}
+		// remove blank
 		request = bytes.Trim(buffer.Bytes(), "\x00")
 	} else {
 		out, err := json.Marshal(alertCenterObj)
@@ -246,10 +242,14 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 	log.Debug("sending data %s", request)
 	return s.sendData(request)
-
 }
 
 func (s *Sink) sendData(request []byte) api.Result {
+	if len(s.config.Addr) == 0 {
+		log.Warn("no addr, ignore...")
+		return result.Drop()
+	}
+
 	req, err := http.NewRequest(s.method, s.config.Addr, bytes.NewReader(request))
 	if err != nil {
 		log.Warn("send alert error: %v", err)
