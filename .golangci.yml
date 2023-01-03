@@ -1,5 +1,5 @@
 run:
-  go: '1.17'
+  go: '1.18'
   skip-dirs:
     - vendor
     - pkg/discovery/kubernetes/client
@@ -10,7 +10,6 @@ linters:
     - ineffassign   # Detects when assignments to existing variables are not used
     - staticcheck   # Staticcheck is a go vet on steroids, applying a ton of static analysis checks
     - structcheck   # Finds unused struct fields
-    - typecheck     # Like the front-end of a Go compiler, parses and type-checks Go code
     - unused        # Checks Go code for unused constants, variables, functions and types
     - varcheck      # Finds unused global variables and constants
     - asciicheck
