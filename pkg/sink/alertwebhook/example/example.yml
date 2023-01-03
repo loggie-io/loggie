@@ -47,7 +47,7 @@ pipelines:
                   value: ERROR
 
     sink:
-      type: alertwebhook
+      type: alertWebhook
       addr: http://localhost:8080/loggie
       headers:
         api: test1

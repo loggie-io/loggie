@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	Type = "alertwebhook"
+	Type = "alertWebhook"
 
 	sourceName   = "sourceName"
 	pipelineName = "pipelineName"

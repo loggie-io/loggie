@@ -45,7 +45,7 @@ func (l *Listener) Config() interface{} {
 
 func (l *Listener) Start() error {
 	l.bufferChan = make(chan *eventbus.Event, 0)
-	log.Info("starting alertwebhook listener")
+	log.Info("starting alertWebhook listener")
 	go l.run()
 	return nil
 }
