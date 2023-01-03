@@ -63,7 +63,8 @@ type Fields struct {
 
 func (c *Config) Validate() error {
 	if c.ContainerRuntime != "" {
-		if c.ContainerRuntime != runtime.RuntimeDocker && c.ContainerRuntime != runtime.RuntimeContainerd {
+		if c.ContainerRuntime != runtime.RuntimeDocker && c.ContainerRuntime != runtime.RuntimeContainerd &&
+			c.ContainerRuntime != runtime.RuntimeNone {
 			return errors.Errorf("runtime only support %s/%s", runtime.RuntimeDocker, runtime.RuntimeContainerd)
 		}
 	}

@@ -68,6 +68,9 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 		// init runtime client
 		log.Info("rootFsCollection is enabled, initializing runtime client")
 		runtimeCli := runtime.Init(d.config.RuntimeEndpoints, d.config.ContainerRuntime)
+		if runtimeCli == nil {
+			log.Fatal("containerRuntime cannot be %s when rootFsCollection is enabled", d.config.ContainerRuntime)
+		}
 		d.runtime = runtimeCli
 
 		log.Info("initial runtime %s client success", runtimeCli.Name())
