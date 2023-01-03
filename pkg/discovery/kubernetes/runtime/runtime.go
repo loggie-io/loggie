@@ -32,6 +32,7 @@ const (
 
 	RuntimeDocker     = "docker"
 	RuntimeContainerd = "containerd"
+	RuntimeNone       = "none"
 )
 
 type Runtime interface {
@@ -52,9 +53,10 @@ func Init(endpoints []string, runtime string) Runtime {
 
 	if runtime == RuntimeContainerd {
 		return NewContainerD(endpoints)
-	} else {
+	} else if runtime == RuntimeDocker {
 		return NewDocker()
 	}
+	return nil
 }
 
 func GetRunTimeName(endpoints []string) (string, error) {
