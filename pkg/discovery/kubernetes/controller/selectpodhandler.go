@@ -399,11 +399,11 @@ func (c *Controller) updatePaths(source *source.Config, pod *corev1.Pod, contain
 				return errors.WithMessage(err, "pack json codec config failed")
 			}
 
-		} else {
+		} else if c.config.ContainerRuntime == runtime.RuntimeContainerd {
 			// e.g.: `2021-02-16T09:21:20.545525544Z stdout F example: 15 Tue Feb 16 09:21:20 UTC 2021`
 			source.Codec.Type = regex.Type
 			regexcodec := regex.Config{
-				Pattern:    "^(?P<time>[^ ^Z]+Z) (?P<stream>stdout|stderr) (?P<logtag>[^ ]*) (?P<log>.*)$",
+				Pattern:    `^(?P<time>\S+) (?P<stream>stdout|stderr) (?P<logtag>[^ ]*) (?P<log>.*)$`,
 				BodyFields: "log",
 			}
 			if source.Codec.CommonCfg, err = cfg.Pack(&regexcodec); err != nil {
