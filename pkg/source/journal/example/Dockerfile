@@ -14,6 +14,7 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then apt-get update && apt-get install -y gc
   && GOOS=$TARGETOS GOARCH=$TARGETARCH CC=$CC CC_FOR_TARGET=$CC_FOR_TARGET make build
 
 # Run
+
 # an image with journalctl(systemd. be careful with journalctl version)
 FROM --platform=$BUILDPLATFORM debian-journal:v3
 WORKDIR /

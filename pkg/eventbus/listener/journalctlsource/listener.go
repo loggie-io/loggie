@@ -99,6 +99,7 @@ func (l *Listener) Subscribe(event eventbus.Event) {
 func (l *Listener) run() {
 	tick := time.NewTicker(l.config.Period)
 	defer tick.Stop()
+
 	for {
 		select {
 		case <-l.done:

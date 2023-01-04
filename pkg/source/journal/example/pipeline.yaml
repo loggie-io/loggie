@@ -2,7 +2,7 @@ pipelines:
   - name: local
     sources:
       - type: journal
-        name: demo
+        name: demo-j
         dir: /var/log/journal
         startTime: "2022-12-15 14:00:00"
         unit: kubelet

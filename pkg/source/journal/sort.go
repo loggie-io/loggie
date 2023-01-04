@@ -29,5 +29,6 @@ func (list sortableEvents) Swap(i, j int) {
 }
 
 func (list sortableEvents) Less(i, j int) bool {
+
 	return getState(list[i]).Offset > getState(list[j]).Offset
 }

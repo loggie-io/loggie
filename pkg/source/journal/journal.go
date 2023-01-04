@@ -415,6 +415,7 @@ func (s *Source) getOffsetFromString(logBody journalLog) int64 {
 	timestamp := logBody[JTimestamp]
 	var offset int64
 	atoi, err := strconv.Atoi(timestamp)
+
 	if err != nil {
 		log.Warn("fail to get timestamp from journal log: %s", err.Error())
 		offset = s.startTime.UnixMicro()

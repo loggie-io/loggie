@@ -45,6 +45,7 @@ func Check() error {
 	cmd := exec.Command("journalctl", "--version")
 	_, err := cmd.CombinedOutput()
 	if err != nil {
+
 		log.Warn("journalctl not exist!")
 		return err
 	}
