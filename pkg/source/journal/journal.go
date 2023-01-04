@@ -399,6 +399,7 @@ func (s *Source) preAllocationOffset() {
 		OptType:     persistence.UpsertOffsetByJobWatchIdOpt,
 		Immediately: true,
 	})
+
 	log.Debug("%s preAllocationOffset", s.watchId)
 }
 
