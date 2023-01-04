@@ -51,7 +51,8 @@ func (d *Docker) Client() interface{} {
 func (d *Docker) GetRootfsPath(ctx context.Context, containerId string, containerPaths []string) ([]string, error) {
 	containerJson, err := d.cli.ContainerInspect(ctx, containerId)
 	if err != nil {
-		log.Warn("docker inspect container: %s error: %s", containerId, err)
+		// panic and retry connecting to docker daemon
+		log.Fatal("docker inspect container: %s error: %s", containerId, err)
 		return nil, err
 	}
 	if containerJson.GraphDriver.Name != "overlay2" {
