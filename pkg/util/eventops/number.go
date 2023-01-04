@@ -21,6 +21,7 @@ import (
 )
 
 type Number struct {
+	origin interface{}
 	data float64
 }
 
@@ -30,6 +31,7 @@ func NewNumber(n interface{}) (*Number, error) {
 		return nil, err
 	}
 	return &Number{
+		origin: n,
 		data: f,
 	}, nil
 }
@@ -71,6 +73,14 @@ func castToFloat(v interface{}) (float64, error) {
 	return 0, nil
 }
 
+func (n *Number) OriginData() interface{} {
+	return n.origin
+}
+
+func (n *Number) Float64() float64 {
+	return n.data
+}
+
 func (n *Number) Equal(target *Number) bool {
 	return n.data == target.data
 }
@@ -81,4 +91,8 @@ func (n *Number) Greater(target *Number) bool {
 
 func (n *Number) Less(target *Number) bool {
 	return n.data < target.data
+}
+
+func (n *Number) Add(target *Number) {
+	n.data = n.data + target.data
 }

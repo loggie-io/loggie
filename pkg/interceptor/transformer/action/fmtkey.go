@@ -99,3 +99,7 @@ func (r *FmtKey) matchAndReplace(key string) string {
 	}
 	return ""
 }
+
+func (r *FmtKey) start() error { return nil }
+
+func (r *FmtKey) stop() {}

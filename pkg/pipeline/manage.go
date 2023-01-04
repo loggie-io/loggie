@@ -61,14 +61,16 @@ func GetWithType(category api.Category, typename api.Type, info Info) (api.Compo
 }
 
 type RegisterCenter struct {
+	pipelineName string
 	nameComponents    map[string]api.Component
 	interceptorsOrder []string
 	nameListeners     map[string]spi.ComponentListener
 	lock              sync.Mutex
 }
 
-func NewRegisterCenter() *RegisterCenter {
+func NewRegisterCenter(pipelineName string) *RegisterCenter {
 	return &RegisterCenter{
+		pipelineName: pipelineName,
 		nameComponents:    make(map[string]api.Component),
 		interceptorsOrder: make([]string, 0),
 		nameListeners:     make(map[string]spi.ComponentListener),
@@ -190,6 +192,17 @@ func (r *RegisterCenter) RemoveByCode(code string) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
+	c, ok := r.nameComponents[code]
+	if !ok {
+		return
+	}
+	if c.Category() == api.SOURCE {
+		_, ok := c.(api.InnerSource)
+		if ok {
+			unRegisterInnerSource(r.pipelineName, code)
+		}
+	}
+
 	delete(r.nameComponents, code)
 	for i := 0; i < len(r.interceptorsOrder); i++ {
 		if r.interceptorsOrder[i] == code {
@@ -211,15 +224,21 @@ func (r *RegisterCenter) Register(component api.Component, name string) error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
-	code := code(component.Category(), component.Type(), name)
-	_, ok := r.nameComponents[code]
+	srcCode := code(component.Category(), component.Type(), name)
+	_, ok := r.nameComponents[srcCode]
 	if ok {
-		return errors.Errorf("component[%s] is duplicated, type/name should be unique", code)
+		return errors.Errorf("component[%s] is duplicated, type/name should be unique", srcCode)
 	}
-	r.nameComponents[code] = component
+	r.nameComponents[srcCode] = component
 
 	if component.Category() == api.INTERCEPTOR {
-		r.interceptorsOrder = append(r.interceptorsOrder, code)
+		r.interceptorsOrder = append(r.interceptorsOrder, srcCode)
+	}
+
+	if component.Category() == api.SOURCE {
+		if src, ok := component.(api.InnerSource); ok {
+			registerInnerSource(r.pipelineName, srcCode, src)
+		}
 	}
 
 	return nil
@@ -252,4 +271,46 @@ func (r *RegisterCenter) LoadQueueListeners() []spi.QueueListener {
 		}
 	}
 	return qls
+}
+
+// InnerRegister 提供内部的连接的pipeline的注册中心，因为需要找到不同pipeline里的source，所以必须是全局的
+type InnerRegister struct {
+	sources map[string]api.InnerSource // key: pipeline/sourceCode
+
+	mutex sync.Mutex
+}
+
+var globalInnerRegister *InnerRegister
+
+func init() {
+	globalInnerRegister = newInnerRegister()
+}
+
+func newInnerRegister() *InnerRegister {
+	return &InnerRegister{
+		sources: make(map[string]api.InnerSource),
+	}
+}
+
+func registerInnerSource(pipelineName string, sourceCode string, innerSource api.InnerSource) {
+	globalInnerRegister.mutex.Lock()
+	defer globalInnerRegister.mutex.Unlock()
+
+	globalInnerRegister.sources[pipelineSourceKey(pipelineName, sourceCode)] = innerSource
+}
+
+func unRegisterInnerSource(pipelineName string, sourceCode string) {
+	globalInnerRegister.mutex.Lock()
+	defer globalInnerRegister.mutex.Unlock()
+
+	delete(globalInnerRegister.sources, pipelineSourceKey(pipelineName, sourceCode))
+}
+
+func pipelineSourceKey(pipeline string, sourceCode string) string {
+	return fmt.Sprintf("%s/%s", pipeline, sourceCode)
+}
+
+func GetInnerSource(pipelineName string, sourceType api.Type, sourceName string) api.InnerSource {
+	srcCode := code(api.SOURCE, sourceType, sourceName)
+	return globalInnerRegister.sources[pipelineSourceKey(pipelineName, srcCode)]
 }

@@ -54,3 +54,7 @@ func (a *Add) act(e api.Event) error {
 	eventops.Set(e, a.key, a.value)
 	return nil
 }
+
+func (a *Add) start() error { return nil }
+
+func (a *Add) stop() {}

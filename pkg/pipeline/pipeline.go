@@ -87,7 +87,7 @@ type Pipeline struct {
 }
 
 func NewPipeline(pipelineConfig *Config) *Pipeline {
-	registerCenter := NewRegisterCenter()
+	registerCenter := NewRegisterCenter(pipelineConfig.Name)
 	return &Pipeline{
 		config:       *pipelineConfig,
 		done:         make(chan struct{}),
@@ -278,7 +278,7 @@ func (p *Pipeline) init(pipelineConfig Config) {
 		p.epoch = NewEpoch(p.name)
 	}
 	p.epoch.Increase()
-	registerCenter := NewRegisterCenter()
+	registerCenter := NewRegisterCenter(pipelineConfig.Name)
 	p.r = registerCenter
 	p.info.R = registerCenter
 	p.info.PipelineName = p.name
@@ -947,7 +947,7 @@ func (p *Pipeline) startSource(sourceConfigs []*source.Config) error {
 		}
 
 		if sr, ok := component.(source.InjectRawConfig); ok {
-			sr.SetSourceConfig(sourceConfig)
+			sr.SetSourceConfig(sourceConfig, p.name)
 		}
 
 		err := p.startWithComponent(component, ctx)
@@ -1206,4 +1206,8 @@ func (p *Pipeline) reportMetric(name string, component api.Component, eventType 
 			Category: component.Category(),
 		},
 	})
+}
+
+func (p *Pipeline) RegisterCenter() *RegisterCenter {
+	return p.r
 }

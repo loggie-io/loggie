@@ -97,3 +97,7 @@ func (f *Fmt) act(e api.Event) error {
 	obj.SetPath(f.key, result)
 	return nil
 }
+
+func (f *Fmt) start() error { return nil }
+
+func (f *Fmt) stop() {}

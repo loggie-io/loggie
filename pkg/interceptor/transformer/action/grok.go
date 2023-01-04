@@ -300,3 +300,7 @@ func (grok *grok) replaceFunc(s string) string {
 		return ""
 	}
 }
+
+func (r *grokAction) start() error { return nil }
+
+func (r *grokAction) stop() {}

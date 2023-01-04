@@ -52,3 +52,7 @@ func (d *UnderRoot) act(e api.Event) error {
 	eventops.UnderRoot(e, d.key)
 	return nil
 }
+
+func (d *UnderRoot) start() error { return nil }
+
+func (d *UnderRoot) stop() {}

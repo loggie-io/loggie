@@ -98,3 +98,7 @@ func (r *Split) act(e api.Event) error {
 
 	return nil
 }
+
+func (r *Split) start() error { return nil }
+
+func (r *Split) stop() {}

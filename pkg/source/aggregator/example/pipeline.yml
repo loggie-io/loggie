@@ -1,0 +1,25 @@
+pipelines:
+  - name: filecollection
+    sources:
+      - type: file
+        name: demo
+        paths:
+          - /tmp/log/*.log
+        fields:
+          topic: "loggie"
+    sink:
+      type: memory
+      pipelineName: aggregator
+      sourceType: aggregator
+      sourceName: aggr
+  - name: aggregator
+    sources:
+      - type: aggregator
+        name: aggr
+        interval: 60s
+
+    sink:
+      type: dev
+      printEvents: true
+      codec:
+        pretty: true

@@ -87,3 +87,7 @@ func (j *JsonEncode) act(e api.Event) error {
 
 	return nil
 }
+
+func (j *JsonEncode) start() error { return nil }
+
+func (j *JsonEncode) stop() {}

@@ -55,3 +55,7 @@ func (a *Set) act(e api.Event) error {
 	eventops.Set(e, a.key, a.value)
 	return nil
 }
+
+func (a *Set) start() error { return nil }
+
+func (a *Set) stop() {}

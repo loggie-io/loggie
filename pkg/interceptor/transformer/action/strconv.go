@@ -99,3 +99,7 @@ func convert(srcVal, dstType string) (interface{}, error) {
 
 	return nil, errors.New("unsupported type")
 }
+
+func (s *StrConvert) start() error { return nil }
+
+func (s *StrConvert) stop() {}

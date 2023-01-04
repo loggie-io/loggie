@@ -65,6 +65,8 @@ type Instance struct {
 
 type Action interface {
 	act(e api.Event) error
+	start() error
+	stop()
 }
 
 type Factory func(args []string, extra cfg.CommonCfg) (Action, error)
@@ -125,4 +127,12 @@ func (a *Instance) Exec(e api.Event) error {
 	}
 
 	return errors.WithMessagef(err, "failed to execute action %s", a.Name)
+}
+
+func (a *Instance) Start() error {
+	return a.Action.start()
+}
+
+func (a *Instance) Stop() {
+	a.Action.stop()
 }

@@ -54,3 +54,7 @@ func (c *Copy) act(e api.Event) error {
 	eventops.Copy(e, c.from, c.to)
 	return nil
 }
+
+func (c *Copy) start() error { return nil }
+
+func (c *Copy) stop() {}

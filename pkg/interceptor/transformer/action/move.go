@@ -59,3 +59,7 @@ func (c *Move) act(e api.Event) error {
 	eventops.Move(e, c.from, c.to)
 	return nil
 }
+
+func (c *Move) start() error { return nil }
+
+func (c *Move) stop() {}

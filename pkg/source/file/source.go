@@ -92,7 +92,7 @@ func (s *Source) SetCodec(c codec.Codec) {
 	s.codec = c
 }
 
-func (s *Source) SetSourceConfig(config *source.Config) {
+func (s *Source) SetSourceConfig(config *source.Config, pipelineName string) {
 	s.rawSourceConfig = config
 }
 
