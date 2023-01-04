@@ -66,7 +66,7 @@ golangci-lint: ## Download golangci-lint locally if necessary.
 define get-golangci-lint
 @[ -f $(1) ] || { \
 set -e ;\
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.45.2 ;\
+curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.50.1 ;\
 }
 endef
 

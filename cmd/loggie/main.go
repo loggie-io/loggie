@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/loggie-io/loggie/cmd/subcmd"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/global"
@@ -60,6 +61,10 @@ func main() {
 	flag.Parse()
 	// init logging configuration
 	log.InitDefaultLogger()
+
+	if err := subcmd.SwitchSubCommand(); err != nil {
+		return
+	}
 
 	log.Info("version: %s", global.GetVersion())
 

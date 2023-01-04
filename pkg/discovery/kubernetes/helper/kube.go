@@ -64,8 +64,22 @@ func MetaNamespaceKey(namespace string, name string) string {
 type FuncGetRelatedPod func() ([]*corev1.Pod, error)
 
 func GetLogConfigRelatedPod(lgc *logconfigv1beta1.LogConfig, podsLister corev1listers.PodLister) ([]*corev1.Pod, error) {
+
+	sel, err := Selector(lgc.Spec.Selector.LabelSelector)
+	if err != nil {
+		return nil, err
+	}
+	ret, err := podsLister.Pods(lgc.Namespace).List(sel)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "%s/%s cannot find pod by labelSelector %#v", lgc.Namespace, lgc.Name, lgc.Spec.Selector.PodSelector.LabelSelector)
+	}
+
+	return ret, nil
+}
+
+func Selector(labelSelector map[string]string) (labels.Selector, error) {
 	var matchExpressions []metav1.LabelSelectorRequirement
-	for key, val := range lgc.Spec.Selector.LabelSelector {
+	for key, val := range labelSelector {
 		if val != MatchAllToken {
 			continue
 		}
@@ -76,26 +90,21 @@ func GetLogConfigRelatedPod(lgc *logconfigv1beta1.LogConfig, podsLister corev1li
 		matchExpressions = append(matchExpressions, sel)
 	}
 
-	for k, v := range lgc.Spec.Selector.LabelSelector {
+	for k, v := range labelSelector {
 		if v == MatchAllToken {
-			delete(lgc.Spec.Selector.LabelSelector, k)
+			delete(labelSelector, k)
 		}
 	}
 
 	selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{
-		MatchLabels:      lgc.Spec.Selector.LabelSelector,
+		MatchLabels:      labelSelector,
 		MatchExpressions: matchExpressions,
 	})
 	if err != nil {
 		return nil, errors.WithMessagef(err, "make LabelSelector error")
 	}
 
-	ret, err := podsLister.Pods(lgc.Namespace).List(selector)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "%s/%s cannot find pod by labelSelector %#v", lgc.Namespace, lgc.Name, lgc.Spec.Selector.PodSelector.LabelSelector)
-	}
-
-	return ret, nil
+	return selector, nil
 }
 
 func GetPodRelatedLogConfigs(pod *corev1.Pod, lgcLister logconfigLister.LogConfigLister) ([]*logconfigv1beta1.LogConfig, error) {

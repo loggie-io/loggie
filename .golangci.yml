@@ -6,18 +6,15 @@ run:
 
 linters:
   enable:
-    - deadcode      # Finds unused code
+    - unused
     - ineffassign   # Detects when assignments to existing variables are not used
     - staticcheck   # Staticcheck is a go vet on steroids, applying a ton of static analysis checks
-    - structcheck   # Finds unused struct fields
     - unused        # Checks Go code for unused constants, variables, functions and types
-    - varcheck      # Finds unused global variables and constants
     - asciicheck
     - depguard
     - errorlint
     - importas
     - tparallel
-    - gofmt
     - bodyclose
 
   disable:

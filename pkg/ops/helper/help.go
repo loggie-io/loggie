@@ -34,9 +34,9 @@ import (
 )
 
 const (
-	handleHelper = "/api/v1/help"
+	handleHelper              = "/api/v1/help"
+	HandleHelperLogCollection = "/api/v1/help/log"
 
-	moduleAll      = "all"
 	modulePipeline = "pipeline"
 	moduleLog      = "log"
 
@@ -60,20 +60,29 @@ func Setup(controller *control.Controller) {
 	}
 
 	http.HandleFunc(handleHelper, helperIns.helperHandler)
+	http.HandleFunc(HandleHelperLogCollection, helperIns.helperLogCollectionHandler)
 }
 
 func (h *Helper) helperHandler(writer http.ResponseWriter, request *http.Request) {
+	detail := request.URL.Query().Get(queryDetail)
+
 	var sb strings.Builder
 
-	sb.WriteString(printUsage())
+	if detail == "" {
+		sb.WriteString(printUsage())
+	}
 
-	// print pipelines info
-	sb.WriteString(pipelineStatus(h.controller))
+	if detail == "" || detail == modulePipeline {
+		// print pipelines info
+		sb.WriteString(pipelineStatus(h.controller))
 
-	// check pipeline configurations consistency
-	sb.WriteString(diffPipes(request))
+		// check pipeline configurations consistency
+		sb.WriteString(diffPipes(request))
+	}
 
-	sb.WriteString(printLogCollectionStatus(h.controller, request))
+	if detail == "" || detail == moduleLog {
+		sb.WriteString(printLogCollectionStatus(h.controller, request))
+	}
 
 	writer.WriteHeader(http.StatusOK)
 	writer.Write([]byte(sb.String()))
@@ -83,7 +92,7 @@ func printUsage() string {
 	var sb strings.Builder
 
 	sb.WriteString(SprintfWithLF("--------- Usage: -----------------------"))
-	sb.WriteString(SprintfWithLF("|--- view details: /api/v1/help?detail=<module>, module is one of: %s/%s/%s", moduleAll, modulePipeline, moduleLog))
+	sb.WriteString(SprintfWithLF("|--- view details: /api/v1/help?detail=<module>, module is one of: %s/%s", modulePipeline, moduleLog))
 	sb.WriteString(SprintfWithLF("|--- query by pipeline name: /api/v1/help?pipeline=<name>"))
 	sb.WriteString(SprintfWithLF("|--- query by source name: /api/v1/help?source=<name>"))
 
@@ -115,7 +124,6 @@ func pipelineStatus(controller *control.Controller) string {
 }
 
 func diffPipes(request *http.Request) string {
-	detail := request.URL.Query().Get(queryDetail)
 	pipelineQuery := request.URL.Query().Get(queryPipeline)
 	sourceQuery := request.URL.Query().Get(querySource)
 
@@ -125,9 +133,9 @@ func diffPipes(request *http.Request) string {
 		return false
 	})
 	if len(diffs) == 0 {
-		sb.WriteString(SprintfWithLF("[OK] current pipeline configurations consistency check passed"))
+		sb.WriteString(SprintfWithLF("✅ pipeline configurations consistency check passed"))
 	} else {
-		sb.WriteString(SprintfWithLF("[X] current pipeline configurations diff:"))
+		sb.WriteString(SprintfWithLF("❌ pipeline configurations diff:"))
 		for _, d := range diffs {
 			sb.WriteString(SprintfWithLF("%s", d))
 		}
@@ -135,24 +143,25 @@ func diffPipes(request *http.Request) string {
 	}
 	sb.WriteString(CRLF())
 
-	if detail == modulePipeline || detail == moduleAll {
+	// search pipelineName or sourceName in pipeline configurations
+	if pipelineQuery == "" && sourceQuery == "" {
 		out, err := yaml.Marshal(cfgInPath)
 		if err != nil {
 			log.Error("yaml marshal pipeline configuration error: %v", err)
 		}
 		sb.Write(out)
 		sb.WriteString(CRLF())
-	}
 
-	// search pipelineName or sourceName in pipeline configurations
-	result := queryPipelineConfig(cfgInPath, pipelineQuery, sourceQuery)
-	if len(result) > 0 {
-		out, err := yaml.Marshal(result)
-		if err != nil {
-			log.Error("yaml marshal pipeline configuration error: %v", err)
+	} else {
+		result := queryPipelineConfig(cfgInPath, pipelineQuery, sourceQuery)
+		if len(result) > 0 {
+			out, err := yaml.Marshal(result)
+			if err != nil {
+				log.Error("yaml marshal pipeline configuration error: %v", err)
+			}
+			sb.Write(out)
+			sb.WriteString(CRLF())
 		}
-		sb.Write(out)
-		sb.WriteString(CRLF())
 	}
 
 	sb.WriteString(SprintfWithLF("| more details:"))
@@ -165,10 +174,6 @@ func diffPipes(request *http.Request) string {
 
 func queryPipelineConfig(cfgInPath *control.PipelineConfig, pipelineQuery string, sourceQuery string) map[string]pipeline.Config {
 	result := make(map[string]pipeline.Config)
-
-	if pipelineQuery == "" && sourceQuery == "" {
-		return result
-	}
 
 	setResult := func(pipData pipeline.Config, srcData ...*source.Config) {
 		pip, ok := result[pipData.Name]
@@ -192,24 +197,24 @@ func queryPipelineConfig(cfgInPath *control.PipelineConfig, pipelineQuery string
 
 	for _, pip := range cfgInPath.Pipelines {
 		if pipelineQuery != "" && sourceQuery != "" {
-			if !strings.Contains(pip.Name, pipelineQuery) {
+			if pip.Name != pipelineQuery {
 				continue
 			}
 
 			for _, src := range pip.Sources {
-				if strings.Contains(src.Name, sourceQuery) {
+				if src.Name == sourceQuery {
 					setResult(pip, src)
 				}
 			}
 
 		} else if pipelineQuery != "" {
-			if strings.Contains(pip.Name, pipelineQuery) {
+			if pip.Name == pipelineQuery {
 				setResult(pip)
 			}
 
 		} else if sourceQuery != "" {
 			for _, src := range pip.Sources {
-				if strings.Contains(src.Name, sourceQuery) {
+				if src.Name == sourceQuery {
 					setResult(pip, src)
 				}
 			}
@@ -302,7 +307,6 @@ func hasFileSource(controller *control.Controller) bool {
 }
 
 func fileInfoMetrics(request *http.Request) (active int, inActive int, metric map[string][]eventbus.WatchMetricData) {
-	detail := request.URL.Query().Get(queryDetail)
 	pipelineQuery := request.URL.Query().Get(queryPipeline)
 	sourceQuery := request.URL.Query().Get(querySource)
 
@@ -324,21 +328,21 @@ func fileInfoMetrics(request *http.Request) (active int, inActive int, metric ma
 	for _, val := range filesMetrics {
 
 		if pipelineQuery != "" && sourceQuery != "" {
-			if strings.Contains(val.PipelineName, pipelineQuery) && strings.Contains(val.SourceName, sourceQuery) {
+			if val.PipelineName == pipelineQuery && val.SourceName == sourceQuery {
 				setData(val.PipelineName, val)
 			}
 
 		} else if pipelineQuery != "" {
-			if strings.Contains(val.PipelineName, pipelineQuery) {
+			if val.PipelineName == pipelineQuery {
 				setData(val.PipelineName, val)
 			}
 
 		} else if sourceQuery != "" {
-			if strings.Contains(val.SourceName, sourceQuery) {
+			if val.SourceName == sourceQuery {
 				setData(val.PipelineName, val)
 			}
 
-		} else if detail == moduleLog || detail == moduleAll {
+		} else {
 			setData(val.PipelineName, val)
 		}
 

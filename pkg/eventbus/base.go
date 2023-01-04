@@ -107,6 +107,7 @@ type ErrorMetricData struct {
 
 type WatchMetricData struct {
 	BaseMetric
+	Paths           []string
 	FileInfos       []FileInfo
 	ActiveFileCount int
 	InactiveFdCount int
