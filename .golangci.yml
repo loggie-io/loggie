@@ -1,30 +1,27 @@
 run:
-  go: '1.17'
+  go: '1.18'
   skip-dirs:
     - vendor
     - pkg/discovery/kubernetes/client
 
 linters:
   enable:
-    - deadcode      # Finds unused code
+    - unused
     - ineffassign   # Detects when assignments to existing variables are not used
     - staticcheck   # Staticcheck is a go vet on steroids, applying a ton of static analysis checks
-    - structcheck   # Finds unused struct fields
-    - typecheck     # Like the front-end of a Go compiler, parses and type-checks Go code
     - unused        # Checks Go code for unused constants, variables, functions and types
-    - varcheck      # Finds unused global variables and constants
     - asciicheck
     - depguard
     - errorlint
     - importas
     - tparallel
-    - gofmt
     - bodyclose
 
   disable:
     - errcheck      # Errcheck is a program for checking for unchecked errors in go programs. These unchecked errors can be critical bugs in some cases
     - gosimple
     - govet         # Vet examines Go source code and reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
+    - typecheck
 
 linters-settings:
   govet:

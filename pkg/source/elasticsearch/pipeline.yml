@@ -1,0 +1,17 @@
+pipelines:
+  - name: local
+    sources:
+      - type: elasticsearch
+        name: trans
+        hosts: ["localhost:9200"]
+        indices: ["kibana_sample_data_logs*"]
+        includeFields: ["message", "response", "timestamp", "host"]
+        size: 100 # data size per fetch
+        interval: 10s # pull data frequency
+        timeout: 5s # pull timeout
+        db:
+          flushTimeout: 2s # persistent the elastic pull location frequency
+    interceptors:
+      - type: transformer
+        actions:
+          - action: jsonDecode(body)

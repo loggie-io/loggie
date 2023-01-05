@@ -17,6 +17,8 @@ limitations under the License.
 package time
 
 import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/duration"
 	"strings"
 	"time"
 
@@ -74,4 +76,12 @@ func (d *Duration) String() string {
 // Duration return time.duration struct
 func (d *Duration) Duration() time.Duration {
 	return time.Duration(d.duration)
+}
+
+func TranslateTimestampSince(timestamp metav1.Time) string {
+	if timestamp.IsZero() {
+		return "<unknown>"
+	}
+
+	return duration.HumanDuration(time.Since(timestamp.Time))
 }

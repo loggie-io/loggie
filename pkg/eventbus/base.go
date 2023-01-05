@@ -36,6 +36,20 @@ const (
 )
 
 var (
+	FileSourceMetricTopic = "filesource"
+	FileWatcherTopic      = "filewatcher"
+	SinkMetricTopic       = "sink"
+	ReloadTopic           = "reload"
+	ErrorTopic            = "error"
+	LogAlertTopic         = "log"
+	AlertTempTopic        = "logTemp"
+	QueueMetricTopic      = "queue"
+	PipelineTopic         = "pipeline"
+	ComponentBaseTopic    = "component"
+	SystemTopic           = "sys"
+	NormalizeTopic        = "normalize"
+	WebhookTopic          = "alertwebhook"
+	InfoTopic             = "info"
 	FileSourceMetricTopic    = "filesource"
 	FileWatcherTopic         = "filewatcher"
 	JournalSourceMetricTopic = "journalsource"
@@ -111,6 +125,7 @@ type ErrorMetricData struct {
 
 type WatchMetricData struct {
 	BaseMetric
+	Paths           []string
 	FileInfos       []FileInfo
 	ActiveFileCount int
 	InactiveFdCount int

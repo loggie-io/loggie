@@ -36,6 +36,8 @@ import (
 
 const Type = "logAlert"
 const NoDataKey = "NoDataAlert"
+const addition = "_additions"
+const reasonKey = "reason"
 
 func init() {
 	pipeline.Register(api.INTERCEPTOR, Type, makeInterceptor)
@@ -160,7 +162,7 @@ func (i *Interceptor) Stop() {
 func (i *Interceptor) runTicker() {
 	duration := i.config.Advanced.Duration
 	go func() {
-		i.ticker = time.NewTicker(time.Duration(duration) * time.Second)
+		i.ticker = time.NewTicker(duration)
 		defer i.ticker.Stop()
 
 		for {
@@ -182,9 +184,9 @@ func (i *Interceptor) runTicker() {
 				}
 
 				e = event.NewEvent(header, []byte("long time no message!"))
-				e.Header()["reason"] = NoDataKey
+				e.Header()[reasonKey] = NoDataKey
 				if len(i.config.Additions) > 0 {
-					e.Header()["_additions"] = i.config.Additions
+					e.Header()[addition] = i.config.Additions
 				}
 				e.Fill(meta, header, e.Body())
 
@@ -193,7 +195,7 @@ func (i *Interceptor) runTicker() {
 				eventbus.PublishOrDrop(eventbus.WebhookTopic, &e)
 
 			case <-i.eventFlag:
-				i.ticker.Reset(time.Duration(duration) * time.Second)
+				i.ticker.Reset(duration)
 			}
 		}
 	}()
@@ -202,7 +204,10 @@ func (i *Interceptor) runTicker() {
 
 func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invocation) api.Result {
 	if i.nodataMode {
-		i.eventFlag <- struct{}{}
+		select {
+		case i.eventFlag <- struct{}{}:
+		default:
+		}
 	}
 
 	ev := invocation.Event
@@ -215,7 +220,7 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 
 	matched, reason, message := i.match(ev)
 	if !matched {
-		if !invocation.WebhookEnabled {
+		if !i.config.SendOnlyMatched {
 			return invoker.Invoke(invocation)
 		}
 		return result.Drop()
@@ -223,9 +228,9 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 	log.Debug("logAlert matched: %s, %s", message, reason)
 
 	// do fire alert
-	ev.Header()["reason"] = reason
+	ev.Header()[reasonKey] = reason
 	if len(i.config.Additions) > 0 {
-		ev.Header()["_additions"] = i.config.Additions
+		ev.Header()[addition] = i.config.Additions
 	}
 
 	e := ev.DeepCopy()
@@ -268,7 +273,7 @@ func (i *Interceptor) match(event api.Event) (matched bool, reason string, messa
 
 	if len(i.regex) != 0 {
 		for _, reg := range i.regex {
-			matched := reg.MatchString(target)
+			matched = reg.MatchString(target)
 			if matched {
 				return true, fmt.Sprintf("matched %s", reg), target
 			}
@@ -314,7 +319,6 @@ func matchRule(target string, rule advancedRule) bool {
 		for _, group := range rule.groups {
 			match, _ := matchAdvRule(paramsMap, group)
 			if !match {
-				//log.Info("target %s does not match rule %s", target, rule.regex.String())
 				return false
 			}
 		}
@@ -323,7 +327,6 @@ func matchRule(target string, rule advancedRule) bool {
 		for _, group := range rule.groups {
 			match, _ := matchAdvRule(paramsMap, group)
 			if match {
-				//log.Info("target %s matches rule %s", target, rule.regex.String())
 				return true
 			}
 		}

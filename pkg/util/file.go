@@ -121,3 +121,7 @@ func GlobWithRecursive(pattern string) (matches []string, err error) {
 func MatchWithRecursive(pattern, name string) (matched bool, err error) {
 	return xglob.Match(pattern, name)
 }
+
+func SplitGlobPattern(p string) (base, pattern string) {
+	return xglob.SplitPattern(p)
+}

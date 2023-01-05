@@ -47,6 +47,7 @@ type Config struct {
 	Template     *string           `yaml:"template,omitempty"`
 	Timeout      int               `yaml:"timeout,omitempty" default:"30"`
 	Headers      map[string]string `yaml:"headers,omitempty"`
+	Method       string            `yaml:"method,omitempty"`
 	LineLimit    int               `yaml:"lineLimit,omitempty" default:"10"`
 }
 
@@ -77,7 +78,7 @@ func (l *Listener) Start() error {
 	l.bufferChan = make(chan *eventbus.Event, l.config.BufferSize)
 	l.SendBatch = make([]*eventbus.Event, 0)
 
-	l.alertCli = alertmanager.NewAlertManager(l.config.Addr, l.config.Timeout, l.config.LineLimit, l.config.Template, l.config.Headers)
+	l.alertCli = alertmanager.NewAlertManager(l.config.Addr, l.config.Timeout, l.config.LineLimit, l.config.Template, l.config.Headers, l.config.Method)
 
 	log.Info("starting logAlert listener")
 	go l.run()

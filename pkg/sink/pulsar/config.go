@@ -18,9 +18,7 @@ type pulsarConfig struct {
 	UseTLS                     bool          `yaml:"useTLS,omitempty"`
 	TLSTrustCertsFilePath      string        `yaml:"tlsTrustCertsFilePath,omitempty"`
 	TLSAllowInsecureConnection bool          `yaml:"tlsAllowInsecureConnection,omitempty"`
-	// Max number of connections to a single broker that is kept in the pool. default 1
-	MaxConnectionsPerBroker int    `yaml:"maxConnectionPerBroker,omitempty"`
-	LogLevel                string `yaml:"logLevel,omitempty" default:"info" validate:"oneof=info debug error"`
+	LogLevel                   string        `yaml:"logLevel,omitempty" default:"info" validate:"oneof=info debug error"`
 
 	CertificatePath string `yaml:"certificatePath,omitempty"`
 	PrivateKeyPath  string `yaml:"privateKeyPath,omitempty"`
@@ -30,7 +28,7 @@ type pulsarConfig struct {
 	ConnectionTimeout time.Duration `yaml:"connectionTimeout,omitempty" default:"5s" validate:"gt=0"`
 
 	// producer name
-	Name       string            `yaml:"name,omitempty"`
+	Name       string            `yaml:"producerName,omitempty"`
 	Properties map[string]string `yaml:"properties,omitempty"`
 	// SendTimeout set the timeout for a message that is not acknowledged by the server 30s.default 30s
 	SendTimeout time.Duration `yaml:"sendTimeout,omitempty" default:"30s" validate:"gte=-1"`
@@ -99,6 +97,7 @@ func getOptions(
 		Topic:                   config.Topic,
 		MaxPendingMessages:      config.MaxPendingMessages,
 		CompressionType:         config.CompressionType,
+		CompressionLevel:        config.CompressionLevel,
 		HashingScheme:           config.HashingScheme,
 		BatchingMaxSize:         config.BatchingMaxSize,
 		BatchingMaxPublishDelay: config.BatchingMaxPublishDelay,
