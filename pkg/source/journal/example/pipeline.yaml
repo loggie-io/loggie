@@ -1,0 +1,19 @@
+pipelines:
+  - name: local
+    sources:
+      - type: journal
+        name: demo-j
+        dir: /var/log/journal
+        startTime: "2022-12-15 14:00:00"
+        unit: kubelet
+        addMeta:
+          cmd: _CMDLINE
+        multi:
+          enable: true
+          maxLine: 10
+          pattern: '^(\w{6}) (\d{2}):(\d{2}):(\d{2})'
+    sink:
+      type: dev
+      printEvents: true
+      codec:
+        pretty: true
