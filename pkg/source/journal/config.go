@@ -52,6 +52,7 @@ func (c *Config) Validate() error {
 
 	if len(c.StartTime) > 0 {
 		_, err := time.ParseInLocation(TimeFmt, c.StartTime, time.Local)
+
 		if err != nil {
 			return err
 		}
