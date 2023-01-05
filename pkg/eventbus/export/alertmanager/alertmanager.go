@@ -29,9 +29,8 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
-	"github.com/loggie-io/loggie/pkg/sink/webhook"
-	"github.com/loggie-io/loggie/pkg/util/bufferpool"
 	"github.com/loggie-io/loggie/pkg/sink/alertwebhook"
+	"github.com/loggie-io/loggie/pkg/util/bufferpool"
 )
 
 type AlertManager struct {

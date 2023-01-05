@@ -36,20 +36,6 @@ const (
 )
 
 var (
-	FileSourceMetricTopic = "filesource"
-	FileWatcherTopic      = "filewatcher"
-	SinkMetricTopic       = "sink"
-	ReloadTopic           = "reload"
-	ErrorTopic            = "error"
-	LogAlertTopic         = "log"
-	AlertTempTopic        = "logTemp"
-	QueueMetricTopic      = "queue"
-	PipelineTopic         = "pipeline"
-	ComponentBaseTopic    = "component"
-	SystemTopic           = "sys"
-	NormalizeTopic        = "normalize"
-	WebhookTopic          = "alertwebhook"
-	InfoTopic             = "info"
 	FileSourceMetricTopic    = "filesource"
 	FileWatcherTopic         = "filewatcher"
 	JournalSourceMetricTopic = "journalsource"
@@ -63,7 +49,7 @@ var (
 	ComponentBaseTopic       = "component"
 	SystemTopic              = "sys"
 	NormalizeTopic           = "normalize"
-	WebhookTopic             = "webhook"
+	WebhookTopic             = "alertwebhook"
 	InfoTopic                = "info"
 )
 

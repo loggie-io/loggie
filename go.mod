@@ -17,7 +17,6 @@ require (
 	github.com/hpcloud/tail v1.0.0
 	github.com/jcmturner/gokrb5/v8 v8.4.3
 	github.com/json-iterator/go v1.1.12
-	github.com/mattn/go-sqlite3 v1.14.6
 	github.com/mattn/go-zglob v0.0.3
 	github.com/mmaxiaolei/backoff v0.0.0-20210104115436-e015e09efaba
 	github.com/olivere/elastic/v7 v7.0.28
@@ -59,10 +58,15 @@ require (
 	github.com/DataDog/zstd v1.5.0 // indirect
 	github.com/apache/pulsar-client-go/oauth2 v0.0.0-20220120090717-25e59572242e // indirect
 	github.com/ardielle/ardielle-go v1.5.2 // indirect
+	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/danieljoos/wincred v1.0.2 // indirect
+	github.com/dgraph-io/ristretto v0.1.1 // indirect
+	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/dvsekhvalnov/jose2go v0.0.0-20200901110807-248326c1351b // indirect
 	github.com/godbus/dbus v0.0.0-20190726142602-4481cbc300e2 // indirect
 	github.com/golang-jwt/jwt v3.2.2+incompatible // indirect
+	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
+	github.com/google/flatbuffers v1.12.1 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
@@ -78,10 +82,11 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/twmb/franz-go/pkg/kmsg v1.2.0 // indirect
+	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/crypto v0.0.0-20220817201139-bc19a97f63c8 // indirect
 	golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.0.0-20220728004956-3c1f35247d10 // indirect
+	golang.org/x/sys v0.0.0-20221010170243-090e33056c14 // indirect
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211 // indirect
 	golang.org/x/tools v0.1.12 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
@@ -156,6 +161,7 @@ require (
 )
 
 require (
+	github.com/dgraph-io/badger/v3 v3.2103.5
 	k8s.io/metrics v0.25.4
 	sigs.k8s.io/controller-runtime v0.13.1
 )
