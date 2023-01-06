@@ -22,20 +22,18 @@ import (
 	"time"
 
 	journalctl "github.com/loggie-io/loggie/pkg/source/journal/ctl"
-	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
 type Config struct {
-	Dir                  string               `yaml:"dir"`
-	Unit                 string               `yaml:"unit,omitempty"`
-	Identifier           string               `yaml:"identifier,omitempty"`
-	StartTime            string               `yaml:"startTime,omitempty"`
-	HistorySplitDuration time.Duration        `yaml:"historySplitDuration,omitempty" default:"1h"`
-	CollectInterval      time.Duration        `yaml:"collectInterval,omitempty" default:"10s"`
-	AddMeta              map[string]string    `yaml:"addMeta,omitempty"`
-	AddAllMeta           bool                 `yaml:"addAllMeta,omitempty"`
-	DbConfig             persistence.DbConfig `yaml:"db,omitempty"`
-	Multi                MultiConfig          `yaml:"multi,omitempty"`
+	Dir                  string            `yaml:"dir"`
+	Unit                 string            `yaml:"unit,omitempty"`
+	Identifier           string            `yaml:"identifier,omitempty"`
+	StartTime            string            `yaml:"startTime,omitempty"`
+	HistorySplitDuration time.Duration     `yaml:"historySplitDuration,omitempty" default:"1h"`
+	CollectInterval      time.Duration     `yaml:"collectInterval,omitempty" default:"10s"`
+	AddMeta              map[string]string `yaml:"addMeta,omitempty"`
+	AddAllMeta           bool              `yaml:"addAllMeta,omitempty"`
+	Multi                MultiConfig       `yaml:"multi,omitempty"`
 }
 
 type MultiConfig struct {

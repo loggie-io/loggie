@@ -112,7 +112,7 @@ func (s *Source) String() string {
 func (s *Source) Init(context api.Context) error {
 	s.name = context.Name()
 	s.watchId = s.pipelineName + "-" + s.name
-	s.dbHandler = persistence.GetOrCreateShareDbHandler(s.config.DbConfig)
+	s.dbHandler = persistence.GetOrCreateShareDbHandler()
 	s.bp = bufferpool.NewBufferPool(1024)
 	if s.config.Multi.Enable {
 		s.currentLog = multiBody{
@@ -229,7 +229,7 @@ func (s *Source) collectHistory() {
 			start := time.Now()
 			err := s.collect(s.config.Dir, s.config.Unit, s.config.Identifier, s.startTime, s.toCollectTime, s.cmd)
 			d := time.Now().Sub(start).Seconds()
-			log.Info("%s collect using %f s", s.watchId, d)
+			log.Debug("%s collect using %f s", s.watchId, d)
 
 			if err != nil {
 				log.Warn("%s collect journal logs failed: %s", s.watchId, err.Error())
@@ -377,6 +377,7 @@ func (s *Source) convertToEvent(logBody journalLog, offset int64, bs []byte) api
 		CollectTime:  time.Now(),
 		JobUid:       s.watchId,
 		WatchUid:     s.watchId,
+		LineNumber:   1,
 	}
 	e.Meta().Set(SystemStateKey, state)
 	return e
