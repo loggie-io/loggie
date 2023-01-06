@@ -72,6 +72,8 @@ func (c *Controller) injectTypeVmFields(src *source.Config, clusterlogconfig str
 		for k, p := range c.extraTypeVmFieldsPattern {
 			// inject all vm labels
 			if strings.Contains(k, pattern.AllLabelToken) {
+				c.vmInfo.ConvertChineseLabels()
+
 				for labelKey, labelVal := range c.vmInfo.Labels {
 					src.Fields[strings.Replace(k, pattern.AllLabelToken, labelKey, -1)] = labelVal
 				}

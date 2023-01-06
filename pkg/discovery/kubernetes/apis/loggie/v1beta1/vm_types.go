@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	AddressHostName = "Hostname"
+	IndicateChinese    = "loggie-cn"
+	AnnotationCnPrefix = "loggie.io/"
 )
 
 // +genclient
@@ -59,4 +60,13 @@ type NodeAddress struct {
 	Type string `json:"type,omitempty"`
 	// The node address.
 	Address string `json:"address,omitempty"`
+}
+
+func (in *Vm) ConvertChineseLabels() {
+	for k, v := range in.Labels {
+		if v == IndicateChinese {
+			// get Chinese from annotations
+			in.Labels[k] = in.Annotations[AnnotationCnPrefix+k]
+		}
+	}
 }
