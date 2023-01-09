@@ -17,6 +17,7 @@ limitations under the License.
 package json
 
 import (
+	"github.com/loggie-io/loggie/pkg/sink/codec"
 	"github.com/stretchr/testify/assert"
 	"testing"
 
@@ -67,6 +68,9 @@ func TestJson_Encode(t *testing.T) {
 					BeatsFormat: false,
 				},
 			}
+			j.Init(&codec.Config{
+				PrintEvents: false,
+			})
 			got, err := j.Encode(tt.args.event)
 			assert.NoError(t, err)
 			assert.JSONEq(t, string(tt.want), string(got))

@@ -17,6 +17,7 @@ limitations under the License.
 package json
 
 import (
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"time"
 
 	jsoniter "github.com/json-iterator/go"
@@ -30,7 +31,8 @@ var (
 )
 
 type Json struct {
-	config *Config
+	config    *Config
+	codecConf *codec.Config
 }
 
 const (
@@ -57,7 +59,8 @@ func (j *Json) Config() interface{} {
 	return j.config
 }
 
-func (j *Json) Init() {
+func (j *Json) Init(config *codec.Config) {
+	j.codecConf = config
 }
 
 func (j *Json) Encode(e api.Event) ([]byte, error) {
@@ -73,10 +76,22 @@ func (j *Json) Encode(e api.Event) ([]byte, error) {
 		header[eventer.Body] = string(e.Body())
 	}
 
+	var result []byte
+	var err error
 	if j.config.Pretty {
-		return json.MarshalIndent(header, "", "    ")
+		result, err = json.MarshalIndent(header, "", "    ")
+	} else {
+		result, err = json.Marshal(header)
 	}
-	return json.Marshal(header)
+	if err != nil {
+		return nil, err
+	}
+
+	if j.codecConf.PrintEvents {
+		log.Info("[print events] %s", string(result))
+	}
+
+	return result, nil
 }
 
 func beatsFormat(e api.Event) {

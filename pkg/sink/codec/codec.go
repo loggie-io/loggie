@@ -26,7 +26,7 @@ type SinkCodec interface {
 }
 
 type Codec interface {
-	Init()
+	Init(config *Config)
 	Encode(event api.Event) ([]byte, error)
 }
 

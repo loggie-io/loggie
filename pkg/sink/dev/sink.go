@@ -87,9 +87,6 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		return result.Success()
 	}
 
-	if !s.config.PrintEvents {
-		return result.NewResult(api.SUCCESS)
-	}
 	for _, e := range events {
 		// json encode
 		out, err := s.codec.Encode(e)
@@ -97,7 +94,10 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			log.Warn("codec event error: %+v", err)
 			continue
 		}
-		log.Info("event: %s", string(out))
+
+		if s.config.PrintEvents {
+			log.Info("event: %s", string(out))
+		}
 	}
 	return result.NewResult(api.SUCCESS)
 }
