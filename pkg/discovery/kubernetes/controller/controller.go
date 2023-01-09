@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -164,17 +163,17 @@ func NewController(
 	utilruntime.Must(logconfigSchema.AddToScheme(scheme.Scheme))
 
 	if config.VmMode {
-		vm, err := logConfigClientset.LoggieV1beta1().Vms().Get(context.Background(), global.NodeName, metav1.GetOptions{})
+		vm, err := logConfigClientset.LoggieV1beta1().Vms().Get(context.Background(), config.NodeName, metav1.GetOptions{})
 		if err != nil {
-			log.Panic("get vm %s failed: %+v", global.NodeName, err)
+			log.Panic("get vm %s failed: %+v", config.NodeName, err)
 		}
 		controller.vmInfo = vm.DeepCopy()
 
 	} else {
 		// Since type node logic depends on node labels, we get and set node info at first.
-		node, err := kubeClientset.CoreV1().Nodes().Get(context.Background(), global.NodeName, metav1.GetOptions{})
+		node, err := kubeClientset.CoreV1().Nodes().Get(context.Background(), config.NodeName, metav1.GetOptions{})
 		if err != nil {
-			log.Panic("get node %s failed: %+v", global.NodeName, err)
+			log.Panic("get node %s failed: %+v", config.NodeName, err)
 		}
 		controller.nodeInfo = node.DeepCopy()
 	}

@@ -17,14 +17,18 @@ limitations under the License.
 package kubernetes
 
 import (
+	"context"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	logconfigclientset "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/controller"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"net"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
@@ -137,6 +141,13 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 func (d *Discovery) VmModeRun(stopCh <-chan struct{}, kubeClient kubeclientset.Interface, logConfigClient logconfigclientset.Interface,
 	logConfInformerFactory logconfigInformer.SharedInformerFactory, kubeInformerFactory kubeinformers.SharedInformerFactory) {
 
+	metadataName := tryToFindRelatedVm(logConfigClient, d.config.NodeName)
+	if metadataName == "" {
+		log.Panic("cannot find loggie agent related vm")
+		return
+	}
+	d.config.NodeName = metadataName
+
 	vmInformerFactory := logconfigInformer.NewSharedInformerFactoryWithOptions(logConfigClient, 0, logconfigInformer.WithTweakListOptions(func(lo *metav1.ListOptions) {
 		lo.FieldSelector = fields.OneTermEqualSelector("metadata.name", d.config.NodeName).String()
 	}))
@@ -156,4 +167,46 @@ func (d *Discovery) VmModeRun(stopCh <-chan struct{}, kubeClient kubeclientset.I
 		vmInformerFactory.Loggie().V1beta1().Vms().Informer().HasSynced); err != nil {
 		log.Panic("Error running controller: %s", err.Error())
 	}
+}
+
+func tryToFindRelatedVm(logConfigClient logconfigclientset.Interface, nodeName string) string {
+	// try to get related vm name by nodeName
+	vm, err := logConfigClient.LoggieV1beta1().Vms().Get(context.Background(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			log.Warn("get vm name %s error: %+v", nodeName, err)
+			return ""
+		}
+	}
+	if vm.Name != "" {
+		return nodeName
+	}
+	log.Info("cannot find related vm name by nodeName %s", nodeName)
+
+	// If there is no vm name with the same name as nodeName, try to use the ip name of this node to discover vm.
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		log.Warn("get ip address error: %+v", err)
+		return ""
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
+			name := strings.ReplaceAll(ipnet.IP.String(), ".", "-")
+			log.Info("try to get related vm name %s", name)
+			vm, err = logConfigClient.LoggieV1beta1().Vms().Get(context.Background(), name, metav1.GetOptions{})
+			if err != nil {
+				if errors.IsNotFound(err) {
+					continue
+				}
+				log.Warn("get vm name %s error: %+v", name, err)
+				return ""
+			}
+			if vm.Name != "" {
+				return name
+			}
+		}
+	}
+
+	return ""
 }
