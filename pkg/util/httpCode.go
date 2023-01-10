@@ -14,13 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package alertwebhook
+package util
 
-import (
-	"github.com/loggie-io/loggie/pkg/core/logalert"
-)
-
-type Config struct {
-	Addr                 string `yaml:"addr,omitempty"`
-	logalert.AlertConfig `yaml:",inline"`
+func Is2xxSuccess(code int) bool {
+	return code >= 200 && code <= 299
 }

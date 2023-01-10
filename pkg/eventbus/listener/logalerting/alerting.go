@@ -20,7 +20,9 @@ import (
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/logalert"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/eventbus/export/alertmanager"
 )
@@ -28,36 +30,25 @@ import (
 const name = "logAlert"
 
 func init() {
-	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.LogAlertTopic), eventbus.WithTopic(eventbus.AlertTempTopic))
+	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.LogAlertTopic), eventbus.WithTopic(eventbus.AlertTempTopic),
+		eventbus.WithTopic(eventbus.ErrorTopic), eventbus.WithTopic(eventbus.NoDataTopic))
 }
 
 func makeListener() eventbus.Listener {
 	l := &Listener{
-		config: &Config{},
+		config: &logalert.Config{},
 		done:   make(chan struct{}),
 	}
 	return l
 }
 
-type Config struct {
-	Addr         []string          `yaml:"addr,omitempty" validate:"required"`
-	BufferSize   int               `yaml:"bufferSize,omitempty" default:"100"`
-	BatchTimeout time.Duration     `yaml:"batchTimeout,omitempty" default:"10s"`
-	BatchSize    int               `yaml:"batchSize,omitempty" default:"10"`
-	Template     *string           `yaml:"template,omitempty"`
-	Timeout      int               `yaml:"timeout,omitempty" default:"30"`
-	Headers      map[string]string `yaml:"headers,omitempty"`
-	Method       string            `yaml:"method,omitempty"`
-	LineLimit    int               `yaml:"lineLimit,omitempty" default:"10"`
-}
-
 type Listener struct {
-	config *Config
+	config *logalert.Config
 	done   chan struct{}
 
 	bufferChan chan *eventbus.Event
 
-	SendBatch []*eventbus.Event
+	SendBatch []*api.Event
 
 	alertCli *alertmanager.AlertManager
 }
@@ -76,9 +67,9 @@ func (l *Listener) Config() interface{} {
 
 func (l *Listener) Start() error {
 	l.bufferChan = make(chan *eventbus.Event, l.config.BufferSize)
-	l.SendBatch = make([]*eventbus.Event, 0)
+	l.SendBatch = make([]*api.Event, 0)
 
-	l.alertCli = alertmanager.NewAlertManager(l.config.Addr, l.config.Timeout, l.config.LineLimit, l.config.Template, l.config.Headers, l.config.Method)
+	l.alertCli = alertmanager.NewAlertManager(l.config)
 
 	log.Info("starting logAlert listener")
 	go l.run()
@@ -111,17 +102,77 @@ func (l *Listener) run() {
 	}
 }
 
-func (l *Listener) process(event *eventbus.Event) {
-	log.Debug("process event %s", event)
-	if event.Topic == eventbus.AlertTempTopic {
-		s, ok := event.Data.(string)
-		if ok {
-			l.alertCli.UpdateTemp(s)
-		}
+func (l *Listener) process(e *eventbus.Event) {
+	if e.Topic == eventbus.AlertTempTopic {
+		l.processAlertTempTopic(e)
+	} else if e.Topic == eventbus.ErrorTopic {
+		l.processErrorTopic(e)
+	} else if e.Topic == eventbus.NoDataTopic {
+		l.processNoDataTopic(e)
+	} else {
+		l.processLogAlertTopic(e)
+	}
+}
 
+func (l *Listener) processAlertTempTopic(e *eventbus.Event) {
+	s, ok := e.Data.(string)
+	if ok {
+		l.alertCli.UpdateTemp(s)
+	}
+}
+
+func (l *Listener) processErrorTopic(e *eventbus.Event) {
+	if !l.config.SendLoggieError {
+		return
 	}
 
-	l.SendBatch = append(l.SendBatch, event)
+	errorData, ok := e.Data.(eventbus.ErrorMetricData)
+	if !ok {
+		log.Warn("fail to convert loggie error to event, ignore...")
+		return
+	}
+
+	apiEvent := event.ErrorToEvent(errorData.ErrorMsg)
+	if l.config.SendLoggieErrorAtOnce {
+		l.alertCli.SendAlert([]*api.Event{apiEvent}, true)
+		return
+	}
+
+	l.sendToBatch(apiEvent)
+}
+
+func (l *Listener) processLogAlertTopic(e *eventbus.Event) {
+	apiEvent, ok := e.Data.(*api.Event)
+	if !ok {
+		log.Warn("fail to convert data to event, ignore...")
+		return
+	}
+
+	if (*apiEvent).Header()[event.ReasonKey] == event.NoDataKey && l.config.SendNoDataAlertAtOnce {
+		l.alertCli.SendAlert([]*api.Event{apiEvent}, true)
+		return
+	}
+
+	l.sendToBatch(apiEvent)
+}
+
+func (l *Listener) processNoDataTopic(e *eventbus.Event) {
+	apiEvent, ok := e.Data.(*api.Event)
+	if !ok {
+		log.Warn("fail to convert data to event, ignore...")
+		return
+	}
+
+	if l.config.SendNoDataAlertAtOnce {
+		l.alertCli.SendAlert([]*api.Event{apiEvent}, true)
+		return
+	}
+
+	l.sendToBatch(apiEvent)
+}
+
+func (l *Listener) sendToBatch(e *api.Event) {
+	l.SendBatch = append(l.SendBatch, e)
 
 	if len(l.SendBatch) >= l.config.BatchSize {
 		l.flush()
@@ -133,9 +184,9 @@ func (l *Listener) flush() {
 		return
 	}
 
-	events := make([]*eventbus.Event, len(l.SendBatch))
+	events := make([]*api.Event, len(l.SendBatch))
 	copy(events, l.SendBatch)
-	l.alertCli.SendAlert(events)
+	l.alertCli.SendAlert(events, l.config.SendLogAlertAtOnce)
 
 	l.SendBatch = l.SendBatch[:0]
 

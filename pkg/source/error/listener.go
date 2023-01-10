@@ -14,25 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package alertwebhook
+package error
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 )
 
-const name = "webhookListener"
+const name = "errorSourceListener"
 
 type Listener struct {
-	name                  string
-	sink                  *Sink
-	bufferChan            chan *eventbus.Event
-	done                  chan struct{}
-	SendNoDataAlertAtOnce bool
-	SendLoggieError       bool
-	SendLoggieErrorAtOnce bool
+	name       string
+	source     *LoggieError
+	bufferChan chan *eventbus.Event
+	done       chan struct{}
 }
 
 func (l *Listener) Init(context api.Context) error {
@@ -80,35 +76,10 @@ func (l *Listener) run() {
 }
 
 func (l *Listener) process(e *eventbus.Event) {
-	if e.Topic == eventbus.NoDataTopic {
-		l.processWebhookTopic(e)
-	} else if e.Topic == eventbus.ErrorTopic {
-		l.processErrorTopic(e)
-	}
-
-}
-
-func (l *Listener) processWebhookTopic(e *eventbus.Event) {
-	data, ok := e.Data.(*api.Event)
-	if !ok {
-		log.Info("fail to convert data to event")
-		return
-	}
-
-	if (*data).Header()[event.ReasonKey] == event.NoDataKey {
-		l.sink.sendAlerts([]api.Event{*data}, l.SendNoDataAlertAtOnce)
-	}
-
-}
-
-func (l *Listener) processErrorTopic(e *eventbus.Event) {
-	if !l.SendLoggieError {
-		return
-	}
-
 	errorData, ok := e.Data.(eventbus.ErrorMetricData)
-	if ok {
-		apiEvent := event.ErrorToEvent(errorData.ErrorMsg)
-		l.sink.sendAlerts([]api.Event{*apiEvent}, l.SendLoggieErrorAtOnce)
+	if !ok {
+		log.Warn("fail to convert loggie error to event, ignore...")
+		return
 	}
+	l.source.consumeEvent(errorData.ErrorMsg)
 }

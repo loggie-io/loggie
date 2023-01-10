@@ -26,6 +26,9 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/pkg/errors"
+	"go.uber.org/automaxprocs/maxprocs"
+
 	"github.com/loggie-io/loggie/cmd/subcmd"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
@@ -40,8 +43,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/ops/helper"
 	"github.com/loggie-io/loggie/pkg/util/persistence"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
-	"github.com/pkg/errors"
-	"go.uber.org/automaxprocs/maxprocs"
 )
 
 var (
@@ -91,6 +92,7 @@ func main() {
 	eventbus.StartAndRun(syscfg.Loggie.MonitorEventBus)
 	// init log after error func
 	log.AfterError = eventbus.AfterErrorFunc
+	log.AfterErrorConfig = syscfg.Loggie.ErrorConfig
 
 	log.Info("pipelines config path: %s", pipelineConfigPath)
 	// pipeline config file

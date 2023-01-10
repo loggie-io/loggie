@@ -15,7 +15,7 @@ func TestNewAlert(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		want  Alert
+		want  event.Alert
 		event api.Event
 	}{
 		{
@@ -34,7 +34,7 @@ func TestNewAlert(t *testing.T) {
 					event.SystemProductTimeKey: now,
 				}},
 			},
-			want: Alert{
+			want: event.Alert{
 				"body":   []string{"message"},
 				"reason": "reason",
 				"fields": map[string]interface{}{
@@ -50,7 +50,7 @@ func TestNewAlert(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			alert := NewAlert(tt.event, 10)
+			alert := event.NewAlert(tt.event, 10)
 			assert.EqualValues(t, tt.want, alert, "should be same")
 		})
 	}
