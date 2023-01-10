@@ -45,13 +45,13 @@ func (l *Listener) Config() interface{} {
 
 func (l *Listener) Start() error {
 	l.bufferChan = make(chan *eventbus.Event, 0)
-	log.Info("starting alertWebhook listener %s", l.name)
+	log.Info("starting error source listener %s", l.name)
 	go l.run()
 	return nil
 }
 
 func (l *Listener) Stop() {
-	log.Info("stopping alertWebhook listener %s", l.name)
+	log.Info("stopping error source listener %s", l.name)
 	close(l.done)
 }
 
