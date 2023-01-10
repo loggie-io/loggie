@@ -31,7 +31,8 @@ func (c *Controller) handleLogConfigTypeCluster(lgc *logconfigv1beta1.LogConfig)
 		return errors.WithMessage(err, "convert to pipeline config failed")
 	}
 
-	if err := cfg.NewUnpack(nil, pipRaws, nil).Defaults().Validate().Do(); err != nil {
+	pipRawsCopy := pipRaws.DeepCopy()
+	if err := cfg.NewUnpack(nil, pipRawsCopy, nil).Defaults().Validate().Do(); err != nil {
 		return err
 	}
 

@@ -237,7 +237,8 @@ func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod 
 		return nil
 	}
 
-	if err := cfg.NewUnpack(nil, pipeRaw, nil).Defaults().Validate().Do(); err != nil {
+	pipeRawCopy := pipeRaw.DeepCopy()
+	if err := cfg.NewUnpack(nil, pipeRawCopy, nil).Defaults().Validate().Do(); err != nil {
 		return err
 	}
 

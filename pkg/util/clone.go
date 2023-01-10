@@ -20,10 +20,10 @@ import (
 	"github.com/loggie-io/loggie/pkg/util/yaml"
 )
 
-func Clone(a, b interface{}) error {
-	out, err := yaml.Marshal(a)
+func Clone(from, to interface{}) error {
+	out, err := yaml.Marshal(from)
 	if err != nil {
 		return err
 	}
-	return yaml.Unmarshal(out, b)
+	return yaml.Unmarshal(out, to)
 }
