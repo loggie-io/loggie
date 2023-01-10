@@ -53,6 +53,7 @@ const (
 type KubeFileSourceExtra struct {
 	ContainerName            string           `yaml:"containerName,omitempty"`
 	MatchFields              *matchFields     `yaml:"matchFields,omitempty"`
+	TypePodFields            KubeMetaFields   `yaml:"typePodFields,omitempty"`
 	ExcludeContainerPatterns []string         `yaml:"excludeContainerPatterns,omitempty"` // regular pattern
 	excludeContainerRegexps  []*regexp.Regexp `yaml:"-,omitempty"`
 }
@@ -360,7 +361,7 @@ func (c *Controller) makeConfigPerSource(s *source.Config, pod *corev1.Pod, logc
 		filesrc.Name = helper.GenTypePodSourceName(pod.Name, status.Name, filesrc.Name)
 
 		// inject default pod metadata
-		if err := c.injectTypePodFields(c.config.DynamicContainerLog, filesrc, extra.MatchFields, pod, logconfigName, status.Name); err != nil {
+		if err := c.injectTypePodFields(c.config.DynamicContainerLog, filesrc, extra, pod, logconfigName, status.Name); err != nil {
 			return nil, err
 		}
 
@@ -428,7 +429,7 @@ func (c *Controller) getPathsInNode(containerPaths []string, pod *corev1.Pod, co
 	return helper.PathsInNode(c.config.PodLogDirPrefix, c.config.KubeletRootDir, c.config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
 }
 
-func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.Config, match *matchFields, pod *corev1.Pod, lgcName string, containerName string) error {
+func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.Config, extra *KubeFileSourceExtra, pod *corev1.Pod, lgcName string, containerName string) error {
 	if src.Fields == nil {
 		src.Fields = make(map[string]interface{})
 	}
@@ -460,16 +461,23 @@ func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.
 	}
 
 	if len(c.extraTypePodFieldsPattern) > 0 {
-		for k, p := range c.extraTypePodFieldsPattern {
-			res, err := p.WithK8sPod(pattern.NewTypePodFieldsData(pod, containerName, lgcName)).Render()
-			if err != nil {
-				log.Warn("add extra k8s fields %s failed: %v", k, err)
-				continue
-			}
-			k8sFields[k] = res
+		for k, v := range renderTypePodFieldsPattern(c.extraTypePodFieldsPattern, pod, containerName, lgcName) {
+			k8sFields[k] = v
 		}
 	}
 
+	podFields := extra.TypePodFields
+	if len(podFields) > 0 {
+		if err := podFields.validate(); err != nil {
+			return err
+		}
+		podPattern := podFields.initPattern()
+		for k, v := range renderTypePodFieldsPattern(podPattern, pod, containerName, lgcName) {
+			k8sFields[k] = v
+		}
+	}
+
+	match := extra.MatchFields
 	if match != nil {
 		if len(match.LabelKey) > 0 {
 			for k, v := range helper.GetMatchedPodLabel(match.LabelKey, pod) {
@@ -674,4 +682,17 @@ func toPipelineInterceptorWithPodInject(dynamicContainerLog bool, interceptorRaw
 	}
 
 	return icpConfList, nil
+}
+
+func renderTypePodFieldsPattern(pm map[string]*pattern.Pattern, pod *corev1.Pod, containerName string, logConfig string) map[string]interface{} {
+	fields := make(map[string]interface{}, len(pm))
+	for k, p := range pm {
+		res, err := p.WithK8sPod(pattern.NewTypePodFieldsData(pod, containerName, logConfig)).Render()
+		if err != nil {
+			log.Warn("add extra k8s fields %s failed: %v", k, err)
+			continue
+		}
+		fields[k] = res
+	}
+	return fields
 }

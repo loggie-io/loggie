@@ -323,26 +323,15 @@ func NewController(
 }
 
 func (c *Controller) InitK8sFieldsPattern() {
-	typePodPattern := make(map[string]*pattern.Pattern)
-	for k, v := range c.config.TypePodFields {
-		p, _ := pattern.Init(v)
-		typePodPattern[k] = p
-	}
+	typePodPattern := c.config.TypePodFields.initPattern()
 
 	for k, v := range c.config.K8sFields {
 		p, _ := pattern.Init(v)
 		typePodPattern[k] = p
 	}
-
 	c.extraTypePodFieldsPattern = typePodPattern
 
-	typeNodePattern := make(map[string]*pattern.Pattern)
-	for k, v := range c.config.TypeNodeFields {
-		p, _ := pattern.Init(v)
-		typeNodePattern[k] = p
-	}
-
-	c.extraTypeNodeFieldsPattern = typeNodePattern
+	c.extraTypeNodeFieldsPattern = c.config.TypeNodeFields.initPattern()
 }
 
 // handleSelectorHasChange
