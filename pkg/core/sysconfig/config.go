@@ -18,6 +18,7 @@ package sysconfig
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/queue"
 	"github.com/loggie-io/loggie/pkg/core/reloader"
 	"github.com/loggie-io/loggie/pkg/core/sink"
@@ -36,11 +37,12 @@ type Config struct {
 }
 
 type Loggie struct {
-	Reload          reloader.ReloadConfig `yaml:"reload"`
-	Discovery       discovery.Config      `yaml:"discovery"`
-	Http            Http                  `yaml:"http" validate:"dive"`
-	MonitorEventBus eventbus.Config       `yaml:"monitor"`
-	Defaults        Defaults              `yaml:"defaults"`
+	Reload          reloader.ReloadConfig       `yaml:"reload"`
+	Discovery       discovery.Config            `yaml:"discovery"`
+	Http            Http                        `yaml:"http" validate:"dive"`
+	MonitorEventBus eventbus.Config             `yaml:"monitor"`
+	Defaults        Defaults                    `yaml:"defaults"`
+	ErrorConfig     log.AfterErrorConfiguration `yaml:"errorConfig"`
 }
 
 type Defaults struct {

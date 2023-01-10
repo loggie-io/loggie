@@ -19,7 +19,7 @@ package alertmanager
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
@@ -27,51 +27,71 @@ import (
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/loggie-io/loggie/pkg/eventbus"
-	"github.com/loggie-io/loggie/pkg/sink/alertwebhook"
+	"github.com/loggie-io/loggie/pkg/core/logalert"
+	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 )
 
 type AlertManager struct {
 	Address []string
 
-	Client    http.Client
-	temp      *template.Template
-	bp        *BufferPool
-	headers   map[string]string
-	method    string
-	LineLimit int
+	Client      http.Client
+	temp        *template.Template
+	bp          *BufferPool
+	headers     map[string]string
+	method      string
+	LineLimit   int
+	groupConfig logalert.GroupConfig
 
 	lock sync.Mutex
+
+	alertMap map[string][]event.Alert
 }
 
 type ResetTempEvent struct {
 }
 
-func NewAlertManager(addr []string, timeout, lineLimit int, temp *string, headers map[string]string, method string) *AlertManager {
+func NewAlertManager(config *logalert.Config) *AlertManager {
 	cli := http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
+		Timeout: config.Timeout,
 	}
+
 	manager := &AlertManager{
-		Address:   addr,
+		Address:   config.Addr,
 		Client:    cli,
-		headers:   headers,
+		headers:   config.Headers,
 		bp:        newBufferPool(1024),
-		LineLimit: lineLimit,
+		LineLimit: config.LineLimit,
 		method:    http.MethodPost,
+		alertMap:  make(map[string][]event.Alert),
 	}
 
-	if strings.ToUpper(method) == http.MethodPut {
-		manager.method = http.MethodPost
+	if strings.ToUpper(config.Method) == http.MethodPut {
+		manager.method = http.MethodPut
 	}
 
-	if temp != nil {
-		t, err := template.New("alertTemplate").Parse(*temp)
+	if len(config.Template) > 0 {
+		t, err := template.New("alertTemplate").Parse(config.Template)
 		if err != nil {
-			log.Error("fail to generate temp %s", *temp)
+			log.Warn("fail to generate temp %s", config.Template)
+		} else {
+			manager.temp = t
 		}
-		manager.temp = t
 	}
+
+	manager.groupConfig.AlertSendingThreshold = config.AlertSendingThreshold
+	log.Debug("alertManager groupKey: %s", config.GroupKey)
+	if len(config.GroupKey) > 0 {
+		p, err := pattern.Init(config.GroupKey)
+		if err != nil {
+			log.Warn("fail to init group key %s: %s", config.GroupKey, err.Error())
+		} else {
+			manager.groupConfig.Pattern = p
+		}
+	}
+
 	return manager
 }
 
@@ -82,29 +102,28 @@ type AlertEvent struct {
 	Annotations map[string]string `json:"Annotations,omitempty"`
 }
 
-func (a *AlertManager) SendAlert(events []*eventbus.Event) {
+func (a *AlertManager) SendAlert(events []*api.Event, sendAtOnce bool) {
 
-	var alerts []*alertwebhook.Alert
+	var alerts []event.Alert
 	for _, e := range events {
-
-		if e.Data == nil {
-			continue
-		}
-
-		data, ok := e.Data.(*api.Event)
-		if !ok {
-			log.Info("fail to convert data to event")
-			return
-		}
-
-		alert := alertwebhook.NewAlert(*data, a.LineLimit)
-
-		alerts = append(alerts, &alert)
+		alert := event.NewAlert(*e, a.LineLimit)
+		alerts = append(alerts, alert)
 	}
 
-	alertCenterObj := map[string]interface{}{
-		"Alerts": alerts,
+	if sendAtOnce {
+		logalert.GroupAlertsAtOnce(alerts, a.packageAndSendAlerts, a.groupConfig)
+		return
 	}
+
+	logalert.GroupAlerts(a.alertMap, alerts, a.packageAndSendAlerts, a.groupConfig)
+}
+
+func (a *AlertManager) packageAndSendAlerts(alerts []event.Alert) {
+	if len(alerts) == 0 {
+		return
+	}
+
+	alertCenterObj := event.GenAlertsOriginData(alerts)
 
 	var request []byte
 
@@ -153,8 +172,8 @@ func (a *AlertManager) send(address string, alert []byte) {
 	}
 	defer resp.Body.Close()
 
-	if !alertwebhook.Is2xxSuccess(resp.StatusCode) {
-		r, err := ioutil.ReadAll(resp.Body)
+	if !util.Is2xxSuccess(resp.StatusCode) {
+		r, err := io.ReadAll(resp.Body)
 		if err != nil {
 			log.Warn("read response body error: %v", err)
 		}
@@ -163,9 +182,12 @@ func (a *AlertManager) send(address string, alert []byte) {
 }
 
 func (a *AlertManager) UpdateTemp(temp string) {
+	a.lock.Lock()
+	defer a.lock.Unlock()
+
 	t, err := template.New("alertTemplate").Parse(temp)
 	if err != nil {
-		log.Error("fail to generate temp %s", temp)
+		log.Warn("fail to generate temp %s", temp)
 	}
 	a.temp = t
 }

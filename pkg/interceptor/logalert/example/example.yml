@@ -15,6 +15,10 @@ loggie:
         batchTimeout: 10s
         batchSize: 1
         lineLimit: 10
+        groupKey: ${_meta.pipelineName}-${_meta.sourceName}
+        alertSendingThreshold: 10
+        sendLoggieError: true
+        sendLoggieErrorAtOnce: true
         template: |
           {
                   "alerts":
@@ -37,13 +41,14 @@ loggie:
                         ],
                         {{$first := true}}
                         {{range .Alerts}}
-                        {{if $first}}{{$first = false}}{{else}}
+                        {{if $first}}{{$first = false}}
                         "commonLabels": {
                           "namespace": "{{._additions.namespace}}",
                           "module": "{{._additions.module}}",
                           "alertname": "{{._additions.alertname}}",
                           "cluster": "{{._additions.cluster}}"
                         }
+                        {{else}}
                         {{end}}
                         {{end}}
           }

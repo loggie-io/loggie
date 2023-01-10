@@ -35,9 +35,9 @@ import (
 )
 
 const Type = "logAlert"
-const NoDataKey = "NoDataAlert"
-const addition = "_additions"
-const reasonKey = "reason"
+const NoDataKey = event.NoDataKey
+const addition = event.Addition
+const reasonKey = event.ReasonKey
 
 func init() {
 	pipeline.Register(api.INTERCEPTOR, Type, makeInterceptor)
@@ -146,8 +146,8 @@ func (i *Interceptor) Start() error {
 	if i.nodataMode {
 		i.runTicker()
 	}
-	if i.config.Template != nil {
-		eventbus.PublishOrDrop(eventbus.AlertTempTopic, *i.config.Template)
+	if len(i.config.Template) > 0 {
+		eventbus.PublishOrDrop(eventbus.AlertTempTopic, i.config.Template)
 	}
 
 	return nil
@@ -190,9 +190,7 @@ func (i *Interceptor) runTicker() {
 				}
 				e.Fill(meta, header, e.Body())
 
-				eventbus.PublishOrDrop(eventbus.LogAlertTopic, &e)
-
-				eventbus.PublishOrDrop(eventbus.WebhookTopic, &e)
+				eventbus.PublishOrDrop(eventbus.NoDataTopic, &e)
 
 			case <-i.eventFlag:
 				i.ticker.Reset(duration)

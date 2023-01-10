@@ -20,30 +20,26 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"text/template"
-	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/logalert"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 )
 
 const (
 	Type = "alertWebhook"
-
-	sourceName   = "sourceName"
-	pipelineName = "pipelineName"
-	timestamp    = "timestamp"
-
-	meta = "_meta"
-	body = event.Body
 )
 
 func init() {
@@ -51,88 +47,30 @@ func init() {
 }
 
 func makeSink(info pipeline.Info) api.Component {
-	return NewSink()
-}
-
-type Alert map[string]interface{}
-
-func NewAlert(e api.Event, lineLimit int) Alert {
-	systemData := map[string]interface{}{}
-
-	allMeta := e.Meta().GetAll()
-
-	if value, ok := allMeta[event.SystemSourceKey]; ok {
-		systemData[sourceName] = value
-	}
-
-	if value, ok := allMeta[event.SystemPipelineKey]; ok {
-		systemData[pipelineName] = value
-	}
-
-	if value, ok := allMeta[event.SystemProductTimeKey]; ok {
-		t, valueToTime := value.(time.Time)
-		if !valueToTime {
-			systemData[timestamp] = value
-		} else {
-			textTime, err := t.MarshalText()
-			if err == nil {
-				systemData[timestamp] = string(textTime)
-			} else {
-				systemData[timestamp] = value
-			}
-		}
-	}
-
-	alert := Alert{
-		meta: systemData,
-	}
-
-	if len(e.Body()) > 0 {
-		s := string(e.Body())
-		alert[body] = splitBody(s, lineLimit)
-	}
-
-	for k, v := range e.Header() {
-		if k != body {
-			alert[k] = v
-			continue
-		}
-
-		if value, ok := v.(string); ok {
-			alert[body] = splitBody(value, lineLimit)
-		}
-	}
-
-	return alert
-}
-
-func splitBody(s string, lineLimit int) []string {
-	split := make([]string, 0)
-	for i, s := range strings.Split(s, "\n") {
-		if i > lineLimit {
-			log.Info("body exceeds line limit %d", lineLimit)
-			break
-		}
-		split = append(split, strings.TrimSpace(s))
-	}
-	return split
+	return NewSink(info.PipelineName)
 }
 
 type Sink struct {
-	name      string
-	config    *Config
-	codec     codec.Codec
-	temp      *template.Template
-	bp        *BufferPool
-	client    *http.Client
-	method    string
-	subscribe *eventbus.Subscribe
-	listener  *Listener
+	pipelineName string
+	name         string
+	config       *Config
+	codec        codec.Codec
+	temp         *template.Template
+	bp           *BufferPool
+	client       *http.Client
+	method       string
+	subscribe    *eventbus.Subscribe
+	listener     *Listener
+	groupConfig  logalert.GroupConfig
+	alertMap     event.AlertMap
+
+	lock sync.Mutex
 }
 
-func NewSink() *Sink {
+func NewSink(pipelineName string) *Sink {
 	return &Sink{
-		config: &Config{},
+		config:       &Config{},
+		pipelineName: pipelineName,
 	}
 }
 
@@ -158,12 +96,13 @@ func (s *Sink) String() string {
 
 func (s *Sink) Init(context api.Context) error {
 	s.listener = &Listener{
-		done: make(chan struct{}),
-		sink: s,
+		name:                  fmt.Sprintf("%s/%s", s.pipelineName, name),
+		done:                  make(chan struct{}),
+		sink:                  s,
+		SendNoDataAlertAtOnce: s.config.SendNoDataAlertAtOnce,
+		SendLoggieError:       s.config.SendLoggieError,
+		SendLoggieErrorAtOnce: s.config.SendLoggieErrorAtOnce,
 	}
-	s.subscribe = eventbus.RegistryTemporary(name, func() eventbus.Listener {
-		return s.listener
-	}, eventbus.WithTopic(eventbus.WebhookTopic))
 
 	s.name = context.Name()
 	s.bp = newBufferPool(1024)
@@ -177,6 +116,24 @@ func (s *Sink) Init(context api.Context) error {
 		s.method = http.MethodPost
 	}
 
+	s.groupConfig.AlertSendingThreshold = s.config.AlertSendingThreshold
+	log.Debug("alertWebhook groupKey: %s", s.config.GroupKey)
+	if len(s.config.GroupKey) > 0 {
+		p, err := pattern.Init(s.config.GroupKey)
+		if err != nil {
+			return err
+		}
+
+		s.groupConfig.Pattern = p
+	}
+
+	s.alertMap = make(event.AlertMap)
+
+	topics := []string{eventbus.NoDataTopic, eventbus.ErrorTopic}
+	s.subscribe = eventbus.RegistryTemporary(s.listener.name, func() eventbus.Listener {
+		return s.listener
+	}, eventbus.WithTopics(topics))
+
 	return nil
 }
 
@@ -186,7 +143,7 @@ func (s *Sink) Start() error {
 	if t != "" {
 		temp, err := template.New("alertTemplate").Parse(t)
 		if err != nil {
-			log.Error("fail to generate temp %s", t)
+			log.Warn("fail to generate temp %s", t)
 			return err
 		}
 		s.temp = temp
@@ -206,18 +163,37 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	events := batch.Events()
 	l := len(events)
 	if l == 0 {
-		return nil
+		return result.Success()
 	}
 
-	var alerts []Alert
+	s.sendAlerts(events, s.config.SendLogAlertAtOnce)
+
+	return result.Success()
+}
+
+func (s *Sink) sendAlerts(events []api.Event, sendAtOnce bool) {
+	var alerts []event.Alert
 	for _, e := range events {
-		alert := NewAlert(e, s.config.LineLimit)
+		alert := event.NewAlert(e, s.config.LineLimit)
 		alerts = append(alerts, alert)
 	}
 
-	alertCenterObj := map[string]interface{}{
-		"Alerts": alerts,
+	if sendAtOnce {
+		logalert.GroupAlertsAtOnce(alerts, s.packageAndSendAlerts, s.groupConfig)
+		return
 	}
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
+	logalert.GroupAlerts(s.alertMap, alerts, s.packageAndSendAlerts, s.groupConfig)
+}
+
+func (s *Sink) packageAndSendAlerts(alerts []event.Alert) {
+	if len(alerts) == 0 {
+		return
+	}
+
+	alertCenterObj := event.GenAlertsOriginData(alerts)
 
 	var request []byte
 
@@ -227,7 +203,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		err := s.temp.Execute(buffer, alertCenterObj)
 		if err != nil {
 			log.Warn(err.Error())
-			return result.Fail(err)
+			return
 		}
 		// remove blank
 		request = bytes.Trim(buffer.Bytes(), "\x00")
@@ -235,25 +211,25 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		out, err := json.Marshal(alertCenterObj)
 		if err != nil {
 			log.Warn(err.Error())
-			return result.Fail(err)
+			return
 		}
 		request = out
 	}
 
-	log.Debug("sending data %s", request)
-	return s.sendData(request)
+	log.Debug("pipeline %s sending data %s", s.pipelineName, request)
+	s.sendData(request)
 }
 
-func (s *Sink) sendData(request []byte) api.Result {
+func (s *Sink) sendData(request []byte) {
 	if len(s.config.Addr) == 0 {
 		log.Warn("no addr, ignore...")
-		return result.Drop()
+		return
 	}
 
 	req, err := http.NewRequest(s.method, s.config.Addr, bytes.NewReader(request))
 	if err != nil {
 		log.Warn("send alert error: %v", err)
-		return result.Fail(err)
+		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if len(s.config.Headers) > 0 {
@@ -264,23 +240,19 @@ func (s *Sink) sendData(request []byte) api.Result {
 	resp, err := s.client.Do(req)
 	if err != nil {
 		log.Warn("send alert error: %v", err)
-		return result.Fail(err)
+		return
 	}
 	defer resp.Body.Close()
 
-	if !Is2xxSuccess(resp.StatusCode) {
-		r, err := ioutil.ReadAll(resp.Body)
+	if !util.Is2xxSuccess(resp.StatusCode) {
+		r, err := io.ReadAll(resp.Body)
 		if err != nil {
 			log.Warn("read response body error: %v", err)
-			return result.Fail(err)
+			return
 		}
 		log.Warn("sending alert failed, response statusCode: %d, body: %s", resp.StatusCode, r)
-		return result.Fail(fmt.Errorf("sending alert failed, response statusCode: %d, body: %s", resp.StatusCode, r))
+		return
 	}
 
-	return result.NewResult(api.SUCCESS)
-}
-
-func Is2xxSuccess(code int) bool {
-	return code >= 200 && code <= 299
+	return
 }
