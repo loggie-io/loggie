@@ -483,36 +483,36 @@ func (w *Watcher) legalFile(filename string, watchTask *WatchTask, withIgnoreOld
 		return false, "", nil
 	}
 
-	// Fetch Lstat File info to detected also symlinks
-	fileInfo, err := os.Lstat(filename)
-	if err != nil {
-		log.Warn("[pipeline(%s)-source(%s)]: lstat fileName(%s) fail: %v", pipelineName, sourceName, filename, err)
-		return false, "", nil
-	}
-
-	if fileInfo.IsDir() {
-		log.Debug("[pipeline(%s)-source(%s)]: skip directory(%s)", pipelineName, sourceName, filename)
-		return false, "", nil
-	}
-
-	isSymlink := fileInfo.Mode()&os.ModeSymlink != 0
-	if isSymlink && watchTask.config.IgnoreSymlink {
-		log.Info("[pipeline(%s)-source(%s)]: fileName(%s) skipped as it is a symlink", pipelineName, sourceName, filename)
-		return false, "", nil
-	}
-
-	fileInfo, err = os.Stat(filename)
+	stat, err := os.Stat(filename)
 	if err != nil {
 		log.Error("[pipeline(%s)-source(%s)]: stat fileName(%s) fail: %v", pipelineName, sourceName, filename, err)
 		return false, "", nil
 	}
 
+	if stat.IsDir() {
+		log.Debug("[pipeline(%s)-source(%s)]: skip directory(%s)", pipelineName, sourceName, filename)
+		return false, "", nil
+	}
+
+	// Fetch Lstat File info to detected also symlinks
+	lstat, err := os.Lstat(filename)
+	if err != nil {
+		log.Warn("[pipeline(%s)-source(%s)]: lstat fileName(%s) fail: %v", pipelineName, sourceName, filename, err)
+		return false, "", nil
+	}
+
+	isSymlink := lstat.Mode()&os.ModeSymlink != 0
+	if isSymlink && watchTask.config.IgnoreSymlink {
+		log.Info("[pipeline(%s)-source(%s)]: fileName(%s) skipped as it is a symlink", pipelineName, sourceName, filename)
+		return false, "", nil
+	}
+
 	// Ignores all files which fall under ignore_older
-	if withIgnoreOlder && watchTask.config.IsIgnoreOlder(fileInfo) {
+	if withIgnoreOlder && watchTask.config.IsIgnoreOlder(stat) {
 		log.Debug("[pipeline(%s)-source(%s)]: ignore file(%s) because ignore_older(%d second) reached", pipelineName, sourceName, filename, watchTask.config.IgnoreOlder.Duration()/time.Second)
 		return false, "", nil
 	}
-	return true, filename, fileInfo
+	return true, filename, stat
 }
 
 func (w *Watcher) scan() {
