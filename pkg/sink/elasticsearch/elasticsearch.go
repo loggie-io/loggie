@@ -104,7 +104,6 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 	err := s.cli.BulkIndex(context.TODO(), batch)
 	if err != nil {
-		return result.Fail(errors.WithMessage(err, "send events to elasticsearch"))
 		if errors.Is(err, eventer.ErrorDropEvent) {
 			return result.DropWith(err)
 		}

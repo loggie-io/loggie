@@ -44,3 +44,14 @@ func (c *Config) Merge(from *Config) *Config {
 	c.CommonCfg = cfg.MergeCommonCfg(c.CommonCfg, from.CommonCfg, false)
 	return c
 }
+
+func (c *Config) DeepCopy() *Config {
+	if c == nil {
+		return nil
+	}
+
+	out := new(Config)
+	out.Type = c.Type
+	out.CommonCfg = c.CommonCfg.DeepCopy()
+	return out
+}

@@ -42,3 +42,18 @@ func (c *Config) Merge(from *Config) {
 
 	c.Properties = cfg.MergeCommonCfg(c.Properties, from.Properties, false)
 }
+
+func (c *Config) DeepCopy() *Config {
+	if c == nil {
+		return nil
+	}
+
+	out := new(Config)
+	out.Enabled = c.Enabled
+	out.Name = c.Name
+	out.Type = c.Type
+	out.Properties = c.Properties.DeepCopy()
+	out.BatchSize = c.BatchSize
+
+	return out
+}

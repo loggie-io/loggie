@@ -1,3 +1,36 @@
+# Release v1.4.0-rc.0
+
+### :star2: Features
+
+- Added Loggie dashboard feature for easier troubleshooting (#416)
+- Enhanced log alerting function with more flexible log alert detection rules and added alertWebhook sink (#392)
+- Added sink concurrency support for automatic adaptation based on downstream delay (#376)
+- Added franzKafka sink for users who prefer the franz kafka library (#423)
+- Added elasticsearch source (#345)
+- Added zinc sink (#254)
+- Added pulsar sink (#417)
+- Added grok action to transformer interceptor (#418)
+- Added split action to transformer interceptor (#411)
+- Added jsonEncode action to transformer interceptor (#421)
+- Added fieldsFromPath configuration to source for obtaining fields from file content (#401)
+- Added fieldsRef parameter to filesource listener for obtaining key value from fields configuration and adding to metrics as label (#402)
+- In transformer interceptor, added dropIfError support to drop event if action execution fails (#409)
+- Added info listener which currently exposes loggie_info_stat metrics and displays version label (#410)
+- Added support for customized kafka sink partition key
+- Added sasl support to Kafka source (#415)
+- Added https insecureSkipVerify support to loki sink (#422)
+- Optimized file source for large files (#430)
+- Changed default value of file source maxOpenFds to 1024 (#437)
+- ContainerRuntime can now be set to none (#439)
+- Upgraded to go 1.18 (#440)
+
+### :bug: Bug Fixes
+
+- Added source fields to filesource listener (#402)
+- Fixed issue of transformer copy action not copying non-string body (#420)
+- Added fetching of logs file from UpperDir when rootfs collection is enabled (#414)
+
+
 # Release v1.3.0
 
 ### :star2: Features

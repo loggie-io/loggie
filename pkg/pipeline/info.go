@@ -46,6 +46,37 @@ func (c *Config) Validate() error {
 	return NewPipeline(c).validate()
 }
 
+func (c *Config) DeepCopy() *Config {
+	if c == nil {
+		return nil
+	}
+
+	out := new(Config)
+	out.Name = c.Name
+	out.CleanDataTimeout = c.CleanDataTimeout
+	out.Queue = c.Queue.DeepCopy()
+
+	if len(c.Interceptors) > 0 {
+		icp := make([]*interceptor.Config, 0)
+		for _, conf := range c.Interceptors {
+			icp = append(icp, conf.DeepCopy())
+		}
+		out.Interceptors = icp
+	}
+
+	if len(c.Sources) > 0 {
+		src := make([]*source.Config, 0)
+		for _, conf := range c.Sources {
+			src = append(src, conf.DeepCopy())
+		}
+		out.Sources = src
+	}
+
+	out.Sink = c.Sink.DeepCopy()
+
+	return out
+}
+
 func (c *Config) merge() {
 	defaults, err := GetDefaultConfigRaw()
 	if err != nil {

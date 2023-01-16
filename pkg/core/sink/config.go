@@ -20,7 +20,9 @@ import (
 	"errors"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/concurrency"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
+	"github.com/loggie-io/loggie/pkg/util"
 )
 
 var ErrSinkTypeRequired = errors.New("pipelines[n].sink.type is required")
@@ -33,6 +35,25 @@ type Config struct {
 	Parallelism int                `yaml:"parallelism,omitempty" default:"1" validate:"required,gte=1,lte=100"`
 	Codec       codec.Config       `yaml:"codec,omitempty" validate:"dive"`
 	Concurrency concurrency.Config `yaml:"concurrency,omitempty"`
+}
+
+func (c *Config) DeepCopy() *Config {
+	if c == nil {
+		return nil
+	}
+
+	out := new(Config)
+	out.Enabled = c.Enabled
+	out.Name = c.Name
+	out.Type = c.Type
+	out.Properties = c.Properties.DeepCopy()
+	out.Parallelism = c.Parallelism
+	out.Codec = *c.Codec.DeepCopy()
+	if err := util.Clone(c.Concurrency, out.Concurrency); err != nil {
+		log.Warn("deepCopy Concurrency %#v error: %+v", c.Concurrency, err)
+	}
+
+	return out
 }
 
 func (c *Config) Validate() error {

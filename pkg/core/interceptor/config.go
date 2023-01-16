@@ -28,6 +28,20 @@ type Config struct {
 	Properties cfg.CommonCfg `yaml:",inline"`
 }
 
+func (c *Config) DeepCopy() *Config {
+	if c == nil {
+		return nil
+	}
+
+	out := new(Config)
+	out.Enabled = c.Enabled
+	out.Name = c.Name
+	out.Type = c.Type
+	out.Properties = c.Properties.DeepCopy()
+
+	return out
+}
+
 func (c *Config) GetExtension() (*ExtensionConfig, error) {
 	ext := &ExtensionConfig{}
 

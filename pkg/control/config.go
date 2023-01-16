@@ -35,6 +35,23 @@ type PipelineConfig struct {
 	Pipelines []pipeline.Config `yaml:"pipelines" validate:"dive,required"`
 }
 
+func (c *PipelineConfig) DeepCopy() *PipelineConfig {
+	if c == nil {
+		return nil
+	}
+
+	out := new(PipelineConfig)
+	if len(c.Pipelines) > 0 {
+		pip := make([]pipeline.Config, 0)
+		for _, p := range c.Pipelines {
+			pip = append(pip, *p.DeepCopy())
+		}
+		out.Pipelines = pip
+	}
+
+	return out
+}
+
 func (c *PipelineConfig) Validate() error {
 	if err := c.ValidateUniquePipeName(); err != nil {
 		return err
