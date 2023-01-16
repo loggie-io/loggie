@@ -89,9 +89,8 @@ type Pipeline struct {
 func NewPipeline(pipelineConfig *Config) *Pipeline {
 	registerCenter := NewRegisterCenter()
 	return &Pipeline{
-		config:       *pipelineConfig,
-		done:         make(chan struct{}),
-		flowPoolDone: make(chan struct{}),
+		config: *pipelineConfig,
+		done:   make(chan struct{}),
 		info: Info{
 			Stop:        false,
 			R:           registerCenter,
@@ -537,6 +536,7 @@ func (p *Pipeline) startSinkConsumer(sinkConfig *sink.Config) {
 
 	gpool, _ := ants.NewPool(10)
 	p.gpool = gpool
+	p.flowPoolDone = make(chan struct{})
 
 	concurrencyEnabled := p.concurrency.Enable
 	if concurrencyEnabled {
@@ -867,11 +867,14 @@ func (p *Pipeline) tuneGPool(targetCap int) {
 }
 
 func (p *Pipeline) stopGPool() {
+	log.Info("stopping goroutine pool")
 	pool := p.gpool
-	close(p.flowPoolDone)
-	pool.Release()
+	if pool != nil {
+		close(p.flowPoolDone)
+		pool.Release()
+		log.Info("goroutine pool released")
+	}
 
-	log.Info("goroutine pool released")
 }
 
 func buildSinkInvokerChain(invoker sink.Invoker, interceptors []sink.Interceptor, retry bool) sink.Invoker {
