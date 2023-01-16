@@ -18,6 +18,7 @@ package raw
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 )
 
@@ -30,6 +31,7 @@ func init() {
 }
 
 type Raw struct {
+	codecConf *codec.Config
 }
 
 func makeRawCodec() codec.Codec {
@@ -40,9 +42,13 @@ func NewRaw() *Raw {
 	return &Raw{}
 }
 
-func (j *Raw) Init() {
+func (j *Raw) Init(config *codec.Config) {
+	j.codecConf = config
 }
 
 func (j *Raw) Encode(e api.Event) ([]byte, error) {
+	if j.codecConf.PrintEvents {
+		log.Info("[print events] %s", string(e.Body()))
+	}
 	return e.Body(), nil
 }

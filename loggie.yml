@@ -31,10 +31,6 @@ loggie:
   defaults:
     sink:
       type: dev
-      printEvents: true
-      codec:
-        type: json
-        pretty: true
     sources:
       - type: file
         watcher:

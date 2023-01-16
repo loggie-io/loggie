@@ -9,8 +9,7 @@ pipelines:
           topic: "loggie"
     sink:
       type: dev
-      printEvents: true
       codec:
+        type: json
+        printEvents: true
         pretty: true
-
-

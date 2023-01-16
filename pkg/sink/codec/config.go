@@ -23,6 +23,7 @@ import (
 
 type Config struct {
 	Type          string `yaml:"type,omitempty" default:"json"`
+	PrintEvents   bool   `yaml:"printEvents,omitempty"`
 	cfg.CommonCfg `yaml:",inline"`
 }
 

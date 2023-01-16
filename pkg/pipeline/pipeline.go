@@ -476,7 +476,7 @@ func (p *Pipeline) startSink(sinkConfigs *sink.Config) error {
 			return errors.WithMessage(err, "unpack codec config error")
 		}
 	}
-	cod.Init()
+	cod.Init(&codecConf)
 
 	// set codec to sink
 	component, _ := GetWithType(ctx.Category(), ctx.Type(), p.info)
