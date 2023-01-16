@@ -49,11 +49,16 @@ type Selector struct {
 	Cluster      string `json:"cluster,omitempty"`
 	Type         string `json:"type,omitempty"`
 	PodSelector  `json:",inline"`
+	SvcSelector  `json:",inline"`
 	NodeSelector `json:",inline"`
 }
 
 type PodSelector struct {
 	LabelSelector map[string]string `json:"labelSelector,omitempty"`
+}
+
+type SvcSelector struct {
+	Service string `json:"service,omitempty"`
 }
 
 type NodeSelector struct {
@@ -90,6 +95,10 @@ func (in *ClusterLogConfig) Validate() error {
 	tp := in.Spec.Selector.Type
 	if tp != SelectorTypePod && tp != SelectorTypeNode && tp != SelectorTypeCluster {
 		return errors.New("spec.selector.type is invalid")
+	}
+
+	if in.Spec.Selector.Service != "" {
+		return errors.New("spec.selector.service is not supported in clusterLogConfig")
 	}
 
 	if tp == SelectorTypeCluster && in.Spec.Selector.Cluster == "" {
