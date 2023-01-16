@@ -38,14 +38,16 @@ type Config struct {
 
 	Fields         Fields            `yaml:"fields"`    // Deprecated: use typePodFields
 	K8sFields      map[string]string `yaml:"k8sFields"` // Deprecated: use typePodFields
-	TypePodFields  map[string]string `yaml:"typePodFields"`
-	TypeNodeFields map[string]string `yaml:"typeNodeFields"`
+	TypePodFields  KubeMetaFields    `yaml:"typePodFields"`
+	TypeNodeFields KubeMetaFields    `yaml:"typeNodeFields"`
 	ParseStdout    bool              `yaml:"parseStdout"`
 
 	// If set to true, it means that the pipeline configuration generated does not contain specific Pod paths and meta information.
 	// These data will be dynamically obtained by the file source, thereby reducing the number of configuration changes and reloads.
 	DynamicContainerLog bool `yaml:"dynamicContainerLog"`
 }
+
+type KubeMetaFields map[string]string
 
 // Fields Deprecated
 type Fields struct {
@@ -87,20 +89,34 @@ func (c *Config) Validate() error {
 	}
 
 	if c.TypePodFields != nil {
-		for _, v := range c.TypePodFields {
-			if err := pattern.Validate(v); err != nil {
-				return err
-			}
+		if err := c.TypePodFields.validate(); err != nil {
+			return err
 		}
 	}
 
 	if c.TypeNodeFields != nil {
-		for _, v := range c.TypeNodeFields {
-			if err := pattern.Validate(v); err != nil {
-				return err
-			}
+		if err := c.TypeNodeFields.validate(); err != nil {
+			return err
 		}
 	}
 
 	return nil
+}
+
+func (f KubeMetaFields) validate() error {
+	for _, v := range f {
+		if err := pattern.Validate(v); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (f KubeMetaFields) initPattern() map[string]*pattern.Pattern {
+	typePodPattern := make(map[string]*pattern.Pattern)
+	for k, v := range f {
+		p, _ := pattern.Init(v)
+		typePodPattern[k] = p
+	}
+	return typePodPattern
 }

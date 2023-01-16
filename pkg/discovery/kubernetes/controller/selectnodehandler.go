@@ -24,7 +24,20 @@ import (
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 )
+
+type KubeTypeNodeExtra struct {
+	TypeNodeFields KubeMetaFields `yaml:"typeNodeFields,omitempty"`
+}
+
+func GetKubeTypeNodeExtraSource(src *source.Config) (*KubeTypeNodeExtra, error) {
+	extra := &KubeTypeNodeExtra{}
+	if err := cfg.UnpackFromCommonCfg(src.Properties, extra).Do(); err != nil {
+		return nil, err
+	}
+	return extra, nil
+}
 
 func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) error {
 	// check node selector
@@ -52,7 +65,9 @@ func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) er
 
 	for i := range pipRaws.Pipelines {
 		for _, s := range pipRaws.Pipelines[i].Sources {
-			c.injectTypeNodeFields(s, lgc.Name)
+			if err := c.injectTypeNodeFields(s, lgc.Name); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -63,19 +78,46 @@ func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) er
 	return nil
 }
 
-func (c *Controller) injectTypeNodeFields(src *source.Config, clusterlogconfig string) {
+func (c *Controller) injectTypeNodeFields(src *source.Config, clusterlogconfig string) error {
 	if src.Fields == nil {
 		src.Fields = make(map[string]interface{})
 	}
 
+	extra, err := GetKubeTypeNodeExtraSource(src)
+	if err != nil {
+		return err
+	}
+
 	if len(c.extraTypeNodeFieldsPattern) > 0 {
-		for k, p := range c.extraTypeNodeFieldsPattern {
-			res, err := p.WithK8sNode(pattern.NewTypeNodeFieldsData(c.nodeInfo, clusterlogconfig)).Render()
-			if err != nil {
-				log.Warn("add extra k8s node fields %s failed: %v", k, err)
-				continue
-			}
-			src.Fields[k] = res
+		np := renderTypeNodeFieldsPattern(c.extraTypeNodeFieldsPattern, c.nodeInfo, clusterlogconfig)
+		for k, v := range np {
+			src.Fields[k] = v
 		}
 	}
+
+	if len(extra.TypeNodeFields) > 0 {
+		if err := extra.TypeNodeFields.validate(); err != nil {
+			return err
+		}
+		p := extra.TypeNodeFields.initPattern()
+		np := renderTypeNodeFieldsPattern(p, c.nodeInfo, clusterlogconfig)
+		for k, v := range np {
+			src.Fields[k] = v
+		}
+	}
+
+	return nil
+}
+
+func renderTypeNodeFieldsPattern(pm map[string]*pattern.Pattern, node *corev1.Node, clusterlogconfig string) map[string]interface{} {
+	fields := make(map[string]interface{}, len(pm))
+	for k, p := range pm {
+		res, err := p.WithK8sNode(pattern.NewTypeNodeFieldsData(node, clusterlogconfig)).Render()
+		if err != nil {
+			log.Warn("add extra k8s node fields %s failed: %v", k, err)
+			continue
+		}
+		fields[k] = res
+	}
+	return fields
 }
