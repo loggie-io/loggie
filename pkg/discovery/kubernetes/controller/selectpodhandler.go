@@ -17,7 +17,6 @@ limitations under the License.
 package controller
 
 import (
-	"fmt"
 	"github.com/google/go-cmp/cmp"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/index"
@@ -146,12 +145,17 @@ func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.Log
 		}
 
 		if err := c.handleLogConfigPerPod(lgc, pod); err != nil {
-			errs = append(errs, errors.WithMessagef(err, "match pod %s/%s", pod.Namespace, pod.Name))
+			errs = append(errs, errors.WithMessagef(err, "pod %s/%s", pod.Namespace, pod.Name))
 			continue
 		}
 		successPodNames = append(successPodNames, pod.Name)
 	}
 	if len(errs) > 0 {
+		// To prevent missing long reports, only a part of the error can be shown here
+		if len(errs) > 2 {
+			errs = errs[:2]
+			errs = append(errs, errors.New("..."))
+		}
 		return utilerrors.NewAggregate(errs), successPodNames
 	}
 	return nil, successPodNames
@@ -189,13 +193,11 @@ func (c *Controller) handlePodAddOrUpdateOfLogConfig(pod *corev1.Pod) {
 		}
 
 		if err := c.handleLogConfigPerPod(lgc, pod); err != nil {
-			msg := fmt.Sprintf(MessageSyncFailed, lgc.Spec.Selector.Type, pod.Name, err.Error())
-			c.record.Event(lgc, corev1.EventTypeWarning, ReasonFailed, msg)
+			log.Warn("sync %s %v failed: %s", lgc.Spec.Selector.Type, pod.Name, err.Error())
 			return
 		}
 		log.Info("handle pod %s/%s addOrUpdate event and sync config file success, related logConfig is %s", pod.Namespace, pod.Name, lgc.Name)
-		msg := fmt.Sprintf(MessageSyncSuccess, lgc.Spec.Selector.Type, pod.Name)
-		c.record.Event(lgc, corev1.EventTypeNormal, ReasonSuccess, msg)
+		c.record.Eventf(lgc, corev1.EventTypeNormal, ReasonSuccess, MessageSyncSuccess, lgc.Spec.Selector.Type, pod.Name)
 	}
 }
 
@@ -207,7 +209,6 @@ func (c *Controller) handlePodAddOrUpdateOfClusterLogConfig(pod *corev1.Pod) {
 	}
 
 	for _, clgc := range clgcList {
-
 		if !c.belongOfCluster(clgc.Spec.Selector.Cluster) {
 			continue
 		}
@@ -217,18 +218,15 @@ func (c *Controller) handlePodAddOrUpdateOfClusterLogConfig(pod *corev1.Pod) {
 		}
 
 		if err := c.handleLogConfigPerPod(clgc.ToLogConfig(), pod); err != nil {
-			msg := fmt.Sprintf(MessageSyncFailed, clgc.Spec.Selector.Type, pod.Name, err.Error())
-			c.record.Event(clgc, corev1.EventTypeWarning, ReasonFailed, msg)
+			log.Warn("sync %s %v failed: %s", clgc.Spec.Selector.Type, pod.Name, err.Error())
 			return
 		}
 		log.Info("handle pod %s/%s addOrUpdate event and sync config file success, related clusterLogConfig is %s", pod.Namespace, pod.Name, clgc.Name)
-		msg := fmt.Sprintf(MessageSyncSuccess, clgc.Spec.Selector.Type, pod.Name)
-		c.record.Event(clgc, corev1.EventTypeNormal, ReasonSuccess, msg)
+		c.record.Eventf(clgc, corev1.EventTypeNormal, ReasonSuccess, MessageSyncSuccess, clgc.Spec.Selector.Type, pod.Name)
 	}
 }
 
 func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod) error {
-
 	// generate pod related pipeline configs
 	pipeRaw, err := c.getConfigFromPodAndLogConfig(lgc, pod, c.sinkLister, c.interceptorLister)
 	if err != nil {

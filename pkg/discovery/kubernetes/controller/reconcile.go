@@ -35,8 +35,8 @@ const (
 	ReasonFailed  = "syncFailed"
 	ReasonSuccess = "syncSuccess"
 
-	MessageSyncSuccess = "Sync type %s %v success"
-	MessageSyncFailed  = "Sync type %s %v failed: %s"
+	MessageSyncSuccess = "Sync %s %v success"
+	MessageSyncFailed  = "Sync %s failed: %s"
 )
 
 func (c *Controller) reconcileClusterLogConfig(element Element) error {
@@ -55,11 +55,14 @@ func (c *Controller) reconcileClusterLogConfig(element Element) error {
 	}
 
 	err, keys := c.reconcileClusterLogConfigAddOrUpdate(clusterLogConfig)
-	if len(keys) > 0 {
-		msg := fmt.Sprintf(MessageSyncSuccess, clusterLogConfig.Spec.Selector.Type, keys)
-		c.record.Event(clusterLogConfig, corev1.EventTypeNormal, ReasonSuccess, msg)
+	if err != nil {
+		c.record.Eventf(clusterLogConfig, corev1.EventTypeWarning, ReasonFailed, MessageSyncFailed, clusterLogConfig.Spec.Selector.Type, err.Error())
+		return err
 	}
-	// no need to record failed event here because we recorded events when received pod create/update
+	if len(keys) > 0 {
+		c.record.Eventf(clusterLogConfig, corev1.EventTypeNormal, ReasonSuccess, MessageSyncSuccess, clusterLogConfig.Spec.Selector.Type, keys)
+	}
+
 	return err
 }
 
@@ -71,7 +74,6 @@ func (c *Controller) reconcileLogConfig(element Element) error {
 	}
 
 	logConf, err := c.logConfigLister.LogConfigs(namespace).Get(name)
-
 	if kerrors.IsNotFound(err) {
 		return c.reconcileLogConfigDelete(element.Key, element.SelectorType)
 	} else if err != nil {
@@ -80,11 +82,15 @@ func (c *Controller) reconcileLogConfig(element Element) error {
 	}
 
 	err, keys := c.reconcileLogConfigAddOrUpdate(logConf)
-	if len(keys) > 0 {
-		msg := fmt.Sprintf(MessageSyncSuccess, logConf.Spec.Selector.Type, keys)
-		c.record.Event(logConf, corev1.EventTypeNormal, ReasonSuccess, msg)
+	if err != nil {
+		c.record.Eventf(logConf, corev1.EventTypeWarning, ReasonFailed, MessageSyncFailed, logConf.Spec.Selector.Type, err.Error())
+		return err
 	}
-	return err
+	if len(keys) > 0 {
+		c.record.Eventf(logConf, corev1.EventTypeNormal, ReasonSuccess, MessageSyncSuccess, logConf.Spec.Selector.Type, keys)
+	}
+
+	return nil
 }
 
 func (c *Controller) reconcilePod(key string) error {
