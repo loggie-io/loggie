@@ -17,30 +17,32 @@ limitations under the License.
 package controller
 
 import (
+	"regexp"
+
 	"github.com/google/go-cmp/cmp"
-	"github.com/loggie-io/loggie/pkg/core/interceptor"
-	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/index"
-	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
-	"github.com/loggie-io/loggie/pkg/source/codec"
-	"github.com/loggie-io/loggie/pkg/source/codec/json"
-	"github.com/loggie-io/loggie/pkg/source/codec/regex"
-	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"regexp"
 
 	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/queue"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/index"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/source/codec"
+	"github.com/loggie-io/loggie/pkg/source/codec/json"
+	"github.com/loggie-io/loggie/pkg/source/codec/regex"
 	"github.com/loggie-io/loggie/pkg/source/file"
 	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 )
 
 const (
@@ -603,6 +605,12 @@ func toPipeConfig(dynamicContainerLog bool, lgcNamespace string, lgcName string,
 	pipecfg.Name = helper.MetaNamespaceKey(lgcNamespace, lgcName)
 	pipecfg.Sources = filesources
 
+	queueConf, err := toPipelineQueue(lgcPipe.Queue)
+	if err != nil {
+		return pipecfg, err
+	}
+	pipecfg.Queue = queueConf
+
 	sink, err := helper.ToPipelineSink(lgcPipe.Sink, lgcPipe.SinkRef, sinkLister)
 	if err != nil {
 		return pipecfg, err
@@ -694,4 +702,14 @@ func renderTypePodFieldsPattern(pm map[string]*pattern.Pattern, pod *corev1.Pod,
 		fields[k] = res
 	}
 	return fields
+}
+
+func toPipelineQueue(queueRaw string) (*queue.Config, error) {
+	queueConf := queue.Config{}
+	err := cfg.UnPackFromRaw([]byte(queueRaw), &queueConf).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	return &queueConf, nil
 }

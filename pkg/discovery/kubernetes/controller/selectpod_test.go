@@ -1,18 +1,21 @@
 package controller
 
 import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
+	"github.com/loggie-io/loggie/pkg/core/queue"
 	"github.com/loggie-io/loggie/pkg/core/sink"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/clientset/versioned/fake"
 	lgcInformer "github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/informers/externalversions"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"github.com/stretchr/testify/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 func TestGetConfigFromPodAndLogConfig(t *testing.T) {
@@ -62,6 +65,11 @@ func TestGetConfigFromPodAndLogConfig(t *testing.T) {
 				Sink: `
       type: dev
       printEvents: false
+`,
+				Queue: `
+      type: channel
+      name: queue
+      batchSize: 1024
 `,
 			},
 		},
@@ -137,6 +145,13 @@ func TestGetConfigFromPodAndLogConfig(t *testing.T) {
 					"belongTo": []string{"nginx-79f66cb89d-99gxd/nginx/common"},
 				},
 			},
+		},
+		Queue: &queue.Config{
+			Enabled:    nil,
+			Name:       "queue",
+			Type:       "channel",
+			Properties: nil,
+			BatchSize:  1024,
 		},
 	}
 
