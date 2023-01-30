@@ -20,11 +20,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/global"
-	"go.uber.org/atomic"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/core/global"
+	"go.uber.org/atomic"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
@@ -257,7 +258,7 @@ func (k *KubeEvent) filter(ev *corev1.Event) bool {
 			}
 		}
 
-		if ev.Series.LastObservedTime.Time != zeroTime {
+		if ev.Series != nil && ev.Series.LastObservedTime.Time != zeroTime {
 			if !ev.Series.LastObservedTime.After(k.startTime) {
 				return true
 			}
