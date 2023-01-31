@@ -1,0 +1,9 @@
+pipelines:
+  sink:
+    type: s3
+    url:
+    bucket:
+    fileName:
+    accessKeyID:
+    secretAccessKey:
+    region:
