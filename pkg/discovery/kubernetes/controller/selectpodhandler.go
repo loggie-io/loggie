@@ -17,30 +17,32 @@ limitations under the License.
 package controller
 
 import (
+	"path/filepath"
+	"regexp"
+
 	"github.com/google/go-cmp/cmp"
-	"github.com/loggie-io/loggie/pkg/core/interceptor"
-	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/index"
-	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
-	"github.com/loggie-io/loggie/pkg/source/codec"
-	"github.com/loggie-io/loggie/pkg/source/codec/json"
-	"github.com/loggie-io/loggie/pkg/source/codec/regex"
-	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"regexp"
 
 	"github.com/loggie-io/loggie/pkg/core/cfg"
+	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/index"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/source/codec"
+	"github.com/loggie-io/loggie/pkg/source/codec/json"
+	"github.com/loggie-io/loggie/pkg/source/codec/regex"
 	"github.com/loggie-io/loggie/pkg/source/file"
 	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 )
 
 const (
@@ -425,7 +427,20 @@ func (c *Controller) getPathsInNode(containerPaths []string, pod *corev1.Pod, co
 		return nil, errors.New("path is empty")
 	}
 
-	return helper.PathsInNode(c.config.PodLogDirPrefix, c.config.KubeletRootDir, c.config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
+	paths, err := helper.PathsInNode(c.config.PodLogDirPrefix, c.config.KubeletRootDir, c.config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
+	if err != nil {
+		return paths, err
+	}
+
+	newPaths := make([]string, len(paths))
+	if len(c.config.HostRootMountPath) > 0 {
+		rootPath := c.config.HostRootMountPath
+		for _, path := range paths {
+			newPaths = append(newPaths, filepath.Join(rootPath, path))
+		}
+	}
+
+	return newPaths, err
 }
 
 func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.Config, extra *KubeFileSourceExtra, pod *corev1.Pod, lgcName string, containerName string) error {

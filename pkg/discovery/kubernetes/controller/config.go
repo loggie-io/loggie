@@ -36,6 +36,8 @@ type Config struct {
 	PodLogDirPrefix         string   `yaml:"podLogDirPrefix" default:"/var/log/pods"`
 	KubeletRootDir          string   `yaml:"kubeletRootDir" default:"/var/lib/kubelet"`
 
+	HostRootMountPath string `yaml:"hostRootMountPath"`
+
 	Fields         Fields            `yaml:"fields"`    // Deprecated: use typePodFields
 	K8sFields      map[string]string `yaml:"k8sFields"` // Deprecated: use typePodFields
 	TypePodFields  KubeMetaFields    `yaml:"typePodFields"`
