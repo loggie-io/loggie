@@ -428,16 +428,14 @@ func (c *Controller) getPathsInNode(containerPaths []string, pod *corev1.Pod, co
 	}
 
 	paths, err := helper.PathsInNode(c.config.PodLogDirPrefix, c.config.KubeletRootDir, c.config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
-	if err != nil {
+	if err != nil || len(c.config.HostRootMountPath) == 0 {
 		return paths, err
 	}
 
 	newPaths := make([]string, len(paths))
-	if len(c.config.HostRootMountPath) > 0 {
-		rootPath := c.config.HostRootMountPath
-		for _, path := range paths {
-			newPaths = append(newPaths, filepath.Join(rootPath, path))
-		}
+	rootPath := c.config.HostRootMountPath
+	for _, path := range paths {
+		newPaths = append(newPaths, filepath.Join(rootPath, path))
 	}
 
 	return newPaths, err
