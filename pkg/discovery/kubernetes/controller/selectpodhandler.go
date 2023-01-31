@@ -432,7 +432,7 @@ func (c *Controller) getPathsInNode(containerPaths []string, pod *corev1.Pod, co
 		return paths, err
 	}
 
-	newPaths := make([]string, 0)
+	newPaths := make([]string, 0, len(paths))
 	rootPath := c.config.HostRootMountPath
 	for _, path := range paths {
 		newPaths = append(newPaths, filepath.Join(rootPath, path))
