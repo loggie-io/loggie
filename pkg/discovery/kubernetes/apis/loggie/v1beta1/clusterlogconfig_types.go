@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"github.com/pkg/errors"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -67,6 +68,7 @@ type Pipeline struct {
 	Interceptors   string `json:"interceptors,omitempty"`
 	SinkRef        string `json:"sinkRef,omitempty"`
 	InterceptorRef string `json:"interceptorRef,omitempty"`
+	Queue          string `json:"queue,omitempty"`
 }
 
 type Status struct {

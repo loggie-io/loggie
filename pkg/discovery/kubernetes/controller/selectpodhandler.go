@@ -30,6 +30,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/core/queue"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/client/listers/loggie/v1beta1"
@@ -616,6 +617,12 @@ func toPipeConfig(dynamicContainerLog bool, lgcNamespace string, lgcName string,
 	pipecfg.Name = helper.MetaNamespaceKey(lgcNamespace, lgcName)
 	pipecfg.Sources = filesources
 
+	queueConf, err := toPipelineQueue(lgcPipe.Queue)
+	if err != nil {
+		return pipecfg, err
+	}
+	pipecfg.Queue = queueConf
+
 	sink, err := helper.ToPipelineSink(lgcPipe.Sink, lgcPipe.SinkRef, sinkLister)
 	if err != nil {
 		return pipecfg, err
@@ -707,4 +714,18 @@ func renderTypePodFieldsPattern(pm map[string]*pattern.Pattern, pod *corev1.Pod,
 		fields[k] = res
 	}
 	return fields
+}
+
+func toPipelineQueue(queueRaw string) (*queue.Config, error) {
+	if len(queueRaw) == 0 {
+		return nil, nil
+	}
+
+	queueConf := queue.Config{}
+	err := cfg.UnPackFromRaw([]byte(queueRaw), &queueConf).Do()
+	if err != nil {
+		return nil, err
+	}
+
+	return &queueConf, nil
 }
