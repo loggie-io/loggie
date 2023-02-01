@@ -230,6 +230,9 @@ func (p *LogConfigTypePodIndex) mergePodsSources(dynamicContainerLog bool, lgcKe
 		// sink is same
 		aggCfg.Sink = cfgRaw.Raw.Sink
 
+		// queue is same
+		aggCfg.Queue = cfgRaw.Raw.Queue
+
 		// in normal, interceptor is same, but we may need to append interceptor.belongTo
 		mergeInterceptors(icpSets, cfgRaw.Raw.Interceptors)
 	}
@@ -288,6 +291,7 @@ func (p *LogConfigTypePodIndex) getDynamicPipelines(lgcKey string, pods []string
 	aggCfg.Name = latestPodPipeline.Name
 	aggCfg.Interceptors = latestPodPipeline.Interceptors
 	aggCfg.Sink = latestPodPipeline.Sink
+	aggCfg.Queue = latestPodPipeline.Queue
 	return aggCfg
 }
 
