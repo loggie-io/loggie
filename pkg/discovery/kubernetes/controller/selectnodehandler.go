@@ -25,6 +25,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	"path/filepath"
 )
 
 type KubeTypeNodeExtra struct {
@@ -66,6 +67,10 @@ func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) er
 	for i := range pipRaws.Pipelines {
 		for _, s := range pipRaws.Pipelines[i].Sources {
 			if err := c.injectTypeNodeFields(s, lgc.Name); err != nil {
+				return err
+			}
+
+			if err := c.modifyNodePath(s); err != nil {
 				return err
 			}
 		}
@@ -120,4 +125,26 @@ func renderTypeNodeFieldsPattern(pm map[string]*pattern.Pattern, node *corev1.No
 		fields[k] = res
 	}
 	return fields
+}
+
+func (c *Controller) modifyNodePath(src *source.Config) error {
+	fileSource, err := getFileSource(src)
+	if err != nil {
+		return err
+	}
+
+	if len(c.config.HostRootMountPath) == 0 {
+		return nil
+	}
+
+	paths := fileSource.CollectConfig.Paths
+	newPaths := make([]string, 0, len(paths))
+	rootPath := c.config.HostRootMountPath
+	for _, path := range paths {
+		newPaths = append(newPaths, filepath.Join(rootPath, path))
+	}
+	fileSource.CollectConfig.Paths = newPaths
+
+	return setFileSource(src, fileSource)
+
 }
