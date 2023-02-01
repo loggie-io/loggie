@@ -17,15 +17,17 @@ limitations under the License.
 package controller
 
 import (
+	"path/filepath"
+
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
-	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
-	"path/filepath"
 )
 
 type KubeTypeNodeExtra struct {
@@ -128,13 +130,13 @@ func renderTypeNodeFieldsPattern(pm map[string]*pattern.Pattern, node *corev1.No
 }
 
 func (c *Controller) modifyNodePath(src *source.Config) error {
+	if len(c.config.HostRootMountPath) == 0 {
+		return nil
+	}
+
 	fileSource, err := getFileSource(src)
 	if err != nil {
 		return err
-	}
-
-	if len(c.config.HostRootMountPath) == 0 {
-		return nil
 	}
 
 	paths := fileSource.CollectConfig.Paths
