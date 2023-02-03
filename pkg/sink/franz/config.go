@@ -40,7 +40,7 @@ type Config struct {
 type SASL struct {
 	Mechanism string `yaml:"mechanism,omitempty"`
 	Enabled   bool   `yaml:"enabled,omitempty"`
-	UserName  string `yaml:"UserName,omitempty"`
+	UserName  string `yaml:"username,omitempty"`
 	Password  string `yaml:"password,omitempty"`
 	GSSAPI    GSSAPI `yaml:"gssapi,omitempty"`
 }
