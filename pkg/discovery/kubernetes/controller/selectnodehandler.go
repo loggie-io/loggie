@@ -136,7 +136,8 @@ func (c *Controller) modifyNodePath(src *source.Config) error {
 
 	fileSource, err := getFileSource(src)
 	if err != nil {
-		return err
+		log.Warn("fail to convert source to file source")
+		return nil
 	}
 
 	paths := fileSource.CollectConfig.Paths
