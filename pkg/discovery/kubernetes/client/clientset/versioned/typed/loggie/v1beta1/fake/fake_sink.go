@@ -98,7 +98,7 @@ func (c *FakeSinks) Update(ctx context.Context, sink *v1beta1.Sink, opts v1.Upda
 // Delete takes name of the sink and deletes it. Returns an error if one occurs.
 func (c *FakeSinks) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(sinksResource, name), &v1beta1.Sink{})
+		Invokes(testing.NewRootDeleteActionWithOptions(sinksResource, name, opts), &v1beta1.Sink{})
 	return err
 }
 

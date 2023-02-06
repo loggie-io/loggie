@@ -62,7 +62,7 @@ func isEnvVar(key string) bool {
 	return strings.HasPrefix(key, envToken)
 }
 func envMatcherRender(key string) string {
-	ev := strings.TrimLeft(key, envToken)
+	ev := strings.TrimPrefix(key, envToken)
 	return os.Getenv(ev)
 }
 
@@ -71,7 +71,7 @@ func isTimeVar(key string) bool {
 	return strings.HasPrefix(key, timeToken)
 }
 func timeMatcherRender(key string) string {
-	return time.TimeFormatNow(strings.TrimLeft(key, timeToken))
+	return time.TimeFormatNow(strings.TrimPrefix(key, timeToken))
 }
 
 // ObjectMatcher retrieve any fields from events, e.g. ${a.b}

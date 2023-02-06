@@ -28,13 +28,15 @@ type TypePodFieldsData struct {
 	Pod           *corev1.Pod
 	ContainerName string
 	LogConfig     string
+	Service       string
 }
 
-func NewTypePodFieldsData(pod *corev1.Pod, containerName string, logConfig string) *TypePodFieldsData {
+func NewTypePodFieldsData(pod *corev1.Pod, containerName string, logConfig string, svc string) *TypePodFieldsData {
 	return &TypePodFieldsData{
 		Pod:           pod,
 		ContainerName: containerName,
 		LogConfig:     logConfig,
+		Service:       svc,
 	}
 }
 
@@ -56,7 +58,7 @@ func IsK8sVar(key string) bool {
 	return strings.HasPrefix(key, k8sToken)
 }
 func (p *Pattern) K8sMatcherRender(key string) string {
-	field := strings.TrimLeft(key, k8sToken)
+	field := strings.TrimPrefix(key, k8sToken)
 
 	if p.tmpK8sPodData != nil {
 		return renderTypePod(p.tmpK8sPodData, field)
@@ -110,6 +112,9 @@ func renderTypePod(data *TypePodFieldsData, field string) string {
 
 	case "logconfig":
 		return data.LogConfig
+
+	case "service.name":
+		return data.Service
 
 	case "workload.kind":
 		return helper.GetWorkload(data.Pod).Kind

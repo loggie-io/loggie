@@ -18,12 +18,12 @@ package controller
 
 import (
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/util/yaml"
-
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -242,6 +242,15 @@ func (c *Controller) reconcileClusterLogConfigAddOrUpdate(clgc *logconfigv1beta1
 
 func (c *Controller) reconcileLogConfigAddOrUpdate(lgc *logconfigv1beta1.LogConfig) (err error, keys []string) {
 	log.Info("logConfig: %s/%s add or update event received", lgc.Namespace, lgc.Name)
+
+	// convert serviceSelector to labelSelector
+	if len(lgc.Spec.Selector.LabelSelector) == 0 && lgc.Spec.Selector.Service != "" {
+		selector, err := helper.ServiceLabelSelector(lgc.Namespace, lgc.Spec.Selector.Service, c.kubeClientset)
+		if err != nil {
+			return err, nil
+		}
+		lgc.Spec.Selector.LabelSelector = selector
+	}
 
 	if err := lgc.Validate(); err != nil {
 		return err, nil

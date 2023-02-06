@@ -23,6 +23,7 @@ import (
 	dockerclient "github.com/docker/docker/client"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"path/filepath"
 	"strings"
 	"time"
@@ -64,7 +65,6 @@ func MetaNamespaceKey(namespace string, name string) string {
 type FuncGetRelatedPod func() ([]*corev1.Pod, error)
 
 func GetLogConfigRelatedPod(lgc *logconfigv1beta1.LogConfig, podsLister corev1listers.PodLister) ([]*corev1.Pod, error) {
-
 	sel, err := Selector(lgc.Spec.Selector.LabelSelector)
 	if err != nil {
 		return nil, err
@@ -591,4 +591,18 @@ func MatchStringMap(new map[string]string, old map[string]string) bool {
 		}
 	}
 	return true
+}
+
+// ServiceLabelSelector get service label selector
+func ServiceLabelSelector(namespace string, service string, cli kubernetes.Interface) (map[string]string, error) {
+	if service == "" || namespace == "" || cli == nil {
+		return nil, nil
+	}
+
+	svc, err := cli.CoreV1().Services(namespace).Get(context.Background(), service, metav1.GetOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	return svc.Spec.Selector, nil
 }
