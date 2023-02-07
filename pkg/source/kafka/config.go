@@ -46,7 +46,7 @@ type Config struct {
 	EnableAutoCommit   bool           `yaml:"enableAutoCommit"`
 	AutoCommitInterval time.Duration  `yaml:"autoCommitInterval" default:"1s"`
 	AutoOffsetReset    string         `yaml:"autoOffsetReset" default:"latest" validate:"oneof=earliest latest"`
-	SASL               kakfasink.SASL `yaml:"SASL,omitempty"`
+	SASL               kakfasink.SASL `yaml:"sasl,omitempty"`
 }
 
 func getAutoOffset(autoOffsetReset string) int64 {
