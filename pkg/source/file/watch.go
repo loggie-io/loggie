@@ -576,7 +576,7 @@ func (w *Watcher) scanZombieJob() {
 				continue
 			}
 			// check whether jobUid change
-			newJobUid := JobUid(stat)
+			newJobUid := JobUid(filename,stat)
 			if newJobUid != job.Uid() {
 				log.Debug("remove job(filename: %s) because jobUid changed: oldUid(%s) -> newUid(%s)", job.filename, job.Uid(), newJobUid)
 				w.eventBus(jobEvent{
@@ -830,7 +830,7 @@ func (w *Watcher) osNotify(e fsnotify.Event) {
 			log.Warn("os notify stat file(%s) fail: %s", fileName, err)
 			return
 		}
-		jobUid := JobUid(stat)
+		jobUid := JobUid(fileName,stat)
 		for _, existJob := range w.allJobs {
 			if existJob.Uid() == jobUid {
 				w.eventBus(jobEvent{
