@@ -68,7 +68,7 @@ func main() {
 
 	log.Info("version: %s", global.GetVersion())
 
-	// set up signals so we handle the first shutdown signal gracefully
+	// set up signals, so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
 	// Automatically set GOMAXPROCS to match Linux container CPU quota

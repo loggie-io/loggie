@@ -156,6 +156,7 @@ require (
 )
 
 require (
+	github.com/elastic/go-elasticsearch/v7 v7.17.7
 	k8s.io/metrics v0.25.4
 	sigs.k8s.io/controller-runtime v0.13.1
 )

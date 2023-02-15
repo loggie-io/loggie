@@ -19,16 +19,26 @@ package elasticsearch
 import "github.com/loggie-io/loggie/pkg/util/pattern"
 
 type Config struct {
-	Hosts      []string `yaml:"hosts,omitempty" validate:"required"`
-	UserName   string   `yaml:"username,omitempty"`
-	Password   string   `yaml:"password,omitempty"`
-	Index      string   `yaml:"index,omitempty" validate:"required"`
-	Etype      string   `yaml:"etype,omitempty"` // elasticsearch type, for v5.* backward compatibility
-	DocumentId string   `yaml:"documentId,omitempty"`
-	Schema     string   `yaml:"schema,omitempty"`
-	Sniff      *bool    `yaml:"sniff,omitempty"`
-	Gzip       *bool    `yaml:"gzip,omitempty"`
-	OpType     string   `yaml:"opType,omitempty"`
+	Hosts        []string `yaml:"hosts,omitempty" validate:"required"`
+	UserName     string   `yaml:"username,omitempty"`
+	Password     string   `yaml:"password,omitempty"`
+	Index        string   `yaml:"index,omitempty" validate:"required"`
+	Etype        string   `yaml:"etype,omitempty"` // elasticsearch type, for v5.* backward compatibility
+	DocumentId   string   `yaml:"documentId,omitempty"`
+	Sniff        *bool    `yaml:"sniff,omitempty"` // deprecated
+	APIKey       string   `yaml:"apiKey,omitempty"`
+	ServiceToken string   `yaml:"serviceToken,omitempty"`
+	CACertPath   string   `yaml:"caCertPath,omitempty"`
+	Compress     bool     `yaml:"compress,omitempty"`
+	OpType       string   `yaml:"opType,omitempty" default:"index"`
+
+	SendBuffer int `yaml:"sendBufferBytes,omitempty" default:"131072" validate:"gte=0"`
+}
+
+type TLS struct {
+	CAFile   string `yaml:"caFile,omitempty"`
+	CertFile string `yaml:"certFile,omitempty"`
+	KeyFile  string `yaml:"keyFile,omitempty"`
 }
 
 func (c *Config) Validate() error {

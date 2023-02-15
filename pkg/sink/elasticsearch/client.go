@@ -17,18 +17,24 @@ limitations under the License.
 package elasticsearch
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/elastic/go-elasticsearch/v7/esapi"
 	eventer "github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
+	"io/ioutil"
+	"strconv"
 	"strings"
+
+	es "github.com/elastic/go-elasticsearch/v7"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
-	es "github.com/olivere/elastic/v7"
+
 	"github.com/pkg/errors"
 )
 
@@ -36,56 +42,93 @@ type ClientSet struct {
 	Version           string
 	config            *Config
 	cli               *es.Client
+	buf               *bytes.Buffer
+	aux               []byte
+	opType            string
 	codec             codec.Codec
 	indexPattern      *pattern.Pattern
 	documentIdPattern *pattern.Pattern
 }
 
 type Client interface {
-	BulkCreate(content []byte, index string) error
+	Bulk(ctx context.Context, batch api.Batch) error
 	Stop()
 }
 
-func NewClient(config *Config, cod codec.Codec, indexPattern *pattern.Pattern, documentIdPattern *pattern.Pattern) (*ClientSet, error) {
+type bulkResponse struct {
+	Errors bool `json:"errors"`
+	Items  []struct {
+		Index struct {
+			ID     string `json:"_id"`
+			Result string `json:"result"`
+			Status int    `json:"status"`
+			Error  struct {
+				Type   string `json:"type"`
+				Reason string `json:"reason"`
+				Cause  struct {
+					Type   string `json:"type"`
+					Reason string `json:"reason"`
+				} `json:"caused_by"`
+			} `json:"error"`
+		} `json:"index"`
+	} `json:"items"`
+}
+
+func NewClient(config *Config, cod codec.Codec, indexPattern *pattern.Pattern, documentIdPattern *pattern.Pattern) (Client, error) {
 	for i, h := range config.Hosts {
 		if !strings.HasPrefix(h, "http") && !strings.HasPrefix(h, "https") {
 			config.Hosts[i] = fmt.Sprintf("http://%s", h)
 		}
 	}
-	var opts []es.ClientOptionFunc
-	opts = append(opts, es.SetURL(config.Hosts...))
-	if config.Sniff != nil {
-		opts = append(opts, es.SetSniff(*config.Sniff))
-	} else {
-		// disable sniff by default
-		opts = append(opts, es.SetSniff(false))
-	}
-	if config.Password != "" && config.UserName != "" {
-		opts = append(opts, es.SetBasicAuth(config.UserName, config.Password))
-	}
-	if config.Schema != "" {
-		opts = append(opts, es.SetScheme(config.Schema))
-	}
-	if config.Gzip != nil {
-		opts = append(opts, es.SetGzip(*config.Gzip))
+
+	var ca []byte
+	if config.CACertPath != "" {
+		caData, err := ioutil.ReadFile(config.CACertPath)
+		if err != nil {
+			return nil, err
+		}
+		ca = caData
 	}
 
-	cli, err := es.NewClient(opts...)
+	cfg := es.Config{
+		Addresses:           config.Hosts,
+		DisableRetry:        true,
+		Username:            config.UserName,
+		Password:            config.Password,
+		APIKey:              config.APIKey,
+		ServiceToken:        config.ServiceToken,
+		CompressRequestBody: config.Compress,
+		CACert:              ca,
+	}
+	cli, err := es.NewClient(cfg)
 	if err != nil {
 		return nil, err
 	}
 
+	reqBuf := bytes.NewBuffer(make([]byte, 0, config.SendBuffer))
 	return &ClientSet{
 		cli:               cli,
 		config:            config,
 		codec:             cod,
 		indexPattern:      indexPattern,
 		documentIdPattern: documentIdPattern,
+		buf:               reqBuf,
+		aux:               make([]byte, 0, 512),
+		opType:            config.OpType,
 	}, nil
 }
 
-func (c *ClientSet) BulkIndex(ctx context.Context, batch api.Batch) error {
-	req := c.cli.Bulk()
+func (c *ClientSet) Bulk(ctx context.Context, batch api.Batch) error {
+	if len(batch.Events()) == 0 {
+		return errors.WithMessagef(eventer.ErrorDropEvent, "request to elasticsearch bulk is null")
+	}
+
+	bulkReq := esapi.BulkRequest{}
+	if c.config.Etype != "" {
+		bulkReq.DocumentType = c.config.Etype
+	}
+	defer c.buf.Reset()
+
 	for _, event := range batch.Events() {
 		headerObj := runtime.NewObject(event.Header())
 
@@ -101,42 +144,87 @@ func (c *ClientSet) BulkIndex(ctx context.Context, batch api.Batch) error {
 			return errors.WithMessagef(err, "codec encode event: %s error", event.String())
 		}
 
-		bulkIndexRequest := es.NewBulkIndexRequest().Index(idx).Doc(json.RawMessage(data))
-		if c.config.Etype != "" {
-			bulkIndexRequest.Type(c.config.Etype)
-		}
-		if c.config.OpType != "" {
-			bulkIndexRequest.OpType(c.config.OpType)
-		}
+		docId := ""
 		if c.config.DocumentId != "" {
 			id, err := c.documentIdPattern.WithObject(headerObj).Render()
 			if err != nil {
 				return errors.WithMessagef(err, "format documentId %s failed", c.config.DocumentId)
 			}
-			bulkIndexRequest.Id(id)
+			docId = id
 		}
 
-		req.Add(bulkIndexRequest)
+		if err := c.writeMeta(c.opType, docId, idx); err != nil {
+			return err
+		}
+		if err := c.writeBody(data); err != nil {
+			return err
+		}
 	}
 
-	if req.NumberOfActions() == 0 {
-		return errors.WithMessagef(eventer.ErrorDropEvent, "request to elasticsearch bulk is null")
-	}
-
-	ret, err := req.Do(ctx)
+	resp, err := c.cli.Bulk(bytes.NewReader(c.buf.Bytes()), c.cli.Bulk.WithDocumentType(c.config.Etype))
 	if err != nil {
 		return err
 	}
-	if ret.Errors {
-		out, _ := json.Marshal(ret)
-		return errors.Errorf("request to elasticsearch response error: %s", out)
+	defer resp.Body.Close()
+
+	if resp.IsError() {
+		blkResp := bulkResponse{}
+		err := json.NewDecoder(resp.Body).Decode(&blkResp)
+		if err != nil {
+			out, _ := json.Marshal(resp.Body)
+			return errors.Errorf("elasticsearch response error: %s", out)
+		}
+
+		// get more error details
+		for _, d := range blkResp.Items {
+			if d.Index.Status > 201 {
+				log.Error("elasticsearch response error, item: [%d]: %s: %s: %s: %s",
+					d.Index.Status,
+					d.Index.Error.Type,
+					d.Index.Error.Reason,
+					d.Index.Error.Cause.Type,
+					d.Index.Error.Cause.Reason,
+				)
+			}
+		}
+		return errors.New("elasticsearch response error")
 	}
 
 	return nil
 }
 
 func (c *ClientSet) Stop() {
-	if c.cli != nil {
-		c.cli.Stop()
+}
+
+// { "index" : { "_index" : "test", "_id" : "1" } }
+func (c *ClientSet) writeMeta(action string, documentID string, index string) error {
+	c.buf.WriteRune('{')
+	c.aux = strconv.AppendQuote(c.aux, action)
+	c.buf.Write(c.aux)
+	c.aux = c.aux[:0]
+	c.buf.WriteRune(':')
+	c.buf.WriteRune('{')
+	if documentID != "" {
+		c.buf.WriteString(`"_id":`)
+		c.aux = strconv.AppendQuote(c.aux, documentID)
+		c.buf.Write(c.aux)
+		c.aux = c.aux[:0]
 	}
+
+	if index != "" {
+		c.buf.WriteString(`"_index":`)
+		c.aux = strconv.AppendQuote(c.aux, index)
+		c.buf.Write(c.aux)
+		c.aux = c.aux[:0]
+	}
+	c.buf.WriteRune('}')
+	c.buf.WriteRune('}')
+	c.buf.WriteRune('\n')
+	return nil
+}
+
+func (c *ClientSet) writeBody(body []byte) error {
+	c.buf.Write(body)
+	c.buf.WriteRune('\n')
+	return nil
 }

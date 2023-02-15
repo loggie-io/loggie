@@ -2,3 +2,11 @@ sink:
   type: elasticsearch
   hosts: ["localhost:9200"]
   index: "log-${fields.topic}-${+YYYY.MM.DD}"
+
+---
+sink:
+  type: elasticsearch
+  hosts: ["localhost:9200"]
+  index: "log-${fields.topic}-${+YYYY.MM.DD}"
+  username: elastic
+  password: CUzwg4tB+3+3UbSNBwsA

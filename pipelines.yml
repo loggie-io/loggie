@@ -8,8 +8,9 @@ pipelines:
         fields:
           topic: "loggie"
     sink:
-      type: dev
-      codec:
-        type: json
-        printEvents: true
-        pretty: true
+      type: elasticsearch
+      hosts: [ "localhost:9200" ]
+      index: "log-${fields.topic}-${+YYYY.MM.DD}"
+      username: elastic
+      password: Z5IyZxeX1zD8SO6=tP4n
+      caCertDir: /tmp/http_ca.crt
