@@ -30,7 +30,7 @@ import (
 
 const Type = "dev"
 
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ "
 
 func init() {
 	pipeline.Register(api.SOURCE, Type, makeSource)
@@ -49,8 +49,6 @@ type Dev struct {
 	stop      chan struct{}
 	eventPool *event.Pool
 	config    *Config
-	limiter   *rate.Limiter
-	content   []byte
 }
 
 func (d *Dev) Config() interface{} {
@@ -75,11 +73,6 @@ func (d *Dev) Init(context api.Context) error {
 }
 
 func (d *Dev) Start() error {
-	d.limiter = rate.NewLimiter(rate.Limit(d.config.Qps), d.config.Qps)
-	d.content = make([]byte, d.config.ByteSize)
-	for i := range d.content {
-		d.content[i] = letterBytes[rand.Intn(len(letterBytes))]
-	}
 	return nil
 }
 
@@ -88,33 +81,47 @@ func (d *Dev) Stop() {
 }
 
 func (d *Dev) ProductLoop(productFunc api.ProductFunc) {
-	ctx := context.Background()
 	log.Info("%s start product loop", d.String())
-	content := d.content
-	total := d.config.EventsTotal
+
+	GenLines(d.stop, d.config.EventsTotal, d.config.ByteSize, d.config.Qps, func(content []byte, index int64) {
+		header := make(map[string]interface{})
+
+		e := d.eventPool.Get()
+		e.Fill(e.Meta(), header, content)
+		productFunc(e)
+	})
+}
+
+func (d *Dev) Commit(events []api.Event) {
+	d.eventPool.PutAll(events)
+}
+
+func GenLines(stop chan struct{}, totalCount int64, lineBytes int, qps int, outFunc func(content []byte, index int64)) {
+	total := totalCount
+	var index int64
+	content := make([]byte, lineBytes)
+	limiter := rate.NewLimiter(rate.Limit(qps), qps)
 
 	for {
 		select {
-		case <-d.stop:
+		case <-stop:
 			return
 
 		default:
-			header := make(map[string]interface{})
-			e := d.eventPool.Get()
-			e.Fill(e.Meta(), header, content)
-			d.limiter.Wait(ctx)
-			productFunc(e)
+			for i := range content {
+				content[i] = letterBytes[rand.Intn(len(letterBytes))]
+			}
+
+			limiter.Wait(context.TODO())
+			index++
 
 			if total > 0 {
 				total--
 			} else if total == 0 {
 				return
-			} // total < 0: continue, make infinite events
+			} // total <= 0: continue, make infinite events
 
+			outFunc(content, index)
 		}
 	}
-}
-
-func (d *Dev) Commit(events []api.Event) {
-	d.eventPool.PutAll(events)
 }
