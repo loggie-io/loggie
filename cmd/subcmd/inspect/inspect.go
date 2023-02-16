@@ -14,13 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package subcmd
+package inspect
 
 import (
 	"flag"
 	"github.com/loggie-io/loggie/pkg/ops/dashboard"
 	"github.com/loggie-io/loggie/pkg/ops/dashboard/gui"
-	"github.com/pkg/errors"
 	"os"
 )
 
@@ -28,31 +27,15 @@ const SubCommandInspect = "inspect"
 
 var (
 	inspectCmd *flag.FlagSet
-
-	LoggiePort int
+	loggiePort int
 )
 
 func init() {
 	inspectCmd = flag.NewFlagSet(SubCommandInspect, flag.ExitOnError)
-
-	inspectCmd.IntVar(&LoggiePort, "loggiePort", 9196, "Loggie http port")
+	inspectCmd.IntVar(&loggiePort, "loggiePort", 9196, "Loggie http port")
 }
 
-func SwitchSubCommand() error {
-	if len(os.Args) == 1 {
-		return nil
-	}
-	switch os.Args[1] {
-	case SubCommandInspect:
-		if err := runInspect(); err != nil {
-			return err
-		}
-		return errors.New("exit")
-	}
-	return nil
-}
-
-func runInspect() error {
+func RunInspect() error {
 	if len(os.Args) > 2 {
 		if err := inspectCmd.Parse(os.Args[2:]); err != nil {
 			return err
@@ -60,7 +43,7 @@ func runInspect() error {
 	}
 
 	d := dashboard.New(&gui.Config{
-		LoggiePort: LoggiePort,
+		LoggiePort: loggiePort,
 	})
 	if err := d.Start(); err != nil {
 		d.Stop()
