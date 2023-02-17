@@ -31,10 +31,17 @@ loggie:
   defaults:
     sink:
       type: dev
+    interceptors:
+      - type: schema
+        name: global
+        order: 700
+        addMeta:
+          timestamp:
+            key: "@timestamp"
     sources:
       - type: file
         watcher:
           cleanFiles:
-            maxHistory: 1
+            maxHistoryDays: 3
   http:
     enabled: true
