@@ -32,6 +32,7 @@ type Config struct {
 	IncludeFields []string `yaml:"includeFields,omitempty"`
 	ExcludeFields []string `yaml:"excludeFields,omitempty"`
 	Query         string   `yaml:"query,omitempty"`
+	SortBy        []SortBy `yaml:"sortBy,omitempty" validate:"required"`
 	Indices       []string `yaml:"indices,omitempty" validate:"required"`
 	Size          int      `yaml:"size,omitempty" default:"100"`
 
@@ -39,6 +40,19 @@ type Config struct {
 	Timeout  time.Duration `yaml:"timeout,omitempty" default:"5s"`
 
 	DBConfig DBConfig `yaml:"db,omitempty"`
+}
+
+type SortBy struct {
+	Fields    string `yaml:"fields,omitempty"`
+	Ascending bool   `yaml:"ascending,omitempty" default:"true"`
+}
+
+func (c *Config) AllSortByFields() []string {
+	var all []string
+	for _, s := range c.SortBy {
+		all = append(all, s.Fields)
+	}
+	return all
 }
 
 func (c *Config) Validate() error {

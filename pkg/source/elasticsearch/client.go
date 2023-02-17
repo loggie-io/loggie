@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/pkg/errors"
 	"strings"
 	"time"
 
@@ -95,7 +96,7 @@ func (c *ClientSet) persistentOffset() {
 	if c.offset == nil {
 		return
 	}
-	if err := c.db.Upsert(context.Background(), c.offset); err != nil {
+	if err := c.db.Upsert(context.Background(), c.offset, c.config.AllSortByFields()); err != nil {
 		log.Warn("[%s-%s]persistent offset error: %v", c.config.PipelineName, c.config.Name, err)
 	}
 }
@@ -142,16 +143,20 @@ func (c *ClientSet) Search(ctx context.Context) ([][]byte, error) {
 	if c.offset == nil {
 		ost, err := c.db.Search(ctx)
 		if err != nil {
-			return nil, err
+			return nil, errors.WithMessagef(err, "search loggie db index: %s failed", c.db.index)
 		}
 		c.offset = ost
 	}
 
 	if c.offset != nil {
-		queryBuilder.SearchAfter(c.offset.Uid, c.offset.Score)
+		queryBuilder.SearchAfter(c.offset.Sort...)
 	}
 
-	result, err := queryBuilder.Sort("_id", true).Sort("_score", false).Size(c.config.Size).Do(ctx)
+	for _, sort := range c.config.SortBy {
+		queryBuilder.Sort(sort.Fields, sort.Ascending)
+	}
+
+	result, err := queryBuilder.Size(c.config.Size).Do(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -169,8 +174,7 @@ func (c *ClientSet) Search(ctx context.Context) ([][]byte, error) {
 		}
 		// record offset
 		c.offset = &Offset{
-			Uid:       last.Sort[0],
-			Score:     last.Sort[1],
+			Sort:      last.Sort,
 			CreatedAt: time.Now(),
 		}
 	}
