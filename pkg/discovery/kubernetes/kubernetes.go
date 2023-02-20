@@ -23,11 +23,11 @@ import (
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/controller"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
+	netutils "github.com/loggie-io/loggie/pkg/util/net"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kubeclientset "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	"net"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -170,28 +170,26 @@ func (d *Discovery) VmModeRun(stopCh <-chan struct{}, kubeClient kubeclientset.I
 }
 
 func tryToFindRelatedVm(logConfigClient logconfigclientset.Interface, nodeName string) string {
-	// If there is no vm name with the same name as nodeName, try to use the ip name of this node to discover vm.
-	addrs, err := net.InterfaceAddrs()
+	ipList, err := netutils.GetHostIPv4()
 	if err != nil {
-		log.Warn("get ip address error: %+v", err)
+		log.Error("cannot get host IPs: %+v", err)
 		return ""
 	}
 
-	for _, addr := range addrs {
-		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() && ipnet.IP.To4() != nil {
-			name := strings.ReplaceAll(ipnet.IP.String(), ".", "-")
-			log.Info("try to get related vm name %s", name)
-			vm, err := logConfigClient.LoggieV1beta1().Vms().Get(context.Background(), name, metav1.GetOptions{})
-			if err != nil {
-				if errors.IsNotFound(err) {
-					continue
-				}
-				log.Warn("get vm name %s error: %+v", name, err)
-				return ""
+	// If there is no vm name with the same name as nodeName, try to use the ip name of this node to discover vm.
+	for _, ip := range ipList {
+		name := strings.ReplaceAll(ip, ".", "-")
+		log.Info("try to get related vm name %s", name)
+		vm, err := logConfigClient.LoggieV1beta1().Vms().Get(context.Background(), name, metav1.GetOptions{})
+		if err != nil {
+			if errors.IsNotFound(err) {
+				continue
 			}
-			if vm.Name != "" {
-				return name
-			}
+			log.Warn("get vm name %s error: %+v", name, err)
+			return ""
+		}
+		if vm.Name != "" {
+			return name
 		}
 	}
 

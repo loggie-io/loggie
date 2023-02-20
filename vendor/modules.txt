@@ -494,6 +494,7 @@ github.com/segmentio/kafka-go/topics
 # github.com/shirou/gopsutil/v3 v3.22.2
 ## explicit; go 1.15
 github.com/shirou/gopsutil/v3/cpu
+github.com/shirou/gopsutil/v3/host
 github.com/shirou/gopsutil/v3/internal/common
 github.com/shirou/gopsutil/v3/mem
 github.com/shirou/gopsutil/v3/net
