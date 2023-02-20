@@ -24,3 +24,5 @@ type InterceptorExpansion interface{}
 type LogConfigExpansion interface{}
 
 type SinkExpansion interface{}
+
+type VmExpansion interface{}
