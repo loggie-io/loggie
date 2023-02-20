@@ -29,6 +29,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/interceptor/retry"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/queue/channel"
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
 type Config struct {
@@ -41,6 +42,7 @@ type Loggie struct {
 	Http            Http                  `yaml:"http" validate:"dive"`
 	MonitorEventBus eventbus.Config       `yaml:"monitor"`
 	Defaults        Defaults              `yaml:"defaults"`
+	Db              persistence.DbConfig  `yaml:"db"`
 }
 
 type Defaults struct {

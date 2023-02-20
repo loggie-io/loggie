@@ -22,46 +22,11 @@ import (
 
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/loggie-io/loggie/pkg/pipeline"
 )
 
 const (
 	SystemStateKey = event.SystemKeyPrefix + "State"
 )
-
-type State struct {
-	Epoch        *pipeline.Epoch `json:"-"`
-	PipelineName string          `json:"-"`
-	SourceName   string          `json:"-"`
-	Offset       int64           `json:"offset"`
-	NextOffset   int64           `json:"nextOffset"`
-	Filename     string          `json:"filename,omitempty"`
-	CollectTime  time.Time       `json:"collectTime,omitempty"`
-	ContentBytes int64           `json:"contentBytes"`
-	JobUid       string          `json:"jobUid,omitempty"`
-	JobIndex     uint32          `json:"-"`
-	EventUid     string          `json:"-"`
-	LineNumber   int64           `json:"lineNumber,omitempty"`
-	Tags         string          `json:"tags,omitempty"`
-
-	// for cache
-	watchUid string
-
-	// jobFields from job
-	jobFields map[string]interface{}
-}
-
-func (s *State) WatchUid() string {
-	return s.watchUid
-}
-
-func (s *State) AppendTags(tag string) {
-	if s.Tags == "" {
-		s.Tags = tag
-	} else {
-		s.Tags = s.Tags + "," + tag
-	}
-}
 
 type Reader struct {
 	done      chan struct{}

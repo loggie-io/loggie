@@ -25,7 +25,7 @@ type BufferPool struct {
 	sync.Pool
 }
 
-func newBufferPool(s int) *BufferPool {
+func NewBufferPool(s int) *BufferPool {
 	return &BufferPool{
 		Pool: sync.Pool{
 			New: func() interface{} {
