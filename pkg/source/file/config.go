@@ -17,16 +17,16 @@ limitations under the License.
 package file
 
 import (
-	"github.com/loggie-io/loggie/pkg/util"
-	timeutil "github.com/loggie-io/loggie/pkg/util/time"
 	"os"
 	"regexp"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/util"
+	timeutil "github.com/loggie-io/loggie/pkg/util/time"
 )
 
 type Config struct {
 	AckConfig     AckConfig              `yaml:"ack,omitempty"`
-	DbConfig      DbConfig               `yaml:"db,omitempty"`
 	WatchConfig   WatchConfig            `yaml:"watcher,omitempty"`
 	ReaderConfig  ReaderConfig           `yaml:",inline,omitempty"`
 	CollectConfig CollectConfig          `yaml:",inline,omitempty" validate:"required,dive"`
@@ -71,15 +71,6 @@ func (cc CollectConfig) IsFileExcluded(file string) bool {
 		}
 	}
 	return false
-}
-
-type DbConfig struct {
-	File                 string        `yaml:"file,omitempty" default:"./data/loggie.db"`
-	FlushTimeout         time.Duration `yaml:"flushTimeout,omitempty" default:"2s"`
-	BufferSize           int           `yaml:"bufferSize,omitempty" default:"2048"`
-	TableName            string        `yaml:"tableName,omitempty" default:"registry"`
-	CleanInactiveTimeout time.Duration `yaml:"cleanInactiveTimeout,omitempty" default:"504h"` // default records not updated in 21 days will be deleted
-	CleanScanInterval    time.Duration `yaml:"cleanScanInterval,omitempty" default:"1h"`
 }
 
 type AckConfig struct {

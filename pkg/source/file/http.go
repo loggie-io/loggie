@@ -28,6 +28,7 @@ import (
 
 	"github.com/hpcloud/tail"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
 var once sync.Once
@@ -166,8 +167,8 @@ func (s *Source) registryHandler(writer http.ResponseWriter, request *http.Reque
 		pretty = true
 	}
 
-	db := GetOrCreateShareDbHandler(s.config.DbConfig)
-	registry := db.findAll()
+	db := persistence.GetOrCreateShareDbHandler()
+	registry := db.FindAll()
 
 	var out []byte
 	var err error

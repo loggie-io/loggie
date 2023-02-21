@@ -18,19 +18,21 @@ package addk8smeta
 
 import (
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
+
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
+	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/source/file"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
-	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 )
 
 const Type = "addK8sMeta"
@@ -139,7 +141,7 @@ func valueOfPatternFields(event api.Event, patternFields string) (string, error)
 			return "", errors.New("get systemState from meta is null")
 		}
 
-		stat, ok := state.(*file.State)
+		stat, ok := state.(*persistence.State)
 		if !ok {
 			return "", errors.New("assert file.State failed")
 		}

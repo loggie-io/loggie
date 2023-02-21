@@ -31,6 +31,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	_ "github.com/loggie-io/loggie/pkg/include"
 	"github.com/loggie-io/loggie/pkg/ops/helper"
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"github.com/pkg/errors"
 	"go.uber.org/automaxprocs/maxprocs"
@@ -68,7 +69,7 @@ func main() {
 
 	log.Info("version: %s", global.GetVersion())
 
-	// set up signals so we handle the first shutdown signal gracefully
+	// set up signals, so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
 	// Automatically set GOMAXPROCS to match Linux container CPU quota
@@ -105,6 +106,9 @@ func main() {
 	if err != nil && !os.IsNotExist(err) && !errors.Is(err, control.ErrIgnoreAllFile) {
 		log.Fatal("unpack config.pipeline config file err: %v", err)
 	}
+
+	persistence.SetConfig(syscfg.Loggie.Db)
+	defer persistence.StopDbHandler()
 
 	controller := control.NewController()
 	controller.Start(pipecfgs)
