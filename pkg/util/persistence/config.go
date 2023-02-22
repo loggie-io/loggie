@@ -27,10 +27,10 @@ var (
 	globalDbHandler *DbHandler
 	dbLock          sync.Mutex
 	config          DbConfig
+	_DRIVER_        string
 )
 
 type DbConfig struct {
-	Driver               string        `yaml:"driver,omitempty" default:"sqlite"`
 	File                 string        `yaml:"file,omitempty"`
 	FlushTimeout         time.Duration `yaml:"flushTimeout,omitempty" default:"2s"`
 	BufferSize           int           `yaml:"bufferSize,omitempty" default:"2048"`
@@ -41,10 +41,10 @@ type DbConfig struct {
 
 func (d *DbConfig) SetDefaults() {
 	if d.File == "" {
-		if d.Driver == DriverSqlite {
-			d.File = "./data/loggie.db"
-		} else {
+		if _DRIVER_ == DriverBadger {
 			d.File = "./data"
+		} else {
+			d.File = "./data/loggie.db"
 		}
 	}
 }

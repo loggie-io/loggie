@@ -18,14 +18,13 @@ package persistence
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/util/persistence/driver"
 	"github.com/loggie-io/loggie/pkg/util/persistence/reg"
-	sqlite "github.com/loggie-io/loggie/pkg/util/persistence/sqlite"
 	"sync"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
-	badgerEngine "github.com/loggie-io/loggie/pkg/util/persistence/badger"
 )
 
 const (
@@ -72,14 +71,7 @@ func NewDbHandler(config DbConfig) *DbHandler {
 	}
 
 	d.dbFile = d.config.File
-
-	var engine reg.DbEngine
-	if config.Driver == DriverBadger {
-		engine = badgerEngine.Init(d.dbFile)
-	} else {
-		engine = sqlite.Init(d.dbFile)
-	}
-	d.db = engine
+	d.db = driver.Init(d.dbFile)
 
 	go d.run()
 	return d
