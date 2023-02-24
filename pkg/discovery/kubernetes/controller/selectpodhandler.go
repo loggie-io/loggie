@@ -187,7 +187,7 @@ func (c *Controller) handlePodAddOrUpdateOfLogConfig(pod *corev1.Pod) {
 	}
 
 	for _, lgc := range lgcList {
-		if !c.belongOfCluster(lgc.Spec.Selector.Cluster) {
+		if !c.belongOfCluster(lgc.Spec.Selector.Cluster, lgc.Annotations) {
 			continue
 		}
 
@@ -212,7 +212,7 @@ func (c *Controller) handlePodAddOrUpdateOfClusterLogConfig(pod *corev1.Pod) {
 	}
 
 	for _, clgc := range clgcList {
-		if !c.belongOfCluster(clgc.Spec.Selector.Cluster) {
+		if !c.belongOfCluster(clgc.Spec.Selector.Cluster, clgc.Annotations) {
 			continue
 		}
 
