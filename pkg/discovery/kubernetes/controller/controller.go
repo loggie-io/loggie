@@ -56,6 +56,9 @@ const (
 	EventClusterLogConf = "clusterLogConfig"
 	EventSink           = "sink"
 	EventInterceptor    = "interceptor"
+
+	InjectorAnnotationKey       = "sidecar.loggie.io/inject"
+	InjectorAnnotationValueTrue = "true"
 )
 
 // Element the item add to queue
@@ -184,7 +187,7 @@ func NewController(
 			if config.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster, config.Annotations) {
 				return
 			}
 
@@ -202,7 +205,7 @@ func NewController(
 			if newConfig.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(newConfig.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(newConfig.Spec.Selector.Cluster, newConfig.Annotations) {
 				return
 			}
 
@@ -217,7 +220,7 @@ func NewController(
 			if config.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster, config.Annotations) {
 				return
 			}
 
@@ -284,7 +287,7 @@ func NewController(
 			if config.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster, config.Annotations) {
 				return
 			}
 
@@ -303,7 +306,7 @@ func NewController(
 			if newConfig.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(newConfig.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(newConfig.Spec.Selector.Cluster, newConfig.Annotations) {
 				return
 			}
 
@@ -319,7 +322,7 @@ func NewController(
 			if config.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster, config.Annotations) {
 				return
 			}
 
@@ -581,6 +584,17 @@ func (c *Controller) syncHandler(element Element) error {
 	return nil
 }
 
-func (c *Controller) belongOfCluster(cluster string) bool {
-	return c.config.Cluster == cluster
+func (c *Controller) belongOfCluster(cluster string, annotations map[string]string) bool {
+	if c.config.Cluster != cluster {
+		return false
+	}
+
+	// If there's a Sidecar-injected annotation, just ignore it
+	if annotations != nil {
+		if _, ok := annotations[InjectorAnnotationKey]; ok {
+			return false
+		}
+	}
+
+	return true
 }
