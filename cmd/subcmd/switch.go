@@ -19,7 +19,6 @@ package subcmd
 import (
 	"github.com/loggie-io/loggie/cmd/subcmd/genfiles"
 	"github.com/loggie-io/loggie/cmd/subcmd/inspect"
-	"github.com/pkg/errors"
 	"os"
 )
 
@@ -39,5 +38,5 @@ func SwitchSubCommand() error {
 		}
 	}
 
-	return errors.New("exit")
+	return nil
 }
