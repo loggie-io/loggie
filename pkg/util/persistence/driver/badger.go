@@ -1,3 +1,5 @@
+//go:build driver_badger
+
 /*
 Copyright 2023 Loggie Authors
 
@@ -14,7 +16,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package badger
+package driver
 
 import (
 	"encoding/json"
