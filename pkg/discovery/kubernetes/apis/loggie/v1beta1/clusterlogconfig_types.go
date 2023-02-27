@@ -26,6 +26,7 @@ const (
 	SelectorTypePod     = "pod"
 	SelectorTypeNode    = "node"
 	SelectorTypeCluster = "cluster"
+	SelectorTypeVm      = "vm"
 	SelectorTypeAll     = "all"
 )
 
@@ -90,8 +91,8 @@ func (in *ClusterLogConfig) Validate() error {
 	}
 
 	tp := in.Spec.Selector.Type
-	if tp != SelectorTypePod && tp != SelectorTypeNode && tp != SelectorTypeCluster {
-		return errors.New("spec.selector.type is invalid")
+	if tp != SelectorTypePod && tp != SelectorTypeNode && tp != SelectorTypeCluster && tp != SelectorTypeVm {
+		return errors.New("spec.selector.type is invalidate")
 	}
 
 	if tp == SelectorTypeCluster && in.Spec.Selector.Cluster == "" {

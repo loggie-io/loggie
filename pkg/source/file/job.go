@@ -29,6 +29,7 @@ import (
 
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
 const (
@@ -325,7 +326,7 @@ func (j *Job) ProductEvent(endOffset int64, collectTime time.Time, body []byte) 
 	eventUid.WriteString(watchUid)
 	eventUid.WriteString("-")
 	eventUid.WriteString(endOffsetStr)
-	state := &State{
+	state := &persistence.State{
 		Epoch:        j.task.epoch,
 		PipelineName: j.task.pipelineName,
 		SourceName:   j.task.sourceName,
@@ -337,9 +338,9 @@ func (j *Job) ProductEvent(endOffset int64, collectTime time.Time, body []byte) 
 		ContentBytes: contentBytes + int64(len(j.GetEncodeLineEnd())), // because `\n`
 		JobUid:       j.Uid(),
 		JobIndex:     j.Index(),
-		watchUid:     watchUid,
+		WatchUid:     watchUid,
 		EventUid:     eventUid.String(),
-		jobFields:    j.jobFields,
+		JobFields:    j.jobFields,
 	}
 	e := j.task.eventPool.Get()
 	e.Meta().Set(SystemStateKey, state)

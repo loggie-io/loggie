@@ -28,6 +28,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/source/codec"
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
 const Type = "file"
@@ -65,7 +66,7 @@ type Source struct {
 	watcher            *Watcher
 	watchTask          *WatchTask
 	ackTask            *AckTask
-	dbHandler          *dbHandler
+	dbHandler          *persistence.DbHandler
 	isolation          Isolation
 	multilineProcessor *MultiProcessor
 	mTask              *MultiTask
@@ -112,7 +113,7 @@ func (s *Source) Init(context api.Context) error {
 	s.config.ReaderConfig.readChanSize = s.config.WatchConfig.MaxOpenFds
 
 	// check
-	cleanInactiveTimeout := s.config.DbConfig.CleanInactiveTimeout
+	cleanInactiveTimeout := persistence.GetConfig().CleanInactiveTimeout
 	if inactiveTimeout > cleanInactiveTimeout {
 		cleanInactiveTimeout = 2 * inactiveTimeout
 		if cleanInactiveTimeout < time.Hour {
@@ -137,7 +138,7 @@ func (s *Source) Start() error {
 	}
 	// register queue listener for ack
 	if s.ackEnable {
-		s.dbHandler = GetOrCreateShareDbHandler(s.config.DbConfig)
+		s.dbHandler = persistence.GetOrCreateShareDbHandler()
 		s.ackChainHandler = GetOrCreateShareAckChainHandler(s.sinkCount, s.config.AckConfig)
 		s.rc.RegisterListener(&AckListener{
 			sourceName:      s.name,
@@ -145,7 +146,7 @@ func (s *Source) Start() error {
 		})
 	}
 
-	s.watcher = GetOrCreateShareWatcher(s.config.WatchConfig, s.config.DbConfig)
+	s.watcher = GetOrCreateShareWatcher(s.config.WatchConfig)
 	s.r = GetOrCreateReader(s.isolation, s.config.ReaderConfig, s.watcher)
 
 	s.HandleHttp()
@@ -199,8 +200,8 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 		s.productFunc = NewCharset(s.config.CollectConfig.Charset, s.productFunc).Hook
 	}
 	if s.ackEnable {
-		s.ackTask = NewAckTask(s.epoch, s.pipelineName, s.name, func(state *State) {
-			s.dbHandler.state <- state
+		s.ackTask = NewAckTask(s.epoch, s.pipelineName, s.name, func(state *persistence.State) {
+			s.dbHandler.State <- state
 		})
 		s.ackChainHandler.StartTask(s.ackTask)
 		log.Info("%s ack start", s.String())
@@ -213,7 +214,7 @@ func (s *Source) ProductLoop(productFunc api.ProductFunc) {
 func (s *Source) Commit(events []api.Event) {
 	// ack events
 	if s.ackEnable {
-		ss := make([]*State, 0, len(events))
+		ss := make([]*persistence.State, 0, len(events))
 		for _, e := range events {
 			ss = append(ss, getState(e))
 		}
@@ -226,10 +227,10 @@ func (s *Source) Commit(events []api.Event) {
 func jobFieldsProductFunc(productFunc api.ProductFunc, srcCfg *source.Config) api.ProductFunc {
 	return func(event api.Event) api.Result {
 		s, _ := event.Meta().Get(SystemStateKey)
-		state := s.(*State)
+		state := s.(*persistence.State)
 
-		if state.jobFields != nil {
-			pipeline.AddSourceFields(event.Header(), state.jobFields, srcCfg.FieldsUnderRoot, srcCfg.FieldsUnderKey)
+		if state.JobFields != nil {
+			pipeline.AddSourceFields(event.Header(), state.JobFields, srcCfg.FieldsUnderRoot, srcCfg.FieldsUnderKey)
 		}
 
 		productFunc(event)
@@ -240,7 +241,7 @@ func jobFieldsProductFunc(productFunc api.ProductFunc, srcCfg *source.Config) ap
 func addonMetaProductFunc(productFunc api.ProductFunc) api.ProductFunc {
 	return func(event api.Event) api.Result {
 		s, _ := event.Meta().Get(SystemStateKey)
-		state := s.(*State)
+		state := s.(*persistence.State)
 		addonMeta := make(map[string]interface{})
 		addonMeta["pipeline"] = state.PipelineName
 		addonMeta["source"] = state.SourceName

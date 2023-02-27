@@ -28,6 +28,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/util"
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
 const (
@@ -74,7 +75,7 @@ func NewMultiTask(epoch *pipeline.Epoch, sourceName string, config MultiConfig, 
 	}
 }
 
-func (mt *MultiTask) newMultiHolder(state State) *MultiHolder {
+func (mt *MultiTask) newMultiHolder(state persistence.State) *MultiHolder {
 	lineEnd := globalLineEnd.GetEncodeLineEnd(state.PipelineName, state.SourceName)
 	return &MultiHolder{
 		mTask:    mt,
@@ -86,13 +87,13 @@ func (mt *MultiTask) newMultiHolder(state State) *MultiHolder {
 	}
 }
 
-func (mt *MultiTask) isContain(s *State) bool {
+func (mt *MultiTask) isContain(s *persistence.State) bool {
 	return mt.sourceName == s.SourceName && mt.epoch.Equal(s.Epoch)
 }
 
 type MultiHolder struct {
 	mTask *MultiTask
-	state State
+	state persistence.State
 
 	content      []byte
 	currentLines int
@@ -105,7 +106,7 @@ type MultiHolder struct {
 }
 
 func (mh *MultiHolder) key() string {
-	return mh.state.WatchUid()
+	return mh.state.WatchUid
 }
 
 func (mh *MultiHolder) append(event api.Event) {
@@ -119,7 +120,7 @@ func (mh *MultiHolder) append(event api.Event) {
 	mh.mTask.eventPool.Put(event)
 }
 
-func (mh *MultiHolder) appendContent(content []byte, state State) {
+func (mh *MultiHolder) appendContent(content []byte, state persistence.State) {
 	if mh.currentSize == 0 {
 		mh.initTime = time.Now()
 		mh.state = state
@@ -151,7 +152,7 @@ func (mh *MultiHolder) flush() {
 		return
 	}
 	mh.state.ContentBytes = mh.currentSize + mh.lineEndLength
-	state := &State{
+	state := &persistence.State{
 		Epoch:        mh.state.Epoch,
 		PipelineName: mh.state.PipelineName,
 		SourceName:   mh.state.SourceName,
@@ -164,8 +165,8 @@ func (mh *MultiHolder) flush() {
 		JobIndex:     mh.state.JobIndex,
 		EventUid:     mh.state.EventUid,
 		LineNumber:   mh.state.LineNumber,
-		watchUid:     mh.state.watchUid,
-		jobFields:    mh.state.jobFields,
+		WatchUid:     mh.state.WatchUid,
+		JobFields:    mh.state.JobFields,
 	}
 	contentBuffer := mh.content
 
@@ -253,7 +254,7 @@ func (mp *MultiProcessor) run() {
 			}
 		case e := <-mp.eventChan:
 			state := getState(e)
-			watchUid := state.WatchUid()
+			watchUid := state.WatchUid
 			if mh, ok := mp.holderMap[watchUid]; ok {
 				mh.lastHeader = e.Header()
 				mh.append(e)

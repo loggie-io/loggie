@@ -59,6 +59,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&SinkList{},
 		&Interceptor{},
 		&InterceptorList{},
+		&Vm{},
+		&VmList{},
 	)
 
 	// register the type in the scheme

@@ -1,0 +1,9 @@
+interceptors:
+  - type: addHostMeta
+    addFields:
+      hostname: "${hostname}"
+      ip: "${ip}"
+      os: "${os}"
+      platform: "${platform}"
+      kernelVersion: "${kernelVersion}"
+      kernel_arch: "${kernelArch}"

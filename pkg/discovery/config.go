@@ -20,7 +20,6 @@ import (
 	kubernetes "github.com/loggie-io/loggie/pkg/discovery/kubernetes/controller"
 )
 
-// TODO validate and defaults
 type Config struct {
 	Enabled    bool              `yaml:"enabled"`
 	Kubernetes kubernetes.Config `yaml:"kubernetes" validate:"dive"`

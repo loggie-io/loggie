@@ -116,7 +116,7 @@ func (c *FakeLogConfigs) UpdateStatus(ctx context.Context, logConfig *v1beta1.Lo
 // Delete takes name of the logConfig and deletes it. Returns an error if one occurs.
 func (c *FakeLogConfigs) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewDeleteAction(logconfigsResource, c.ns, name), &v1beta1.LogConfig{})
+		Invokes(testing.NewDeleteActionWithOptions(logconfigsResource, c.ns, name, opts), &v1beta1.LogConfig{})
 
 	return err
 }

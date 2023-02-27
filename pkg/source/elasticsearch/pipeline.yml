@@ -6,6 +6,11 @@ pipelines:
         hosts: ["localhost:9200"]
         indices: ["kibana_sample_data_logs*"]
         includeFields: ["message", "response", "timestamp", "host"]
+        sortBy:
+        - fields: "@timestamp"
+          ascending: true
+        - fields: "_id"
+          ascending: true
         size: 100 # data size per fetch
         interval: 10s # pull data frequency
         timeout: 5s # pull timeout
