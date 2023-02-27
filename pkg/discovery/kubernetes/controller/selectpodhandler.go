@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"path/filepath"
 	"regexp"
 
 	"github.com/google/go-cmp/cmp"
@@ -49,6 +50,7 @@ const (
 	GenerateConfigName           = "kube-loggie.yml"
 	GenerateTypeLoggieConfigName = "cluster-config.yml"
 	GenerateTypeNodeConfigName   = "node-config.yml"
+	GenerateTypeVmConfigName     = "vm-config.yml"
 )
 
 type KubeFileSourceExtra struct {
@@ -186,7 +188,7 @@ func (c *Controller) handlePodAddOrUpdateOfLogConfig(pod *corev1.Pod) {
 	}
 
 	for _, lgc := range lgcList {
-		if !c.belongOfCluster(lgc.Spec.Selector.Cluster) {
+		if !c.belongOfCluster(lgc.Spec.Selector.Cluster, lgc.Annotations) {
 			continue
 		}
 
@@ -211,7 +213,7 @@ func (c *Controller) handlePodAddOrUpdateOfClusterLogConfig(pod *corev1.Pod) {
 	}
 
 	for _, clgc := range clgcList {
-		if !c.belongOfCluster(clgc.Spec.Selector.Cluster) {
+		if !c.belongOfCluster(clgc.Spec.Selector.Cluster, clgc.Annotations) {
 			continue
 		}
 
@@ -427,7 +429,18 @@ func (c *Controller) getPathsInNode(containerPaths []string, pod *corev1.Pod, co
 		return nil, errors.New("path is empty")
 	}
 
-	return helper.PathsInNode(c.config.PodLogDirPrefix, c.config.KubeletRootDir, c.config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
+	paths, err := helper.PathsInNode(c.config.PodLogDirPrefix, c.config.KubeletRootDir, c.config.RootFsCollectionEnabled, c.runtime, containerPaths, pod, containerId, containerName)
+	if err != nil || len(c.config.HostRootMountPath) == 0 {
+		return paths, err
+	}
+
+	newPaths := make([]string, 0, len(paths))
+	rootPath := c.config.HostRootMountPath
+	for _, path := range paths {
+		newPaths = append(newPaths, filepath.Join(rootPath, path))
+	}
+
+	return newPaths, err
 }
 
 func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.Config, extra *KubeFileSourceExtra, pod *corev1.Pod, lgcName string, containerName string) error {

@@ -18,6 +18,7 @@ package file
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/api"
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
 const (
@@ -39,7 +40,7 @@ func (al *AckListener) Stop() {
 
 func (al *AckListener) BeforeQueueConvertBatch(events []api.Event) {
 	//log.Info("append events len: %d", len(events))
-	ss := make([]*State, 0, len(events))
+	ss := make([]*persistence.State, 0, len(events))
 	for _, e := range events {
 		if al.sourceName == e.Meta().Source() {
 			ss = append(ss, getState(e))

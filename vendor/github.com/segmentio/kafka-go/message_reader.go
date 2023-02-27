@@ -3,7 +3,6 @@ package kafka
 import (
 	"bufio"
 	"bytes"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"log"
@@ -18,6 +17,12 @@ type messageSetReader struct {
 	*readerStack      // used for decompressing compressed messages and record batches
 	empty        bool // if true, short circuits messageSetReader methods
 	debug        bool // enable debug log messages
+	// How many bytes are expected to remain in the response.
+	//
+	// This is used to detect truncation of the response.
+	lengthRemain int
+
+	decompressed *bytes.Buffer
 }
 
 type readerStack struct {
@@ -82,6 +87,7 @@ func newMessageSetReader(reader *bufio.Reader, remain int) (*messageSetReader, e
 			reader: reader,
 			remain: remain,
 		},
+		decompressed: acquireBuffer(),
 	}
 	err := res.readHeader()
 	return res, err
@@ -114,7 +120,7 @@ func (r *messageSetReader) discard() (err error) {
 }
 
 func (r *messageSetReader) readMessage(min int64, key readBytesFunc, val readBytesFunc) (
-	offset int64, timestamp int64, headers []Header, err error) {
+	offset int64, lastOffset int64, timestamp int64, headers []Header, err error) {
 
 	if r.empty {
 		err = RequestTimedOut
@@ -126,8 +132,10 @@ func (r *messageSetReader) readMessage(min int64, key readBytesFunc, val readByt
 	switch r.header.magic {
 	case 0, 1:
 		offset, timestamp, headers, err = r.readMessageV1(min, key, val)
+		// Set an invalid value so that it can be ignored
+		lastOffset = -1
 	case 2:
-		offset, timestamp, headers, err = r.readMessageV2(min, key, val)
+		offset, lastOffset, timestamp, headers, err = r.readMessageV2(min, key, val)
 	default:
 		err = r.header.badMagic()
 	}
@@ -157,14 +165,15 @@ func (r *messageSetReader) readMessageV1(min int64, key readBytesFunc, val readB
 			if err = r.discardN(4); err != nil {
 				return
 			}
+
 			// read and decompress the contained message set.
-			var decompressed bytes.Buffer
-			if err = r.readBytesWith(func(r *bufio.Reader, sz int, n int) (remain int, err error) {
+			r.decompressed.Reset()
+			if err = r.readBytesWith(func(br *bufio.Reader, sz int, n int) (remain int, err error) {
 				// x4 as a guess that the average compression ratio is near 75%
-				decompressed.Grow(4 * n)
-				limitReader := io.LimitedReader{R: r, N: int64(n)}
+				r.decompressed.Grow(4 * n)
+				limitReader := io.LimitedReader{R: br, N: int64(n)}
 				codecReader := codec.NewReader(&limitReader)
-				_, err = decompressed.ReadFrom(codecReader)
+				_, err = r.decompressed.ReadFrom(codecReader)
 				remain = sz - (n - int(limitReader.N))
 				codecReader.Close()
 				return
@@ -179,7 +188,7 @@ func (r *messageSetReader) readMessageV1(min int64, key readBytesFunc, val readB
 			// messages at offsets 10-13, then the container message will have
 			// offset 13 and the contained messages will be 0,1,2,3.  the base
 			// offset for the container, then is 13-3=10.
-			if offset, err = extractOffset(offset, decompressed.Bytes()); err != nil {
+			if offset, err = extractOffset(offset, r.decompressed.Bytes()); err != nil {
 				return
 			}
 
@@ -191,8 +200,8 @@ func (r *messageSetReader) readMessageV1(min int64, key readBytesFunc, val readB
 				// Allocate a buffer of size 0, which gets capped at 16 bytes
 				// by the bufio package. We are already reading buffered data
 				// here, no need to reserve another 4KB buffer.
-				reader: bufio.NewReaderSize(&decompressed, 0),
-				remain: decompressed.Len(),
+				reader: bufio.NewReaderSize(r.decompressed, 0),
+				remain: r.decompressed.Len(),
 				base:   offset,
 				parent: r.readerStack,
 			}
@@ -239,7 +248,7 @@ func (r *messageSetReader) readMessageV1(min int64, key readBytesFunc, val readB
 }
 
 func (r *messageSetReader) readMessageV2(_ int64, key readBytesFunc, val readBytesFunc) (
-	offset int64, timestamp int64, headers []Header, err error) {
+	offset int64, lastOffset int64, timestamp int64, headers []Header, err error) {
 	if err = r.readHeader(); err != nil {
 		return
 	}
@@ -258,19 +267,20 @@ func (r *messageSetReader) readMessageV2(_ int64, key readBytesFunc, val readByt
 				err = fmt.Errorf("batch remain < 0 (%d)", batchRemain)
 				return
 			}
-			var decompressed bytes.Buffer
-			decompressed.Grow(4 * batchRemain)
+			r.decompressed.Reset()
+			// x4 as a guess that the average compression ratio is near 75%
+			r.decompressed.Grow(4 * batchRemain)
 			limitReader := io.LimitedReader{R: r.reader, N: int64(batchRemain)}
 			codecReader := codec.NewReader(&limitReader)
-			_, err = decompressed.ReadFrom(codecReader)
+			_, err = r.decompressed.ReadFrom(codecReader)
 			codecReader.Close()
 			if err != nil {
 				return
 			}
 			r.remain -= batchRemain - int(limitReader.N)
 			r.readerStack = &readerStack{
-				reader: bufio.NewReaderSize(&decompressed, 0), // the new stack reads from the decompressed buffer
-				remain: decompressed.Len(),
+				reader: bufio.NewReaderSize(r.decompressed, 0), // the new stack reads from the decompressed buffer
+				remain: r.decompressed.Len(),
 				base:   -1, // base is unused here
 				parent: r.readerStack,
 				header: r.header,
@@ -282,10 +292,12 @@ func (r *messageSetReader) readMessageV2(_ int64, key readBytesFunc, val readByt
 			r.readerStack.parent.count = 0
 		}
 	}
+	remainBefore := r.remain
 	var length int64
 	if err = r.readVarInt(&length); err != nil {
 		return
 	}
+	lengthOfLength := remainBefore - r.remain
 	var attrs int8
 	if err = r.readInt8(&attrs); err != nil {
 		return
@@ -310,12 +322,16 @@ func (r *messageSetReader) readMessageV2(_ int64, key readBytesFunc, val readByt
 	if err = r.readVarInt(&headerCount); err != nil {
 		return
 	}
-	headers = make([]Header, headerCount)
-	for i := 0; i < int(headerCount); i++ {
-		if err = r.readMessageHeader(&headers[i]); err != nil {
-			return
+	if headerCount > 0 {
+		headers = make([]Header, headerCount)
+		for i := range headers {
+			if err = r.readMessageHeader(&headers[i]); err != nil {
+				return
+			}
 		}
 	}
+	lastOffset = r.header.firstOffset + int64(r.header.v2.lastOffsetDelta)
+	r.lengthRemain -= int(length) + lengthOfLength
 	r.markRead()
 	return
 }
@@ -407,6 +423,9 @@ func (r *messageSetReader) readHeader() (err error) {
 			return
 		}
 		r.count = 1
+		// Set arbitrary non-zero length so that we always assume the
+		// message is truncated since bytes remain.
+		r.lengthRemain = 1
 		r.log("Read v0 header with offset=%d len=%d magic=%d attributes=%d", r.header.firstOffset, r.header.length, r.header.magic, r.header.v1.attributes)
 	case 1:
 		r.header.crc = crcOrLeaderEpoch
@@ -417,6 +436,9 @@ func (r *messageSetReader) readHeader() (err error) {
 			return
 		}
 		r.count = 1
+		// Set arbitrary non-zero length so that we always assume the
+		// message is truncated since bytes remain.
+		r.lengthRemain = 1
 		r.log("Read v1 header with remain=%d offset=%d magic=%d and attributes=%d", r.remain, r.header.firstOffset, r.header.magic, r.header.v1.attributes)
 	case 2:
 		r.header.v2.leaderEpoch = crcOrLeaderEpoch
@@ -448,6 +470,8 @@ func (r *messageSetReader) readHeader() (err error) {
 			return
 		}
 		r.count = int(r.header.v2.count)
+		// Subtracts the header bytes from the length
+		r.lengthRemain = int(r.header.length) - 49
 		r.log("Read v2 header with count=%d offset=%d len=%d magic=%d attributes=%d", r.count, r.header.firstOffset, r.header.length, r.header.magic, r.header.v2.attributes)
 	default:
 		err = r.header.badMagic()
@@ -499,16 +523,6 @@ func (r *messageSetReader) readBytesWith(fn readBytesFunc) (err error) {
 func (r *messageSetReader) log(msg string, args ...interface{}) {
 	if r.debug {
 		log.Printf("[DEBUG] "+msg, args...)
-	}
-}
-
-func (r *messageSetReader) dumpHex(msg string) {
-	if r.debug {
-		buf := bytes.Buffer{}
-		io.Copy(&buf, r.reader)
-		bs := buf.Bytes()
-		r.log(fmt.Sprintf("Hex dump: %s (%d bytes)\n%s", msg, len(bs), hex.Dump(bs)))
-		r.reader = bufio.NewReader(bytes.NewReader(bs))
 	}
 }
 

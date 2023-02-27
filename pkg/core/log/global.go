@@ -30,24 +30,29 @@ import (
 )
 
 var (
-	defaultLogger *Logger
-	AfterError    spi.AfterError
-	gLoggerConfig = &LoggerConfig{}
+	defaultLogger    *Logger
+	AfterError       spi.AfterError
+	AfterErrorConfig AfterErrorConfiguration
+	gLoggerConfig    = &LoggerConfig{}
 )
 
 func init() {
-	flag.StringVar(&gLoggerConfig.Level, "log.level", "info", "Global log output level")
-	flag.BoolVar(&gLoggerConfig.JsonFormat, "log.jsonFormat", false, "Parses the JSON log format")
-	flag.BoolVar(&gLoggerConfig.EnableStdout, "log.enableStdout", true, "EnableStdout enable the log print to stdout")
-	flag.BoolVar(&gLoggerConfig.EnableFile, "log.enableFile", false, "EnableFile makes the framework log to a file")
-	flag.StringVar(&gLoggerConfig.Directory, "log.directory", "/var/log", "Directory to log to to when log.enableFile is enabled")
-	flag.StringVar(&gLoggerConfig.Filename, "log.filename", "loggie.log", "Filename is the name of the logfile which will be placed inside the directory")
-	flag.IntVar(&gLoggerConfig.MaxSize, "log.maxSize", 1024, "Max size in MB of the logfile before it's rolled")
-	flag.IntVar(&gLoggerConfig.MaxBackups, "log.maxBackups", 3, "Max number of rolled files to keep")
-	flag.IntVar(&gLoggerConfig.MaxAge, "log.maxAge", 7, "Max age in days to keep a logfile")
-	flag.StringVar(&gLoggerConfig.TimeFormat, "log.timeFormat", "2006-01-02 15:04:05", "TimeFormat log time format")
-	flag.IntVar(&gLoggerConfig.CallerSkipCount, "log.callerSkipCount", 4, "CallerSkipCount is the number of stack frames to skip to find the caller")
-	flag.BoolVar(&gLoggerConfig.NoColor, "log.noColor", false, "NoColor disables the colorized output")
+	SetFlag(flag.CommandLine)
+}
+
+func SetFlag(f *flag.FlagSet) {
+	f.StringVar(&gLoggerConfig.Level, "log.level", "info", "Global log output level")
+	f.BoolVar(&gLoggerConfig.JsonFormat, "log.jsonFormat", false, "Parses the JSON log format")
+	f.BoolVar(&gLoggerConfig.EnableStdout, "log.enableStdout", true, "EnableStdout enable the log print to stdout")
+	f.BoolVar(&gLoggerConfig.EnableFile, "log.enableFile", false, "EnableFile makes the framework log to a file")
+	f.StringVar(&gLoggerConfig.Directory, "log.directory", "/var/log", "Directory to log to to when log.enableFile is enabled")
+	f.StringVar(&gLoggerConfig.Filename, "log.filename", "loggie.log", "Filename is the name of the logfile which will be placed inside the directory")
+	f.IntVar(&gLoggerConfig.MaxSize, "log.maxSize", 1024, "Max size in MB of the logfile before it's rolled")
+	f.IntVar(&gLoggerConfig.MaxBackups, "log.maxBackups", 3, "Max number of rolled files to keep")
+	f.IntVar(&gLoggerConfig.MaxAge, "log.maxAge", 7, "Max age in days to keep a logfile")
+	f.StringVar(&gLoggerConfig.TimeFormat, "log.timeFormat", "2006-01-02 15:04:05", "TimeFormat log time format")
+	f.IntVar(&gLoggerConfig.CallerSkipCount, "log.callerSkipCount", 4, "CallerSkipCount is the number of stack frames to skip to find the caller")
+	f.BoolVar(&gLoggerConfig.NoColor, "log.noColor", false, "NoColor disables the colorized output")
 }
 
 type LoggerConfig struct {
@@ -228,4 +233,8 @@ func afterErrorOpt(format string, a ...interface{}) {
 
 func Level() zerolog.Level {
 	return defaultLogger.l.GetLevel()
+}
+
+type AfterErrorConfiguration struct {
+	Additions map[string]interface{} `yaml:"additions,omitempty"`
 }

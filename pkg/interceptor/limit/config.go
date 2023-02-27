@@ -20,5 +20,6 @@ import "github.com/loggie-io/loggie/pkg/core/interceptor"
 
 type Config struct {
 	interceptor.ExtensionConfig `yaml:",inline"`
-	Qps                         int `yaml:"qps,omitempty" default:"2048" validate:"gte=0"`
+	Qps                         int  `yaml:"qps,omitempty" default:"2048" validate:"gte=0"`
+	HighPrecision               bool `yaml:"highPrecision,omitempty" default:"false"`
 }

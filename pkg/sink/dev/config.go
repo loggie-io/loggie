@@ -16,6 +16,14 @@ limitations under the License.
 
 package dev
 
+import "time"
+
 type Config struct {
-	PrintEvents bool `yaml:"printEvents,omitempty" default:"false"` // deprecated, use codec.PrintEvents instead.
+	// in general, we use codec.PrintEvents instead.
+	PrintEvents bool `yaml:"printEvents,omitempty" default:"false"`
+	// Within this period, only one log event is printed for troubleshooting.
+	PrintEventsInterval time.Duration `yaml:"printEventsInterval,omitempty"`
+
+	PrintMetrics    bool          `yaml:"printMetrics,omitempty"`
+	MetricsInterval time.Duration `yaml:"printMetricsInterval,omitempty" default:"1s"`
 }

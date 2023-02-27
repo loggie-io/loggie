@@ -19,10 +19,10 @@ package controller
 import (
 	"context"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/global"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"reflect"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -52,9 +52,13 @@ const (
 	EventPod            = "pod"
 	EventLogConf        = "logConfig"
 	EventNode           = "node"
+	EventVm             = "vm"
 	EventClusterLogConf = "clusterLogConfig"
 	EventSink           = "sink"
 	EventInterceptor    = "interceptor"
+
+	InjectorAnnotationKey       = "sidecar.loggie.io/inject"
+	InjectorAnnotationValueTrue = "true"
 )
 
 // Element the item add to queue
@@ -72,28 +76,27 @@ type Controller struct {
 	logConfigClientset logconfigClientset.Interface
 
 	podsLister             corev1Listers.PodLister
-	podsSynced             cache.InformerSynced
 	logConfigLister        logconfigLister.LogConfigLister
-	logConfigSynced        cache.InformerSynced
 	clusterLogConfigLister logconfigLister.ClusterLogConfigLister
-	clusterLogConfigSynced cache.InformerSynced
 	sinkLister             logconfigLister.SinkLister
-	sinkSynced             cache.InformerSynced
 	interceptorLister      logconfigLister.InterceptorLister
-	interceptorSynced      cache.InformerSynced
 	nodeLister             corev1Listers.NodeLister
-	nodeSynced             cache.InformerSynced
+
+	// only in Vm mode
+	vmLister logconfigLister.VmLister
 
 	typePodIndex     *index.LogConfigTypePodIndex
 	typeClusterIndex *index.LogConfigTypeClusterIndex
 	typeNodeIndex    *index.LogConfigTypeNodeIndex
 
 	nodeInfo *corev1.Node
+	vmInfo   *logconfigv1beta1.Vm
 
 	record                     record.EventRecorder
 	runtime                    runtime.Runtime
 	extraTypePodFieldsPattern  map[string]*pattern.Pattern
 	extraTypeNodeFieldsPattern map[string]*pattern.Pattern
+	extraTypeVmFieldsPattern   map[string]*pattern.Pattern
 }
 
 func NewController(
@@ -106,6 +109,7 @@ func NewController(
 	sinkInformer logconfigInformers.SinkInformer,
 	interceptorInformer logconfigInformers.InterceptorInformer,
 	nodeInformer corev1Informers.NodeInformer,
+	vmInformer logconfigInformers.VmInformer,
 	runtime runtime.Runtime,
 ) *Controller {
 
@@ -114,32 +118,46 @@ func NewController(
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: kubeClientset.CoreV1().Events("")})
 	recorder := eventBroadcaster.NewRecorder(scheme.Scheme, corev1.EventSource{Component: "loggie/" + config.NodeName})
 
-	controller := &Controller{
-		config:    config,
-		workqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "logConfig"),
+	var controller *Controller
+	if config.VmMode {
+		controller = &Controller{
+			config:    config,
+			workqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "logConfig"),
 
-		kubeClientset:      kubeClientset,
-		logConfigClientset: logConfigClientset,
+			kubeClientset:      kubeClientset,
+			logConfigClientset: logConfigClientset,
 
-		podsLister:             podInformer.Lister(),
-		podsSynced:             podInformer.Informer().HasSynced,
-		logConfigLister:        logConfigInformer.Lister(),
-		logConfigSynced:        logConfigInformer.Informer().HasSynced,
-		clusterLogConfigLister: clusterLogConfigInformer.Lister(),
-		clusterLogConfigSynced: clusterLogConfigInformer.Informer().HasSynced,
-		sinkLister:             sinkInformer.Lister(),
-		sinkSynced:             sinkInformer.Informer().HasSynced,
-		interceptorLister:      interceptorInformer.Lister(),
-		interceptorSynced:      interceptorInformer.Informer().HasSynced,
-		nodeLister:             nodeInformer.Lister(),
-		nodeSynced:             nodeInformer.Informer().HasSynced,
+			clusterLogConfigLister: clusterLogConfigInformer.Lister(),
+			sinkLister:             sinkInformer.Lister(),
+			interceptorLister:      interceptorInformer.Lister(),
+			vmLister:               vmInformer.Lister(),
 
-		typePodIndex:     index.NewLogConfigTypePodIndex(),
-		typeClusterIndex: index.NewLogConfigTypeLoggieIndex(),
-		typeNodeIndex:    index.NewLogConfigTypeNodeIndex(),
+			typeNodeIndex: index.NewLogConfigTypeNodeIndex(),
 
-		record:  recorder,
-		runtime: runtime,
+			record: recorder,
+		}
+	} else {
+		controller = &Controller{
+			config:    config,
+			workqueue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "logConfig"),
+
+			kubeClientset:      kubeClientset,
+			logConfigClientset: logConfigClientset,
+
+			podsLister:             podInformer.Lister(),
+			logConfigLister:        logConfigInformer.Lister(),
+			clusterLogConfigLister: clusterLogConfigInformer.Lister(),
+			sinkLister:             sinkInformer.Lister(),
+			interceptorLister:      interceptorInformer.Lister(),
+			nodeLister:             nodeInformer.Lister(),
+
+			typePodIndex:     index.NewLogConfigTypePodIndex(),
+			typeClusterIndex: index.NewLogConfigTypeLoggieIndex(),
+			typeNodeIndex:    index.NewLogConfigTypeNodeIndex(),
+
+			record:  recorder,
+			runtime: runtime,
+		}
 	}
 
 	controller.InitK8sFieldsPattern()
@@ -147,12 +165,21 @@ func NewController(
 	log.Info("Setting up event handlers")
 	utilruntime.Must(logconfigSchema.AddToScheme(scheme.Scheme))
 
-	// Since type node logic depends on node labels, we get and set node info at first.
-	node, err := kubeClientset.CoreV1().Nodes().Get(context.Background(), global.NodeName, metav1.GetOptions{})
-	if err != nil {
-		log.Panic("get node %s failed: %+v", global.NodeName, err)
+	if config.VmMode {
+		vm, err := logConfigClientset.LoggieV1beta1().Vms().Get(context.Background(), config.NodeName, metav1.GetOptions{})
+		if err != nil {
+			log.Panic("get vm %s failed: %+v", config.NodeName, err)
+		}
+		controller.vmInfo = vm.DeepCopy()
+
+	} else {
+		// Since type node logic depends on node labels, we get and set node info at first.
+		node, err := kubeClientset.CoreV1().Nodes().Get(context.Background(), config.NodeName, metav1.GetOptions{})
+		if err != nil {
+			log.Panic("get node %s failed: %+v", config.NodeName, err)
+		}
+		controller.nodeInfo = node.DeepCopy()
 	}
-	controller.nodeInfo = node.DeepCopy()
 
 	clusterLogConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -160,7 +187,7 @@ func NewController(
 			if config.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster, config.Annotations) {
 				return
 			}
 
@@ -178,7 +205,7 @@ func NewController(
 			if newConfig.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(newConfig.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(newConfig.Spec.Selector.Cluster, newConfig.Annotations) {
 				return
 			}
 
@@ -193,7 +220,7 @@ func NewController(
 			if config.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster, config.Annotations) {
 				return
 			}
 
@@ -201,13 +228,66 @@ func NewController(
 		},
 	})
 
+	interceptorInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			controller.enqueue(obj, EventInterceptor, logconfigv1beta1.SelectorTypeAll)
+		},
+		UpdateFunc: func(old, new interface{}) {
+			newConfig := new.(*logconfigv1beta1.Interceptor)
+			oldConfig := old.(*logconfigv1beta1.Interceptor)
+			if newConfig.ResourceVersion == oldConfig.ResourceVersion {
+				return
+			}
+
+			controller.enqueue(new, EventInterceptor, logconfigv1beta1.SelectorTypeAll)
+		},
+	})
+
+	sinkInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			controller.enqueue(obj, EventSink, logconfigv1beta1.SelectorTypeAll)
+		},
+		UpdateFunc: func(old, new interface{}) {
+			newConfig := new.(*logconfigv1beta1.Sink)
+			oldConfig := old.(*logconfigv1beta1.Sink)
+			if newConfig.ResourceVersion == oldConfig.ResourceVersion {
+				return
+			}
+
+			controller.enqueue(new, EventSink, logconfigv1beta1.SelectorTypeAll)
+		},
+	})
+
+	if config.VmMode {
+		vmInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				controller.enqueue(obj, EventVm, logconfigv1beta1.SelectorTypeAll)
+			},
+			UpdateFunc: func(old, new interface{}) {
+				newConfig := new.(*logconfigv1beta1.Vm)
+				oldConfig := old.(*logconfigv1beta1.Vm)
+				if newConfig.ResourceVersion == oldConfig.ResourceVersion {
+					return
+				}
+
+				if reflect.DeepEqual(newConfig.Labels, oldConfig.Labels) {
+					return
+				}
+
+				controller.enqueue(new, EventVm, logconfigv1beta1.SelectorTypeAll)
+			},
+		})
+
+		return controller
+	}
+
 	logConfigInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			config := obj.(*logconfigv1beta1.LogConfig)
 			if config.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster, config.Annotations) {
 				return
 			}
 
@@ -226,7 +306,7 @@ func NewController(
 			if newConfig.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(newConfig.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(newConfig.Spec.Selector.Cluster, newConfig.Annotations) {
 				return
 			}
 
@@ -242,7 +322,7 @@ func NewController(
 			if config.Spec.Selector == nil {
 				return
 			}
-			if !controller.belongOfCluster(config.Spec.Selector.Cluster) {
+			if !controller.belongOfCluster(config.Spec.Selector.Cluster, config.Annotations) {
 				return
 			}
 
@@ -289,36 +369,6 @@ func NewController(
 		},
 	})
 
-	interceptorInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			controller.enqueue(obj, EventInterceptor, logconfigv1beta1.SelectorTypeAll)
-		},
-		UpdateFunc: func(old, new interface{}) {
-			newConfig := new.(*logconfigv1beta1.Interceptor)
-			oldConfig := old.(*logconfigv1beta1.Interceptor)
-			if newConfig.ResourceVersion == oldConfig.ResourceVersion {
-				return
-			}
-
-			controller.enqueue(new, EventInterceptor, logconfigv1beta1.SelectorTypeAll)
-		},
-	})
-
-	sinkInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) {
-			controller.enqueue(obj, EventSink, logconfigv1beta1.SelectorTypeAll)
-		},
-		UpdateFunc: func(old, new interface{}) {
-			newConfig := new.(*logconfigv1beta1.Sink)
-			oldConfig := old.(*logconfigv1beta1.Sink)
-			if newConfig.ResourceVersion == oldConfig.ResourceVersion {
-				return
-			}
-
-			controller.enqueue(new, EventSink, logconfigv1beta1.SelectorTypeAll)
-		},
-	})
-
 	return controller
 }
 
@@ -332,6 +382,8 @@ func (c *Controller) InitK8sFieldsPattern() {
 	c.extraTypePodFieldsPattern = typePodPattern
 
 	c.extraTypeNodeFieldsPattern = c.config.TypeNodeFields.initPattern()
+
+	c.extraTypeVmFieldsPattern = c.config.TypeVmFields.initPattern()
 }
 
 // handleSelectorHasChange
@@ -395,7 +447,7 @@ func (c *Controller) enqueueForDelete(obj interface{}, eleType string, selectorT
 	c.workqueue.Add(e)
 }
 
-func (c *Controller) Run(stopCh <-chan struct{}) error {
+func (c *Controller) Run(stopCh <-chan struct{}, cacheSyncs ...cache.InformerSynced) error {
 	defer utilruntime.HandleCrash()
 	defer c.workqueue.ShutDown()
 
@@ -404,7 +456,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 
 	// Wait for the caches to be synced before starting workers
 	log.Info("Waiting for informer caches to sync")
-	if ok := cache.WaitForCacheSync(stopCh, c.podsSynced, c.logConfigSynced, c.clusterLogConfigSynced, c.sinkSynced, c.interceptorSynced); !ok {
+	if ok := cache.WaitForCacheSync(stopCh, cacheSyncs...); !ok {
 		return fmt.Errorf("failed to wait for caches to sync")
 	}
 
@@ -519,6 +571,11 @@ func (c *Controller) syncHandler(element Element) error {
 			log.Warn("reconcile interceptor %s err: %v", element.Key, err)
 		}
 
+	case EventVm:
+		if err = c.reconcileVm(element.Key); err != nil {
+			log.Warn("reconcile interceptor %s err: %v", element.Key, err)
+		}
+
 	default:
 		utilruntime.HandleError(fmt.Errorf("element type: %s not supported", element.Type))
 		return nil
@@ -527,6 +584,17 @@ func (c *Controller) syncHandler(element Element) error {
 	return nil
 }
 
-func (c *Controller) belongOfCluster(cluster string) bool {
-	return c.config.Cluster == cluster
+func (c *Controller) belongOfCluster(cluster string, annotations map[string]string) bool {
+	if c.config.Cluster != cluster {
+		return false
+	}
+
+	// If there's a Sidecar-injected annotation, just ignore it
+	if annotations != nil {
+		if _, ok := annotations[InjectorAnnotationKey]; ok {
+			return false
+		}
+	}
+
+	return true
 }

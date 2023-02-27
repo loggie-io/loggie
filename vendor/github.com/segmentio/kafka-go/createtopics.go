@@ -3,6 +3,7 @@ package kafka
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"time"
@@ -88,10 +89,7 @@ type ConfigEntry struct {
 }
 
 func (c ConfigEntry) toCreateTopicsRequestV0ConfigEntry() createTopicsRequestV0ConfigEntry {
-	return createTopicsRequestV0ConfigEntry{
-		ConfigName:  c.ConfigName,
-		ConfigValue: c.ConfigValue,
-	}
+	return createTopicsRequestV0ConfigEntry(c)
 }
 
 type createTopicsRequestV0ConfigEntry struct {
@@ -209,13 +207,13 @@ func (t *TopicConfig) configs() []createtopics.RequestConfig {
 }
 
 func (t TopicConfig) toCreateTopicsRequestV0Topic() createTopicsRequestV0Topic {
-	var requestV0ReplicaAssignments []createTopicsRequestV0ReplicaAssignment
+	requestV0ReplicaAssignments := make([]createTopicsRequestV0ReplicaAssignment, 0, len(t.ReplicaAssignments))
 	for _, a := range t.ReplicaAssignments {
 		requestV0ReplicaAssignments = append(
 			requestV0ReplicaAssignments,
 			a.toCreateTopicsRequestV0ReplicaAssignment())
 	}
-	var requestV0ConfigEntries []createTopicsRequestV0ConfigEntry
+	requestV0ConfigEntries := make([]createTopicsRequestV0ConfigEntry, 0, len(t.ConfigEntries))
 	for _, c := range t.ConfigEntries {
 		requestV0ConfigEntries = append(
 			requestV0ConfigEntries,
@@ -377,7 +375,7 @@ func (c *Conn) createTopics(request createTopicsRequestV0) (createTopicsResponse
 // operational semantics. In other words, if CreateTopics is invoked with a
 // configuration for an existing topic, it will have no effect.
 func (c *Conn) CreateTopics(topics ...TopicConfig) error {
-	var requestV0Topics []createTopicsRequestV0Topic
+	requestV0Topics := make([]createTopicsRequestV0Topic, 0, len(topics))
 	for _, t := range topics {
 		requestV0Topics = append(
 			requestV0Topics,
@@ -387,12 +385,14 @@ func (c *Conn) CreateTopics(topics ...TopicConfig) error {
 	_, err := c.createTopics(createTopicsRequestV0{
 		Topics: requestV0Topics,
 	})
+	if err != nil {
+		if errors.Is(err, TopicAlreadyExists) {
+			// ok
+			return nil
+		}
 
-	switch err {
-	case TopicAlreadyExists:
-		// ok
-		return nil
-	default:
 		return err
 	}
+
+	return nil
 }

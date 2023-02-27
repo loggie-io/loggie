@@ -1,0 +1,8 @@
+pipelines:
+  - name: debug
+    sink:
+      type: dev
+      printEvents: true
+      printEventsInterval: 10s
+      printMetrics: true
+      printMetricsInterval: 10s

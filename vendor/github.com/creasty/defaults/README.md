@@ -1,7 +1,7 @@
 defaults
 ========
 
-[![Build Status](https://travis-ci.org/creasty/defaults.svg?branch=master)](https://travis-ci.org/creasty/defaults)
+[![CircleCI](https://circleci.com/gh/creasty/defaults/tree/master.svg?style=svg)](https://circleci.com/gh/creasty/defaults/tree/master)
 [![codecov](https://codecov.io/gh/creasty/defaults/branch/master/graph/badge.svg)](https://codecov.io/gh/creasty/defaults)
 [![GitHub release](https://img.shields.io/github/release/creasty/defaults.svg)](https://github.com/creasty/defaults/releases)
 [![License](https://img.shields.io/github/license/creasty/defaults.svg)](./LICENSE)
@@ -14,6 +14,8 @@ Initialize structs with default values
     - `uintptr`, `bool`, `string`
   - Complex types
     - `map`, `slice`, `struct`
+  - Nested types
+    - `map[K1]map[K2]Struct`, `[]map[K1]Struct[]`
   - Aliased types
     - `time.Duration`
     - e.g., `type Enum string`
@@ -37,9 +39,13 @@ type Sample struct {
 
 	Slice       []string       `default:"[]"`
 	SliceByJSON []int          `default:"[1, 2, 3]"` // Supports JSON
-	Map         map[string]int `default:"{}"`
-	MapByJSON   map[string]int `default:"{\"foo\": 123}"`
 
+	Map                 map[string]int `default:"{}"`
+	MapByJSON           map[string]int `default:"{\"foo\": 123}"`
+	MapOfStruct         map[string]OtherStruct
+	MapOfPtrStruct      map[string]*OtherStruct
+	MapOfStructWithTag  map[string]OtherStruct `default:"{\"Key1\": {\"Foo\":123}}"`
+    
 	Struct    OtherStruct  `default:"{}"`
 	StructPtr *OtherStruct `default:"{\"Foo\": 123}"`
 

@@ -19,6 +19,16 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/ops"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/pkg/errors"
+	"go.uber.org/automaxprocs/maxprocs"
+
 	"github.com/loggie-io/loggie/cmd/subcmd"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
@@ -31,14 +41,8 @@ import (
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	_ "github.com/loggie-io/loggie/pkg/include"
 	"github.com/loggie-io/loggie/pkg/ops/helper"
+	"github.com/loggie-io/loggie/pkg/util/persistence"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
-	"github.com/pkg/errors"
-	"go.uber.org/automaxprocs/maxprocs"
-	"net/http"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
 )
 
 var (
@@ -68,7 +72,7 @@ func main() {
 
 	log.Info("version: %s", global.GetVersion())
 
-	// set up signals so we handle the first shutdown signal gracefully
+	// set up signals, so we handle the first shutdown signal gracefully
 	stopCh := signals.SetupSignalHandler()
 
 	// Automatically set GOMAXPROCS to match Linux container CPU quota
@@ -88,6 +92,7 @@ func main() {
 	eventbus.StartAndRun(syscfg.Loggie.MonitorEventBus)
 	// init log after error func
 	log.AfterError = eventbus.AfterErrorFunc
+	log.AfterErrorConfig = syscfg.Loggie.ErrorAlertConfig
 
 	log.Info("pipelines config path: %s", pipelineConfigPath)
 	// pipeline config file
@@ -105,6 +110,9 @@ func main() {
 	if err != nil && !os.IsNotExist(err) && !errors.Is(err, control.ErrIgnoreAllFile) {
 		log.Fatal("unpack config.pipeline config file err: %v", err)
 	}
+
+	persistence.SetConfig(syscfg.Loggie.Db)
+	defer persistence.StopDbHandler()
 
 	controller := control.NewController()
 	controller.Start(pipecfgs)
@@ -125,6 +133,8 @@ func main() {
 
 	// api for debugging
 	helper.Setup(controller)
+	// api for get loggie Version
+	ops.Setup(controller)
 
 	if syscfg.Loggie.Http.Enabled {
 		go func() {

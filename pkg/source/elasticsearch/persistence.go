@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/olivere/elastic/v7"
+	"github.com/pkg/errors"
 	"time"
 )
 
@@ -31,9 +32,18 @@ type DBConfig struct {
 }
 
 type Offset struct {
-	Uid       interface{} `json:"uid"`
-	Score     interface{} `json:"score"`
-	CreatedAt time.Time   `json:"created_at"`
+	Sort      []interface{}          `json:"-"`
+	Body      map[string]interface{} `json:"sorts"`
+	CreatedAt time.Time              `json:"created_at"`
+}
+
+func (o *Offset) makeBody(keys []string) {
+	if o.Body == nil {
+		o.Body = make(map[string]interface{})
+	}
+	for i, k := range keys {
+		o.Body[k] = o.Sort[i]
+	}
 }
 
 type DB struct {
@@ -55,7 +65,6 @@ func (p *DB) Search(ctx context.Context) (*Offset, error) {
 	}
 	result, err := p.es.Search().
 		Index(p.index).
-		Sort("_id", true).
 		From(0).Size(1).
 		Do(ctx)
 	if err != nil {
@@ -77,8 +86,15 @@ func (p *DB) Search(ctx context.Context) (*Offset, error) {
 	return ost, nil
 }
 
-func (p *DB) Upsert(ctx context.Context, ost *Offset) error {
-	if _, err := p.es.Index().Index(p.index).Id("1").BodyJson(ost).Do(ctx); err != nil {
+func (p *DB) Upsert(ctx context.Context, ost *Offset, sortKeys []string) error {
+	ost.makeBody(sortKeys)
+	body, err := json.Marshal(ost)
+	if err != nil {
+		return errors.WithMessagef(err, "json marshal db offset")
+	}
+
+	if _, err := p.es.Index().Index(p.index).Id("1").BodyString(string(body)).
+		Do(ctx); err != nil {
 		return err
 	}
 

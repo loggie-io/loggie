@@ -9,12 +9,12 @@ import (
 	"github.com/segmentio/kafka-go/protocol/describeconfigs"
 )
 
-// DescribeConfigsRequest represents a request sent to a kafka broker to describe configs
+// DescribeConfigsRequest represents a request sent to a kafka broker to describe configs.
 type DescribeConfigsRequest struct {
 	// Address of the kafka broker to send the request to.
 	Addr net.Addr
 
-	// List of resources to update.
+	// List of resources to get details for.
 	Resources []DescribeConfigRequestResource
 
 	// Ignored if API version is less than v1
@@ -23,15 +23,6 @@ type DescribeConfigsRequest struct {
 	// Ignored if API version is less than v3
 	IncludeDocumentation bool
 }
-
-type ResourceType int8
-
-const (
-	// See https://github.com/apache/kafka/blob/trunk/clients/src/main/java/org/apache/kafka/common/config/ConfigResource.java#L36
-	ResourceTypeUnknown ResourceType = 0
-	ResourceTypeTopic   ResourceType = 2
-	ResourceTypeBroker  ResourceType = 4
-)
 
 type DescribeConfigRequestResource struct {
 	// Resource Type
@@ -53,7 +44,7 @@ type DescribeConfigsResponse struct {
 	Resources []DescribeConfigResponseResource
 }
 
-// DescribeConfigResponseResource
+// DescribeConfigResponseResource.
 type DescribeConfigResponseResource struct {
 	// Resource Type
 	ResourceType int8
@@ -68,7 +59,7 @@ type DescribeConfigResponseResource struct {
 	ConfigEntries []DescribeConfigResponseConfigEntry
 }
 
-// DescribeConfigResponseConfigEntry
+// DescribeConfigResponseConfigEntry.
 type DescribeConfigResponseConfigEntry struct {
 	ConfigName  string
 	ConfigValue string
@@ -92,7 +83,7 @@ type DescribeConfigResponseConfigEntry struct {
 	ConfigDocumentation string
 }
 
-// DescribeConfigResponseConfigSynonym
+// DescribeConfigResponseConfigSynonym.
 type DescribeConfigResponseConfigSynonym struct {
 	// Ignored if API version is less than v1
 	ConfigName string
@@ -122,7 +113,6 @@ func (c *Client) DescribeConfigs(ctx context.Context, req *DescribeConfigsReques
 		IncludeSynonyms:      req.IncludeSynonyms,
 		IncludeDocumentation: req.IncludeDocumentation,
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("kafka.(*Client).DescribeConfigs: %w", err)
 	}

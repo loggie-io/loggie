@@ -16,13 +16,11 @@ limitations under the License.
 
 package alertwebhook
 
-import "time"
+import (
+	"github.com/loggie-io/loggie/pkg/core/logalert"
+)
 
 type Config struct {
-	Addr      string            `yaml:"addr,omitempty"`
-	Template  string            `yaml:"template,omitempty"`
-	Timeout   time.Duration     `yaml:"timeout,omitempty" default:"30s"`
-	Headers   map[string]string `yaml:"headers,omitempty"`
-	Method    string            `yaml:"method,omitempty"`
-	LineLimit int               `yaml:"lineLimit" default:"10"`
+	Addr                 string `yaml:"addr,omitempty"`
+	logalert.AlertConfig `yaml:",inline"`
 }

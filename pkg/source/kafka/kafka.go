@@ -19,6 +19,7 @@ package kafka
 import (
 	"context"
 	"fmt"
+	"net"
 	"regexp"
 	"sync"
 	"time"
@@ -31,10 +32,18 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	kakfasink "github.com/loggie-io/loggie/pkg/sink/kafka"
+	kafkaSink "github.com/loggie-io/loggie/pkg/sink/kafka"
 )
 
-const Type = "kafka"
+const (
+	Type = "kafka"
+
+	fKafka     = "kafka"
+	fOffset    = "offset"
+	fPartition = "partition"
+	fTimestamp = "timestamp"
+	fTopic     = "topic"
+)
 
 func init() {
 	pipeline.Register(api.SOURCE, Type, makeSource)
@@ -80,7 +89,7 @@ func (k *Source) Init(context api.Context) error {
 
 func (k *Source) Start() error {
 	c := k.config
-	mechanism, err := kakfasink.Mechanism(c.SASL.Type, c.SASL.UserName, c.SASL.Password, c.SASL.Algorithm)
+	mechanism, err := kafkaSink.Mechanism(c.SASL.Type, c.SASL.UserName, c.SASL.Password, c.SASL.Algorithm)
 	if err != nil {
 		log.Error("kafka source sasl mechanism with error: %s", err.Error())
 		return err
@@ -94,6 +103,12 @@ func (k *Source) Start() error {
 
 	client := &kafka.Client{
 		Addr: kafka.TCP(k.config.Brokers...),
+		Transport: &kafka.Transport{
+			Dial: (&net.Dialer{
+				Timeout: 3 * time.Second,
+			}).DialContext,
+			SASL: mechanism,
+		},
 	}
 	kts, err := topics.ListRe(context.Background(), client, topicRegx)
 	if err != nil {
@@ -105,9 +120,17 @@ func (k *Source) Start() error {
 		groupTopics = append(groupTopics, t.Name)
 	}
 	if len(groupTopics) <= 0 {
-		return errors.Errorf("regex %s matched zero kafka topics", k.config.Topic)
+		return errors.Errorf("regex %s could not match any kafka topics", k.config.Topic)
 	}
 
+	dial := &kafka.Dialer{
+		Timeout:       10 * time.Second,
+		DualStack:     true,
+		SASLMechanism: mechanism,
+	}
+	if k.config.ClientId != "" {
+		dial.ClientID = k.config.ClientId
+	}
 	readerCfg := kafka.ReaderConfig{
 		Brokers:        k.config.Brokers,
 		GroupID:        k.config.GroupId,
@@ -121,11 +144,7 @@ func (k *Source) Start() error {
 		ReadBackoffMax: k.config.ReadBackoffMax,
 		CommitInterval: k.config.AutoCommitInterval,
 		StartOffset:    getAutoOffset(k.config.AutoOffsetReset),
-		Dialer: &kafka.Dialer{
-			Timeout:       10 * time.Second,
-			DualStack:     true,
-			SASLMechanism: mechanism,
-		},
+		Dialer:         dial,
 	}
 
 	k.consumer = kafka.NewReader(readerCfg)
@@ -134,14 +153,14 @@ func (k *Source) Start() error {
 
 func (k *Source) Stop() {
 	k.closeOnce.Do(func() {
+		close(k.done)
+
 		if k.consumer != nil {
 			err := k.consumer.Close()
 			if err != nil {
 				log.Error("close kafka consumer error: %+v", err)
 			}
 		}
-
-		close(k.done)
 	})
 }
 
@@ -149,56 +168,78 @@ func (k *Source) ProductLoop(productFunc api.ProductFunc) {
 	log.Info("%s start product loop", k.String())
 
 	if k.consumer == nil {
-		log.Error("kakfa consumer not initialized yet")
+		log.Error("kafka consumer not initialized yet")
 		return
 	}
 
-	for {
-		select {
-		case <-k.done:
-			return
+	wg := sync.WaitGroup{}
+	for i := 0; i < k.config.Worker; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-k.done:
+					return
 
-		default:
-			err := k.consume(productFunc)
-			if err != nil {
-				log.Error("%+v", err)
+				default:
+					err := k.consume(productFunc)
+					if err != nil {
+						log.Error("%+v", err)
+					}
+				}
 			}
-		}
+		}()
 	}
+
+	wg.Wait()
 }
 
 func (k *Source) consume(productFunc api.ProductFunc) error {
-
 	ctx := context.Background()
 	msg, err := k.consumer.FetchMessage(ctx)
 	if err != nil {
 		return errors.Errorf("consumer read message error: %v", err)
 	}
 
-	// auto commit message, commit before sink ack
-	if k.config.EnableAutoCommit {
-		err := k.consumer.CommitMessages(ctx, msg)
-		if err != nil {
-			return errors.Errorf("consumer auto commit message error: %v", err)
+	e := k.eventPool.Get()
+	header := e.Header()
+	if k.config.AddonMeta != nil && *k.config.AddonMeta == true {
+		if header == nil {
+			header = make(map[string]interface{})
+		}
+
+		// set default metadata
+		header[fKafka] = map[string]interface{}{
+			fOffset:    msg.Offset,
+			fPartition: msg.Partition,
+			fTimestamp: msg.Time.Format(time.RFC3339),
+			fTopic:     msg.Topic,
+		}
+		for _, h := range msg.Headers {
+			header[h.Key] = string(h.Value)
 		}
 	}
 
-	e := k.eventPool.Get()
-	header := e.Header()
-	if header == nil {
-		header = make(map[string]interface{})
-	}
-	header["kafka"] = map[string]interface{}{
-		"offset":    msg.Offset,
-		"partition": msg.Partition,
-		"timestamp": msg.Time.Format(time.RFC3339),
-		"topic":     msg.Topic,
+	meta := e.Meta()
+	if k.config.EnableAutoCommit {
+		// auto commit message, commit before sink ack
+		if err := k.consumer.CommitMessages(ctx, msg); err != nil {
+			return errors.Errorf("consumer auto commit message error: %v", err)
+		}
+
+	} else {
+		// set fields to metadata for kafka commit message
+		if meta == nil {
+			meta = event.NewDefaultMeta()
+		}
+		meta.Set(fOffset, msg.Offset)
+		meta.Set(fPartition, msg.Partition)
+		meta.Set(fTopic, msg.Topic)
 	}
 
-	for _, h := range msg.Headers {
-		header[h.Key] = string(h.Value)
-	}
-	e.Fill(e.Meta(), header, msg.Value)
+	e.Fill(meta, header, msg.Value)
+
 	productFunc(e)
 	return nil
 }
@@ -208,35 +249,32 @@ func (k *Source) Commit(events []api.Event) {
 	if !k.config.EnableAutoCommit {
 		var msgs []kafka.Message
 		for _, e := range events {
-			h := e.Header()
-			if _, exist := h["kafka"]; !exist {
-				continue
-			}
+			meta := e.Meta()
 
-			k, ok := h["kafka"].(map[string]interface{})
-			if !ok {
+			var mKafka, mPartition, mOffset interface{}
+			mKafka, exist := meta.Get(fKafka)
+			if !exist {
 				continue
 			}
-			if _, exist := k["topic"]; !exist {
+			mPartition, exist = meta.Get(fPartition)
+			if !exist {
 				continue
 			}
-			if _, exist := k["partition"]; !exist {
-				continue
-			}
-			if _, exist := k["offset"]; !exist {
+			mOffset, exist = meta.Get(fOffset)
+			if !exist {
 				continue
 			}
 
 			msgs = append(msgs, kafka.Message{
-				Topic:     k["topic"].(string),
-				Partition: k["partition"].(int),
-				Offset:    k["offset"].(int64),
+				Topic:     mKafka.(string),
+				Partition: mPartition.(int),
+				Offset:    mOffset.(int64),
 			})
 		}
 		if len(msgs) > 0 {
 			err := k.consumer.CommitMessages(context.Background(), msgs...)
 			if err != nil {
-				log.Error("consumer manually commit messgage error: %v", err)
+				log.Error("consumer manually commit message error: %v", err)
 			}
 		}
 	}

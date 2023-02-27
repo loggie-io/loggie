@@ -18,7 +18,7 @@ package alertwebhook
 
 import (
 	"github.com/loggie-io/loggie/pkg/core/api"
-	"github.com/loggie-io/loggie/pkg/core/batch"
+	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 )
@@ -26,9 +26,13 @@ import (
 const name = "webhookListener"
 
 type Listener struct {
-	sink       *Sink
-	bufferChan chan *eventbus.Event
-	done       chan struct{}
+	name                  string
+	sink                  *Sink
+	bufferChan            chan *eventbus.Event
+	done                  chan struct{}
+	SendNoDataAlertAtOnce bool
+	SendLoggieError       bool
+	SendLoggieErrorAtOnce bool
 }
 
 func (l *Listener) Init(context api.Context) error {
@@ -36,7 +40,7 @@ func (l *Listener) Init(context api.Context) error {
 }
 
 func (l *Listener) Name() string {
-	return name
+	return l.name
 }
 
 func (l *Listener) Config() interface{} {
@@ -45,12 +49,13 @@ func (l *Listener) Config() interface{} {
 
 func (l *Listener) Start() error {
 	l.bufferChan = make(chan *eventbus.Event, 0)
-	log.Info("starting alertWebhook listener")
+	log.Info("starting alertWebhook listener %s", l.name)
 	go l.run()
 	return nil
 }
 
 func (l *Listener) Stop() {
+	log.Info("stopping alertWebhook listener %s", l.name)
 	close(l.done)
 }
 
@@ -74,15 +79,36 @@ func (l *Listener) run() {
 	}
 }
 
-func (l *Listener) process(event *eventbus.Event) {
-	data, ok := event.Data.(*api.Event)
+func (l *Listener) process(e *eventbus.Event) {
+	if e.Topic == eventbus.NoDataTopic {
+		l.processWebhookTopic(e)
+	} else if e.Topic == eventbus.ErrorTopic {
+		l.processErrorTopic(e)
+	}
+
+}
+
+func (l *Listener) processWebhookTopic(e *eventbus.Event) {
+	data, ok := e.Data.(*api.Event)
 	if !ok {
 		log.Info("fail to convert data to event")
 		return
 	}
 
-	events := []api.Event{*data}
-	batchWithEvent := batch.NewBatchWithEvents(events)
-	l.sink.Consume(batchWithEvent)
-	batchWithEvent.Release()
+	if (*data).Header()[event.ReasonKey] == event.NoDataKey {
+		l.sink.sendAlerts([]api.Event{*data}, l.SendNoDataAlertAtOnce)
+	}
+
+}
+
+func (l *Listener) processErrorTopic(e *eventbus.Event) {
+	if !l.SendLoggieError {
+		return
+	}
+
+	errorData, ok := e.Data.(eventbus.ErrorMetricData)
+	if ok {
+		apiEvent := event.ErrorToEvent(errorData.ErrorMsg)
+		l.sink.sendAlerts([]api.Event{*apiEvent}, l.SendLoggieErrorAtOnce)
+	}
 }

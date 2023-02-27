@@ -74,11 +74,11 @@ func (r *Response) Merge(requests []protocol.Message, results []interface{}) (
 	response := &Response{}
 
 	for _, result := range results {
-		subResp := result.(*Response)
-
-		for _, group := range subResp.Groups {
-			response.Groups = append(response.Groups, group)
+		m, err := protocol.Result(result)
+		if err != nil {
+			return nil, err
 		}
+		response.Groups = append(response.Groups, m.(*Response).Groups...)
 	}
 
 	return response, nil
