@@ -24,7 +24,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"syscall"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/log"

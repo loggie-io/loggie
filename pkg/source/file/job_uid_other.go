@@ -1,9 +1,11 @@
+// +build linux darwin
+
 package file
 
 import (
 	"os"
-	"syscall"
 	"strconv"
+	"syscall"
 )
 
 func JobUid(file string,fileInfo os.FileInfo) string {
