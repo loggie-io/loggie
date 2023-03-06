@@ -152,23 +152,6 @@ eg:
     - {expression: " ${amount_total} / ${qty_total} ", as: avg_amount}
 ```
 
-## FAQs
-
-### Loggie vs Filebeat/Fluentd/Logstash/Flume
-
-|                                     | Loggie                                                                                                           | Filebeat     | Fluentd            | Logstash      | Flume         |
-|-------------------------------------|------------------------------------------------------------------------------------------------------------------|--------------|--------------------|---------------|---------------|
-| Language                            | Golang                                                                                                           | Golang       | Ruby               | JRuby         | Java          |
-| Multiple Pipelines                  | ✓                                                                                                                | single queue | single queue       | ✓             | ✓             |
-| Multiple output                     | ✓                                                                                                                | one output   | copy               | ✓             | ✓             |
-| Aggregator                          | ✓                                                                                                                | ✓            | ✓                  | ✓             | ✓             |
-| Log Alarm                           | ✓                                                                                                                |              |                    |               |               |
-| Kubernetes container log collection | support container stdout and logs files in container                                                             | stdout       | stdout             |               |               |
-| Configuration delivery              | through CRD                                                                                                      | manual       | manual             | manual        | manual        |
-| Monitoring                          | support Prometheus metrics，and can be configured to output indicator log files separately, sending metrics, etc. |              | prometheus metrics | need exporter | need exporter |
-| Resource Usage                      | low                                                                                                              | low          | average            | high          | high          |
-
-
 ### Observability and fast troubleshooting
 
 - Loggie provides configurable and rich metrics, and dashboards that can be imported into Grafana with one click.
@@ -202,6 +185,22 @@ eg:
   - Sink: [elasticsearch](https://loggie-io.github.io/docs-en/reference/pipelines/sink/elasticsearch/), [kafka](https://loggie-io.github.io/docs-en/reference/pipelines/sink/kafka/), [grpc](https://loggie-io.github.io/docs-en/reference/pipelines/sink/grpc/), [loki](https://loggie-io.github.io/docs-en/reference/pipelines/sink/loki/), [zinc](https://loggie-io.github.io/docs-en/reference/pipelines/sink/zinc/), [alertWebhook](https://loggie-io.github.io/docs-en/reference/pipelines/sink/webhook/), [dev](https://loggie-io.github.io/docs-en/reference/pipelines/sink/dev/)..
   - Interceptor: [transformer](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/transformer/), [schema](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/schema/), [limit](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/limit/), [logAlert](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/logalert/), [maxbytes](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/maxbytes/)..
 - CRD: [LogConfig](https://loggie-io.github.io/docs-en/reference/discovery/kubernetes/logconfig/), [ClusterLogConfig](https://loggie-io.github.io/docs-en/reference/discovery/kubernetes/clusterlogconfig/), [Sink](https://loggie-io.github.io/docs-en/reference/discovery/kubernetes/sink/), [Interceptor](https://loggie-io.github.io/docs-en/reference/discovery/kubernetes/interceptors/)
+
+## FAQs
+
+### Loggie vs Filebeat/Fluentd/Logstash/Flume
+
+|                                     | Loggie                                                                                                           | Filebeat     | Fluentd            | Logstash      | Flume         |
+|-------------------------------------|------------------------------------------------------------------------------------------------------------------|--------------|--------------------|---------------|---------------|
+| Language                            | Golang                                                                                                           | Golang       | Ruby               | JRuby         | Java          |
+| Multiple Pipelines                  | ✓                                                                                                                | single queue | single queue       | ✓             | ✓             |
+| Multiple output                     | ✓                                                                                                                | one output   | copy               | ✓             | ✓             |
+| Aggregator                          | ✓                                                                                                                | ✓            | ✓                  | ✓             | ✓             |
+| Log Alarm                           | ✓                                                                                                                |              |                    |               |               |
+| Kubernetes container log collection | support container stdout and logs files in container                                                             | stdout       | stdout             |               |               |
+| Configuration delivery              | through CRD                                                                                                      | manual       | manual             | manual        | manual        |
+| Monitoring                          | support Prometheus metrics，and can be configured to output indicator log files separately, sending metrics, etc. |              | prometheus metrics | need exporter | need exporter |
+| Resource Usage                      | low                                                                                                              | low          | average            | high          | high          |
 
 ## RoadMap
 [RoadMap 2023](https://loggie-io.github.io/docs-en/getting-started/roadmap/roadmap-2023/)
