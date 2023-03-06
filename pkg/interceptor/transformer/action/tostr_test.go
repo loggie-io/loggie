@@ -27,7 +27,8 @@ import (
 func Test1ConvertStr_Act(t *testing.T) {
 	assertions := assert.New(t)
 	type fields struct {
-		key string
+		key     string
+		srcType string
 	}
 	type args struct {
 		e api.Event
@@ -39,9 +40,10 @@ func Test1ConvertStr_Act(t *testing.T) {
 		want   api.Event
 	}{
 		{
-			name: "parse bool",
+			name: "parse bool without srcType",
 			fields: fields{
-				key: "a.b",
+				key:     "a.b",
+				srcType: "",
 			},
 			args: args{
 				e: event.NewEvent(map[string]interface{}{
@@ -57,9 +59,29 @@ func Test1ConvertStr_Act(t *testing.T) {
 			}, []byte("this is body")),
 		},
 		{
-			name: "parse int",
+			name: "parse bool with srcType",
 			fields: fields{
-				key: "a.b",
+				key:     "a.b",
+				srcType: "bool",
+			},
+			args: args{
+				e: event.NewEvent(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b": true,
+					},
+				}, []byte("this is body")),
+			},
+			want: event.NewEvent(map[string]interface{}{
+				"a": map[string]interface{}{
+					"b": "true",
+				},
+			}, []byte("this is body")),
+		},
+		{
+			name: "parse int without srcType",
+			fields: fields{
+				key:     "a.b",
+				srcType: "",
 			},
 			args: args{
 				e: event.NewEvent(map[string]interface{}{
@@ -75,9 +97,29 @@ func Test1ConvertStr_Act(t *testing.T) {
 			}, []byte("this is body")),
 		},
 		{
-			name: "parse float",
+			name: "parse int with srcType",
 			fields: fields{
-				key: "a.b",
+				key:     "a.b",
+				srcType: "int",
+			},
+			args: args{
+				e: event.NewEvent(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b": 200,
+					},
+				}, []byte("this is body")),
+			},
+			want: event.NewEvent(map[string]interface{}{
+				"a": map[string]interface{}{
+					"b": "200",
+				},
+			}, []byte("this is body")),
+		},
+		{
+			name: "parse float without srcType",
+			fields: fields{
+				key:     "a.b",
+				srcType: "",
 			},
 			args: args{
 				e: event.NewEvent(map[string]interface{}{
@@ -92,11 +134,107 @@ func Test1ConvertStr_Act(t *testing.T) {
 				},
 			}, []byte("this is body")),
 		},
+		{
+			name: "parse float with srcType",
+			fields: fields{
+				key:     "a.b",
+				srcType: "float",
+			},
+			args: args{
+				e: event.NewEvent(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b": float32(200.1),
+					},
+				}, []byte("this is body")),
+			},
+			want: event.NewEvent(map[string]interface{}{
+				"a": map[string]interface{}{
+					"b": "200.1",
+				},
+			}, []byte("this is body")),
+		},
+		{
+			name: "parse int64 without srcType",
+			fields: fields{
+				key:     "a.b",
+				srcType: "",
+			},
+			args: args{
+				e: event.NewEvent(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b": int64(200),
+					},
+				}, []byte("this is body")),
+			},
+			want: event.NewEvent(map[string]interface{}{
+				"a": map[string]interface{}{
+					"b": "200",
+				},
+			}, []byte("this is body")),
+		},
+		{
+			name: "parse int64 with srcType",
+			fields: fields{
+				key:     "a.b",
+				srcType: "int64",
+			},
+			args: args{
+				e: event.NewEvent(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b": int64(200),
+					},
+				}, []byte("this is body")),
+			},
+			want: event.NewEvent(map[string]interface{}{
+				"a": map[string]interface{}{
+					"b": "200",
+				},
+			}, []byte("this is body")),
+		},
+		{
+			name: "parse float64 without srcType",
+			fields: fields{
+				key:     "a.b",
+				srcType: "",
+			},
+			args: args{
+				e: event.NewEvent(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b": float64(200.1),
+					},
+				}, []byte("this is body")),
+			},
+			want: event.NewEvent(map[string]interface{}{
+				"a": map[string]interface{}{
+					"b": "200.1",
+				},
+			}, []byte("this is body")),
+		},
+		{
+			name: "parse float64 with srcType",
+			fields: fields{
+				key:     "a.b",
+				srcType: "float64",
+			},
+			args: args{
+				e: event.NewEvent(map[string]interface{}{
+					"a": map[string]interface{}{
+						"b": float64(200.1),
+					},
+				}, []byte("this is body")),
+			},
+			want: event.NewEvent(map[string]interface{}{
+				"a": map[string]interface{}{
+					"b": "200.1",
+				},
+			}, []byte("this is body")),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			s := &ConvertStr{
-				key: tt.fields.key,
+				key:     tt.fields.key,
+				srcType: tt.fields.srcType,
 			}
 			err := s.act(tt.args.e)
 			assertions.NoError(err)
