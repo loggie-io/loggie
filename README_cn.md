@@ -11,7 +11,9 @@ Loggie是一个基于Golang的轻量级、高性能、云原生日志采集Agent
 - **云原生的日志形态**：快速便捷的容器日志采集方式，原生的Kubernetes CRD动态配置下发
 - **生产级的特性**：基于长期的大规模运维经验，形成了全方位的可观测性、快速排障、异常预警、自动化运维能力
 
-![arch](https://loggie-io.github.io/docs/getting-started/imgs/loggie-arch.png)
+我们可以基于Loggie，打造一套的云原生可扩展的全链路日志数据平台。
+
+![](https://loggie-io.github.io/docs/user-guide/enterprise-practice/imgs/loggie-extend.png)
 
 
 ## 特性
@@ -45,6 +47,8 @@ spec:
     interceptorRef: default
 ```
 
+![crd-usage](https://loggie-io.github.io/docs/user-guide/use-in-kubernetes/imgs/loggie-crd-usage.png)
+
 #### 支持多种部署架构
 
 - **Agent**: 使用DaemonSet部署，无需业务容器挂载Volume即可采集日志文件
@@ -53,7 +57,9 @@ spec:
 
 - **Aggregator**: 支持Deployment独立部署成中转机形态，可接收聚合Loggie Agent发送的数据，也可单独用于消费处理各类数据源
 
-![crd-usage](https://loggie-io.github.io/docs/user-guide/use-in-kubernetes/imgs/loggie-crd-usage.png)
+但不管是哪种部署架构，Loggie仍然保持着简单直观的内部设计。
+
+![](https://loggie-io.github.io/docs/getting-started/imgs/loggie-arch.png)
 
 ### 轻量级和高性能
 
@@ -81,6 +87,8 @@ spec:
 
 ### 轻量级流式数据分析与监控
 日志本身是一种通用的，和平台、系统无关的数据，如何更好的利用到这些数据，是Loggie关注和主要发展的核心能力。
+
+![](https://loggie-io.github.io/docs/user-guide/enterprise-practice/imgs/loggie-chain.png)
 
 #### 实时解析和转换
 只需配置transformer interceptor，通过配置函数式的action，即可实现：

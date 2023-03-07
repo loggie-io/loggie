@@ -13,7 +13,9 @@ Loggie is a lightweight, high-performance, cloud-native agent and aggregator bas
 - Uses native Kubernetes CRD for operation and management.
 - Offers a range of observability, reliability, and automation features suitable for production environments.
 
-![](https://loggie-io.github.io/docs/getting-started/imgs/loggie-arch.png)
+Based on Loggie, we can build a cloud-native scalable log data platform.
+
+![](https://loggie-io.github.io/docs/user-guide/enterprise-practice/imgs/loggie-extend.png)
 
 ## Features
 
@@ -46,6 +48,8 @@ spec:
     interceptorRef: default
 ```
 
+![crd-usage](https://loggie-io.github.io/docs/user-guide/use-in-kubernetes/imgs/loggie-crd-usage.png)
+
 #### Multiple architectures
 
 - **Agent**: Deployed via DaemonSet, Loggie can collect log files without the need for containers to mount volumes.
@@ -54,7 +58,9 @@ spec:
 
 - **Aggregator**: Supports deployment as an independent intermediate machine, which can receive aggregated data sent by Loggie Agent and can also be used to consume and process various data sources.
 
-![crd-usage](https://loggie-io.github.io/docs/user-guide/use-in-kubernetes/imgs/loggie-crd-usage.png)
+But regardless of the deployment architecture, Loggie still maintains a simple and intuitive internal design.
+
+![](https://loggie-io.github.io/docs/getting-started/imgs/loggie-arch.png)
 
 ### High Performance
 
@@ -85,6 +91,8 @@ With sink concurrency configuration enabled, Loggie can:
 
 Logs are a universal data type and are not related to platforms or systems. How to better utilize this data is the core capability that Loggie focuses on and develops.
 
+![](https://loggie-io.github.io/docs/user-guide/enterprise-practice/imgs/loggie-chain.png)
+
 #### Real-time parsing and transformation
 
 With the configuration of transformer interceptors and the configuration of functional actions, Loggie can achieve:
@@ -92,13 +100,6 @@ With the configuration of transformer interceptors and the configuration of func
 - Parsing of various data formats (json, grok, regex, split, etc.)
 - Conversion of various fields (add, copy, move, set, del, fmt, etc.)
 - Support for conditional judgment and processing logic (if, else, return, dropEvent, ignoreError, etc.)
-
-Can be used for:
-
-- Extracting the log level from the log and dropping DEBUG logs
-- Processing logs with mixed json and plain formats by identifying the json format and processing it
-- Adding different fields based on the status code in access logs
-...
 
 eg:  
 ```yaml
@@ -118,7 +119,7 @@ interceptors:
 
 #### Detection, recognition, and alerting
 
-Helps you quickly detect potential problems and anomalies in the data and issue timely alerts.
+Helps you quickly detect potential problems and anomalies in the data and issue timely alerts. Support custom webhooks to connect to various alert channels.
 
 Supports matching methods such as:
 
@@ -127,13 +128,6 @@ Supports matching methods such as:
 - Regular expression matching
 - Conditional judgment
   - Field comparison: equal/less/greater...
-
-Supports two deployment forms:
-
-- Detection in the data collection link: simple and easy to use, no need for additional deployment.
-- Independent detection link: independent deployment of Aggregator, consuming Kafka/Elasticsearch data for matching and alerting.
-
-Both can support custom webhooks to connect to various alert channels.
 
 #### Log data aggregation and monitoring
 
@@ -162,6 +156,22 @@ eg:
 
   <img src="https://loggie-io.github.io/docs/user-guide/troubleshot/img/loggie-dashboard.png" width="1000"/>
 
+## FAQs
+
+### Loggie vs Filebeat/Fluentd/Logstash/Flume
+
+|                                     | Loggie                                                                                                           | Filebeat     | Fluentd            | Logstash      | Flume         |
+|-------------------------------------|------------------------------------------------------------------------------------------------------------------|--------------|--------------------|---------------|---------------|
+| Language                            | Golang                                                                                                           | Golang       | Ruby               | JRuby         | Java          |
+| Multiple Pipelines                  | ✓                                                                                                                | single queue | single queue       | ✓             | ✓             |
+| Multiple output                     | ✓                                                                                                                | one output   | copy               | ✓             | ✓             |
+| Aggregator                          | ✓                                                                                                                | ✓            | ✓                  | ✓             | ✓             |
+| Log Alarm                           | ✓                                                                                                                |              |                    |               |               |
+| Kubernetes container log collection | support container stdout and logs files in container                                                             | stdout       | stdout             |               |               |
+| Configuration delivery              | through CRD                                                                                                      | manual       | manual             | manual        | manual        |
+| Monitoring                          | support Prometheus metrics，and can be configured to output indicator log files separately, sending metrics, etc. |              | prometheus metrics | need exporter | need exporter |
+| Resource Usage                      | low                                                                                                              | low          | average            | high          | high          |
+
 
 ## [Documentation](https://loggie-io.github.io/docs-en/)
 
@@ -185,22 +195,6 @@ eg:
   - Sink: [elasticsearch](https://loggie-io.github.io/docs-en/reference/pipelines/sink/elasticsearch/), [kafka](https://loggie-io.github.io/docs-en/reference/pipelines/sink/kafka/), [grpc](https://loggie-io.github.io/docs-en/reference/pipelines/sink/grpc/), [loki](https://loggie-io.github.io/docs-en/reference/pipelines/sink/loki/), [zinc](https://loggie-io.github.io/docs-en/reference/pipelines/sink/zinc/), [alertWebhook](https://loggie-io.github.io/docs-en/reference/pipelines/sink/webhook/), [dev](https://loggie-io.github.io/docs-en/reference/pipelines/sink/dev/)..
   - Interceptor: [transformer](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/transformer/), [schema](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/schema/), [limit](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/limit/), [logAlert](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/logalert/), [maxbytes](https://loggie-io.github.io/docs-en/reference/pipelines/interceptor/maxbytes/)..
 - CRD: [LogConfig](https://loggie-io.github.io/docs-en/reference/discovery/kubernetes/logconfig/), [ClusterLogConfig](https://loggie-io.github.io/docs-en/reference/discovery/kubernetes/clusterlogconfig/), [Sink](https://loggie-io.github.io/docs-en/reference/discovery/kubernetes/sink/), [Interceptor](https://loggie-io.github.io/docs-en/reference/discovery/kubernetes/interceptors/)
-
-## FAQs
-
-### Loggie vs Filebeat/Fluentd/Logstash/Flume
-
-|                                     | Loggie                                                                                                           | Filebeat     | Fluentd            | Logstash      | Flume         |
-|-------------------------------------|------------------------------------------------------------------------------------------------------------------|--------------|--------------------|---------------|---------------|
-| Language                            | Golang                                                                                                           | Golang       | Ruby               | JRuby         | Java          |
-| Multiple Pipelines                  | ✓                                                                                                                | single queue | single queue       | ✓             | ✓             |
-| Multiple output                     | ✓                                                                                                                | one output   | copy               | ✓             | ✓             |
-| Aggregator                          | ✓                                                                                                                | ✓            | ✓                  | ✓             | ✓             |
-| Log Alarm                           | ✓                                                                                                                |              |                    |               |               |
-| Kubernetes container log collection | support container stdout and logs files in container                                                             | stdout       | stdout             |               |               |
-| Configuration delivery              | through CRD                                                                                                      | manual       | manual             | manual        | manual        |
-| Monitoring                          | support Prometheus metrics，and can be configured to output indicator log files separately, sending metrics, etc. |              | prometheus metrics | need exporter | need exporter |
-| Resource Usage                      | low                                                                                                              | low          | average            | high          | high          |
 
 ## RoadMap
 [RoadMap 2023](https://loggie-io.github.io/docs-en/getting-started/roadmap/roadmap-2023/)
