@@ -34,7 +34,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/util/persistence"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"github.com/pkg/errors"
-	"go.uber.org/automaxprocs/maxprocs"
+	//"go.uber.org/automaxprocs/maxprocs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -73,9 +73,9 @@ func main() {
 	stopCh := signals.SetupSignalHandler()
 
 	// Automatically set GOMAXPROCS to match Linux container CPU quota
-	if _, err := maxprocs.Set(maxprocs.Logger(log.Debug)); err != nil {
-		log.Fatal("set maxprocs error: %v", err)
-	}
+	//if _, err := maxprocs.Set(maxprocs.Logger(log.Debug)); err != nil {
+	//	log.Fatal("set maxprocs error: %v", err)
+	//}
 	log.Info("real GOMAXPROCS %d", runtime.GOMAXPROCS(-1))
 
 	global.NodeName = nodeName
