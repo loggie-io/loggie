@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	kubeclientset "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"strings"
 
@@ -128,12 +129,18 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 	}
 	external.Cluster = d.config.Cluster
 
-	if err := ctrl.Run(stopCh, kubeInformerFactory.Core().V1().Pods().Informer().HasSynced,
+	synced := []cache.InformerSynced{
+		kubeInformerFactory.Core().V1().Pods().Informer().HasSynced,
 		logConfInformerFactory.Loggie().V1beta1().LogConfigs().Informer().HasSynced,
 		logConfInformerFactory.Loggie().V1beta1().ClusterLogConfigs().Informer().HasSynced,
 		logConfInformerFactory.Loggie().V1beta1().Sinks().Informer().HasSynced,
 		logConfInformerFactory.Loggie().V1beta1().Interceptors().Informer().HasSynced,
-		logConfInformerFactory.Loggie().V1beta1().Vms().Informer().HasSynced); err != nil {
+	}
+	if d.config.VmMode {
+		synced = append(synced, logConfInformerFactory.Loggie().V1beta1().Vms().Informer().HasSynced)
+	}
+
+	if err := ctrl.Run(stopCh, synced...); err != nil {
 		log.Panic("Error running controller: %s", err.Error())
 	}
 }
