@@ -37,7 +37,7 @@ require (
 	github.com/twmb/franz-go v1.10.4
 	github.com/twmb/franz-go/pkg/sasl/kerberos v1.1.0
 	go.uber.org/atomic v1.7.0
-	go.uber.org/automaxprocs v0.0.0-20200415073007-b685be8c1c23
+	go.uber.org/automaxprocs v1.5.1
 	golang.org/x/net v0.0.0-20220812174116-3211cb980234
 	golang.org/x/text v0.3.7
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858

@@ -19,6 +19,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
 	"github.com/loggie-io/loggie/cmd/subcmd"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
@@ -35,11 +41,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"github.com/pkg/errors"
 	"go.uber.org/automaxprocs/maxprocs"
-	"net/http"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
 )
 
 var (
