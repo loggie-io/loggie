@@ -366,7 +366,7 @@ func (p *Pipeline) afterSinkConsumer(b api.Batch, result api.Result) {
 	}
 
 	if status == api.FAIL {
-		log.Error("consumer batch failed: %s", result.Error())
+		log.Error("sink sends batch failed: %s", result.Error())
 		return
 	}
 

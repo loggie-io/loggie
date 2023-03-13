@@ -18,6 +18,8 @@ package file
 
 import (
 	"fmt"
+	"gopkg.in/natefinch/lumberjack.v2"
+	"io"
 	"strings"
 	"time"
 
@@ -101,6 +103,15 @@ func (s *Sink) Start() error {
 		LocalTime:   c.LocalTime,
 		Compress:    c.Compress,
 		IdleTimeout: 5 * time.Minute,
+	}, func(filename string, options *Options) (io.WriteCloser, error) {
+		return &lumberjack.Logger{
+			Filename:   filename,
+			MaxSize:    options.MaxSize, // megabytes
+			MaxBackups: options.MaxBackups,
+			MaxAge:     options.MaxAge, // days
+			LocalTime:  options.LocalTime,
+			Compress:   options.Compress, // disabled by default
+		}, nil
 	})
 	if err != nil {
 		log.Panic("start multi file writer failed, error: %v", err)
@@ -164,6 +175,32 @@ func (s *Sink) selectFilename(e api.Event) (string, error) {
 		}
 	}
 	filename, err := s.filenamePattern.WithObject(headerObj).Render()
+	if err != nil {
+		return "", err
+	}
+	if len(dir) == 0 {
+		return filename, nil
+	}
+	var sb strings.Builder
+	sb.WriteString(dir)
+	sb.WriteString(filename)
+	return sb.String(), nil
+}
+
+func SelectFileName(e api.Event, consistent *consistent.Consistent, dirHashKeyPattern *pattern.Pattern, filenamePattern *pattern.Pattern) (string, error) {
+	var dir string
+	headerObj := runtime.NewObject(e.Header())
+	if consistent != nil {
+		dirHashKey, err := dirHashKeyPattern.WithObject(headerObj).Render()
+		if err != nil {
+			return "", err
+		}
+		dir, err = consistent.Get(dirHashKey)
+		if err != nil {
+			return "", err
+		}
+	}
+	filename, err := filenamePattern.WithObject(headerObj).Render()
 	if err != nil {
 		return "", err
 	}

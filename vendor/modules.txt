@@ -59,6 +59,15 @@ github.com/cespare/xxhash
 # github.com/cespare/xxhash/v2 v2.1.2
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
+# github.com/colinmarc/hdfs/v2 v2.3.0
+## explicit; go 1.17
+github.com/colinmarc/hdfs/v2
+github.com/colinmarc/hdfs/v2/hadoopconf
+github.com/colinmarc/hdfs/v2/internal/protocol/hadoop_common
+github.com/colinmarc/hdfs/v2/internal/protocol/hadoop_hdfs
+github.com/colinmarc/hdfs/v2/internal/rpc
+github.com/colinmarc/hdfs/v2/internal/sasl
+github.com/colinmarc/hdfs/v2/internal/transfer
 # github.com/creasty/defaults v1.5.1
 ## explicit; go 1.13
 github.com/creasty/defaults
@@ -289,6 +298,9 @@ github.com/jcmturner/dnsutils/v2
 ## explicit; go 1.7
 github.com/jcmturner/gofork/encoding/asn1
 github.com/jcmturner/gofork/x/crypto/pbkdf2
+# github.com/jcmturner/goidentity/v6 v6.0.1
+## explicit; go 1.13
+github.com/jcmturner/goidentity/v6
 # github.com/jcmturner/gokrb5/v8 v8.4.3
 ## explicit; go 1.16
 github.com/jcmturner/gokrb5/v8/asn1tools
@@ -320,6 +332,8 @@ github.com/jcmturner/gokrb5/v8/keytab
 github.com/jcmturner/gokrb5/v8/krberror
 github.com/jcmturner/gokrb5/v8/messages
 github.com/jcmturner/gokrb5/v8/pac
+github.com/jcmturner/gokrb5/v8/service
+github.com/jcmturner/gokrb5/v8/spnego
 github.com/jcmturner/gokrb5/v8/types
 # github.com/jcmturner/rpc/v2 v2.0.3
 ## explicit; go 1.13

@@ -17,6 +17,7 @@ limitations under the License.
 package file
 
 import (
+	"github.com/pkg/errors"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -24,7 +25,6 @@ import (
 
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/panjf2000/ants/v2"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 var (
@@ -46,6 +46,8 @@ type Message struct {
 	Data     []byte
 }
 
+type writerCloserClientFunc func(filename string, options *Options) (io.WriteCloser, error)
+
 type MultiFileWriter struct {
 	opt *Options
 
@@ -54,6 +56,8 @@ type MultiFileWriter struct {
 	writers map[string]*fw
 	workers *ants.Pool
 
+	wcFn writerCloserClientFunc
+
 	closed uint32 // Atomic flag indicating whether the writer has been closed.
 
 	ticker *time.Ticker
@@ -61,7 +65,7 @@ type MultiFileWriter struct {
 	done   chan struct{} // closed when flushLoop has stopped
 }
 
-func NewMultiFileWriter(opt *Options) (*MultiFileWriter, error) {
+func NewMultiFileWriter(opt *Options, clientFunc writerCloserClientFunc) (*MultiFileWriter, error) {
 	pool, err := ants.NewPool(
 		opt.WorkerCount,
 		ants.WithExpiryDuration(60*time.Second),
@@ -72,6 +76,7 @@ func NewMultiFileWriter(opt *Options) (*MultiFileWriter, error) {
 	}
 	w := &MultiFileWriter{
 		opt:     opt,
+		wcFn:    clientFunc,
 		writers: make(map[string]*fw, opt.WorkerCount),
 		workers: pool,
 		ticker:  time.NewTicker(30 * time.Second),
@@ -91,13 +96,17 @@ func (w *MultiFileWriter) Write(msgs ...Message) error {
 		return nil
 	}
 
+	// TODO reduce gc
 	assignments := make(map[string][]int32)
 	for i := range msgs {
 		assignments[msgs[i].Filename] = append(assignments[msgs[i].Filename], int32(i))
 	}
 
 	for key, indexes := range assignments {
-		writer := w.getWriter(key)
+		writer, err := w.getWriter(key)
+		if err != nil {
+			return errors.WithMessagef(err, "get writer")
+		}
 		is := indexes
 		w.workers.Submit(func() {
 			for _, i := range is {
@@ -159,18 +168,23 @@ func (w *MultiFileWriter) flushLoop() {
 	}
 }
 
-func (w *MultiFileWriter) getWriter(fn string) *Writer {
+func (w *MultiFileWriter) getWriter(fn string) (*Writer, error) {
 	w.wsMu.Lock()
 	defer w.wsMu.Unlock()
 	v, ok := w.writers[fn]
 	if !ok {
-		wc := &lumberjack.Logger{
-			Filename:   fn,
-			MaxSize:    w.opt.MaxSize, // megabytes
-			MaxBackups: w.opt.MaxBackups,
-			MaxAge:     w.opt.MaxAge, // days
-			LocalTime:  w.opt.LocalTime,
-			Compress:   w.opt.Compress, // disabled by default
+		//wc := &lumberjack.Logger{
+		//	Filename:   fn,
+		//	MaxSize:    w.opt.MaxSize, // megabytes
+		//	MaxBackups: w.opt.MaxBackups,
+		//	MaxAge:     w.opt.MaxAge, // days
+		//	LocalTime:  w.opt.LocalTime,
+		//	Compress:   w.opt.Compress, // disabled by default
+		//}
+
+		wc, err := w.wcFn(fn, w.opt)
+		if err != nil {
+			return nil, errors.WithMessagef(err, "get writer client")
 		}
 		v = &fw{
 			Writer: &Writer{
@@ -178,7 +192,7 @@ func (w *MultiFileWriter) getWriter(fn string) *Writer {
 				AutoFlushDisabled: true,
 			},
 			filename: fn,
-			wc:       wc,
+			//wc:       wc,
 		}
 		v.timer = time.AfterFunc(w.opt.IdleTimeout, func() {
 			w.wsMu.Lock()
@@ -190,7 +204,7 @@ func (w *MultiFileWriter) getWriter(fn string) *Writer {
 	} else {
 		v.timer.Reset(w.opt.IdleTimeout)
 	}
-	return v.Writer
+	return v.Writer, nil
 }
 
 func (w *MultiFileWriter) markClosed() error {
@@ -208,8 +222,8 @@ type fw struct {
 	*Writer
 
 	filename string
-	wc       *lumberjack.Logger
-	timer    *time.Timer
+	//wc       *lumberjack.Logger
+	timer *time.Timer
 }
 
 func (f *fw) Close() error {
@@ -220,7 +234,7 @@ func (f *fw) Close() error {
 		log.Error("stop file(name:%s) writer error, err: %v", f.filename, err)
 	}
 
-	if err := f.wc.Close(); err != nil {
+	if err := f.Writer.W.Close(); err != nil {
 		log.Error("close file(name:%s) writer error, err: %v", f.filename, err)
 	}
 	return nil

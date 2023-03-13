@@ -73,6 +73,7 @@ require (
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
 	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
 	github.com/jcmturner/gofork v1.7.6 // indirect
+	github.com/jcmturner/goidentity/v6 v6.0.1 // indirect
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/keybase/go-keychain v0.0.0-20190712205309-48d3d31d256d // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
@@ -162,6 +163,7 @@ require (
 )
 
 require (
+	github.com/colinmarc/hdfs/v2 v2.3.0
 	github.com/mattn/go-sqlite3 v1.11.0
 	k8s.io/metrics v0.25.4
 	sigs.k8s.io/controller-runtime v0.13.1

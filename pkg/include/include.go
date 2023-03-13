@@ -53,6 +53,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/sink/file"
 	_ "github.com/loggie-io/loggie/pkg/sink/franz"
 	_ "github.com/loggie-io/loggie/pkg/sink/grpc"
+	_ "github.com/loggie-io/loggie/pkg/sink/hdfs"
 	_ "github.com/loggie-io/loggie/pkg/sink/kafka"
 	_ "github.com/loggie-io/loggie/pkg/sink/loki"
 	_ "github.com/loggie-io/loggie/pkg/sink/pulsar"

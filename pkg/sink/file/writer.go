@@ -34,7 +34,7 @@ const (
 
 type Writer struct {
 	// This field is required.
-	W io.Writer
+	W io.WriteCloser
 
 	// Size specifies the maximum amount of data the writer will buffered
 	// before flushing.

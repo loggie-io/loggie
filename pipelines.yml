@@ -1,15 +1,26 @@
+#
 pipelines:
   - name: local
     sources:
       - type: file
         name: demo
+        addonMeta: true
         paths:
           - /tmp/log/*.log
-        fields:
-          topic: "loggie"
+    interceptors:
+      - type: transformer
+        actions:
+          - action: regex(state.filename)
+            pattern: /.*[\/](?<filename>.+)
+          - action: del(state)
     sink:
-      type: dev
-      codec:
-        type: json
-        printEvents: true
-        pretty: true
+#      type: dev
+#      codec:
+#        type: json
+#        printEvents: true
+#        pretty: true
+      type: hdfs
+      nameNode: ["8.130.111.134:9000"]
+      baseDirs:
+        - /tmp/bp3/
+      filename: ${filename}

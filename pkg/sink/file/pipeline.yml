@@ -1,0 +1,40 @@
+---
+# Source from file: /var/log/a.log
+# Sink to: /tmp/backup/var/log/a.log
+pipelines:
+  - name: local
+    sources:
+      - type: file
+        name: demo
+        addonMeta: true # add state.filename fields
+        paths:
+          - /var/log/*.log
+    sink:
+      type: file
+      baseDirs:
+        - /tmp/backup/
+      filename: ${state.filename} # filename including the path, eg: `/var/log/a.log`
+
+---
+# Source from file: /var/log/a.log
+# Sink to: /tmp/backup/a.log
+pipelines:
+  - name: local
+    sources:
+      - type: file
+        name: demo
+        addonMeta: true
+        paths:
+          - /var/log/*.log
+    interceptors:
+      - type: transformer # extra filename and remove the path, result: `a.log`
+        actions:
+          - action: regex(state.filename)
+            pattern: /.*[\/](?<filename>.+)
+          - action: del(state)
+    sink:
+      type: file
+      baseDirs:
+        - /tmp/backup/
+      filename: ${filename}
+
