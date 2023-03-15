@@ -36,6 +36,7 @@ import (
 const (
 	handleHelper              = "/api/v1/help"
 	HandleHelperLogCollection = "/api/v1/help/log"
+	HandleHelperVersion       = "/version"
 
 	modulePipeline = "pipeline"
 	moduleLog      = "log"
@@ -61,6 +62,7 @@ func Setup(controller *control.Controller) {
 
 	http.HandleFunc(handleHelper, helperIns.helperHandler)
 	http.HandleFunc(HandleHelperLogCollection, helperIns.helperLogCollectionHandler)
+	http.HandleFunc(HandleHelperVersion, helperIns.HelperVersionHandler)
 }
 
 func (h *Helper) helperHandler(writer http.ResponseWriter, request *http.Request) {
@@ -95,6 +97,7 @@ func printUsage() string {
 	sb.WriteString(SprintfWithLF("|--- view details: /api/v1/help?detail=<module>, module is one of: %s/%s", modulePipeline, moduleLog))
 	sb.WriteString(SprintfWithLF("|--- query by pipeline name: /api/v1/help?pipeline=<name>"))
 	sb.WriteString(SprintfWithLF("|--- query by source name: /api/v1/help?source=<name>"))
+	sb.WriteString(SprintfWithLF("|--- query by version: /version"))
 
 	sb.WriteString(CRLF())
 	return sb.String()
