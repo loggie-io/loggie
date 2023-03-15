@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/ops"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -130,6 +131,8 @@ func main() {
 
 	// api for debugging
 	helper.Setup(controller)
+	// api for get loggie Version
+	ops.Setup(controller)
 
 	if syscfg.Loggie.Http.Enabled {
 		go func() {
