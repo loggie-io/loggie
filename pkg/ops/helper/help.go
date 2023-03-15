@@ -23,7 +23,6 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/reloader"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/eventbus"
-	"github.com/loggie-io/loggie/pkg/ops"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/source/file"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
@@ -37,7 +36,6 @@ import (
 const (
 	handleHelper              = "/api/v1/help"
 	HandleHelperLogCollection = "/api/v1/help/log"
-	HandleHelperVersion       = "/version"
 
 	modulePipeline = "pipeline"
 	moduleLog      = "log"
@@ -63,7 +61,6 @@ func Setup(controller *control.Controller) {
 
 	http.HandleFunc(handleHelper, helperIns.helperHandler)
 	http.HandleFunc(HandleHelperLogCollection, helperIns.helperLogCollectionHandler)
-	http.HandleFunc(HandleHelperVersion, ops.VersionHandler)
 }
 
 func (h *Helper) helperHandler(writer http.ResponseWriter, request *http.Request) {
@@ -98,7 +95,6 @@ func printUsage() string {
 	sb.WriteString(SprintfWithLF("|--- view details: /api/v1/help?detail=<module>, module is one of: %s/%s", modulePipeline, moduleLog))
 	sb.WriteString(SprintfWithLF("|--- query by pipeline name: /api/v1/help?pipeline=<name>"))
 	sb.WriteString(SprintfWithLF("|--- query by source name: /api/v1/help?source=<name>"))
-	sb.WriteString(SprintfWithLF("|--- query by version: /version"))
 
 	sb.WriteString(CRLF())
 	return sb.String()

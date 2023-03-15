@@ -18,12 +18,30 @@ package ops
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/global"
 	"net/http"
 	"strings"
 )
 
-func VersionHandler(writer http.ResponseWriter, request *http.Request) {
+const (
+	HandleVersion = "/version"
+)
+
+var VersionIns *Version
+
+type Version struct {
+	controller *control.Controller
+}
+
+func Setup(controller *control.Controller) {
+	VersionIns = &Version{
+		controller: controller,
+	}
+	http.HandleFunc(HandleVersion, VersionIns.VersionHandler)
+}
+
+func (h *Version) VersionHandler(writer http.ResponseWriter, request *http.Request) {
 	var sb strings.Builder
 
 	sb.WriteString(fmt.Sprintf((global.GetVersion() + "\n")))
