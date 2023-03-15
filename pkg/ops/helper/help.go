@@ -23,6 +23,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/reloader"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/ops"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/source/file"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
@@ -62,7 +63,7 @@ func Setup(controller *control.Controller) {
 
 	http.HandleFunc(handleHelper, helperIns.helperHandler)
 	http.HandleFunc(HandleHelperLogCollection, helperIns.helperLogCollectionHandler)
-	http.HandleFunc(HandleHelperVersion, helperIns.HelperVersionHandler)
+	http.HandleFunc(HandleHelperVersion, ops.VersionHandler)
 }
 
 func (h *Helper) helperHandler(writer http.ResponseWriter, request *http.Request) {

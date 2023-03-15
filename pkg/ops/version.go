@@ -14,19 +14,19 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package helper
+package ops
 
 import (
+	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/global"
 	"net/http"
 	"strings"
 )
 
-func (h *Helper) HelperVersionHandler(writer http.ResponseWriter, request *http.Request) {
+func VersionHandler(writer http.ResponseWriter, request *http.Request) {
 	var sb strings.Builder
 
-	sb.WriteString(SprintfWithLF(global.GetVersion()))
-	sb.WriteString(CRLF())
+	sb.WriteString(fmt.Sprintf((global.GetVersion() + "\n")))
 	writer.WriteHeader(http.StatusOK)
 	writer.Write([]byte(sb.String()))
 
