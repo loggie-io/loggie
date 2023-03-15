@@ -131,7 +131,7 @@ func main() {
 
 	// api for debugging
 	helper.Setup(controller)
-	// api for getVersion
+	// api for get loggie Version
 	ops.Setup(controller)
 
 	if syscfg.Loggie.Http.Enabled {
