@@ -56,6 +56,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/sink/kafka"
 	_ "github.com/loggie-io/loggie/pkg/sink/loki"
 	_ "github.com/loggie-io/loggie/pkg/sink/pulsar"
+	_ "github.com/loggie-io/loggie/pkg/sink/skafka"
 	_ "github.com/loggie-io/loggie/pkg/sink/sls"
 	_ "github.com/loggie-io/loggie/pkg/sink/zinc"
 	_ "github.com/loggie-io/loggie/pkg/source/codec/json"
@@ -68,5 +69,6 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/source/kafka"
 	_ "github.com/loggie-io/loggie/pkg/source/kubernetes_event"
 	_ "github.com/loggie-io/loggie/pkg/source/prometheus_exporter"
+	_ "github.com/loggie-io/loggie/pkg/source/skafka"
 	_ "github.com/loggie-io/loggie/pkg/source/unix"
 )
