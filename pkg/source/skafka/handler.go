@@ -7,7 +7,6 @@ import (
 
 type ConsumerHandler struct {
 	lock            *sync.RWMutex
-	topics          []string
 	ReadBufferChan  chan *sessMsg
 	ready           chan bool
 	highWaterOffset map[int32]int64
