@@ -416,7 +416,18 @@ func (p *connPool) roundTrip(ctx context.Context, req Request) (Response, error)
 		// we didn't have that topic in our cache so we should update
 		// the cache.
 		if m.AllowAutoTopicCreation {
-			p.refreshMetadata(ctx, m.TopicNames)
+			topicsToRefresh := make([]string, 0, len(resp.Topics))
+			for _, topic := range resp.Topics {
+				// fixes issue 806: don't refresh topics that failed to create,
+				// it may means kafka doesn't enable auto topic creation.
+				// This causes the library to hang indefinitely, same as createtopics process.
+				if topic.ErrorCode != 0 {
+					continue
+				}
+
+				topicsToRefresh = append(topicsToRefresh, topic.Name)
+			}
+			p.refreshMetadata(ctx, topicsToRefresh)
 		}
 	}
 
@@ -585,10 +596,7 @@ func (p *connPool) discover(ctx context.Context, wake <-chan event) {
 			p.update(ctx, nil, err)
 		} else {
 			res := make(async, 1)
-			req := &meta.Request{
-				IncludeClusterAuthorizedOperations: true,
-				IncludeTopicAuthorizedOperations:   true,
-			}
+			req := &meta.Request{}
 			deadline, cancel := context.WithTimeout(ctx, p.metadataTTL)
 			c.reqs <- connRequest{
 				ctx: deadline,
@@ -597,7 +605,7 @@ func (p *connPool) discover(ctx context.Context, wake <-chan event) {
 			}
 			r, err := res.await(deadline)
 			cancel()
-			if err != nil && err == ctx.Err() {
+			if err != nil && errors.Is(err, ctx.Err()) {
 				return
 			}
 			ret, _ := r.(*meta.Response)
@@ -972,16 +980,12 @@ func (g *connGroup) grabConnOrConnect(ctx context.Context) (*conn, error) {
 		broker := g.broker
 
 		if broker.ID < 0 {
-			host, port, err := net.SplitHostPort(addr.String())
+			host, port, err := splitHostPortNumber(addr.String())
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", addr, err)
-			}
-			portNumber, err := strconv.Atoi(port)
-			if err != nil {
-				return nil, fmt.Errorf("%s: %w", addr, err)
+				return nil, err
 			}
 			broker.Host = host
-			broker.Port = portNumber
+			broker.Port = port
 		}
 
 		ipAddrs, err := rslv.LookupBrokerIPAddr(ctx, broker)
@@ -1166,8 +1170,8 @@ func (g *connGroup) connect(ctx context.Context, addr net.Addr) (*conn, error) {
 	}()
 
 	if tlsConfig := g.pool.tls; tlsConfig != nil {
-		if tlsConfig.ServerName == "" && !tlsConfig.InsecureSkipVerify {
-			host, _, _ := net.SplitHostPort(netAddr.String())
+		if tlsConfig.ServerName == "" {
+			host, _ := splitHostPort(netAddr.String())
 			tlsConfig = tlsConfig.Clone()
 			tlsConfig.ServerName = host
 		}
@@ -1197,7 +1201,15 @@ func (g *connGroup) connect(ctx context.Context, addr net.Addr) (*conn, error) {
 	pc.SetDeadline(time.Time{})
 
 	if g.pool.sasl != nil {
-		if err := authenticateSASL(ctx, pc, g.pool.sasl); err != nil {
+		host, port, err := splitHostPortNumber(netAddr.String())
+		if err != nil {
+			return nil, err
+		}
+		metadata := &sasl.Metadata{
+			Host: host,
+			Port: port,
+		}
+		if err := authenticateSASL(sasl.WithMetadata(ctx, metadata), pc, g.pool.sasl); err != nil {
 			return nil, err
 		}
 	}
@@ -1274,14 +1286,14 @@ func authenticateSASL(ctx context.Context, pc *protocol.Conn, mechanism sasl.Mec
 
 	for completed := false; !completed; {
 		challenge, err := saslAuthenticateRoundTrip(pc, state)
-		switch err {
-		case nil:
-		case io.EOF:
-			// the broker may communicate a failed exchange by closing the
-			// connection (esp. in the case where we're passing opaque sasl
-			// data over the wire since there's no protocol info).
-			return SASLAuthenticationFailed
-		default:
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				// the broker may communicate a failed exchange by closing the
+				// connection (esp. in the case where we're passing opaque sasl
+				// data over the wire since there's no protocol info).
+				return SASLAuthenticationFailed
+			}
+
 			return err
 		}
 

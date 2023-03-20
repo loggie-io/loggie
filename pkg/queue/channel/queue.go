@@ -80,7 +80,7 @@ func (c *Queue) Init(context api.Context) error {
 	c.name = context.Name()
 	c.countDown = &sync.WaitGroup{}
 
-	log.Info("sinCount: %d", c.sinkCount)
+	log.Info("sink count: %d", c.sinkCount)
 	log.Info("%s batch size: %d", c.String(),
 		c.config.BatchSize)
 	c.out = make(chan api.Batch, c.sinkCount)

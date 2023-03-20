@@ -1,6 +1,7 @@
 package defaults
 
 import (
+	"encoding"
 	"encoding/json"
 	"errors"
 	"reflect"
@@ -59,7 +60,12 @@ func setField(field reflect.Value, defaultVal string) error {
 		return nil
 	}
 
-	if isInitialValue(field) {
+	isInitial := isInitialValue(field)
+	if isInitial {
+		if unmarshalByInterface(field, defaultVal) {
+			return nil
+		}
+
 		switch field.Kind() {
 		case reflect.Bool:
 			if val, err := strconv.ParseBool(defaultVal); err == nil {
@@ -153,8 +159,10 @@ func setField(field reflect.Value, defaultVal string) error {
 
 	switch field.Kind() {
 	case reflect.Ptr:
-		setField(field.Elem(), defaultVal)
-		callSetter(field.Interface())
+		if isInitial || field.Elem().Kind() == reflect.Struct {
+			setField(field.Elem(), defaultVal)
+			callSetter(field.Interface())
+		}
 	case reflect.Struct:
 		if err := Set(field.Addr().Interface()); err != nil {
 			return err
@@ -165,9 +173,48 @@ func setField(field reflect.Value, defaultVal string) error {
 				return err
 			}
 		}
+	case reflect.Map:
+		for _, e := range field.MapKeys() {
+			var v = field.MapIndex(e)
+
+			switch v.Kind() {
+			case reflect.Ptr:
+				switch v.Elem().Kind() {
+				case reflect.Struct, reflect.Slice, reflect.Map:
+					if err := setField(v.Elem(), ""); err != nil {
+						return err
+					}
+				}
+			case reflect.Struct, reflect.Slice, reflect.Map:
+				ref := reflect.New(v.Type())
+				ref.Elem().Set(v)
+				if err := setField(ref.Elem(), ""); err != nil {
+					return err
+				}
+				field.SetMapIndex(e, ref.Elem().Convert(v.Type()))
+			}
+		}
 	}
 
 	return nil
+}
+
+func unmarshalByInterface(field reflect.Value, defaultVal string) bool {
+	asText, ok := field.Addr().Interface().(encoding.TextUnmarshaler)
+	if ok && defaultVal != "" {
+		// if field implements encode.TextUnmarshaler, try to use it before decode by kind
+		if err := asText.UnmarshalText([]byte(defaultVal)); err == nil {
+			return true
+		}
+	}
+	asJSON, ok := field.Addr().Interface().(json.Unmarshaler)
+	if ok && defaultVal != "" && defaultVal != "{}" && defaultVal != "[]" {
+		// if field implements json.Unmarshaler, try to use it before decode by kind
+		if err := asJSON.UnmarshalJSON([]byte(defaultVal)); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func isInitialValue(field reflect.Value) bool {
@@ -183,6 +230,8 @@ func shouldInitializeField(field reflect.Value, tag string) bool {
 			return true
 		}
 	case reflect.Slice:
+		return field.Len() > 0 || tag != ""
+	case reflect.Map:
 		return field.Len() > 0 || tag != ""
 	}
 

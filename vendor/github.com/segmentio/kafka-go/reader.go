@@ -20,7 +20,7 @@ const (
 
 const (
 	// defaultCommitRetries holds the number commit attempts to make
-	// before giving up
+	// before giving up.
 	defaultCommitRetries = 3
 )
 
@@ -38,7 +38,7 @@ var (
 
 const (
 	// defaultReadBackoffMax/Min sets the boundaries for how long the reader wait before
-	// polling for new messages
+	// polling for new messages.
 	defaultReadBackoffMin = 100 * time.Millisecond
 	defaultReadBackoffMax = 1 * time.Second
 )
@@ -142,23 +142,8 @@ func (r *Reader) subscribe(allAssignments map[string][]PartitionAssignment) {
 	})
 }
 
-func (r *Reader) waitThrottleTime(throttleTimeMS int32) {
-	if throttleTimeMS == 0 {
-		return
-	}
-
-	t := time.NewTimer(time.Duration(throttleTimeMS) * time.Millisecond)
-	defer t.Stop()
-
-	select {
-	case <-r.stctx.Done():
-		return
-	case <-t.C:
-	}
-}
-
 // commitOffsetsWithRetry attempts to commit the specified offsets and retries
-// up to the specified number of times
+// up to the specified number of times.
 func (r *Reader) commitOffsetsWithRetry(gen *Generation, offsetStash offsetStash, retries int) (err error) {
 	const (
 		backoffDelayMin = 100 * time.Millisecond
@@ -180,10 +165,10 @@ func (r *Reader) commitOffsetsWithRetry(gen *Generation, offsetStash offsetStash
 	return // err will not be nil
 }
 
-// offsetStash holds offsets by topic => partition => offset
+// offsetStash holds offsets by topic => partition => offset.
 type offsetStash map[string]map[int]int64
 
-// merge updates the offsetStash with the offsets from the provided messages
+// merge updates the offsetStash with the offsets from the provided messages.
 func (o offsetStash) merge(commits []commit) {
 	for _, c := range commits {
 		offsetsByPartition, ok := o[c.topic]
@@ -198,20 +183,39 @@ func (o offsetStash) merge(commits []commit) {
 	}
 }
 
-// reset clears the contents of the offsetStash
+// reset clears the contents of the offsetStash.
 func (o offsetStash) reset() {
 	for key := range o {
 		delete(o, key)
 	}
 }
 
-// commitLoopImmediate handles each commit synchronously
+// commitLoopImmediate handles each commit synchronously.
 func (r *Reader) commitLoopImmediate(ctx context.Context, gen *Generation) {
 	offsets := offsetStash{}
 
 	for {
 		select {
 		case <-ctx.Done():
+			// drain the commit channel and prepare a single, final commit.
+			// the commit will combine any outstanding requests and the result
+			// will be sent back to all the callers of CommitMessages so that
+			// they can return.
+			var errchs []chan<- error
+			for hasCommits := true; hasCommits; {
+				select {
+				case req := <-r.commits:
+					offsets.merge(req.commits)
+					errchs = append(errchs, req.errch)
+				default:
+					hasCommits = false
+				}
+			}
+			err := r.commitOffsetsWithRetry(gen, offsets, defaultCommitRetries)
+			for _, errch := range errchs {
+				// NOTE : this will be a buffered channel and will not block.
+				errch <- err
+			}
 			return
 
 		case req := <-r.commits:
@@ -223,7 +227,7 @@ func (r *Reader) commitLoopImmediate(ctx context.Context, gen *Generation) {
 }
 
 // commitLoopInterval handles each commit asynchronously with a period defined
-// by ReaderConfig.CommitInterval
+// by ReaderConfig.CommitInterval.
 func (r *Reader) commitLoopInterval(ctx context.Context, gen *Generation) {
 	ticker := time.NewTicker(r.config.CommitInterval)
 	defer ticker.Stop()
@@ -264,7 +268,7 @@ func (r *Reader) commitLoopInterval(ctx context.Context, gen *Generation) {
 	}
 }
 
-// commitLoop processes commits off the commit chan
+// commitLoop processes commits off the commit chan.
 func (r *Reader) commitLoop(ctx context.Context, gen *Generation) {
 	r.withLogger(func(l Logger) {
 		l.Printf("started commit for group %s\n", r.config.GroupID)
@@ -273,7 +277,7 @@ func (r *Reader) commitLoop(ctx context.Context, gen *Generation) {
 		l.Printf("stopped commit for group %s\n", r.config.GroupID)
 	})
 
-	if r.config.CommitInterval == 0 {
+	if r.useSyncCommits() {
 		r.commitLoopImmediate(ctx, gen)
 	} else {
 		r.commitLoopInterval(ctx, gen)
@@ -302,7 +306,7 @@ func (r *Reader) run(cg *ConsumerGroup) {
 			if err == nil {
 				break
 			}
-			if err == r.stctx.Err() {
+			if errors.Is(err, r.stctx.Err()) {
 				return
 			}
 			r.stats.errors.observe(1)
@@ -393,6 +397,11 @@ type ReaderConfig struct {
 	//
 	// Default: 10s
 	MaxWait time.Duration
+
+	// ReadBatchTimeout amount of time to wait to fetch message from kafka messages batch.
+	//
+	// Default: 10s
+	ReadBatchTimeout time.Duration
 
 	// ReadLagInterval sets the frequency at which the reader lag is updated.
 	// Setting this field to a negative value disables lag reporting.
@@ -501,10 +510,16 @@ type ReaderConfig struct {
 	// non-transactional and committed records are visible.
 	IsolationLevel IsolationLevel
 
-	// Limit of how many attempts will be made before delivering the error.
+	// Limit of how many attempts to connect will be made before returning the error.
 	//
 	// The default is to try 3 times.
 	MaxAttempts int
+
+	// OffsetOutOfRangeError indicates that the reader should return an error in
+	// the event of an OffsetOutOfRange error, rather than retrying indefinitely.
+	// This flag is being added to retain backwards-compatibility, so it will be
+	// removed in a future version of kafka-go.
+	OffsetOutOfRangeError bool
 }
 
 // Validate method validates ReaderConfig properties.
@@ -514,15 +529,15 @@ func (config *ReaderConfig) Validate() error {
 	}
 
 	if config.Partition < 0 || config.Partition >= math.MaxInt32 {
-		return errors.New(fmt.Sprintf("partition number out of bounds: %d", config.Partition))
+		return fmt.Errorf("partition number out of bounds: %d", config.Partition)
 	}
 
 	if config.MinBytes < 0 {
-		return errors.New(fmt.Sprintf("invalid negative minimum batch size (min = %d)", config.MinBytes))
+		return fmt.Errorf("invalid negative minimum batch size (min = %d)", config.MinBytes)
 	}
 
 	if config.MaxBytes < 0 {
-		return errors.New(fmt.Sprintf("invalid negative maximum batch size (max = %d)", config.MaxBytes))
+		return fmt.Errorf("invalid negative maximum batch size (max = %d)", config.MaxBytes)
 	}
 
 	if config.GroupID != "" {
@@ -538,15 +553,15 @@ func (config *ReaderConfig) Validate() error {
 	}
 
 	if config.MinBytes > config.MaxBytes {
-		return errors.New(fmt.Sprintf("minimum batch size greater than the maximum (min = %d, max = %d)", config.MinBytes, config.MaxBytes))
+		return fmt.Errorf("minimum batch size greater than the maximum (min = %d, max = %d)", config.MinBytes, config.MaxBytes)
 	}
 
 	if config.ReadBackoffMax < 0 {
-		return errors.New(fmt.Sprintf("ReadBackoffMax out of bounds: %d", config.ReadBackoffMax))
+		return fmt.Errorf("ReadBackoffMax out of bounds: %d", config.ReadBackoffMax)
 	}
 
 	if config.ReadBackoffMin < 0 {
-		return errors.New(fmt.Sprintf("ReadBackoffMin out of bounds: %d", config.ReadBackoffMin))
+		return fmt.Errorf("ReadBackoffMin out of bounds: %d", config.ReadBackoffMin)
 	}
 
 	return nil
@@ -637,6 +652,10 @@ func NewReader(config ReaderConfig) *Reader {
 
 	if config.MaxWait == 0 {
 		config.MaxWait = 10 * time.Second
+	}
+
+	if config.ReadBatchTimeout == 0 {
+		config.ReadBatchTimeout = 10 * time.Second
 	}
 
 	if config.ReadLagInterval == 0 {
@@ -828,9 +847,7 @@ func (r *Reader) FetchMessage(ctx context.Context) (Message, error) {
 
 				r.mutex.Unlock()
 
-				switch m.error {
-				case nil:
-				case io.EOF:
+				if errors.Is(m.error, io.EOF) {
 					// io.EOF is used as a marker to indicate that the stream
 					// has been closed, in case it was received from the inner
 					// reader we don't want to confuse the program and replace
@@ -847,6 +864,15 @@ func (r *Reader) FetchMessage(ctx context.Context) (Message, error) {
 // CommitMessages commits the list of messages passed as argument. The program
 // may pass a context to asynchronously cancel the commit operation when it was
 // configured to be blocking.
+//
+// Because kafka consumer groups track a single offset per partition, the
+// highest message offset passed to CommitMessages will cause all previous
+// messages to be committed. Applications need to account for these Kafka
+// limitations when committing messages, and maintain message ordering if they
+// need strong delivery guarantees. This property makes it valid to pass only
+// the last message seen to CommitMessages in order to move the offset of the
+// topic/partition it belonged to forward, effectively committing all previous
+// messages in the partition.
 func (r *Reader) CommitMessages(ctx context.Context, msgs ...Message) error {
 	if !r.useConsumerGroup() {
 		return errOnlyAvailableWithGroup
@@ -968,7 +994,7 @@ func (r *Reader) Offset() int64 {
 	offset := r.offset
 	r.mutex.Unlock()
 	r.withLogger(func(log Logger) {
-		log.Printf("looking up offset of kafka reader for partition %d of %s: %d", r.config.Partition, r.config.Topic, offset)
+		log.Printf("looking up offset of kafka reader for partition %d of %s: %s", r.config.Partition, r.config.Topic, toHumanOffset(offset))
 	})
 	return offset
 }
@@ -1006,8 +1032,8 @@ func (r *Reader) SetOffset(offset int64) error {
 		err = io.ErrClosedPipe
 	} else if offset != r.offset {
 		r.withLogger(func(log Logger) {
-			log.Printf("setting the offset of the kafka reader for partition %d of %s from %d to %d",
-				r.config.Partition, r.config.Topic, r.offset, offset)
+			log.Printf("setting the offset of the kafka reader for partition %d of %s from %s to %s",
+				r.config.Partition, r.config.Topic, toHumanOffset(r.offset), toHumanOffset(offset))
 		})
 		r.offset = offset
 
@@ -1035,12 +1061,16 @@ func (r *Reader) SetOffsetAt(ctx context.Context, t time.Time) error {
 	}
 	r.mutex.Unlock()
 
+	if len(r.config.Brokers) < 1 {
+		return errors.New("no brokers in config")
+	}
+	var conn *Conn
+	var err error
 	for _, broker := range r.config.Brokers {
-		conn, err := r.config.Dialer.DialLeader(ctx, "tcp", broker, r.config.Topic, r.config.Partition)
+		conn, err = r.config.Dialer.DialLeader(ctx, "tcp", broker, r.config.Topic, r.config.Partition)
 		if err != nil {
 			continue
 		}
-
 		deadline, _ := ctx.Deadline()
 		conn.SetDeadline(deadline)
 		offset, err := conn.ReadOffset(t)
@@ -1051,7 +1081,7 @@ func (r *Reader) SetOffsetAt(ctx context.Context, t time.Time) error {
 
 		return r.SetOffset(offset)
 	}
-	return fmt.Errorf("error setting offset for timestamp %+v", t)
+	return fmt.Errorf("error dialing all brokers, one of the errors: %w", err)
 }
 
 // Stats returns a snapshot of the reader stats since the last time the method
@@ -1164,22 +1194,26 @@ func (r *Reader) start(offsetsByPartition map[topicPartition]int64) {
 			defer join.Done()
 
 			(&reader{
-				dialer:          r.config.Dialer,
-				logger:          r.config.Logger,
-				errorLogger:     r.config.ErrorLogger,
-				brokers:         r.config.Brokers,
-				topic:           key.topic,
-				partition:       int(key.partition),
-				minBytes:        r.config.MinBytes,
-				maxBytes:        r.config.MaxBytes,
-				maxWait:         r.config.MaxWait,
-				backoffDelayMin: r.config.ReadBackoffMin,
-				backoffDelayMax: r.config.ReadBackoffMax,
-				version:         r.version,
-				msgs:            r.msgs,
-				stats:           r.stats,
-				isolationLevel:  r.config.IsolationLevel,
-				maxAttempts:     r.config.MaxAttempts,
+				dialer:           r.config.Dialer,
+				logger:           r.config.Logger,
+				errorLogger:      r.config.ErrorLogger,
+				brokers:          r.config.Brokers,
+				topic:            key.topic,
+				partition:        int(key.partition),
+				minBytes:         r.config.MinBytes,
+				maxBytes:         r.config.MaxBytes,
+				maxWait:          r.config.MaxWait,
+				readBatchTimeout: r.config.ReadBatchTimeout,
+				backoffDelayMin:  r.config.ReadBackoffMin,
+				backoffDelayMax:  r.config.ReadBackoffMax,
+				version:          r.version,
+				msgs:             r.msgs,
+				stats:            r.stats,
+				isolationLevel:   r.config.IsolationLevel,
+				maxAttempts:      r.config.MaxAttempts,
+
+				// backwards-compatibility flags
+				offsetOutOfRangeError: r.config.OffsetOutOfRangeError,
 			}).run(ctx, offset)
 		}(ctx, key, offset, &r.join)
 	}
@@ -1189,22 +1223,25 @@ func (r *Reader) start(offsetsByPartition map[topicPartition]int64) {
 // used as an way to asynchronously fetch messages while the main program reads
 // them using the high level reader API.
 type reader struct {
-	dialer          *Dialer
-	logger          Logger
-	errorLogger     Logger
-	brokers         []string
-	topic           string
-	partition       int
-	minBytes        int
-	maxBytes        int
-	maxWait         time.Duration
-	backoffDelayMin time.Duration
-	backoffDelayMax time.Duration
-	version         int64
-	msgs            chan<- readerMessage
-	stats           *readerStats
-	isolationLevel  IsolationLevel
-	maxAttempts     int
+	dialer           *Dialer
+	logger           Logger
+	errorLogger      Logger
+	brokers          []string
+	topic            string
+	partition        int
+	minBytes         int
+	maxBytes         int
+	maxWait          time.Duration
+	readBatchTimeout time.Duration
+	backoffDelayMin  time.Duration
+	backoffDelayMax  time.Duration
+	version          int64
+	msgs             chan<- readerMessage
+	stats            *readerStats
+	isolationLevel   IsolationLevel
+	maxAttempts      int
+
+	offsetOutOfRangeError bool
 }
 
 type readerMessage struct {
@@ -1232,21 +1269,27 @@ func (r *reader) run(ctx context.Context, offset int64) {
 		}
 
 		r.withLogger(func(log Logger) {
-			log.Printf("initializing kafka reader for partition %d of %s starting at offset %d", r.partition, r.topic, offset)
+			log.Printf("initializing kafka reader for partition %d of %s starting at offset %d", r.partition, r.topic, toHumanOffset(offset))
 		})
 
 		conn, start, err := r.initialize(ctx, offset)
-		switch err {
-		case nil:
-		case OffsetOutOfRange:
-			// This would happen if the requested offset is passed the last
-			// offset on the partition leader. In that case we're just going
-			// to retry later hoping that enough data has been produced.
-			r.withErrorLogger(func(log Logger) {
-				log.Printf("error initializing the kafka reader for partition %d of %s: %s", r.partition, r.topic, OffsetOutOfRange)
-			})
-			continue
-		default:
+		if err != nil {
+			if errors.Is(err, OffsetOutOfRange) {
+				if r.offsetOutOfRangeError {
+					r.sendError(ctx, err)
+					return
+				}
+
+				// This would happen if the requested offset is passed the last
+				// offset on the partition leader. In that case we're just going
+				// to retry later hoping that enough data has been produced.
+				r.withErrorLogger(func(log Logger) {
+					log.Printf("error initializing the kafka reader for partition %d of %s: %s", r.partition, r.topic, err)
+				})
+
+				continue
+			}
+
 			// Perform a configured number of attempts before
 			// reporting first errors, this helps mitigate
 			// situations where the kafka server is temporarily
@@ -1279,20 +1322,31 @@ func (r *reader) run(ctx context.Context, offset int64) {
 				return
 			}
 
-			switch offset, err = r.read(ctx, offset, conn); err {
-			case nil:
+			offset, err = r.read(ctx, offset, conn)
+			switch {
+			case err == nil:
 				errcount = 0
 				continue
-			case io.EOF:
+
+			case errors.Is(err, io.EOF):
 				// done with this batch of messages...carry on.  note that this
 				// block relies on the batch repackaging real io.EOF errors as
 				// io.UnexpectedEOF.  otherwise, we would end up swallowing real
 				// errors here.
 				errcount = 0
 				continue
-			case UnknownTopicOrPartition:
+
+			case errors.Is(err, io.ErrNoProgress):
+				// This error is returned by the Conn when it believes the connection
+				// has been corrupted, so we need to explicitly close it. Since we are
+				// explicitly handling it and a retry will pick up, we can suppress the
+				// error metrics and logs for this case.
+				conn.Close()
+				break readLoop
+
+			case errors.Is(err, UnknownTopicOrPartition):
 				r.withErrorLogger(func(log Logger) {
-					log.Printf("failed to read from current broker for partition %d of %s at offset %d, topic or parition not found on this broker, %v", r.partition, r.topic, offset, r.brokers)
+					log.Printf("failed to read from current broker for partition %d of %s at offset %d, topic or parition not found on this broker, %v", r.partition, r.topic, toHumanOffset(offset), r.brokers)
 				})
 
 				conn.Close()
@@ -1301,9 +1355,10 @@ func (r *reader) run(ctx context.Context, offset int64) {
 				// topic/partition broker combo.
 				r.stats.rebalances.observe(1)
 				break readLoop
-			case NotLeaderForPartition:
+
+			case errors.Is(err, NotLeaderForPartition):
 				r.withErrorLogger(func(log Logger) {
-					log.Printf("failed to read from current broker for partition %d of %s at offset %d, not the leader", r.partition, r.topic, offset)
+					log.Printf("failed to read from current broker for partition %d of %s at offset %d, not the leader", r.partition, r.topic, toHumanOffset(offset))
 				})
 
 				conn.Close()
@@ -1313,16 +1368,16 @@ func (r *reader) run(ctx context.Context, offset int64) {
 				r.stats.rebalances.observe(1)
 				break readLoop
 
-			case RequestTimedOut:
+			case errors.Is(err, RequestTimedOut):
 				// Timeout on the kafka side, this can be safely retried.
 				errcount = 0
 				r.withLogger(func(log Logger) {
-					log.Printf("no messages received from kafka within the allocated time for partition %d of %s at offset %d", r.partition, r.topic, offset)
+					log.Printf("no messages received from kafka within the allocated time for partition %d of %s at offset %d", r.partition, r.topic, toHumanOffset(offset))
 				})
 				r.stats.timeouts.observe(1)
 				continue
 
-			case OffsetOutOfRange:
+			case errors.Is(err, OffsetOutOfRange):
 				first, last, err := r.readOffsets(conn)
 				if err != nil {
 					r.withErrorLogger(func(log Logger) {
@@ -1335,7 +1390,7 @@ func (r *reader) run(ctx context.Context, offset int64) {
 				switch {
 				case offset < first:
 					r.withErrorLogger(func(log Logger) {
-						log.Printf("the kafka reader is reading before the first offset for partition %d of %s, skipping from offset %d to %d (%d messages)", r.partition, r.topic, offset, first, first-offset)
+						log.Printf("the kafka reader is reading before the first offset for partition %d of %s, skipping from offset %d to %d (%d messages)", r.partition, r.topic, toHumanOffset(offset), first, first-offset)
 					})
 					offset, errcount = first, 0
 					continue // retry immediately so we don't keep falling behind due to the backoff
@@ -1347,16 +1402,16 @@ func (r *reader) run(ctx context.Context, offset int64) {
 				default:
 					// We may be reading past the last offset, will retry later.
 					r.withErrorLogger(func(log Logger) {
-						log.Printf("the kafka reader is reading passed the last offset for partition %d of %s at offset %d", r.partition, r.topic, offset)
+						log.Printf("the kafka reader is reading passed the last offset for partition %d of %s at offset %d", r.partition, r.topic, toHumanOffset(offset))
 					})
 				}
 
-			case context.Canceled:
+			case errors.Is(err, context.Canceled):
 				// Another reader has taken over, we can safely quit.
 				conn.Close()
 				return
 
-			case errUnknownCodec:
+			case errors.Is(err, errUnknownCodec):
 				// The compression codec is either unsupported or has not been
 				// imported.  This is a fatal error b/c the reader cannot
 				// proceed.
@@ -1364,11 +1419,12 @@ func (r *reader) run(ctx context.Context, offset int64) {
 				break readLoop
 
 			default:
-				if _, ok := err.(Error); ok {
+				var kafkaError Error
+				if errors.As(err, &kafkaError) {
 					r.sendError(ctx, err)
 				} else {
 					r.withErrorLogger(func(log Logger) {
-						log.Printf("the kafka reader got an unknown error reading partition %d of %s at offset %d: %s", r.partition, r.topic, offset, err)
+						log.Printf("the kafka reader got an unknown error reading partition %d of %s at offset %d: %s", r.partition, r.topic, toHumanOffset(offset), err)
 					})
 					r.stats.errors.observe(1)
 					conn.Close()
@@ -1414,7 +1470,7 @@ func (r *reader) initialize(ctx context.Context, offset int64) (conn *Conn, star
 		}
 
 		r.withLogger(func(log Logger) {
-			log.Printf("the kafka reader for partition %d of %s is seeking to offset %d", r.partition, r.topic, offset)
+			log.Printf("the kafka reader for partition %d of %s is seeking to offset %d", r.partition, r.topic, toHumanOffset(offset))
 		})
 
 		if start, err = conn.Seek(offset, SeekAbsolute); err != nil {
@@ -1451,15 +1507,8 @@ func (r *reader) read(ctx context.Context, offset int64, conn *Conn) (int64, err
 	var size int64
 	var bytes int64
 
-	const safetyTimeout = 10 * time.Second
-	deadline := time.Now().Add(safetyTimeout)
-	conn.SetReadDeadline(deadline)
-
 	for {
-		if now := time.Now(); deadline.Sub(now) < (safetyTimeout / 2) {
-			deadline = now.Add(safetyTimeout)
-			conn.SetReadDeadline(deadline)
-		}
+		conn.SetReadDeadline(time.Now().Add(r.readBatchTimeout))
 
 		if msg, err = batch.ReadMessage(); err != nil {
 			batch.Close()
@@ -1530,7 +1579,7 @@ func (r *reader) withErrorLogger(do func(Logger)) {
 }
 
 // extractTopics returns the unique list of topics represented by the set of
-// provided members
+// provided members.
 func extractTopics(members []GroupMember) []string {
 	visited := map[string]struct{}{}
 	var topics []string
@@ -1549,4 +1598,22 @@ func extractTopics(members []GroupMember) []string {
 	sort.Strings(topics)
 
 	return topics
+}
+
+type humanOffset int64
+
+func toHumanOffset(v int64) humanOffset {
+	return humanOffset(v)
+}
+
+func (offset humanOffset) Format(w fmt.State, _ rune) {
+	v := int64(offset)
+	switch v {
+	case FirstOffset:
+		fmt.Fprint(w, "first offset")
+	case LastOffset:
+		fmt.Fprint(w, "last offset")
+	default:
+		fmt.Fprint(w, strconv.FormatInt(v, 10))
+	}
 }

@@ -57,7 +57,11 @@ func (r *Response) Merge(requests []protocol.Message, results []interface{}) (
 	response := &Response{}
 
 	for r, result := range results {
-		brokerResp := result.(*Response)
+		m, err := protocol.Result(result)
+		if err != nil {
+			return nil, err
+		}
+		brokerResp := m.(*Response)
 		respGroups := []ResponseGroup{}
 
 		for _, brokerResp := range brokerResp.Groups {
@@ -71,7 +75,7 @@ func (r *Response) Merge(requests []protocol.Message, results []interface{}) (
 			)
 		}
 
-		response.Groups = append(response.Groups, brokerResp.Groups...)
+		response.Groups = append(response.Groups, respGroups...)
 	}
 
 	return response, nil

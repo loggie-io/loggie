@@ -24,7 +24,7 @@ import (
 
 	"github.com/segmentio/kafka-go"
 
-	kakfasink "github.com/loggie-io/loggie/pkg/sink/kafka"
+	kafkaSink "github.com/loggie-io/loggie/pkg/sink/kafka"
 )
 
 const (
@@ -36,6 +36,7 @@ type Config struct {
 	Brokers            []string       `yaml:"brokers,omitempty" validate:"required"`
 	Topic              string         `yaml:"topic,omitempty" validate:"required"`
 	GroupId            string         `yaml:"groupId,omitempty" default:"loggie"`
+	Worker             int            `yaml:"worker,omitempty" default:"1"`
 	QueueCapacity      int            `yaml:"queueCapacity" default:"100"`
 	MinAcceptedBytes   int            `yaml:"minAcceptedBytes" default:"1"`
 	MaxAcceptedBytes   int            `yaml:"maxAcceptedBytes" default:"1024000"`
@@ -46,7 +47,8 @@ type Config struct {
 	EnableAutoCommit   bool           `yaml:"enableAutoCommit"`
 	AutoCommitInterval time.Duration  `yaml:"autoCommitInterval" default:"1s"`
 	AutoOffsetReset    string         `yaml:"autoOffsetReset" default:"latest" validate:"oneof=earliest latest"`
-	SASL               kakfasink.SASL `yaml:"sasl,omitempty"`
+	SASL               kafkaSink.SASL `yaml:"sasl,omitempty"`
+	AddonMeta          *bool          `yaml:"addonMeta,omitempty" default:"true"`
 }
 
 func getAutoOffset(autoOffsetReset string) int64 {
