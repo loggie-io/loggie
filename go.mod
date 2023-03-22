@@ -6,7 +6,7 @@ require (
 	github.com/aliyun/aliyun-log-go-sdk v0.1.35
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129
 	github.com/bmatcuk/doublestar/v4 v4.0.2
-	github.com/creasty/defaults v1.5.1
+	github.com/creasty/defaults v1.7.0
 	github.com/dgraph-io/badger/v3 v3.2103.5
 	github.com/docker/docker v17.12.0-ce-rc1.0.20200706150819-a40b877fbb9e+incompatible
 	github.com/fsnotify/fsnotify v1.5.4
@@ -29,7 +29,7 @@ require (
 	github.com/prometheus/prometheus v1.8.2-0.20201028100903-3245b3267b24
 	github.com/rivo/tview v0.0.0-20221029100920-c4a7e501810d
 	github.com/rs/zerolog v1.20.0
-	github.com/segmentio/kafka-go v0.4.23
+	github.com/segmentio/kafka-go v0.4.39
 	github.com/shirou/gopsutil/v3 v3.22.2
 	github.com/smartystreets-prototypes/go-disruptor v0.0.0-20200316140655-c96477fd7a6a
 	github.com/stretchr/testify v1.8.0
@@ -146,8 +146,8 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.9 // indirect
 	github.com/tklauser/numcpus v0.3.0 // indirect
-	github.com/xdg/scram v0.0.0-20180814205039-7eeb5667e42c // indirect
-	github.com/xdg/stringprep v1.0.0 // indirect
+	github.com/xdg/scram v1.0.5 // indirect
+	github.com/xdg/stringprep v1.0.3 // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect

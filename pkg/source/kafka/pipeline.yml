@@ -1,0 +1,36 @@
+pipelines:
+  - name: consume
+    sources:
+      - type: kafka
+        name: demo
+        brokers: ["localhost:9092"]
+        topic: test-topic
+    sink:
+      type: dev
+      printMetrics: true
+
+---
+pipelines:
+  - name: generate
+    sources:
+      - type: dev
+        name: demo
+        eventsTotal: -1
+        byteSize: 1024
+        qps: 1000
+    sink:
+      type: kafka
+      brokers: [ "localhost:9092" ]
+      topic: test-topic
+
+  - name: consume
+    sources:
+      - type: kafka
+        name: demo
+        brokers: ["localhost:9092"]
+        worker: 3
+        topic: test-topic
+        autoOffsetReset: earliest
+    sink:
+      type: dev
+      printMetrics: true

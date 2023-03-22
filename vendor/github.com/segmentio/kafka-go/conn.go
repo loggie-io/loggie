@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -241,17 +240,16 @@ func (c *Conn) loadVersions() (apiVersionMap, error) {
 // connection was established to.
 func (c *Conn) Broker() Broker {
 	addr := c.conn.RemoteAddr()
-	host, port, _ := net.SplitHostPort(addr.String())
-	portNumber, _ := strconv.Atoi(port)
+	host, port, _ := splitHostPortNumber(addr.String())
 	return Broker{
 		Host: host,
-		Port: portNumber,
+		Port: port,
 		ID:   int(c.broker),
 		Rack: c.rack,
 	}
 }
 
-// Controller requests kafka for the current controller and returns its URL
+// Controller requests kafka for the current controller and returns its URL.
 func (c *Conn) Controller() (broker Broker, err error) {
 	err = c.readOperation(
 		func(deadline time.Time, id int32) error {
@@ -278,7 +276,7 @@ func (c *Conn) Controller() (broker Broker, err error) {
 	return broker, err
 }
 
-// Brokers retrieve the broker list from the Kafka metadata
+// Brokers retrieve the broker list from the Kafka metadata.
 func (c *Conn) Brokers() ([]Broker, error) {
 	var brokers []Broker
 	err := c.readOperation(
@@ -855,7 +853,7 @@ func (c *Conn) ReadBatchWith(cfg ReadBatchConfig) *Batch {
 	default:
 		throttle, highWaterMark, remain, err = readFetchResponseHeaderV2(&c.rbuf, size)
 	}
-	if err == errShortRead {
+	if errors.Is(err, errShortRead) {
 		err = checkTimeoutErr(adjustedDeadline)
 	}
 
@@ -867,9 +865,10 @@ func (c *Conn) ReadBatchWith(cfg ReadBatchConfig) *Batch {
 			msgs, err = newMessageSetReader(&c.rbuf, remain)
 		}
 	}
-	if err == errShortRead {
+	if errors.Is(err, errShortRead) {
 		err = checkTimeoutErr(adjustedDeadline)
 	}
+
 	return &Batch{
 		conn:          c,
 		msgs:          msgs,
@@ -972,57 +971,116 @@ func (c *Conn) ReadPartitions(topics ...string) (partitions []Partition, err err
 			topics = nil
 		}
 	}
+	metadataVersion, err := c.negotiateVersion(metadata, v1, v6)
+	if err != nil {
+		return nil, err
+	}
 
 	err = c.readOperation(
 		func(deadline time.Time, id int32) error {
-			return c.writeRequest(metadata, v1, id, topicMetadataRequestV1(topics))
+			switch metadataVersion {
+			case v6:
+				return c.writeRequest(metadata, v6, id, topicMetadataRequestV6{Topics: topics, AllowAutoTopicCreation: true})
+			default:
+				return c.writeRequest(metadata, v1, id, topicMetadataRequestV1(topics))
+			}
 		},
 		func(deadline time.Time, size int) error {
-			var res metadataResponseV1
-
-			if err := c.readResponse(size, &res); err != nil {
-				return err
-			}
-
-			brokers := make(map[int32]Broker, len(res.Brokers))
-			for _, b := range res.Brokers {
-				brokers[b.NodeID] = Broker{
-					Host: b.Host,
-					Port: int(b.Port),
-					ID:   int(b.NodeID),
-					Rack: b.Rack,
-				}
-			}
-
-			for _, t := range res.Topics {
-				if t.TopicErrorCode != 0 && (c.topic == "" || t.TopicName == c.topic) {
-					// We only report errors if they happened for the topic of
-					// the connection, otherwise the topic will simply have no
-					// partitions in the result set.
-					return Error(t.TopicErrorCode)
-				}
-				for _, p := range t.Partitions {
-					partitions = append(partitions, Partition{
-						Topic:    t.TopicName,
-						Leader:   brokers[p.Leader],
-						Replicas: makeBrokers(brokers, p.Replicas...),
-						Isr:      makeBrokers(brokers, p.Isr...),
-						ID:       int(p.PartitionID),
-					})
-				}
-			}
-			return nil
+			partitions, err = c.readPartitionsResponse(metadataVersion, size)
+			return err
 		},
 	)
 	return
 }
 
-func makeBrokers(brokers map[int32]Broker, ids ...int32) []Broker {
-	b := make([]Broker, 0, len(ids))
-	for _, id := range ids {
-		if br, ok := brokers[id]; ok {
-			b = append(b, br)
+func (c *Conn) readPartitionsResponse(metadataVersion apiVersion, size int) ([]Partition, error) {
+	switch metadataVersion {
+	case v6:
+		var res metadataResponseV6
+		if err := c.readResponse(size, &res); err != nil {
+			return nil, err
 		}
+		brokers := readBrokerMetadata(res.Brokers)
+		return c.readTopicMetadatav6(brokers, res.Topics)
+	default:
+		var res metadataResponseV1
+		if err := c.readResponse(size, &res); err != nil {
+			return nil, err
+		}
+		brokers := readBrokerMetadata(res.Brokers)
+		return c.readTopicMetadatav1(brokers, res.Topics)
+	}
+}
+
+func readBrokerMetadata(brokerMetadata []brokerMetadataV1) map[int32]Broker {
+	brokers := make(map[int32]Broker, len(brokerMetadata))
+	for _, b := range brokerMetadata {
+		brokers[b.NodeID] = Broker{
+			Host: b.Host,
+			Port: int(b.Port),
+			ID:   int(b.NodeID),
+			Rack: b.Rack,
+		}
+	}
+	return brokers
+}
+
+func (c *Conn) readTopicMetadatav1(brokers map[int32]Broker, topicMetadata []topicMetadataV1) (partitions []Partition, err error) {
+	for _, t := range topicMetadata {
+		if t.TopicErrorCode != 0 && (c.topic == "" || t.TopicName == c.topic) {
+			// We only report errors if they happened for the topic of
+			// the connection, otherwise the topic will simply have no
+			// partitions in the result set.
+			return nil, Error(t.TopicErrorCode)
+		}
+		for _, p := range t.Partitions {
+			partitions = append(partitions, Partition{
+				Topic:           t.TopicName,
+				Leader:          brokers[p.Leader],
+				Replicas:        makeBrokers(brokers, p.Replicas...),
+				Isr:             makeBrokers(brokers, p.Isr...),
+				ID:              int(p.PartitionID),
+				OfflineReplicas: []Broker{},
+			})
+		}
+	}
+	return
+}
+
+func (c *Conn) readTopicMetadatav6(brokers map[int32]Broker, topicMetadata []topicMetadataV6) (partitions []Partition, err error) {
+	for _, t := range topicMetadata {
+		if t.TopicErrorCode != 0 && (c.topic == "" || t.TopicName == c.topic) {
+			// We only report errors if they happened for the topic of
+			// the connection, otherwise the topic will simply have no
+			// partitions in the result set.
+			return nil, Error(t.TopicErrorCode)
+		}
+		for _, p := range t.Partitions {
+			partitions = append(partitions, Partition{
+				Topic:           t.TopicName,
+				Leader:          brokers[p.Leader],
+				Replicas:        makeBrokers(brokers, p.Replicas...),
+				Isr:             makeBrokers(brokers, p.Isr...),
+				ID:              int(p.PartitionID),
+				OfflineReplicas: makeBrokers(brokers, p.OfflineReplicas...),
+			})
+		}
+	}
+	return
+}
+
+func makeBrokers(brokers map[int32]Broker, ids ...int32) []Broker {
+	b := make([]Broker, len(ids))
+	for i, id := range ids {
+		br, ok := brokers[id]
+		if !ok {
+			// When the broker id isn't found in the current list of known
+			// brokers, use a placeholder to report that the cluster has
+			// logical knowledge of the broker but no information about the
+			// physical host where it is running.
+			br.ID = int(id)
+		}
+		b[i] = br
 	}
 	return b
 }
@@ -1222,12 +1280,6 @@ func (c *Conn) SetRequiredAcks(n int) error {
 	}
 }
 
-func (c *Conn) writeRequestHeader(apiKey apiKey, apiVersion apiVersion, correlationID int32, size int32) {
-	hdr := c.requestHeader(apiKey, apiVersion, correlationID)
-	hdr.Size = (hdr.size() + size) - 4
-	hdr.writeTo(&c.wb)
-}
-
 func (c *Conn) writeRequest(apiKey apiKey, apiVersion apiVersion, correlationID int32, req request) error {
 	hdr := c.requestHeader(apiKey, apiVersion, correlationID)
 	hdr.Size = (hdr.size() + req.size()) - 4
@@ -1238,11 +1290,10 @@ func (c *Conn) writeRequest(apiKey apiKey, apiVersion apiVersion, correlationID 
 
 func (c *Conn) readResponse(size int, res interface{}) error {
 	size, err := read(&c.rbuf, size, res)
-	switch err.(type) {
-	case Error:
-		var e error
-		if size, e = discardN(&c.rbuf, size, size); e != nil {
-			err = e
+	if err != nil {
+		var kafkaError Error
+		if errors.As(err, &kafkaError) {
+			size, err = discardN(&c.rbuf, size, size)
 		}
 	}
 	return expectZeroSize(size, err)
@@ -1301,9 +1352,8 @@ func (c *Conn) do(d *connDeadline, write func(time.Time, int32) error, read func
 	}
 
 	if err = read(deadline, size); err != nil {
-		switch err.(type) {
-		case Error:
-		default:
+		var kafkaError Error
+		if !errors.As(err, &kafkaError) {
 			c.conn.Close()
 		}
 	}

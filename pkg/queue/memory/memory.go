@@ -87,7 +87,7 @@ func (c *Queue) Init(context api.Context) error {
 	c.name = context.Name()
 	c.countDown = &sync.WaitGroup{}
 
-	log.Info("sinCount: %d", c.sinkCount)
+	log.Info("sink count: %d", c.sinkCount)
 	if c.config.BatchBufferFactor <= 0 {
 		c.config.BatchBufferFactor = c.sinkCount
 	}

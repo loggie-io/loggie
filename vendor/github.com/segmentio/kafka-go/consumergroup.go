@@ -35,15 +35,15 @@ const (
 	// the consumer will be considered dead and the coordinator will rebalance the
 	// group.
 	//
-	// As a rule, the heartbeat interval should be no greater than 1/3 the session timeout
+	// As a rule, the heartbeat interval should be no greater than 1/3 the session timeout.
 	defaultHeartbeatInterval = 3 * time.Second
 
 	// defaultSessionTimeout contains the default interval the coordinator will wait
-	// for a heartbeat before marking a consumer as dead
+	// for a heartbeat before marking a consumer as dead.
 	defaultSessionTimeout = 30 * time.Second
 
 	// defaultRebalanceTimeout contains the amount of time the coordinator will wait
-	// for consumers to issue a join group once a rebalance has been requested
+	// for consumers to issue a join group once a rebalance has been requested.
 	defaultRebalanceTimeout = 30 * time.Second
 
 	// defaultJoinGroupBackoff is the amount of time to wait after a failed
@@ -217,27 +217,27 @@ func (config *ConsumerGroupConfig) Validate() error {
 	}
 
 	if config.HeartbeatInterval < 0 || (config.HeartbeatInterval/time.Millisecond) >= math.MaxInt32 {
-		return errors.New(fmt.Sprintf("HeartbeatInterval out of bounds: %d", config.HeartbeatInterval))
+		return fmt.Errorf("HeartbeatInterval out of bounds: %d", config.HeartbeatInterval)
 	}
 
 	if config.SessionTimeout < 0 || (config.SessionTimeout/time.Millisecond) >= math.MaxInt32 {
-		return errors.New(fmt.Sprintf("SessionTimeout out of bounds: %d", config.SessionTimeout))
+		return fmt.Errorf("SessionTimeout out of bounds: %d", config.SessionTimeout)
 	}
 
 	if config.RebalanceTimeout < 0 || (config.RebalanceTimeout/time.Millisecond) >= math.MaxInt32 {
-		return errors.New(fmt.Sprintf("RebalanceTimeout out of bounds: %d", config.RebalanceTimeout))
+		return fmt.Errorf("RebalanceTimeout out of bounds: %d", config.RebalanceTimeout)
 	}
 
 	if config.JoinGroupBackoff < 0 || (config.JoinGroupBackoff/time.Millisecond) >= math.MaxInt32 {
-		return errors.New(fmt.Sprintf("JoinGroupBackoff out of bounds: %d", config.JoinGroupBackoff))
+		return fmt.Errorf("JoinGroupBackoff out of bounds: %d", config.JoinGroupBackoff)
 	}
 
 	if config.RetentionTime < 0 && config.RetentionTime != defaultRetentionTime {
-		return errors.New(fmt.Sprintf("RetentionTime out of bounds: %d", config.RetentionTime))
+		return fmt.Errorf("RetentionTime out of bounds: %d", config.RetentionTime)
 	}
 
 	if config.PartitionWatchInterval < 0 || (config.PartitionWatchInterval/time.Millisecond) >= math.MaxInt32 {
-		return errors.New(fmt.Sprintf("PartitionWachInterval out of bounds %d", config.PartitionWatchInterval))
+		return fmt.Errorf("PartitionWachInterval out of bounds %d", config.PartitionWatchInterval)
 	}
 
 	if config.StartOffset == 0 {
@@ -245,7 +245,7 @@ func (config *ConsumerGroupConfig) Validate() error {
 	}
 
 	if config.StartOffset != FirstOffset && config.StartOffset != LastOffset {
-		return errors.New(fmt.Sprintf("StartOffset is not valid %d", config.StartOffset))
+		return fmt.Errorf("StartOffset is not valid %d", config.StartOffset)
 	}
 
 	if config.Timeout == 0 {
@@ -322,9 +322,17 @@ type Generation struct {
 
 	conn coordinator
 
-	once sync.Once
-	done chan struct{}
-	wg   sync.WaitGroup
+	// the following fields are used for process accounting to synchronize
+	// between Start and close.  lock protects all of them.  done is closed
+	// when the generation is ending in order to signal that the generation
+	// should start self-desructing.  closed protects against double-closing
+	// the done chan.  routines is a count of running go routines that have been
+	// launched by Start.  joined will be closed by the last go routine to exit.
+	lock     sync.Mutex
+	done     chan struct{}
+	closed   bool
+	routines int
+	joined   chan struct{}
 
 	retentionMillis int64
 	log             func(func(Logger))
@@ -334,10 +342,21 @@ type Generation struct {
 // close stops the generation and waits for all functions launched via Start to
 // terminate.
 func (g *Generation) close() {
-	g.once.Do(func() {
+	g.lock.Lock()
+	if !g.closed {
 		close(g.done)
-	})
-	g.wg.Wait()
+		g.closed = true
+	}
+	// determine whether any go routines are running that we need to wait for.
+	// waiting needs to happen outside of the critical section.
+	r := g.routines
+	g.lock.Unlock()
+
+	// NOTE: r will be zero if no go routines were ever launched.  no need to
+	// wait in that case.
+	if r > 0 {
+		<-g.joined
+	}
 }
 
 // Start launches the provided function in a go routine and adds accounting such
@@ -354,15 +373,42 @@ func (g *Generation) close() {
 // progress for this consumer and potentially cause consumer group membership
 // churn.
 func (g *Generation) Start(fn func(ctx context.Context)) {
-	g.wg.Add(1)
+	g.lock.Lock()
+	defer g.lock.Unlock()
+
+	// this is an edge case: if the generation has already closed, then it's
+	// possible that the close func has already waited on outstanding go
+	// routines and exited.
+	//
+	// nonetheless, it's important to honor that the fn is invoked in case the
+	// calling function is waiting e.g. on a channel send or a WaitGroup.  in
+	// such a case, fn should immediately exit because ctx.Err() will return
+	// ErrGenerationEnded.
+	if g.closed {
+		go fn(genCtx{g})
+		return
+	}
+
+	// register that there is one more go routine that's part of this gen.
+	g.routines++
+
 	go func() {
 		fn(genCtx{g})
+		g.lock.Lock()
 		// shut down the generation as soon as one function exits.  this is
-		// different from close() in that it doesn't wait on the wg.
-		g.once.Do(func() {
+		// different from close() in that it doesn't wait for all go routines in
+		// the generation to exit.
+		if !g.closed {
 			close(g.done)
-		})
-		g.wg.Done()
+			g.closed = true
+		}
+		g.routines--
+		// if this was the last go routine in the generation, close the joined
+		// chan so that close() can exit if it's waiting.
+		if g.routines == 0 {
+			close(g.joined)
+		}
+		g.lock.Unlock()
 	}()
 }
 
@@ -477,19 +523,21 @@ func (g *Generation) partitionWatcher(interval time.Duration, topic string) {
 				return
 			case <-ticker.C:
 				ops, err := g.conn.readPartitions(topic)
-				switch err {
-				case nil, UnknownTopicOrPartition:
+				switch {
+				case err == nil, errors.Is(err, UnknownTopicOrPartition):
 					if len(ops) != oParts {
 						g.log(func(l Logger) {
 							l.Printf("Partition changes found, reblancing group: %v.", g.GroupID)
 						})
 						return
 					}
+
 				default:
 					g.logError(func(l Logger) {
 						l.Printf("Problem getting partitions while checking for changes, %v", err)
 					})
-					if _, ok := err.(Error); ok {
+					var kafkaError Error
+					if errors.As(err, &kafkaError) {
 						continue
 					}
 					// other errors imply that we lost the connection to the coordinator, so we
@@ -678,20 +726,24 @@ func (cg *ConsumerGroup) run() {
 		// to the next generation.  it will be non-nil in the case of an error
 		// joining or syncing the group.
 		var backoff <-chan time.Time
-		switch err {
-		case nil:
+
+		switch {
+		case err == nil:
 			// no error...the previous generation finished normally.
 			continue
-		case ErrGroupClosed:
+
+		case errors.Is(err, ErrGroupClosed):
 			// the CG has been closed...leave the group and exit loop.
 			_ = cg.leaveGroup(memberID)
 			return
-		case RebalanceInProgress:
+
+		case errors.Is(err, RebalanceInProgress):
 			// in case of a RebalanceInProgress, don't leave the group or
 			// change the member ID, but report the error.  the next attempt
 			// to join the group will then be subject to the rebalance
 			// timeout, so the broker will be responsible for throttling
 			// this loop.
+
 		default:
 			// leave the group and report the error if we had gotten far
 			// enough so as to have a member ID.  also clear the member id
@@ -781,6 +833,7 @@ func (cg *ConsumerGroup) nextGeneration(memberID string) (string, error) {
 		Assignments:     cg.makeAssignments(assignments, offsets),
 		conn:            conn,
 		done:            make(chan struct{}),
+		joined:          make(chan struct{}),
 		retentionMillis: int64(cg.config.RetentionTime / time.Millisecond),
 		log:             cg.withLogger,
 		logError:        cg.withErrorLogger,
@@ -821,7 +874,7 @@ func (cg *ConsumerGroup) nextGeneration(memberID string) (string, error) {
 	}
 }
 
-// connect returns a connection to ANY broker
+// connect returns a connection to ANY broker.
 func makeConnect(config ConsumerGroupConfig) func(dialer *Dialer, brokers ...string) (coordinator, error) {
 	return func(dialer *Dialer, brokers ...string) (coordinator, error) {
 		var err error
@@ -924,7 +977,7 @@ func (cg *ConsumerGroup) joinGroup(conn coordinator, memberID string) (string, i
 }
 
 // makeJoinGroupRequestV1 handles the logic of constructing a joinGroup
-// request
+// request.
 func (cg *ConsumerGroup) makeJoinGroupRequestV1(memberID string) (joinGroupRequestV1, error) {
 	request := joinGroupRequestV1{
 		GroupID:          cg.config.ID,
@@ -937,7 +990,7 @@ func (cg *ConsumerGroup) makeJoinGroupRequestV1(memberID string) (joinGroupReque
 	for _, balancer := range cg.config.GroupBalancers {
 		userData, err := balancer.UserData()
 		if err != nil {
-			return joinGroupRequestV1{}, fmt.Errorf("unable to construct protocol metadata for member, %v: %v", balancer.ProtocolName(), err)
+			return joinGroupRequestV1{}, fmt.Errorf("unable to construct protocol metadata for member, %v: %w", balancer.ProtocolName(), err)
 		}
 		request.GroupProtocols = append(request.GroupProtocols, joinGroupRequestGroupProtocolV1{
 			ProtocolName: balancer.ProtocolName(),
@@ -953,7 +1006,7 @@ func (cg *ConsumerGroup) makeJoinGroupRequestV1(memberID string) (joinGroupReque
 }
 
 // assignTopicPartitions uses the selected GroupBalancer to assign members to
-// their various partitions
+// their various partitions.
 func (cg *ConsumerGroup) assignTopicPartitions(conn coordinator, group joinGroupResponseV1) (GroupMemberAssignments, error) {
 	cg.withLogger(func(l Logger) {
 		l.Printf("selected as leader for group, %s\n", cg.config.ID)
@@ -979,7 +1032,7 @@ func (cg *ConsumerGroup) assignTopicPartitions(conn coordinator, group joinGroup
 	// assignments for the topic.  this matches the behavior of the official
 	// clients: java, python, and librdkafka.
 	// a topic watcher can trigger a rebalance when the topic comes into being.
-	if err != nil && err != UnknownTopicOrPartition {
+	if err != nil && !errors.Is(err, UnknownTopicOrPartition) {
 		return nil, err
 	}
 
@@ -996,14 +1049,14 @@ func (cg *ConsumerGroup) assignTopicPartitions(conn coordinator, group joinGroup
 	return balancer.AssignGroups(members, partitions), nil
 }
 
-// makeMemberProtocolMetadata maps encoded member metadata ([]byte) into []GroupMember
+// makeMemberProtocolMetadata maps encoded member metadata ([]byte) into []GroupMember.
 func (cg *ConsumerGroup) makeMemberProtocolMetadata(in []joinGroupResponseMemberV1) ([]GroupMember, error) {
 	members := make([]GroupMember, 0, len(in))
 	for _, item := range in {
 		metadata := groupMetadata{}
 		reader := bufio.NewReader(bytes.NewReader(item.MemberMetadata))
 		if remain, err := (&metadata).readFrom(reader, len(item.MemberMetadata)); err != nil || remain != 0 {
-			return nil, fmt.Errorf("unable to read metadata for member, %v: %v", item.MemberID, err)
+			return nil, fmt.Errorf("unable to read metadata for member, %v: %w", item.MemberID, err)
 		}
 
 		members = append(members, GroupMember{

@@ -11,8 +11,7 @@ SRC_FILES    := $(shell find . -name '*.go' -not -path './vendor/*')
 .PHONY: lint
 lint:
 	@gofmt -e -d -s $(SRC_FILES) | awk '{ e = 1; print $0 } END { if (e) exit(1) }'
-	@echo $(SRC_FILES) | xargs -n1 golint -set_exit_status
-	@go vet $(PACKAGE_DIRS)
+	@golangci-lint --disable errcheck,unused run
 
 .PHONY: test
 test: lint

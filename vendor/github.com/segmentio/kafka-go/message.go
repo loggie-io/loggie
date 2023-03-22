@@ -8,7 +8,7 @@ import (
 type Message struct {
 	// Topic indicates which topic this message was consumed from via Reader.
 	//
-	// When being used with Writer, this can be used to configured the topic if
+	// When being used with Writer, this can be used to configure the topic if
 	// not already specified on the writer itself.
 	Topic string
 
@@ -19,6 +19,11 @@ type Message struct {
 	Key           []byte
 	Value         []byte
 	Headers       []Header
+
+	// This field is used to hold arbitrary data you wish to include, so it
+	// will be available when handle it on the Writer's `Completion` method,
+	// this support the application can do any post operation on each message.
+	WriterData interface{}
 
 	// If not set at the creation, Time will be automatically set when
 	// writing the message.
@@ -114,24 +119,3 @@ func (s messageSet) writeTo(wb *writeBuffer) {
 		m.writeTo(wb)
 	}
 }
-
-type timestampType int8
-
-const (
-	createTime    timestampType = 0
-	logAppendTime timestampType = 1
-)
-
-type transactionType int8
-
-const (
-	nonTransactional transactionType = 0
-	transactional    transactionType = 1
-)
-
-type controlType int8
-
-const (
-	nonControlMessage controlType = 0
-	controlMessage    controlType = 1
-)

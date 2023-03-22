@@ -1,5 +1,5 @@
 pipelines:
-  - name: local
+  - name: generate
     sources:
       - type: dev
         name: demo

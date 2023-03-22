@@ -87,10 +87,13 @@ func (r *Response) Merge(requests []protocol.Message, results []interface{}) (
 	response := &Response{}
 
 	for _, result := range results {
-		brokerResp := result.(*Response)
+		m, err := protocol.Result(result)
+		if err != nil {
+			return nil, err
+		}
 		response.Resources = append(
 			response.Resources,
-			brokerResp.Resources...,
+			m.(*Response).Resources...,
 		)
 	}
 
@@ -123,6 +126,4 @@ type ResponseConfigSynonym struct {
 	ConfigSource int8   `kafka:"min=v1,max=v3"`
 }
 
-var (
-	_ protocol.BrokerMessage = (*Request)(nil)
-)
+var _ protocol.BrokerMessage = (*Request)(nil)
