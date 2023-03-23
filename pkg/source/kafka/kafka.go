@@ -123,6 +123,14 @@ func (k *Source) Start() error {
 		return errors.Errorf("regex %s could not match any kafka topics", k.config.Topic)
 	}
 
+	dial := &kafka.Dialer{
+		Timeout:       10 * time.Second,
+		DualStack:     true,
+		SASLMechanism: mechanism,
+	}
+	if k.config.ClientId != "" {
+		dial.ClientID = k.config.ClientId
+	}
 	readerCfg := kafka.ReaderConfig{
 		Brokers:        k.config.Brokers,
 		GroupID:        k.config.GroupId,
@@ -136,11 +144,7 @@ func (k *Source) Start() error {
 		ReadBackoffMax: k.config.ReadBackoffMax,
 		CommitInterval: k.config.AutoCommitInterval,
 		StartOffset:    getAutoOffset(k.config.AutoOffsetReset),
-		Dialer: &kafka.Dialer{
-			Timeout:       10 * time.Second,
-			DualStack:     true,
-			SASLMechanism: mechanism,
-		},
+		Dialer:         dial,
 	}
 
 	k.consumer = kafka.NewReader(readerCfg)
