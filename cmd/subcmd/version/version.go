@@ -14,35 +14,35 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package subcmd
+package version
 
 import (
-	"github.com/loggie-io/loggie/cmd/subcmd/genfiles"
-	"github.com/loggie-io/loggie/cmd/subcmd/inspect"
-	"github.com/loggie-io/loggie/cmd/subcmd/version"
+	"errors"
+	"flag"
+	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/global"
 	"os"
 )
 
-func SwitchSubCommand() error {
-	if len(os.Args) == 1 {
-		return nil
-	}
-	switch os.Args[1] {
-	case inspect.SubCommandInspect:
-		if err := inspect.RunInspect(); err != nil {
-			return err
-		}
+const (
+	SubCommandVersion = "version"
+)
 
-	case genfiles.SubCommandGenFiles:
-		if err := genfiles.RunGenFiles(); err != nil {
-			return err
-		}
+var (
+	versionCmd *flag.FlagSet
+)
 
-	case version.SubCommandVersion:
-		if err := version.RunVersion(); err != nil {
+func init() {
+	versionCmd = flag.NewFlagSet(SubCommandVersion, flag.ExitOnError)
+}
+
+func RunVersion() error {
+	if len(os.Args) > 2 {
+		if err := versionCmd.Parse(os.Args[2:]); err != nil {
 			return err
 		}
 	}
 
-	return nil
+	fmt.Printf("Loggie version: %s\n", global.GetVersion())
+	return errors.New("exit")
 }
