@@ -36,6 +36,7 @@ type Config struct {
 	Brokers            []string       `yaml:"brokers,omitempty" validate:"required"`
 	Topic              string         `yaml:"topic,omitempty" validate:"required"`
 	GroupId            string         `yaml:"groupId,omitempty" default:"loggie"`
+	ClientId           string         `yaml:"clientId,omitempty"`
 	Worker             int            `yaml:"worker,omitempty" default:"1"`
 	QueueCapacity      int            `yaml:"queueCapacity" default:"100"`
 	MinAcceptedBytes   int            `yaml:"minAcceptedBytes" default:"1"`

@@ -95,7 +95,8 @@ func (s *Sink) Start() error {
 
 				case <-tick.C:
 					// print metrics logs
-					log.Info("[dev sink] qps: %s / %s", s.count.String(), s.config.MetricsInterval.String())
+					qps := float64(s.count.Load()) / s.config.MetricsInterval.Seconds()
+					log.Info("[dev sink] qps: %s / %s = %.1f", s.count.String(), s.config.MetricsInterval.String(), qps)
 					s.count.Store(0)
 				}
 			}
@@ -140,31 +141,20 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		s.count.Add(uint64(l))
 	}
 
-	if s.config.PrintEvents {
-		// print every events
-		if s.config.PrintEventsInterval == 0 {
-			for _, e := range events {
-				// json encode
-				out, err := s.codec.Encode(e)
-				if err != nil {
-					log.Warn("codec event error: %+v", err)
-					continue
-				}
-
-				e := string(out)
-				log.Info("[event]: %s", e)
-			}
+	for i, e := range events {
+		// json encode
+		out, err := s.codec.Encode(e)
+		if err != nil {
+			log.Warn("codec event error: %+v", err)
+			continue
 		}
 
-		// print sample events
-		if s.config.PrintEventsInterval > 0 {
-			e := events[0]
-			out, err := s.codec.Encode(e)
-			if err != nil {
-				log.Warn("codec event error: %+v", err)
+		if s.config.PrintEvents {
+			if s.config.PrintEventsInterval <= 0 {
+				log.Info("[event]: %s", string(out))
+			} else if i == l-1 {
+				s.sampleEvent.Store(string(out))
 			}
-
-			s.sampleEvent.Store(string(out))
 		}
 	}
 
