@@ -113,7 +113,7 @@ func (c *Config) Merge(from *Config) {
 		c.FieldsUnderRoot = from.FieldsUnderRoot
 	}
 
-	if c.FieldsUnderKey == "" {
+	if c.FieldsUnderKey != "" {
 		c.FieldsUnderKey = from.FieldsUnderKey
 	}
 
