@@ -78,7 +78,12 @@ func (l *Listener) Start() error {
 	l.bufferChan = make(chan *eventbus.Event, l.config.BufferSize)
 	l.SendBatch = make([]*eventbus.Event, 0)
 
-	l.alertCli = alertmanager.NewAlertManager(l.config.Addr, l.config.Timeout, l.config.LineLimit, l.config.Template, l.config.Headers, l.config.Method)
+	cli, err := alertmanager.NewAlertManager(l.config.Addr, l.config.Timeout, l.config.LineLimit, l.config.Template, l.config.Headers, l.config.Method)
+	if err != nil {
+		return err
+	}
+
+	l.alertCli = cli
 
 	log.Info("starting logAlert listener")
 	go l.run()
@@ -118,11 +123,9 @@ func (l *Listener) process(event *eventbus.Event) {
 		if ok {
 			l.alertCli.UpdateTemp(s)
 		}
-
 	}
 
 	l.SendBatch = append(l.SendBatch, event)
-
 	if len(l.SendBatch) >= l.config.BatchSize {
 		l.flush()
 	}
@@ -138,5 +141,4 @@ func (l *Listener) flush() {
 	l.alertCli.SendAlert(events)
 
 	l.SendBatch = l.SendBatch[:0]
-
 }

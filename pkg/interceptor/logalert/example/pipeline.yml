@@ -1,0 +1,21 @@
+pipelines:
+  - name: local
+    sources:
+      - type: file
+        name: demo
+        paths:
+          - /tmp/log/*.log
+        fields:
+          topic: "loggie"
+    interceptors:
+      - type: logAlert
+        matcher:
+          contains:
+            - error
+        order: 990
+
+    sink:
+      type: dev
+      printEvents: true
+      codec:
+        pretty: true

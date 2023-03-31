@@ -19,8 +19,10 @@ package alertmanager
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -46,10 +48,7 @@ type AlertManager struct {
 	lock sync.Mutex
 }
 
-type ResetTempEvent struct {
-}
-
-func NewAlertManager(addr []string, timeout, lineLimit int, temp *string, headers map[string]string, method string) *AlertManager {
+func NewAlertManager(addr []string, timeout, lineLimit int, temp *string, headers map[string]string, method string) (*AlertManager, error) {
 	cli := http.Client{
 		Timeout: time.Duration(timeout) * time.Second,
 	}
@@ -67,13 +66,13 @@ func NewAlertManager(addr []string, timeout, lineLimit int, temp *string, header
 	}
 
 	if temp != nil {
-		t, err := template.New("alertTemplate").Parse(*temp)
+		t, err := makeTemplate(*temp)
 		if err != nil {
-			log.Error("fail to generate temp %s", *temp)
+			return nil, err
 		}
 		manager.temp = t
 	}
-	return manager
+	return manager, nil
 }
 
 type AlertEvent struct {
@@ -87,7 +86,6 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 
 	var alerts []*alertwebhook.Alert
 	for _, e := range events {
-
 		if e.Data == nil {
 			continue
 		}
@@ -99,7 +97,6 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 		}
 
 		alert := alertwebhook.NewAlert(*data, a.LineLimit)
-
 		alerts = append(alerts, &alert)
 	}
 
@@ -129,7 +126,7 @@ func (a *AlertManager) SendAlert(events []*eventbus.Event) {
 	}
 	a.lock.Unlock()
 
-	log.Debug("sending alert %s", request)
+	log.Debug("sending alert:\n %s", request)
 	for _, address := range a.Address { // send alerts to alertManager cluster, no need to retry
 		a.send(address, request)
 	}
@@ -164,9 +161,31 @@ func (a *AlertManager) send(address string, alert []byte) {
 }
 
 func (a *AlertManager) UpdateTemp(temp string) {
-	t, err := template.New("alertTemplate").Parse(temp)
+	t, err := makeTemplate(temp)
 	if err != nil {
-		log.Error("fail to generate temp %s", temp)
+		log.Error("update template %+v", err)
 	}
 	a.temp = t
+}
+
+func makeTemplate(temp string) (*template.Template, error) {
+	t, err := template.New("alertTemplate").Funcs(template.FuncMap{
+		"escape":      escape,
+		"pruneEscape": pruneEscape,
+	}).Parse(temp)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "fail to generate template %s", temp)
+	}
+
+	return t, nil
+}
+
+func escape(s string) string {
+	return strconv.Quote(s)
+}
+func pruneEscape(s string) string {
+	raw := strconv.Quote(s)
+	raw = strings.TrimPrefix(raw, `"`)
+	raw = strings.TrimSuffix(raw, `"`)
+	return raw
 }

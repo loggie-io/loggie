@@ -1,0 +1,37 @@
+# example for logalert in interceptor
+loggie:
+  monitor:
+    listeners:
+      logAlert:
+        addr: [ "http://127.0.0.1:8080/loggie" ]
+        bufferSize: 100
+        batchTimeout: 10s
+        batchSize: 1
+        lineLimit: 10
+        template: |
+          {
+                  "alerts":
+                        [
+                        {{$first := true}}
+                        {{range .Alerts}}
+                        {{if $first}}{{$first = false}}{{else}},{{end}}
+                        {
+                              "labels": {
+                                "logconfig": "{{.fields.logconfig}}",
+                                "filename": {{.state.filename}}
+                              },
+                              "annotations": {
+                                "message": "{{range .body}}{{.}}\n{{end}}",
+                                "reason": "{{.reason}}"
+                              },
+                              "startsAt": "{{._meta.timestamp}}",
+                              "endsAt": "{{._meta.timestamp}}"
+                        }
+                        {{end}}
+                        ],
+                        {{$first := true}}
+                        {{range .Alerts}}
+                        {{if $first}}{{$first = false}}{{else}}
+                        {{end}}
+                        {{end}}
+          }
