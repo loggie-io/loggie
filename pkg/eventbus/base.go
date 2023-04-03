@@ -39,7 +39,6 @@ var (
 	ReloadTopic           = "reload"
 	ErrorTopic            = "error"
 	LogAlertTopic         = "log"
-	AlertTempTopic        = "logTemp"
 	QueueMetricTopic      = "queue"
 	PipelineTopic         = "pipeline"
 	ComponentBaseTopic    = "component"

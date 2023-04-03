@@ -44,26 +44,27 @@ func GroupAlerts(alertMap event.AlertMap, alerts []event.Alert, sendFunc event.P
 	if p.Pattern == nil {
 		alertMap[DefaultAlertKey] = append(alertMap[DefaultAlertKey], alerts...)
 		checkAlertsLists(DefaultAlertKey)
-	} else {
-		keyMap := make(map[string]struct{})
-		for _, alert := range alerts {
-			obj := runtime.NewObject(alert)
-			render, err := p.Pattern.WithObject(obj).Render()
-			if err != nil {
-				log.Warn("fail to render group key. Put alert in default group")
-				alertMap[DefaultAlertKey] = append(alertMap[DefaultAlertKey], alert)
-				keyMap[DefaultAlertKey] = struct{}{}
-				continue
-			}
+		return
+	}
 
-			log.Debug("alert group key %s", render)
-			alertMap[render] = append(alertMap[render], alert)
-			keyMap[render] = struct{}{}
+	keyMap := make(map[string]struct{})
+	for _, alert := range alerts {
+		obj := runtime.NewObject(alert)
+		render, err := p.Pattern.WithObject(obj).Render()
+		if err != nil {
+			log.Warn("fail to render group key. Put alert in default group")
+			alertMap[DefaultAlertKey] = append(alertMap[DefaultAlertKey], alert)
+			keyMap[DefaultAlertKey] = struct{}{}
+			continue
 		}
 
-		for key := range keyMap {
-			checkAlertsLists(key)
-		}
+		log.Debug("alert group key %s", render)
+		alertMap[render] = append(alertMap[render], alert)
+		keyMap[render] = struct{}{}
+	}
+
+	for key := range keyMap {
+		checkAlertsLists(key)
 	}
 
 }
@@ -71,24 +72,24 @@ func GroupAlerts(alertMap event.AlertMap, alerts []event.Alert, sendFunc event.P
 func GroupAlertsAtOnce(alerts []event.Alert, sendFunc event.PackageAndSendAlerts, p GroupConfig) {
 	if p.Pattern == nil {
 		sendFunc(alerts)
-	} else {
-		tempMap := make(event.AlertMap)
-		for _, alert := range alerts {
-			obj := runtime.NewObject(alert)
-			render, err := p.Pattern.WithObject(obj).Render()
-			if err != nil {
-				log.Warn("fail to render group key. Put alert in default group")
-				tempMap[DefaultAlertKey] = append(tempMap[DefaultAlertKey], alert)
-				continue
-			}
-
-			log.Debug("alert group key %s", render)
-			tempMap[render] = append(tempMap[render], alert)
-		}
-
-		for _, list := range tempMap {
-			sendFunc(list)
-		}
+		return
 	}
 
+	tempMap := make(event.AlertMap)
+	for _, alert := range alerts {
+		obj := runtime.NewObject(alert)
+		render, err := p.Pattern.WithObject(obj).Render()
+		if err != nil {
+			log.Warn("fail to render group key. Put alert in default group")
+			tempMap[DefaultAlertKey] = append(tempMap[DefaultAlertKey], alert)
+			continue
+		}
+
+		log.Debug("alert group key %s", render)
+		tempMap[render] = append(tempMap[render], alert)
+	}
+
+	for _, list := range tempMap {
+		sendFunc(list)
+	}
 }

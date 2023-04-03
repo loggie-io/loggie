@@ -30,7 +30,7 @@ import (
 const name = "logAlert"
 
 func init() {
-	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.LogAlertTopic), eventbus.WithTopic(eventbus.AlertTempTopic),
+	eventbus.Registry(name, makeListener, eventbus.WithTopic(eventbus.LogAlertTopic),
 		eventbus.WithTopic(eventbus.ErrorTopic), eventbus.WithTopic(eventbus.NoDataTopic))
 }
 
@@ -69,7 +69,11 @@ func (l *Listener) Start() error {
 	l.bufferChan = make(chan *eventbus.Event, l.config.BufferSize)
 	l.SendBatch = make([]*api.Event, 0)
 
-	l.alertCli = alertmanager.NewAlertManager(l.config)
+	cli, err := alertmanager.NewAlertManager(l.config)
+	if err != nil {
+		return err
+	}
+	l.alertCli = cli
 
 	log.Info("starting logAlert listener")
 	go l.run()
@@ -103,21 +107,12 @@ func (l *Listener) run() {
 }
 
 func (l *Listener) process(e *eventbus.Event) {
-	if e.Topic == eventbus.AlertTempTopic {
-		l.processAlertTempTopic(e)
-	} else if e.Topic == eventbus.ErrorTopic {
+	if e.Topic == eventbus.ErrorTopic {
 		l.processErrorTopic(e)
 	} else if e.Topic == eventbus.NoDataTopic {
 		l.processNoDataTopic(e)
 	} else {
 		l.processLogAlertTopic(e)
-	}
-}
-
-func (l *Listener) processAlertTempTopic(e *eventbus.Event) {
-	s, ok := e.Data.(string)
-	if ok {
-		l.alertCli.UpdateTemp(s)
 	}
 }
 

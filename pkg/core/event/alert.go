@@ -33,11 +33,11 @@ const (
 
 	DefaultAlertKey = "_defaultAlertKey"
 	NoDataKey       = "NoDataAlert"
-	Addition        = "_additions"
+	Addition        = "additions"
 	Fields          = "fields"
 	ReasonKey       = "reason"
 
-	AlertOriginDataKey = "Alerts"
+	AlertOriginDataKey = "Events"
 
 	loggieError = "LoggieError"
 )
@@ -49,34 +49,35 @@ type AlertMap map[string][]Alert
 type PackageAndSendAlerts func(alerts []Alert)
 
 func NewAlert(e api.Event, lineLimit int) Alert {
-	systemData := map[string]interface{}{}
-
 	allMeta := e.Meta().GetAll()
+	if allMeta == nil {
+		allMeta = make(map[string]interface{})
+	}
 
 	if value, ok := allMeta[SystemSourceKey]; ok {
-		systemData[sourceName] = value
+		allMeta[sourceName] = value
 	}
 
 	if value, ok := allMeta[SystemPipelineKey]; ok {
-		systemData[pipelineName] = value
+		allMeta[pipelineName] = value
 	}
 
 	if value, ok := allMeta[SystemProductTimeKey]; ok {
 		t, valueToTime := value.(time.Time)
 		if !valueToTime {
-			systemData[timestamp] = value
+			allMeta[timestamp] = value
 		} else {
 			textTime, err := t.MarshalText()
 			if err == nil {
-				systemData[timestamp] = string(textTime)
+				allMeta[timestamp] = string(textTime)
 			} else {
-				systemData[timestamp] = value
+				allMeta[timestamp] = value
 			}
 		}
 	}
 
 	alert := Alert{
-		meta: systemData,
+		meta: allMeta,
 	}
 
 	if len(e.Body()) > 0 {

@@ -19,8 +19,10 @@ package alertmanager
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/pkg/errors"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"text/template"
@@ -51,10 +53,7 @@ type AlertManager struct {
 	alertMap map[string][]event.Alert
 }
 
-type ResetTempEvent struct {
-}
-
-func NewAlertManager(config *logalert.Config) *AlertManager {
+func NewAlertManager(config *logalert.Config) (*AlertManager, error) {
 	cli := http.Client{
 		Timeout: config.Timeout,
 	}
@@ -74,12 +73,12 @@ func NewAlertManager(config *logalert.Config) *AlertManager {
 	}
 
 	if len(config.Template) > 0 {
-		t, err := template.New("alertTemplate").Parse(config.Template)
+		t, err := makeTemplate(config.Template)
 		if err != nil {
-			log.Warn("fail to generate temp %s", config.Template)
-		} else {
-			manager.temp = t
+			return nil, err
 		}
+
+		manager.temp = t
 	}
 
 	manager.groupConfig.AlertSendingThreshold = config.AlertSendingThreshold
@@ -87,13 +86,13 @@ func NewAlertManager(config *logalert.Config) *AlertManager {
 	if len(config.GroupKey) > 0 {
 		p, err := pattern.Init(config.GroupKey)
 		if err != nil {
-			log.Warn("fail to init group key %s: %s", config.GroupKey, err.Error())
-		} else {
-			manager.groupConfig.Pattern = p
+			return nil, errors.WithMessagef(err, "fail to init group key %s", config.GroupKey)
 		}
+
+		manager.groupConfig.Pattern = p
 	}
 
-	return manager
+	return manager, nil
 }
 
 type AlertEvent struct {
@@ -148,7 +147,7 @@ func (a *AlertManager) packageAndSendAlerts(alerts []event.Alert) {
 	}
 	a.lock.Unlock()
 
-	log.Debug("sending alert %s", request)
+	log.Debug("sending alert:\n %s", request)
 	for _, address := range a.Address { // send alerts to alertManager cluster, no need to retry
 		a.send(address, request)
 	}
@@ -182,13 +181,24 @@ func (a *AlertManager) send(address string, alert []byte) {
 	}
 }
 
-func (a *AlertManager) UpdateTemp(temp string) {
-	a.lock.Lock()
-	defer a.lock.Unlock()
-
-	t, err := template.New("alertTemplate").Parse(temp)
+func makeTemplate(temp string) (*template.Template, error) {
+	t, err := template.New("alertTemplate").Funcs(template.FuncMap{
+		"escape":      escape,
+		"pruneEscape": pruneEscape,
+	}).Parse(temp)
 	if err != nil {
-		log.Warn("fail to generate temp %s", temp)
+		return nil, errors.WithMessagef(err, "fail to generate template %s", temp)
 	}
-	a.temp = t
+
+	return t, nil
+}
+
+func escape(s string) string {
+	return strconv.Quote(s)
+}
+func pruneEscape(s string) string {
+	raw := strconv.Quote(s)
+	raw = strings.TrimPrefix(raw, `"`)
+	raw = strings.TrimSuffix(raw, `"`)
+	return raw
 }

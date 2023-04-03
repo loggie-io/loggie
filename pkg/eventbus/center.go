@@ -147,7 +147,9 @@ func (ec *EventCenter) start(config Config) {
 		}
 		subscribe.listener = subscribe.factory()
 		listener := subscribe.listener
-		listener.Init(&context.DefaultContext{})
+		if err := listener.Init(&context.DefaultContext{}); err != nil {
+			log.Panic("init listener %s failed: %v", name, err)
+		}
 
 		if conf == nil {
 			conf = cfg.NewCommonCfg()
@@ -157,7 +159,9 @@ func (ec *EventCenter) start(config Config) {
 			log.Panic("unpack listener %s config error: %v", name, err)
 		}
 		config.ListenerConfigs[name] = conf
-		listener.Start()
+		if err := listener.Start(); err != nil {
+			log.Panic("start listener %s failed: %v", name, err)
+		}
 		log.Info("listener(%s) start", listener.Name())
 
 		ec.activeSubscribe(subscribe)

@@ -146,9 +146,6 @@ func (i *Interceptor) Start() error {
 	if i.nodataMode {
 		i.runTicker()
 	}
-	if len(i.config.Template) > 0 {
-		eventbus.PublishOrDrop(eventbus.AlertTempTopic, i.config.Template)
-	}
 
 	return nil
 }
@@ -225,13 +222,19 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 	}
 	log.Debug("logAlert matched: %s, %s", message, reason)
 
-	// do fire alert
-	ev.Header()[reasonKey] = reason
-	if len(i.config.Additions) > 0 {
-		ev.Header()[addition] = i.config.Additions
-	}
-
 	e := ev.DeepCopy()
+
+	// do fire alert
+	meta := e.Meta()
+	if meta == nil {
+		meta = event.NewDefaultMeta()
+	}
+	meta.Set(reasonKey, reason)
+	if len(i.config.Additions) > 0 {
+		meta.Set(addition, i.config.Additions)
+	}
+	e.Fill(meta, e.Header(), e.Body())
+
 	eventbus.PublishOrDrop(eventbus.LogAlertTopic, &e)
 
 	return invoker.Invoke(invocation)

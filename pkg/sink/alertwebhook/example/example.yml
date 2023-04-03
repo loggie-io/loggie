@@ -20,16 +20,9 @@ pipelines:
           regexp: ['.*WARN.*']
         ignore: ['.*INFO.*']
         sendOnlyMatched: true
-        additions:
-          module: "loggie-alert"
-          alertname: "zzy-alert-test"
-          cluster: "local-cluster"
-          namespace: "default"
         advanced:
           enabled: true
-          mode: [ "noData","regexp" ]
-          duration: 20s
-          matchType: "any"
+          mode: [ "regexp" ]
           rules:
             - regexp: '(?<date>.*?) (?<time>[\S|\\.]+)  (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>(.|\n|\t)*)'
               matchType: "any"
@@ -37,12 +30,6 @@ pipelines:
                 - key: status
                   operator: "eq"
                   value: WARN
-                - key: status
-                  operator: "eq"
-                  value: ERROR
-            - regexp: '(?<date>.*?) (?<time>[\S|\\.]+) (?<status>[\S|\\.]+) (?<u>.*?) --- (?<thread>\[.*?\]) (?<pkg>.*) : (?<message>(.|\n|\t)*)'
-              matchType: "any"
-              groups:
                 - key: status
                   operator: "eq"
                   value: ERROR
@@ -58,34 +45,28 @@ pipelines:
       sendLoggieErrorAtOnce: true
       template: |
         {
-        "alerts":
-        [
-        {{$first := true}}
-        {{range .Alerts}}
-        {{if $first}}{{$first = false}}{{else}},{{end}}
-        {
+          "alerts":
+            [
+            {{$first := true}}
+            {{range .Alerts}}
+            {{if $first}}{{$first = false}}{{else}},{{end}}
+            {
               "labels": {
-                "topic": "{{._meta.pipelineName}}"
+                "logconfig": "{{.fields.logconfig}}",
+                "filename": {{.state.filename}}
               },
               "annotations": {
-                "message": "new alert: \nbody:\n{{range .body}}{{.}}\n{{end}}\ncontainerid: {{._meta.pipelineName}}\nsource: {{._meta.sourceName}}\ncontainername: {{.fields.containername}}\nlogconfig: {{.fields.logconfig}}\nname: {{.fields.name}}\nnamespace: {{.fields.namespace}}\nnodename: {{.fields.nodename}}\npodname: {{.fields.podname}}\nfilename: {{.state.filename}}",
-                "reason": "{{.reason}}"
+                "message": "{{range .body}}{{pruneEscape .}}\n{{end}}",
+                "reason": "{{pruneEscape .reason}}"
               },
               "startsAt": "{{._meta.timestamp}}",
               "endsAt": "{{._meta.timestamp}}"
-        }
-        {{end}}
-        ],
-        {{$first := true}}
-        {{range .Alerts}}
-        {{if $first}}{{$first = false}}
-        "commonLabels": {
-        "namespace": "{{._additions.namespace}}",
-        "module": "{{._additions.module}}",
-        "alertname": "{{._additions.alertname}}",
-        "cluster": "{{._additions.cluster}}"
-        }
-        {{else}}
-        {{end}}
-        {{end}}
+            }
+            {{end}}
+            ],
+            {{$first := true}}
+            {{range .Alerts}}
+            {{if $first}}{{$first = false}}{{else}}
+            {{end}}
+            {{end}}
         }
