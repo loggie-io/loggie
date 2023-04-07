@@ -26,6 +26,8 @@ import (
 )
 
 const (
+	AndInStr = " AND "
+	OrInStr  = " OR "
 	AND      = "AND"
 	OR       = "OR"
 	NEGATIVE = "NOT"
@@ -113,21 +115,8 @@ func GetConditions(expression string) ([]*Instance, string, error) {
 
 func getSubExpressions(expression string) ([]*Instance, string, error) {
 	var expressions []*Instance
-	var connector string
 
-	var ex []string
-	if strings.Contains(expression, AND) {
-		sub := strings.Split(expression, AND)
-		connector = AND
-		ex = append(ex, sub...)
-	} else if strings.Contains(expression, OR) {
-		sub := strings.Split(expression, OR)
-		connector = OR
-		ex = append(ex, sub...)
-	} else {
-		ex = append(ex, expression)
-	}
-
+	connector, ex := extractFunctions(expression)
 	for _, e := range ex {
 		var negative bool
 		e = strings.TrimSpace(e)
@@ -150,4 +139,23 @@ func getSubExpressions(expression string) ([]*Instance, string, error) {
 	}
 
 	return expressions, connector, nil
+}
+
+// extractFunctions splits a string into functions and connectors.
+func extractFunctions(expression string) (conn string, fn []string) {
+	var connector string
+	var ex []string
+	if strings.Contains(expression, AndInStr) {
+		sub := strings.Split(expression, AndInStr)
+		connector = AND
+		ex = append(ex, sub...)
+	} else if strings.Contains(expression, OrInStr) {
+		sub := strings.Split(expression, OrInStr)
+		connector = OR
+		ex = append(ex, sub...)
+	} else {
+		ex = append(ex, expression)
+	}
+
+	return connector, ex
 }
