@@ -86,14 +86,7 @@ func NewAlert(e api.Event, lineLimit int) Alert {
 	}
 
 	for k, v := range e.Header() {
-		if k != Body {
-			alert[k] = v
-			continue
-		}
-
-		if value, ok := v.(string); ok {
-			alert[Body] = splitBody(value, lineLimit)
-		}
+		alert[k] = v
 	}
 
 	return alert
@@ -124,9 +117,6 @@ func ErrorToEvent(message string) *api.Event {
 		e.Header()[Addition] = log.AfterErrorConfig.Additions
 	}
 
-	if len(log.AfterErrorConfig.Fields) > 0 {
-		e.Header()[Fields] = log.AfterErrorConfig.Fields
-	}
 	e.Fill(meta, header, e.Body())
 	return &e
 }
@@ -141,9 +131,6 @@ func ErrorIntoEvent(event api.Event, message string) api.Event {
 		header[Addition] = log.AfterErrorConfig.Additions
 	}
 
-	if len(log.AfterErrorConfig.Fields) > 0 {
-		header[Fields] = log.AfterErrorConfig.Fields
-	}
 	event.Fill(meta, header, []byte(message))
 	return event
 }

@@ -38,13 +38,13 @@ type Config struct {
 }
 
 type Loggie struct {
-	Reload          reloader.ReloadConfig       `yaml:"reload"`
-	Discovery       discovery.Config            `yaml:"discovery"`
-	Http            Http                        `yaml:"http" validate:"dive"`
-	MonitorEventBus eventbus.Config             `yaml:"monitor"`
-	Defaults        Defaults                    `yaml:"defaults"`
-	Db              persistence.DbConfig        `yaml:"db"`
-	ErrorConfig     log.AfterErrorConfiguration `yaml:"errorConfig"`
+	Reload           reloader.ReloadConfig       `yaml:"reload"`
+	Discovery        discovery.Config            `yaml:"discovery"`
+	Http             Http                        `yaml:"http" validate:"dive"`
+	MonitorEventBus  eventbus.Config             `yaml:"monitor"`
+	Defaults         Defaults                    `yaml:"defaults"`
+	Db               persistence.DbConfig        `yaml:"db"`
+	ErrorAlertConfig log.AfterErrorConfiguration `yaml:"errorAlert"`
 }
 
 type Defaults struct {

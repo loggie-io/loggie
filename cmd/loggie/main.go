@@ -92,7 +92,7 @@ func main() {
 	eventbus.StartAndRun(syscfg.Loggie.MonitorEventBus)
 	// init log after error func
 	log.AfterError = eventbus.AfterErrorFunc
-	log.AfterErrorConfig = syscfg.Loggie.ErrorConfig
+	log.AfterErrorConfig = syscfg.Loggie.ErrorAlertConfig
 
 	log.Info("pipelines config path: %s", pipelineConfigPath)
 	// pipeline config file

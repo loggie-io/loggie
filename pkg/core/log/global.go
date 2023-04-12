@@ -237,5 +237,4 @@ func Level() zerolog.Level {
 
 type AfterErrorConfiguration struct {
 	Additions map[string]interface{} `yaml:"additions,omitempty"`
-	Fields    map[string]interface{} `yaml:"fields,omitempty"`
 }

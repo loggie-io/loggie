@@ -184,5 +184,4 @@ func (l *Listener) flush() {
 	l.alertCli.SendAlert(events, l.config.SendLogAlertAtOnce)
 
 	l.SendBatch = l.SendBatch[:0]
-
 }

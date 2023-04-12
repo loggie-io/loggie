@@ -11,27 +11,25 @@ loggie:
         template: |
           {
             "alerts":
-              [
-              {{$first := true}}
-              {{range .Alerts}}
-              {{if $first}}{{$first = false}}{{else}},{{end}}
-              {
-                "labels": {
-                  "logconfig": "{{.fields.logconfig}}",
-                  "filename": {{.state.filename}}
-                },
-                "annotations": {
-                  "message": "{{range .body}}{{pruneEscape .}}\n{{end}}",
-                  "reason": "{{pruneEscape .reason}}"
-                },
-                "startsAt": "{{._meta.timestamp}}",
-                "endsAt": "{{._meta.timestamp}}"
-              }
-              {{end}}
-              ],
-              {{$first := true}}
-              {{range .Alerts}}
-              {{if $first}}{{$first = false}}{{else}}
-              {{end}}
-              {{end}}
+            [
+            {{- $first := true -}}
+            {{- range .Events -}}
+            {{- if $first}}{{$first = false}}{{else}},{{end}}
+            {
+              "labels": {
+                "logconfig": "{{.logconfig}}",
+                "namespace": "{{.namespace}}"
+                "nodename": "{{.nodename}}",
+                "podname": "{{.pod_name}}",
+                "file": "{{.state.filename}}"
+              },
+              "annotations": {
+                "reason": {{escape ._meta.reason}},
+                "message": {{range .body}}{{escape .}}{{end}}
+              },
+              "startsAt": "{{._meta.timestamp}}",
+              "endsAt": "{{._meta.timestamp}}"
+            }
+            {{- end}}
+            ]
           }
