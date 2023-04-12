@@ -87,7 +87,7 @@ build: ## go build
 
 ##@ Build(without sqlite)
 
-build-no-sqlite: ## go build without sqlite
+build-in-badger: ## go build without sqlite
 	GOOS=${GOOS} GOARCH=${GOARCH} go build -tags driver_badger -mod=vendor -a -ldflags '-X github.com/loggie-io/loggie/pkg/core/global._VERSION_=${TAG} -X github.com/loggie-io/loggie/pkg/util/persistence/driver._DRIVER_=driver_badger -s -w' -o loggie cmd/loggie/main.go
 
 ##@ Images
