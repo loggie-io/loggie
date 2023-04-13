@@ -61,6 +61,7 @@ type Engine struct {
 }
 
 func Init(file string) *Engine {
+	log.Info("using database engine: sqlite3")
 	dbFile := createDbFile(file)
 	db, err := sql.Open(driver, dbFile)
 	if err != nil {

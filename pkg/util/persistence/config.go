@@ -42,7 +42,7 @@ type DbConfig struct {
 func (d *DbConfig) SetDefaults() {
 	if d.File == "" {
 		if _DRIVER_ == DriverBadger {
-			d.File = "./data"
+			d.File = "./data/badger"
 		} else {
 			d.File = "./data/loggie.db"
 		}
