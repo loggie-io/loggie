@@ -30,9 +30,10 @@ import (
 )
 
 var (
-	defaultLogger *Logger
-	AfterError    spi.AfterError
-	gLoggerConfig = &LoggerConfig{}
+	defaultLogger    *Logger
+	AfterError       spi.AfterError
+	AfterErrorConfig AfterErrorConfiguration
+	gLoggerConfig    = &LoggerConfig{}
 )
 
 func init() {
@@ -232,4 +233,8 @@ func afterErrorOpt(format string, a ...interface{}) {
 
 func Level() zerolog.Level {
 	return defaultLogger.l.GetLevel()
+}
+
+type AfterErrorConfiguration struct {
+	Additions map[string]interface{} `yaml:"additions,omitempty"`
 }

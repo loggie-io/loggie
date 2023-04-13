@@ -37,23 +37,17 @@ const (
 type Config struct {
 	interceptor.ExtensionConfig `yaml:",inline"`
 
-	Matcher         Matcher           `yaml:"matcher,omitempty"`
-	Labels          Labels            `yaml:"labels,omitempty"`
-	Additions       map[string]string `yaml:"additions,omitempty"`
-	Ignore          []string          `yaml:"ignore,omitempty"`
-	Advanced        Advanced          `yaml:"advanced,omitempty"`
-	Template        *string           `yaml:"template,omitempty"`
-	SendOnlyMatched bool              `yaml:"sendOnlyMatched,omitempty"`
+	Matcher         Matcher                `yaml:"matcher,omitempty"`
+	Additions       map[string]interface{} `yaml:"additions,omitempty"`
+	Ignore          []string               `yaml:"ignore,omitempty"`
+	Advanced        Advanced               `yaml:"advanced,omitempty"`
+	SendOnlyMatched bool                   `yaml:"sendOnlyMatched,omitempty"`
 }
 
 type Matcher struct {
 	Regexp       []string `yaml:"regexp,omitempty"`
 	Contains     []string `yaml:"contains,omitempty"`
 	TargetHeader string   `yaml:"target,omitempty"`
-}
-
-type Labels struct {
-	FromHeader []string `yaml:"from,omitempty"`
 }
 
 type Advanced struct {
