@@ -1,9 +1,0 @@
-# example for loggie error source
-pipelines:
-  - name: local
-    sources:
-      - type: error
-        name: error
-        errorTestEnabled: true
-    sink:
-      type: alertWebhook
