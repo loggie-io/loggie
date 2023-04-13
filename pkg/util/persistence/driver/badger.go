@@ -33,6 +33,7 @@ type Engine struct {
 }
 
 func Init(file string) reg.DbEngine {
+	log.Info("using database engine: badger")
 	db, err := badger.Open(badger.DefaultOptions(file).WithLogger(nil))
 	if err != nil {
 		panic(fmt.Sprintf("open db(%s) fail: %s", file, err))
