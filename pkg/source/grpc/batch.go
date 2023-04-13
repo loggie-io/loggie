@@ -164,8 +164,10 @@ func (bc *batchChain) run() {
 			return
 		case b := <-bc.batchChan:
 			bs[b.index] = b
-			for _, e := range b.events {
-				bc.productFunc(e)
+			for i := int32(0); i < b.eventIndex; i++ {
+				if e, ok := b.events[i]; ok {
+					bc.productFunc(e)
+				}
 			}
 		case es := <-bc.ackEvents:
 			for _, e := range es {
