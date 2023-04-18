@@ -28,6 +28,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 const (
@@ -58,6 +59,8 @@ const (
 type Engine struct {
 	db     *sql.DB
 	dbFile string
+
+	mutex sync.Mutex
 }
 
 func Init(file string) *Engine {
@@ -78,6 +81,8 @@ func Init(file string) *Engine {
 }
 
 func (e *Engine) Insert(registries []reg.Registry) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
 	e.txWrapper(insertSql, func(stmt *sql.Stmt) {
 		for _, r := range registries {
 			_, err := stmt.Exec(r.PipelineName, r.SourceName, r.Filename, r.JobUid, r.Offset, r.CollectTime, r.Version, r.LineNumber)
@@ -94,6 +99,9 @@ func (e *Engine) Close() error {
 }
 
 func (e *Engine) Update(registries []reg.Registry) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	e.txWrapper(updateSql, func(stmt *sql.Stmt) {
 		for _, r := range registries {
 			_, err := stmt.Exec(r.Offset, r.CollectTime, r.LineNumber, r.Id)
@@ -107,6 +115,9 @@ func (e *Engine) Update(registries []reg.Registry) error {
 }
 
 func (e *Engine) UpdateFileName(rs []reg.Registry) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	e.txWrapper(updateNameByJobWatchId, func(stmt *sql.Stmt) {
 		for _, r := range rs {
 			result, err := stmt.Exec(r.Filename, r.JobUid, r.SourceName, r.PipelineName)
@@ -127,6 +138,9 @@ func (e *Engine) UpdateFileName(rs []reg.Registry) error {
 }
 
 func (e *Engine) Delete(r reg.Registry) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	var resErr error
 	e.txWrapper(deleteById, func(stmt *sql.Stmt) {
 		_, err := stmt.Exec(r.Id)
@@ -139,6 +153,9 @@ func (e *Engine) Delete(r reg.Registry) error {
 }
 
 func (e *Engine) DeleteBy(jobUid string, sourceName string, pipelineName string) error {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	var resErr error
 	e.txWrapper(deleteByJobWatchId, func(stmt *sql.Stmt) {
 		result, err := stmt.Exec(jobUid, sourceName, pipelineName)
@@ -225,6 +242,9 @@ func (e *Engine) txWrapper(sqlString string, f func(stmt *sql.Stmt)) {
 }
 
 func (e *Engine) findBySql(querySql string) []reg.Registry {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+
 	rows, err := e.db.Query(querySql)
 	if err != nil {
 		panic(fmt.Sprintf("%s query registry by sql(%s) fail: %v", e.String(), querySql, err))
