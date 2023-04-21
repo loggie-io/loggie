@@ -40,10 +40,11 @@ type Clock interface {
 
 // config configures a limiter.
 type config struct {
-	clock    Clock
-	maxSlack time.Duration
-	per      time.Duration
-	lock     bool
+	clock         Clock
+	maxSlack      time.Duration
+	per           time.Duration
+	lock          bool
+	highPrecision bool
 }
 
 // Option configures a Limiter.
@@ -74,6 +75,18 @@ func (uo unLockOption) apply(c *config) {
 
 func WithoutLock() Option {
 	return unLockOption{}
+}
+
+type highPrecisionOption struct {
+}
+
+func (hpo highPrecisionOption) apply(c *config) {
+	c.highPrecision = true
+	c.clock = NewHighPrecisionClockDescriptor(c.clock)
+}
+
+func WithHighPrecision() Option {
+	return highPrecisionOption{}
 }
 
 type slackOption int
