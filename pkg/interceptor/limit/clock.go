@@ -16,7 +16,10 @@ limitations under the License.
 
 package limit
 
-import "time"
+import (
+	"runtime"
+	"time"
+)
 
 type clockDescriptor struct {
 	clock Clock
@@ -30,7 +33,11 @@ func (c *clockDescriptor) Sleep(d time.Duration) {
 	// Sleeps less than 10ms use long polling instead to improve precision
 	if d < time.Millisecond*10 {
 		start := time.Now()
+		needYield := d >= time.Millisecond*5
 		for time.Since(start) < d {
+			if needYield {
+				runtime.Gosched()
+			}
 			// do nothing
 		}
 		return
