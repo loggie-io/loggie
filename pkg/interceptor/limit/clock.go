@@ -16,10 +16,28 @@ limitations under the License.
 
 package limit
 
-import "github.com/loggie-io/loggie/pkg/core/interceptor"
+import "time"
 
-type Config struct {
-	interceptor.ExtensionConfig `yaml:",inline"`
-	Qps                         int  `yaml:"qps,omitempty" default:"2048" validate:"gte=0"`
-	HighPrecision               bool `yaml:"highPrecision,omitempty" default:"false"`
+type clockDescriptor struct {
+	clock Clock
+}
+
+func NewHighPrecisionClockDescriptor(clock Clock) Clock {
+	return &clockDescriptor{clock: clock}
+}
+
+func (c *clockDescriptor) Sleep(d time.Duration) {
+	// 小于10ms的睡眠使用长轮询来代替以提高精度
+	if d < time.Millisecond*10 {
+		start := time.Now()
+		for time.Since(start) < d {
+			// do nothing
+		}
+		return
+	}
+	c.clock.Sleep(d)
+}
+
+func (c *clockDescriptor) Now() time.Time {
+	return c.clock.Now()
 }

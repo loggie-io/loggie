@@ -68,7 +68,12 @@ func (i *Interceptor) Init(context api.Context) error {
 
 func (i *Interceptor) Start() error {
 	log.Info("rate limit: qps->%d", i.qps)
-	i.l = newUnsafeBased(i.qps, WithoutLock())
+	ops := make([]Option, 0)
+	ops = append(ops, WithoutLock())
+	if i.config.HighPrecision {
+		ops = append(ops, WithHighPrecision())
+	}
+	i.l = newUnsafeBased(i.qps, ops...)
 	return nil
 }
 
