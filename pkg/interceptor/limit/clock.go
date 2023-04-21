@@ -27,7 +27,7 @@ func NewHighPrecisionClockDescriptor(clock Clock) Clock {
 }
 
 func (c *clockDescriptor) Sleep(d time.Duration) {
-	// 小于10ms的睡眠使用长轮询来代替以提高精度
+	// Sleeps less than 10ms use long polling instead to improve precision
 	if d < time.Millisecond*10 {
 		start := time.Now()
 		for time.Since(start) < d {
