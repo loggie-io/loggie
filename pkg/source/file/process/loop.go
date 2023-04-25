@@ -60,6 +60,6 @@ func (bp *LoopProcessor) Process(processorChain file.ProcessChain, ctx *file.Job
 	// send event, reset job eof count
 	if ctx.WasSend {
 		ctx.Job.EofCount = 0
-		ctx.Job.LastActiveTime = time.Now()
+		ctx.Job.SetLastActiveTime(time.Now())
 	}
 }

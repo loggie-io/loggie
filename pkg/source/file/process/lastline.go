@@ -43,11 +43,11 @@ func (llp *LastLineProcessor) Process(processorChain file.ProcessChain, ctx *fil
 	// When it is necessary to back off the offset, check whether it is inactive to collect the last line
 	isLastLineSend := false
 	if ctx.IsEOF && !ctx.WasSend {
-		if time.Since(job.LastActiveTime) >= llp.inactiveTimeout {
+		if time.Since(job.LastActiveTime()) >= llp.inactiveTimeout {
 			// Send "last line"
 			endOffset := ctx.LastOffset
 			job.ProductEvent(endOffset, time.Now(), ctx.BacklogBuffer)
-			job.LastActiveTime = time.Now()
+			job.SetLastActiveTime(time.Now())
 			isLastLineSend = true
 			// Ignore the /n that may be written next.
 			// Because the "last line" of the collection thinks that either it will not be written later,
