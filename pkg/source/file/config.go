@@ -99,6 +99,7 @@ type CleanFiles struct {
 
 type ReaderConfig struct {
 	LineDelimiter          LineDelimiterValue `yaml:"lineDelimiter,omitempty"`
+	MaxSingleLineBytes     int64              `yaml:"maxSingleLineBytes,omitempty" default:"67108864" validate:"gt=65536"` // default 67108864 = 64MB
 	WorkerCount            int                `yaml:"workerCount,omitempty" default:"1"`
 	ReadChanSize           int                `yaml:"readChanSize,omitempty" default:"512"`     // deprecated
 	ReadBufferSize         int                `yaml:"readBufferSize,omitempty" default:"65536"` // The buffer size used for the file reading. default 65536 = 64k = 16*PAGE_SIZE
