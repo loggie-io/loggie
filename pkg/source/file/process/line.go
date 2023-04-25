@@ -67,7 +67,7 @@ func (lp *LineProcessor) Process(processorChain file.ProcessChain, ctx *file.Job
 		if int64(len(ctx.BacklogBuffer)) <= lp.maxSingleLineBytes {
 			ctx.BacklogBuffer = append(ctx.BacklogBuffer, readBuffer[processed:]...)
 		} else {
-			log.Warn("[%s]The length of the backlog buffer exceeds the limit(%s kb), the remaining content on the line will be ignored with offset(%d).", job.FileName(), lp.maxSingleLineBytes/1024, ctx.LastOffset-read)
+			log.Warn("[%s]The length of the backlog buffer exceeds the limit(%d kb), the remaining content on the line will be ignored with offset(%d).", job.FileName(), lp.maxSingleLineBytes/1024, ctx.LastOffset-read)
 		}
 	}
 }
