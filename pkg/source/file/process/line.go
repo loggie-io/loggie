@@ -2,9 +2,9 @@ package process
 
 import (
 	"bytes"
-	"github.com/loggie-io/loggie/pkg/core/log"
 	"time"
 
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/source/file"
 )
 

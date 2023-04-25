@@ -1,8 +1,9 @@
 package process
 
 import (
-	"github.com/loggie-io/loggie/pkg/source/file"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/source/file"
 )
 
 func init() {
