@@ -181,6 +181,10 @@ func (j *Job) RenameTo(newFilename string) {
 	j.renameTime.Store(time.Now())
 }
 
+func (j *Job) FileName() string {
+	return j.filename
+}
+
 func (j *Job) IsRename() bool {
 	rt := j.renameTime.Load()
 	if rt == nil || rt == NilOfTime {

@@ -2,6 +2,7 @@ package process
 
 import (
 	"bytes"
+	"github.com/loggie-io/loggie/pkg/core/log"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/source/file"
@@ -12,10 +13,13 @@ func init() {
 }
 
 func makeLine(config file.ReaderConfig) file.Processor {
-	return &LineProcessor{}
+	return &LineProcessor{
+		maxSingleLineBytes: config.MaxSingleLineBytes,
+	}
 }
 
 type LineProcessor struct {
+	maxSingleLineBytes int64
 }
 
 func (lp *LineProcessor) Order() int {
@@ -58,12 +62,12 @@ func (lp *LineProcessor) Process(processorChain file.ProcessChain, ctx *file.Job
 	ctx.WasSend = processed != 0
 	// The remaining bytes read are added to the backlog buffer
 	if processed < read {
-		ctx.BacklogBuffer = append(ctx.BacklogBuffer, readBuffer[processed:]...)
-
-		// TODO check whether it is too long to avoid bursting the memory
-		//if len(backlogBuffer)>max_bytes{
-		//	log.Error
-		//	break
-		//}
+		// check whether it is too long to avoid bursting the memory
+		// if the limit is exceeded, the remaining content on the line will be ignored.
+		if int64(len(ctx.BacklogBuffer)) <= lp.maxSingleLineBytes {
+			ctx.BacklogBuffer = append(ctx.BacklogBuffer, readBuffer[processed:]...)
+		} else {
+			log.Warn("[%s]The length of the backlog buffer exceeds the limit(%s kb), the remaining content on the line will be ignored with offset(%d).", job.FileName(), lp.maxSingleLineBytes/1024, ctx.LastOffset-read)
+		}
 	}
 }
