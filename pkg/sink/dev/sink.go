@@ -17,6 +17,7 @@ limitations under the License.
 package dev
 
 import (
+	"errors"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -24,35 +25,47 @@ import (
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 	"go.uber.org/atomic"
+	"net/http"
 	"time"
 )
 
 const Type = "dev"
+
+const (
+	handlerProxyPath = "/api/v1/pipeline/%s/sink/dev"
+
+	resultStatusSuccess = "success"
+	resultStatusFail    = "fail"
+	resultStatusDrop    = "drop"
+)
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)
 }
 
 func makeSink(info pipeline.Info) api.Component {
-	return NewSink()
+	return NewSink(info.PipelineName)
 }
 
 type Sink struct {
-	name   string
-	config *Config
-	codec  codec.Codec
-	done   chan struct{}
+	name         string
+	pipelineName string
+	config       *Config
+	codec        codec.Codec
+	done         chan struct{}
 
-	count       *atomic.Uint64
-	sampleEvent *atomic.String
+	count            *atomic.Uint64
+	sampleEvent      *atomic.String
+	resultStatusFlag *atomic.String
 }
 
-func NewSink() *Sink {
+func NewSink(pipelineName string) *Sink {
 	return &Sink{
-		config:      &Config{},
-		count:       atomic.NewUint64(0),
-		sampleEvent: atomic.NewString(""),
-		done:        make(chan struct{}),
+		config:       &Config{},
+		count:        atomic.NewUint64(0),
+		sampleEvent:  atomic.NewString(""),
+		done:         make(chan struct{}),
+		pipelineName: pipelineName,
 	}
 }
 
@@ -76,8 +89,16 @@ func (s *Sink) String() string {
 	return fmt.Sprintf("%s/%s", api.SINK, Type)
 }
 
+func (s *Sink) handleHttp() {
+	handlePath := fmt.Sprintf(handlerProxyPath, s.pipelineName)
+	log.Info("handle http func: %+v", handlePath)
+	http.HandleFunc(handlePath, s.setResultStatusHandle)
+}
+
 func (s *Sink) Init(context api.Context) error {
 	s.name = context.Name()
+	s.resultStatusFlag = atomic.NewString(s.config.ResultStatus)
+	s.handleHttp()
 	return nil
 }
 
@@ -137,6 +158,14 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		return result.Success()
 	}
 
+	// Simulation failed or discarded batch scenarios
+	status := s.resultStatusFlag.Load()
+	if status == resultStatusFail {
+		return result.Fail(errors.New("mock failed"))
+	} else if status == resultStatusDrop {
+		return result.DropWith(errors.New("mock drop"))
+	}
+
 	if s.config.PrintMetrics {
 		s.count.Add(uint64(l))
 	}
@@ -159,4 +188,20 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	}
 
 	return result.NewResult(api.SUCCESS)
+}
+
+func (s *Sink) setResultStatusHandle(writer http.ResponseWriter, request *http.Request) {
+	status := request.URL.Query().Get("status")
+	if status != "" {
+		if status != resultStatusSuccess && status != resultStatusFail && status != resultStatusDrop {
+			writer.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(writer, "param status is invalid, it can be: success, fail, drop")
+			return
+		}
+
+		s.resultStatusFlag.Store(status)
+		writer.WriteHeader(http.StatusOK)
+		fmt.Fprintf(writer, "set result status to: %s", status)
+		return
+	}
 }
