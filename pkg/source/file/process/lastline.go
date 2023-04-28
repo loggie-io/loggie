@@ -67,6 +67,9 @@ func (llp *LastLineProcessor) Process(processorChain file.ProcessChain, ctx *fil
 		backwardOffset := int64(-l)
 		_, err := job.File().Seek(backwardOffset, io.SeekCurrent)
 		if err != nil {
+			if job.IsStop() {
+				return
+			}
 			log.Error("can't set offset(%d), file(name:%s) seek error: %v", backwardOffset, ctx.Filename, err)
 		}
 		return
