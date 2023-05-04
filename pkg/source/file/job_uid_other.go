@@ -1,3 +1,4 @@
+//go:build linux || darwin
 // +build linux darwin
 
 package file
@@ -8,7 +9,7 @@ import (
 	"syscall"
 )
 
-func JobUid(file string,fileInfo os.FileInfo) string {
+func JobUid(file string, fileInfo os.FileInfo) string {
 	stat := fileInfo.Sys().(*syscall.Stat_t)
 	inode := stat.Ino
 	device := stat.Dev

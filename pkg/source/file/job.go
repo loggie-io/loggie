@@ -215,7 +215,7 @@ func (j *Job) Active() (error, bool) {
 		if err != nil {
 			return err, fdOpen
 		}
-		newUid := JobUid(j.filename,fileInfo)
+		newUid := JobUid(j.filename, fileInfo)
 		if j.Uid() != newUid {
 			j.Delete()
 			return fmt.Errorf("job(filename: %s) uid(%s) changed to %s，it maybe not a file", j.filename, j.Uid(), newUid), fdOpen
@@ -355,7 +355,7 @@ func (j *Job) ProductEvent(endOffset int64, collectTime time.Time, body []byte) 
 }
 
 func NewJob(task *WatchTask, filename string, fileInfo os.FileInfo) *Job {
-	jobUid := JobUid(filename,fileInfo)
+	jobUid := JobUid(filename, fileInfo)
 	return newJobWithUid(task, filename, jobUid)
 }
 
