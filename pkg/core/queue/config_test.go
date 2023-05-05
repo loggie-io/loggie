@@ -19,7 +19,6 @@ func TestConfig_Unmarshal(t *testing.T) {
               name: bar
               type: channel
               batchAggTimeout: 1s
-              batchSize: 1024
             `),
 			want: Config{
 				Name: "bar",
@@ -27,7 +26,6 @@ func TestConfig_Unmarshal(t *testing.T) {
 				Properties: cfg.CommonCfg{
 					"batchAggTimeout": "1s",
 				},
-				BatchSize: 1024,
 			},
 		},
 	}
@@ -55,13 +53,11 @@ func TestConfig_Marshal(t *testing.T) {
 				Properties: cfg.CommonCfg{
 					"batchAggTimeout": "1s",
 				},
-				BatchSize: 1024,
 			},
 			want: `
               name: bar
               type: channel
               batchAggTimeout: 1s
-              batchSize: 1024
 `,
 		},
 	}
@@ -88,17 +84,14 @@ func TestConfig_Merge(t *testing.T) {
 			name: "common ok",
 			args: args{
 				base: &Config{
-					Type:      "channel",
-					BatchSize: 1024,
+					Type: "channel",
 				},
 				from: &Config{
-					Type:      "channel",
-					BatchSize: 2048,
+					Type: "channel",
 				},
 			},
 			want: &Config{
-				Type:      "channel",
-				BatchSize: 1024,
+				Type: "channel",
 			},
 		},
 		{
@@ -108,13 +101,11 @@ func TestConfig_Merge(t *testing.T) {
 					Type: "channel",
 				},
 				from: &Config{
-					Type:      "channel",
-					BatchSize: 2048,
+					Type: "channel",
 				},
 			},
 			want: &Config{
-				Type:      "channel",
-				BatchSize: 2048,
+				Type: "channel",
 			},
 		},
 		{
@@ -124,8 +115,7 @@ func TestConfig_Merge(t *testing.T) {
 					Type: "channel",
 				},
 				from: &Config{
-					Type:      "memory",
-					BatchSize: 2048,
+					Type: "memory",
 				},
 			},
 			want: &Config{

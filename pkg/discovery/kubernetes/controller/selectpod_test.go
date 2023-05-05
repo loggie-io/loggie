@@ -69,7 +69,6 @@ func TestGetConfigFromPodAndLogConfig(t *testing.T) {
 				Queue: `
       type: channel
       name: queue
-      batchSize: 1024
 `,
 			},
 		},
@@ -151,7 +150,6 @@ func TestGetConfigFromPodAndLogConfig(t *testing.T) {
 			Name:       "queue",
 			Type:       "channel",
 			Properties: nil,
-			BatchSize:  1024,
 		},
 	}
 
