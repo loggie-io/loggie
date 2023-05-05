@@ -66,8 +66,6 @@ func (d *Defaults) SetDefaults() {
 	if d.Queue == nil {
 		d.Queue = &queue.Config{
 			Type: channel.Type,
-			//Name: "default",
-			BatchSize: 2048,
 		}
 	}
 	if len(d.Interceptors) == 0 {

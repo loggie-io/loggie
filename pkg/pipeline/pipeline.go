@@ -292,7 +292,7 @@ func (p *Pipeline) init(pipelineConfig Config) {
 	p.pathMap = make(map[string]interface{})
 
 	// init event pool
-	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.BatchSize * (p.info.SinkCount + 1))
+	p.info.EventPool = event.NewDefaultPool(pipelineConfig.Queue.GetBatchSize() * (p.info.SinkCount + 1))
 }
 
 func (p *Pipeline) startInterceptor(interceptorConfigs []*interceptor.Config) error {
