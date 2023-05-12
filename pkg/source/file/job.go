@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/loggie-io/loggie/pkg/util"
+	fileUtils "github.com/loggie-io/loggie/pkg/util/file"
 	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
@@ -229,7 +229,7 @@ func (j *Job) Active() (error, bool) {
 			}
 			// init lineNumber
 			if j.currentLineNumber == 0 {
-				lineNumber, err := util.LineCountTo(j.nextOffset, j.filename)
+				lineNumber, err := fileUtils.LineCountTo(j.nextOffset, j.filename)
 				if err != nil {
 					return err, fdOpen
 				}

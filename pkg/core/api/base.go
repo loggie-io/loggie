@@ -126,8 +126,14 @@ type OutFunc func(batch Batch) Result
 type Queue interface {
 	Component
 	In(event Event)
-	Out() Batch
-	OutChan() chan Batch
+	Out() chan Batch
+}
+
+type PersistedQueue interface {
+	SetSource(src map[string]Source)
+
+	// Commit sink commit to queue
+	Commit(batch Batch)
 }
 
 type Invocation interface {

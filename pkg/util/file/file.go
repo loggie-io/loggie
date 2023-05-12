@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package util
+package file
 
 import (
 	"bufio"
@@ -124,4 +124,14 @@ func MatchWithRecursive(pattern, name string) (matched bool, err error) {
 
 func SplitGlobPattern(p string) (base, pattern string) {
 	return xglob.SplitPattern(p)
+}
+
+func CreateDirIfNotExist(dir string) error {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			return errors.WithMessagef(err, "Error creating directory: %s", dir)
+		}
+	}
+	return nil
 }

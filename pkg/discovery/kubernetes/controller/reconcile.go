@@ -23,12 +23,13 @@ import (
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
-	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/client-go/tools/cache"
+
+	fileUtils "github.com/loggie-io/loggie/pkg/util/file"
 )
 
 const (
@@ -392,7 +393,7 @@ func (c *Controller) syncConfigToFile(selectorType string) error {
 		return err
 	}
 	dir := c.config.ConfigFilePath
-	err = util.WriteFileOrCreate(dir, fileName, content)
+	err = fileUtils.WriteFileOrCreate(dir, fileName, content)
 	if err != nil {
 		return err
 	}

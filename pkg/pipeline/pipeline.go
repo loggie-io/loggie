@@ -60,28 +60,29 @@ var (
 )
 
 type Pipeline struct {
-	name          string
-	config        Config
-	done          chan struct{}
-	info          Info
-	r             *RegisterCenter
-	ns            map[string]api.Source // key:name|value:source
-	nq            map[string]api.Queue  // key:name|value:queue
-	flowPool      api.FlowDataPool
-	flowPoolDone  chan struct{}
-	gpool         *ants.Pool
-	gpoolMaxSize  int
-	outChans      []chan api.Batch
-	countDown     sync.WaitGroup
-	retryOutFuncs []api.OutFunc
-	index         uint32
-	epoch         *Epoch
-	envMap        map[string]interface{}
-	pathMap       map[string]interface{}
-	outfunc       api.OutFunc
-	retryoutfunc  api.OutFunc
-	sinkinfo      sink.Info
-	concurrency   concurrency.Config
+	name           string
+	config         Config
+	done           chan struct{}
+	info           Info
+	r              *RegisterCenter
+	ns             map[string]api.Source // key:name|value:source
+	queue          api.Queue
+	persistedQueue api.PersistedQueue
+	flowPool       api.FlowDataPool
+	flowPoolDone   chan struct{}
+	gpool          *ants.Pool
+	gpoolMaxSize   int
+	outChans       []chan api.Batch
+	countDown      sync.WaitGroup
+	retryOutFuncs  []api.OutFunc
+	index          uint32
+	epoch          *Epoch
+	envMap         map[string]interface{}
+	pathMap        map[string]interface{}
+	outfunc        api.OutFunc
+	retryoutfunc   api.OutFunc
+	sinkinfo       sink.Info
+	concurrency    concurrency.Config
 
 	Running bool
 }
@@ -206,7 +207,7 @@ func (p *Pipeline) cleanData() {
 	p.r.cleanData()
 	// clean pipeline
 	p.ns = nil
-	p.nq = nil
+	p.queue = nil
 	p.outChans = nil
 	p.r = nil
 }
@@ -287,7 +288,6 @@ func (p *Pipeline) init(pipelineConfig Config) {
 	p.done = make(chan struct{})
 	p.info.Stop = false
 	p.ns = make(map[string]api.Source)
-	p.nq = make(map[string]api.Queue)
 	p.envMap = make(map[string]interface{})
 	p.pathMap = make(map[string]interface{})
 
@@ -317,8 +317,12 @@ func (p *Pipeline) startQueue(queueConfig queue.Config) error {
 		return errors.WithMessage(err, "start queue failed")
 	}
 	q := p.r.LoadQueue(api.Type(queueConfig.Type), queueConfig.Name)
-	p.nq[queueConfig.Name] = q
-	p.outChans = append(p.outChans, q.OutChan())
+	if persistedQueue, ok := q.(api.PersistedQueue); ok {
+		persistedQueue.SetSource(p.ns)
+		p.persistedQueue = persistedQueue
+	}
+	p.queue = q
+	p.outChans = append(p.outChans, q.Out())
 	return nil
 }
 
@@ -381,7 +385,14 @@ func (p *Pipeline) afterSinkConsumer(b api.Batch, result api.Result) {
 
 // commit to source and release batch
 func (p *Pipeline) finalizeBatch(batch api.Batch) {
+	// commit offset to persisted queue
+	if p.persistedQueue != nil {
+		p.persistedQueue.Commit(batch)
+		batch.Release()
+		return
+	}
 
+	// if not a persisted queue, commit to source
 	nes := make(map[string][]api.Event)
 	events := batch.Events()
 	l := len(events)
@@ -560,7 +571,7 @@ func (p *Pipeline) sinkInvokeLoop(info sink.Info, outFunc api.OutFunc) {
 		log.Info("pipeline sink(%s) invoke loop stop", s.String())
 	}()
 	q := info.Queue
-	outChan := q.OutChan()
+	outChan := q.Out()
 	for {
 		select {
 		case <-p.done:
@@ -632,7 +643,7 @@ func (p *Pipeline) startGPoolCalculator() {
 	decreaseReq := make([]bool, 0)
 	increaseReq := make([]bool, 0)
 
-	q := p.sinkinfo.Queue.OutChan()
+	q := p.sinkinfo.Queue.Out()
 
 	go func() {
 		timer := time.NewTicker(time.Second * time.Duration(tickDuration))
@@ -998,17 +1009,25 @@ func (p *Pipeline) startSourceProduct(sourceConfigs []*source.Config) {
 				Queue: q,
 			})
 
-			if result.Status() == api.DROP {
-				p.info.EventPool.Put(e)
-			}
-			if result.Status() == api.FAIL {
-				log.Error("source to queue failed: %s", result.Error())
-			}
+			p.afterSourceProduct(e, result)
 			return result
 		}
 		go si.Source.ProductLoop(productFunc)
 
 	}
+}
+
+func (p *Pipeline) afterSourceProduct(e api.Event, result api.Result) {
+	if result.Status() == api.DROP {
+		p.info.EventPool.Put(e)
+	}
+	if result.Status() == api.FAIL {
+		log.Error("source to queue failed: %s", result.Error())
+	}
+}
+
+func (p *Pipeline) finalizeEvent(e api.Event) {
+
 }
 
 func (p *Pipeline) initFieldsFromEnv(fieldsFromEnv map[string]string) {

@@ -28,7 +28,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/external"
 	"github.com/loggie-io/loggie/pkg/eventbus"
-	"github.com/loggie-io/loggie/pkg/util"
+	fileUtils "github.com/loggie-io/loggie/pkg/util/file"
 	"github.com/loggie-io/loggie/pkg/util/persistence"
 )
 
@@ -413,7 +413,7 @@ func (w *Watcher) scanDynamicContainerLogs(pipelineName string, sourceName strin
 
 func (w *Watcher) scanPaths(pipelineName string, sourceName string, paths []string, watchTask *WatchTask, jobFields map[string]interface{}) {
 	for _, path := range paths {
-		matches, err := util.GlobWithRecursive(path)
+		matches, err := fileUtils.GlobWithRecursive(path)
 		log.Debug("scan paths %+v , matches: %+v", path, matches)
 		if err != nil {
 			if os.IsNotExist(err) {
@@ -912,7 +912,7 @@ func (w *Watcher) reportWatchMetric(watchTask *WatchTask, paths []string, pipeli
 
 	fileInfos := make([]eventbus.FileInfo, 0)
 	for _, path := range paths {
-		matches, err := util.GlobWithRecursive(path)
+		matches, err := fileUtils.GlobWithRecursive(path)
 		if err != nil {
 			log.Info("[pipeline(%s)-source(%s)]: glob path(%s) fail: %v", pipelineName, sourceName, path, err)
 			continue

@@ -23,13 +23,14 @@ import (
 	"github.com/loggie-io/loggie/pkg/ops/dashboard/content"
 	"github.com/loggie-io/loggie/pkg/ops/dashboard/gui"
 	"github.com/loggie-io/loggie/pkg/ops/helper"
-	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/rivo/tview"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	fileUtils "github.com/loggie-io/loggie/pkg/util/file"
 )
 
 const (
@@ -265,11 +266,11 @@ func (p *LogStatusPanel) SetData() {
 						continue
 					}
 
-					if ok, _ := util.MatchWithRecursive(path, f.FileName); !ok {
+					if ok, _ := fileUtils.MatchWithRecursive(path, f.FileName); !ok {
 						continue
 					}
 
-					base, _ := util.SplitGlobPattern(path)
+					base, _ := fileUtils.SplitGlobPattern(path)
 					filename := strings.TrimPrefix(f.FileName, base)
 					filename = strings.TrimPrefix(filename, "/")
 

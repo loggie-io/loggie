@@ -142,11 +142,7 @@ func (c *Queue) In(event api.Event) {
 	c.Consume(event)
 }
 
-func (c *Queue) Out() api.Batch {
-	return <-c.out
-}
-
-func (c *Queue) OutChan() chan api.Batch {
+func (c *Queue) Out() chan api.Batch {
 	return c.out
 }
 
@@ -164,26 +160,6 @@ func (c *Queue) beforeQueueConvertBatch(events []api.Event) {
 		listener.BeforeQueueConvertBatch(events)
 	}
 }
-
-//func (c *Queue) afterQueueBatchConsumer(batch api.Batch, status api.Status) {
-//	for _, listener := range c.listeners {
-//		listener.AfterQueueBatchConsumer(batch, status)
-//	}
-//}
-
-//func (c *Queue) DependencyInterceptors() []api.Interceptor {
-//	interceptor := &sink.AbstractInterceptor{
-//		DoName: func() string {
-//			return dependencyInterceptorName
-//		},
-//		DoIntercept: func(invoker sink.Invoker, invocation sink.Invocation) api.Result {
-//			r := invoker.Invoke(invocation)
-//			c.afterQueueBatchConsumer(invocation.Batch, r.Status())
-//			return r
-//		},
-//	}
-//	return []api.Interceptor{interceptor}
-//}
 
 type innerConsumer struct {
 	innerBuffer chan []api.Event

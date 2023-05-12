@@ -169,11 +169,7 @@ func (c *Queue) In(event api.Event) {
 	c.in <- event
 }
 
-func (c *Queue) Out() api.Batch {
-	return <-c.out
-}
-
-func (c *Queue) OutChan() chan api.Batch {
+func (c *Queue) Out() chan api.Batch {
 	return c.out
 }
 
