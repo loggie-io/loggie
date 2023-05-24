@@ -16,10 +16,25 @@ limitations under the License.
 
 package yaml
 
-import "gopkg.in/yaml.v2"
+import (
+	"fmt"
+	goccyyaml "github.com/goccy/go-yaml"
+	"gopkg.in/yaml.v2"
+)
 
-func Unmarshal(in []byte, out interface{}) (err error) {
+func Unmarshal(in []byte, out interface{}) error {
 	return yaml.Unmarshal(in, out)
+}
+
+func UnmarshalWithPrettyError(in []byte, out interface{}) error {
+	err := Unmarshal(in, out)
+	if err != nil {
+		prettyErr := goccyyaml.Unmarshal(in, out)
+		if prettyErr != nil {
+			err = fmt.Errorf("%w\n; %s", prettyErr, err)
+		}
+	}
+	return err
 }
 
 func Marshal(in interface{}) (out []byte, err error) {
