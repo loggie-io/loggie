@@ -152,9 +152,10 @@ func (c *Queue) writerLoop() {
 		c.beforeQueueConvertBatch(buffer)
 
 		b := batch.NewBatchWithEvents(buffer)
-		w, err := b.JsonMarshal()
+		//w, err := b.JsonMarshal()
+		w, err := b.MsgPackMarshal()
 		if err != nil {
-			log.Error("marshal batch to persisted queue failed: %+w", err)
+			log.Error("marshal batch to persisted queue failed: %+v", err)
 			return
 		}
 
@@ -215,7 +216,8 @@ func (c *Queue) readLoop() {
 			if readFrame == nil {
 				continue
 			}
-			b, err := batch.JsonUnmarshal(readFrame.Raw)
+			//b, err := batch.JsonUnmarshal(readFrame.Raw)
+			b, err := batch.MsgPackUnmarshal(readFrame.Raw)
 			if err != nil {
 				log.Error("unmarshal batch from persisted queue failed: %+w", err)
 				return

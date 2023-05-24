@@ -1,15 +1,29 @@
 pipelines:
   - name: local
+#    sources:
+#      - type: file
+#        name: demo
+#        paths:
+#          - /tmp/log/*.log
+#        fields:
+#          topic: "loggie"
+#        multi:
+#          active: true
+#          pattern: (?<=x)y
+
     sources:
-      - type: file
+      - type: dev
         name: demo
-        paths:
-          - /tmp/log/*.log
-        fields:
-          topic: "loggie"
+        eventsTotal: 100000
+        byteSize: 1024
+        qps: 1000
+    queue:
+      type: persisted
+#      maxFileBytes: 10MB
+#      batchBytes: 1MB
+
     sink:
       type: dev
-      codec:
-        type: json
-        printEvents: true
-        pretty: true
+      printMetrics: true
+      printMetricsInterval: 10s
+      resultStatus: fail

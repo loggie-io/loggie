@@ -5,7 +5,7 @@ loggie:
 
   monitor:
     logger:
-      period: 30s
+      period: 10s
       enabled: true
     listeners:
       filesource: ~
@@ -15,6 +15,7 @@ loggie:
       queue: ~
       pipeline: ~
       normalize: ~
+      sys: ~
 
   discovery:
     enabled: false

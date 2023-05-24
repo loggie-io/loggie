@@ -417,6 +417,9 @@ github.com/opencontainers/go-digest
 ## explicit; go 1.14
 github.com/panjf2000/ants/v2
 github.com/panjf2000/ants/v2/internal
+# github.com/philhofer/fwd v1.1.2
+## explicit; go 1.15
+github.com/philhofer/fwd
 # github.com/pierrec/lz4 v2.6.0+incompatible
 ## explicit
 github.com/pierrec/lz4
@@ -553,6 +556,9 @@ github.com/stretchr/testify/assert
 # github.com/thinkeridea/go-extend v1.3.2
 ## explicit; go 1.13
 github.com/thinkeridea/go-extend/exunicode/exutf8
+# github.com/tinylib/msgp v1.1.8
+## explicit; go 1.15
+github.com/tinylib/msgp/msgp
 # github.com/tklauser/go-sysconf v0.3.9
 ## explicit; go 1.13
 github.com/tklauser/go-sysconf

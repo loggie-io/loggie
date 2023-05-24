@@ -29,9 +29,24 @@ type DefaultBatch struct {
 	Metadata map[string]interface{}
 }
 
-type DefaultBatchS struct {
-	Content  []*event.DefaultEventS `json:"content"`
-	Metadata map[string]interface{} `json:"metadata"`
+func (db *DefaultBatch) ToS() *DefaultBatchS {
+	var events []*event.DefaultEventS
+	for _, c := range db.Content {
+		e := &event.DefaultEventS{
+			H: c.Header(),
+			B: c.Body(),
+			M: &event.DefaultMeta{
+				Properties: c.Meta().GetAll(),
+			},
+		}
+
+		events = append(events, e)
+	}
+
+	return &DefaultBatchS{
+		Content:  events,
+		Metadata: db.Metadata,
+	}
 }
 
 func (db *DefaultBatch) Meta() map[string]interface{} {
@@ -89,6 +104,26 @@ func JsonUnmarshal(in []byte) (*DefaultBatch, error) {
 		return nil, err
 	}
 
+	return batchSToBatch(o), nil
+}
+
+func (db *DefaultBatch) MsgPackMarshal() ([]byte, error) {
+	b := db.ToS()
+	// TODO zero-allocation marshaling
+	return b.MarshalMsg(nil)
+}
+
+func MsgPackUnmarshal(in []byte) (*DefaultBatch, error) {
+	o := &DefaultBatchS{}
+	_, err := o.UnmarshalMsg(in)
+	if err != nil {
+		return nil, err
+	}
+
+	return batchSToBatch(o), nil
+}
+
+func batchSToBatch(o *DefaultBatchS) *DefaultBatch {
 	b := NewBatch()
 	for _, c := range o.Content {
 		e := &event.DefaultEvent{
@@ -101,5 +136,5 @@ func JsonUnmarshal(in []byte) (*DefaultBatch, error) {
 	}
 	b.Metadata = o.Metadata
 
-	return b, nil
+	return b
 }
