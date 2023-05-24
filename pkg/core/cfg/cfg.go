@@ -167,7 +167,7 @@ func (u *UnPack) unpack() *UnPack {
 		return u
 	}
 
-	err := yaml.Unmarshal(u.content, u.config)
+	err := yaml.UnmarshalWithPrettyError(u.content, u.config)
 	u.err = err
 	return u
 }
