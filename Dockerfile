@@ -14,7 +14,7 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then apt-get update && apt-get install -y gc
   && GOOS=$TARGETOS GOARCH=$TARGETARCH CC=$CC CC_FOR_TARGET=$CC_FOR_TARGET make build
 
 # Run
-FROM --platform=$BUILDPLATFORM debian:buster-slim
+FROM debian:buster-slim
 WORKDIR /
 COPY --from=builder /loggie .
 
