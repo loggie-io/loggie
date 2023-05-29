@@ -11,7 +11,7 @@ COPY . .
 RUN make build-in-badger
 
 # Run
-FROM --platform=$BUILDPLATFORM debian:buster-slim
+FROM debian:buster-slim
 WORKDIR /
 COPY --from=builder /loggie .
 
