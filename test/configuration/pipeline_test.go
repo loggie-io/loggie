@@ -84,8 +84,7 @@ pipelines:
 					},
 				},
 				Queue: &queue.Config{
-					Type:      "channel",
-					BatchSize: 2048,
+					Type: "channel",
 				},
 				Interceptors: []*interceptor.Config{
 					{

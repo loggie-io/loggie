@@ -20,12 +20,13 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 )
 
+const defaultBatchSize = 2048
+
 type Config struct {
 	Enabled    *bool         `yaml:"enabled,omitempty"`
 	Name       string        `yaml:"name,omitempty"`
 	Type       string        `yaml:"type,omitempty" validate:"required"`
 	Properties cfg.CommonCfg `yaml:",inline"`
-	BatchSize  int           `yaml:"batchSize,omitempty" default:"2048" validate:"required,gte=1"`
 }
 
 func (c *Config) Merge(from *Config) {
@@ -34,10 +35,6 @@ func (c *Config) Merge(from *Config) {
 	}
 	if c.Name != from.Name || c.Type != from.Type {
 		return
-	}
-
-	if c.BatchSize == 0 {
-		c.BatchSize = from.BatchSize
 	}
 
 	c.Properties = cfg.MergeCommonCfg(c.Properties, from.Properties, false)
@@ -53,7 +50,20 @@ func (c *Config) DeepCopy() *Config {
 	out.Name = c.Name
 	out.Type = c.Type
 	out.Properties = c.Properties.DeepCopy()
-	out.BatchSize = c.BatchSize
 
 	return out
+}
+
+func (c *Config) GetBatchSize() int {
+	batchSize, ok := c.Properties["batchSize"]
+	if !ok {
+		return defaultBatchSize
+	}
+
+	intBatchSize, ok := batchSize.(int)
+	if !ok {
+		return defaultBatchSize
+	}
+
+	return intBatchSize
 }
