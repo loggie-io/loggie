@@ -26,6 +26,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 	"go.uber.org/atomic"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -38,6 +39,8 @@ const (
 	resultStatusFail    = "fail"
 	resultStatusDrop    = "drop"
 )
+
+var once sync.Once
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)
@@ -98,7 +101,9 @@ func (s *Sink) handleHttp() {
 func (s *Sink) Init(context api.Context) error {
 	s.name = context.Name()
 	s.resultStatusFlag = atomic.NewString(s.config.ResultStatus)
-	s.handleHttp()
+	once.Do(func() {
+		s.handleHttp()
+	})
 	return nil
 }
 
