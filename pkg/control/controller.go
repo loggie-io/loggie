@@ -129,7 +129,7 @@ func (c *Controller) reportMetric(p pipeline.Config, eventType eventbus.Componen
 			Category: api.INTERCEPTOR,
 		})
 	}
-	eventbus.Publish(eventbus.PipelineTopic, eventbus.PipelineMetricData{
+	eventbus.PublishOrDrop(eventbus.PipelineTopic, eventbus.PipelineMetricData{
 		EventType:        eventType,
 		Name:             p.Name,
 		Time:             time.Now(),
