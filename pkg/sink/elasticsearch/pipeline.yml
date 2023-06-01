@@ -2,3 +2,5 @@ sink:
   type: elasticsearch
   hosts: ["localhost:9200"]
   index: "log-${fields.topic}-${+YYYY.MM.DD}"
+  ifRenderIndexFailed:
+    defaultIndex: log-df

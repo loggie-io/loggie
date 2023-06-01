@@ -19,16 +19,23 @@ package elasticsearch
 import "github.com/loggie-io/loggie/pkg/util/pattern"
 
 type Config struct {
-	Hosts      []string `yaml:"hosts,omitempty" validate:"required"`
-	UserName   string   `yaml:"username,omitempty"`
-	Password   string   `yaml:"password,omitempty"`
-	Index      string   `yaml:"index,omitempty" validate:"required"`
-	Etype      string   `yaml:"etype,omitempty"` // elasticsearch type, for v5.* backward compatibility
-	DocumentId string   `yaml:"documentId,omitempty"`
-	Schema     string   `yaml:"schema,omitempty"`
-	Sniff      *bool    `yaml:"sniff,omitempty"`
-	Gzip       *bool    `yaml:"gzip,omitempty"`
-	OpType     string   `yaml:"opType,omitempty"`
+	Hosts               []string        `yaml:"hosts,omitempty" validate:"required"`
+	UserName            string          `yaml:"username,omitempty"`
+	Password            string          `yaml:"password,omitempty"`
+	Index               string          `yaml:"index,omitempty" validate:"required"`
+	IfRenderIndexFailed RenderIndexFail `yaml:"ifRenderIndexFailed,omitempty"`
+	Etype               string          `yaml:"etype,omitempty"` // elasticsearch type, for v5.* backward compatibility
+	DocumentId          string          `yaml:"documentId,omitempty"`
+	Schema              string          `yaml:"schema,omitempty"`
+	Sniff               *bool           `yaml:"sniff,omitempty"`
+	Gzip                *bool           `yaml:"gzip,omitempty"`
+	OpType              string          `yaml:"opType,omitempty"`
+}
+
+type RenderIndexFail struct {
+	DropEvent    bool   `yaml:"dropEvent,omitempty" default:"true"`
+	IgnoreError  bool   `yaml:"ignoreError,omitempty"`
+	DefaultIndex string `yaml:"defaultIndex,omitempty"`
 }
 
 func (c *Config) Validate() error {

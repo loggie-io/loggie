@@ -157,11 +157,18 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	for _, e := range events {
 		topic, err := s.selectTopic(e)
 		if err != nil {
-			if err := s.handleRenderTopicError(err, e); err != nil {
-				return result.Fail(err)
+			failedConfig := s.config.IfRenderTopicFailed
+			if !failedConfig.IgnoreError {
+				log.Error("render kafka topic error: %v; event is: %s", err, e.String())
 			}
-			if s.config.IfRenderTopicFailed.DefaultTopic != "" {
-				topic = s.config.IfRenderTopicFailed.DefaultTopic
+
+			if failedConfig.DefaultTopic != "" { // if we had a default topic, send events to this one
+				topic = failedConfig.DefaultTopic
+			} else if failedConfig.DropEvent {
+				// ignore(drop) this event in default
+				continue
+			} else {
+				return result.Fail(errors.WithMessage(err, "render kafka topic error"))
 			}
 		}
 
@@ -192,21 +199,4 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 func (s *Sink) selectTopic(e api.Event) (string, error) {
 	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).Render()
-}
-
-func (s *Sink) handleRenderTopicError(err error, event api.Event) error {
-	failedConfig := s.config.IfRenderTopicFailed
-	if !failedConfig.IgnoreError {
-		log.Error("render kafka topic error: %v; event is: %s", err, event.String())
-	}
-
-	if failedConfig.DefaultTopic != "" {
-		return nil
-	}
-
-	if !failedConfig.DropEvent {
-		return errors.WithMessage(err, "render kafka topic error")
-	}
-
-	return nil
 }
