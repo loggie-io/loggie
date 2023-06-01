@@ -1199,7 +1199,7 @@ func (p *Pipeline) reportMetricWithCode(code string, component api.Component, ev
 }
 
 func (p *Pipeline) reportMetric(name string, component api.Component, eventType eventbus.ComponentEventType) {
-	eventbus.Publish(eventbus.ComponentBaseTopic, eventbus.ComponentBaseMetricData{
+	eventbus.PublishOrDrop(eventbus.ComponentBaseTopic, eventbus.ComponentBaseMetricData{
 		EventType:    eventType,
 		PipelineName: p.name,
 		EpochTime:    p.epoch.StartTime,

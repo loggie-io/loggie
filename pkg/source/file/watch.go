@@ -875,7 +875,7 @@ func (w *Watcher) reportWatchMetricAndCleanFiles() {
 
 		paths := getPathsIfDynamicContainerLogs(watchTask.config.Paths, pipelineName, sourceName)
 		watchMetricData := w.reportWatchMetric(watchTask, paths, pipelineName, sourceName)
-		eventbus.Publish(eventbus.FileWatcherTopic, watchMetricData)
+		eventbus.PublishOrDrop(eventbus.FileWatcherTopic, watchMetricData)
 
 		removedFiles := w.cleanFiles(watchMetricData.FileInfos)
 		if len(removedFiles) > 0 {

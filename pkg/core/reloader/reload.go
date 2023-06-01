@@ -95,7 +95,7 @@ func (r *reloader) Run(stopCh <-chan struct{}) {
 					}
 				}
 
-				eventbus.Publish(eventbus.ReloadTopic, eventbus.ReloadMetricData{
+				eventbus.PublishOrDrop(eventbus.ReloadTopic, eventbus.ReloadMetricData{
 					Tick: 1,
 				})
 			}
