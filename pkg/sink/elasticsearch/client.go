@@ -92,8 +92,19 @@ func (c *ClientSet) BulkIndex(ctx context.Context, batch api.Batch) error {
 		// select index
 		idx, err := c.indexPattern.WithObject(headerObj).RenderWithStrict()
 		if err != nil {
-			log.Error("render index pattern err: %v; event is: %s", err, event.String())
-			continue
+			failedConfig := c.config.IfRenderIndexFailed
+			if !failedConfig.IgnoreError {
+				log.Error("render elasticsearch index error: %v; event is: %s", err, event.String())
+			}
+
+			if failedConfig.DefaultIndex != "" { // if we had a default index, send events to this one
+				idx = failedConfig.DefaultIndex
+			} else if failedConfig.DropEvent {
+				// ignore(drop) this event in default
+				continue
+			} else {
+				return errors.WithMessage(err, "render elasticsearch index error")
+			}
 		}
 
 		data, err := c.codec.Encode(event)
