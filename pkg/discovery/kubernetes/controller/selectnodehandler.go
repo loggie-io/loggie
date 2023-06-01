@@ -43,6 +43,10 @@ func GetKubeTypeNodeExtraSource(src *source.Config) (*KubeTypeNodeExtra, error) 
 }
 
 func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) error {
+	if c.nodeInfo == nil {
+		return nil
+	}
+
 	// check node selector
 	if lgc.Spec.Selector.NodeSelector.NodeSelector != nil {
 		if !helper.LabelsSubset(lgc.Spec.Selector.NodeSelector.NodeSelector, c.nodeInfo.Labels) {

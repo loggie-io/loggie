@@ -28,6 +28,9 @@ import (
 )
 
 func (c *Controller) handleLogConfigTypeVm(lgc *logconfigv1beta1.LogConfig) error {
+	if !c.config.VmMode {
+		return nil
+	}
 	// check node selector
 	if lgc.Spec.Selector.NodeSelector.NodeSelector != nil {
 		if !helper.LabelsSubset(lgc.Spec.Selector.NodeSelector.NodeSelector, c.vmInfo.Labels) {
