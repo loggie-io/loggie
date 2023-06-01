@@ -130,8 +130,12 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	for _, e := range events {
 		topic, err := s.selectTopic(e)
 		if err != nil {
-			log.Error("select kafka topic error: %v; event is: %s", err, e.String())
-			continue
+			if err := s.handleRenderTopicError(err, e); err != nil {
+				return result.Fail(err)
+			}
+			if s.config.IfRenderTopicFailed.DefaultTopic != "" {
+				topic = s.config.IfRenderTopicFailed.DefaultTopic
+			}
 		}
 
 		msg, err := s.cod.Encode(e)
@@ -180,4 +184,21 @@ func (s *Sink) selectTopic(e api.Event) (string, error) {
 
 func (s *Sink) getPartitionKey(e api.Event) (string, error) {
 	return s.partitionKeyPattern.WithObject(runtime.NewObject(e.Header())).Render()
+}
+
+func (s *Sink) handleRenderTopicError(err error, event api.Event) error {
+	failedConfig := s.config.IfRenderTopicFailed
+	if !failedConfig.IgnoreError {
+		log.Error("render kafka topic error: %v; event is: %s", err, event.String())
+	}
+
+	if failedConfig.DefaultTopic != "" {
+		return nil
+	}
+
+	if !failedConfig.DropEvent {
+		return errors.WithMessage(err, "render kafka topic error")
+	}
+
+	return nil
 }

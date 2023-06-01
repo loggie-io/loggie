@@ -48,19 +48,26 @@ const (
 )
 
 type Config struct {
-	Brokers      []string      `yaml:"brokers,omitempty" validate:"required"`
-	Topic        string        `yaml:"topic,omitempty" validate:"required" default:"loggie"`
-	Balance      string        `yaml:"balance,omitempty" default:"roundRobin"`
-	Compression  string        `yaml:"compression,omitempty" default:"gzip"`
-	MaxAttempts  int           `yaml:"maxAttempts,omitempty"`
-	BatchSize    int           `yaml:"batchSize,omitempty"`
-	BatchBytes   int64         `yaml:"batchBytes,omitempty"`
-	BatchTimeout time.Duration `yaml:"batchTimeout,omitempty"`
-	ReadTimeout  time.Duration `yaml:"readTimeout,omitempty"`
-	WriteTimeout time.Duration `yaml:"writeTimeout,omitempty"`
-	RequiredAcks int           `yaml:"requiredAcks,omitempty"`
-	SASL         SASL          `yaml:"sasl,omitempty"`
-	PartitionKey string        `yaml:"partitionKey,omitempty"`
+	Brokers             []string        `yaml:"brokers,omitempty" validate:"required"`
+	Topic               string          `yaml:"topic,omitempty" validate:"required" default:"loggie"`
+	IfRenderTopicFailed RenderTopicFail `yaml:"ifRenderTopicFailed,omitempty"`
+	Balance             string          `yaml:"balance,omitempty" default:"roundRobin"`
+	Compression         string          `yaml:"compression,omitempty" default:"gzip"`
+	MaxAttempts         int             `yaml:"maxAttempts,omitempty"`
+	BatchSize           int             `yaml:"batchSize,omitempty"`
+	BatchBytes          int64           `yaml:"batchBytes,omitempty"`
+	BatchTimeout        time.Duration   `yaml:"batchTimeout,omitempty"`
+	ReadTimeout         time.Duration   `yaml:"readTimeout,omitempty"`
+	WriteTimeout        time.Duration   `yaml:"writeTimeout,omitempty"`
+	RequiredAcks        int             `yaml:"requiredAcks,omitempty"`
+	SASL                SASL            `yaml:"sasl,omitempty"`
+	PartitionKey        string          `yaml:"partitionKey,omitempty"`
+}
+
+type RenderTopicFail struct {
+	DropEvent    bool   `yaml:"dropEvent,omitempty" default:"true"`
+	IgnoreError  bool   `yaml:"ignoreError,omitempty"`
+	DefaultTopic string `yaml:"defaultTopic,omitempty"`
 }
 
 type SASL struct {

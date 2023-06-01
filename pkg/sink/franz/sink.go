@@ -19,7 +19,6 @@ package franz
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -28,6 +27,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/sink/codec"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
+	"github.com/pkg/errors"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -157,8 +157,12 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	for _, e := range events {
 		topic, err := s.selectTopic(e)
 		if err != nil {
-			log.Error("select kafka topic error: %+v", err)
-			return result.Fail(err)
+			if err := s.handleRenderTopicError(err, e); err != nil {
+				return result.Fail(err)
+			}
+			if s.config.IfRenderTopicFailed.DefaultTopic != "" {
+				topic = s.config.IfRenderTopicFailed.DefaultTopic
+			}
 		}
 
 		msg, err := s.cod.Encode(e)
@@ -188,4 +192,21 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 func (s *Sink) selectTopic(e api.Event) (string, error) {
 	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).Render()
+}
+
+func (s *Sink) handleRenderTopicError(err error, event api.Event) error {
+	failedConfig := s.config.IfRenderTopicFailed
+	if !failedConfig.IgnoreError {
+		log.Error("render kafka topic error: %v; event is: %s", err, event.String())
+	}
+
+	if failedConfig.DefaultTopic != "" {
+		return nil
+	}
+
+	if !failedConfig.DropEvent {
+		return errors.WithMessage(err, "render kafka topic error")
+	}
+
+	return nil
 }
