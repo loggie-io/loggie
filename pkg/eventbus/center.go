@@ -27,10 +27,6 @@ import (
 // asyncConsumerSize should always be 1 because concurrency may cause panic
 var defaultEventCenter = NewEventCenter(2048, 1)
 
-func Publish(topic string, data interface{}) {
-	defaultEventCenter.publish(NewEvent(topic, data))
-}
-
 func PublishOrDrop(topic string, data interface{}) {
 	defaultEventCenter.publishOrDrop(NewEvent(topic, data))
 }
@@ -58,7 +54,7 @@ func UnRegistrySubscribeTemporary(subscribe *Subscribe) {
 }
 
 func AfterErrorFunc(errorMsg string) {
-	Publish(ErrorTopic, ErrorMetricData{
+	PublishOrDrop(ErrorTopic, ErrorMetricData{
 		ErrorMsg: errorMsg,
 	})
 }
@@ -123,10 +119,6 @@ func (ec *EventCenter) unRegistryTemporary(subscribe *Subscribe) {
 	ec.lock.Unlock()
 
 	ec.inActiveSubscribe(subscribe)
-}
-
-func (ec *EventCenter) publish(event Event) {
-	ec.eventChan <- event
 }
 
 func (ec *EventCenter) publishOrDrop(event Event) {
