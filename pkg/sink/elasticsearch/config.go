@@ -43,6 +43,12 @@ func (c *Config) Validate() error {
 		return err
 	}
 
+	if c.IfRenderIndexFailed.DefaultIndex != "" {
+		if err := pattern.Validate(c.IfRenderIndexFailed.DefaultIndex); err != nil {
+			return err
+		}
+	}
+
 	if err := pattern.Validate(c.DocumentId); err != nil {
 		return err
 	}
