@@ -33,12 +33,13 @@ import (
 )
 
 type ClientSet struct {
-	Version           string
-	config            *Config
-	cli               *es.Client
-	codec             codec.Codec
-	indexPattern      *pattern.Pattern
-	documentIdPattern *pattern.Pattern
+	Version             string
+	config              *Config
+	cli                 *es.Client
+	codec               codec.Codec
+	indexPattern        *pattern.Pattern
+	documentIdPattern   *pattern.Pattern
+	defaultIndexPattern *pattern.Pattern
 }
 
 type Client interface {
@@ -46,7 +47,8 @@ type Client interface {
 	Stop()
 }
 
-func NewClient(config *Config, cod codec.Codec, indexPattern *pattern.Pattern, documentIdPattern *pattern.Pattern) (*ClientSet, error) {
+func NewClient(config *Config, cod codec.Codec, indexPattern *pattern.Pattern, documentIdPattern *pattern.Pattern,
+	defaultIndexPattern *pattern.Pattern) (*ClientSet, error) {
 	for i, h := range config.Hosts {
 		if !strings.HasPrefix(h, "http") && !strings.HasPrefix(h, "https") {
 			config.Hosts[i] = fmt.Sprintf("http://%s", h)
@@ -76,11 +78,12 @@ func NewClient(config *Config, cod codec.Codec, indexPattern *pattern.Pattern, d
 	}
 
 	return &ClientSet{
-		cli:               cli,
-		config:            config,
-		codec:             cod,
-		indexPattern:      indexPattern,
-		documentIdPattern: documentIdPattern,
+		cli:                 cli,
+		config:              config,
+		codec:               cod,
+		indexPattern:        indexPattern,
+		documentIdPattern:   documentIdPattern,
+		defaultIndexPattern: defaultIndexPattern,
 	}, nil
 }
 
@@ -98,7 +101,12 @@ func (c *ClientSet) BulkIndex(ctx context.Context, batch api.Batch) error {
 			}
 
 			if failedConfig.DefaultIndex != "" { // if we had a default index, send events to this one
-				idx = failedConfig.DefaultIndex
+				defaultIdx, defaultIdxErr := c.defaultIndexPattern.WithObject(headerObj).Render()
+				if defaultIdxErr != nil {
+					log.Error("render default index error: %v", defaultIdxErr)
+					continue
+				}
+				idx = defaultIdx
 			} else if failedConfig.DropEvent {
 				// ignore(drop) this event in default
 				continue
