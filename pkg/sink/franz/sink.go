@@ -47,6 +47,7 @@ type Sink struct {
 	cod    codec.Codec
 
 	topicPattern *pattern.Pattern
+	partitionKeyPattern *pattern.Pattern
 }
 
 func NewSink() *Sink {
@@ -73,6 +74,11 @@ func (s *Sink) Type() api.Type {
 
 func (s *Sink) Init(context api.Context) error {
 	s.topicPattern, _ = pattern.Init(s.config.Topic)
+	
+	if s.config.PartitionKey != "" {
+		s.partitionKeyPattern, _ = pattern.Init(s.config.PartitionKey)
+	}
+	
 	return nil
 }
 
@@ -177,11 +183,20 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			log.Warn("encode event error: %+v", err)
 			return result.Fail(err)
 		}
-
-		records = append(records, &kgo.Record{
+		
+		message := &kgo.Record{
 			Value: msg,
 			Topic: topic,
-		})
+		}
+
+		if s.partitionKeyPattern != nil {
+			key, err := s.getPartitionKey(e)
+			if err == nil {
+				message.Key = []byte(key)
+			}
+		}
+
+		records = append(records, message)
 	}
 
 	ctx := context.Background()
@@ -200,3 +215,8 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 func (s *Sink) selectTopic(e api.Event) (string, error) {
 	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).Render()
 }
+
+func (s *Sink) getPartitionKey(e api.Event) (string, error) {
+	return s.partitionKeyPattern.WithObject(runtime.NewObject(e.Header())).Render()
+}
+
