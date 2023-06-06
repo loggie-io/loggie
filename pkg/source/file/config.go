@@ -85,7 +85,7 @@ type WatchConfig struct {
 	CleanFiles                *CleanFiles   `yaml:"cleanFiles,omitempty"`
 	FdHoldTimeoutWhenInactive time.Duration `yaml:"fdHoldTimeoutWhenInactive,omitempty" default:"5m"`
 	FdHoldTimeoutWhenRemove   time.Duration `yaml:"fdHoldTimeoutWhenRemove,omitempty" default:"5m"`
-	MaxOpenFds                int           `yaml:"maxOpenFds,omitempty" default:"1024"`
+	MaxOpenFds                int           `yaml:"maxOpenFds,omitempty" default:"4096"`
 	MaxEofCount               int           `yaml:"maxEofCount,omitempty" default:"3"`
 	CleanWhenRemoved          bool          `yaml:"cleanWhenRemoved,omitempty" default:"true"`
 	ReadFromTail              bool          `yaml:"readFromTail,omitempty" default:"false"`
