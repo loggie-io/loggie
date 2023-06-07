@@ -89,7 +89,7 @@ func newLogger() *logger {
 
 func Run(config Config) {
 	lg.config = config
-	
+
 	if !config.Enabled {
 		return
 	}
@@ -156,7 +156,7 @@ func Export(topic string, data []byte) {
 	if !lg.config.Enabled {
 		return
 	}
-	
+
 	e := &Event{
 		Topic: topic,
 		Data:  data,
