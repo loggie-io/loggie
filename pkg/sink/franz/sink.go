@@ -28,6 +28,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/pkg/errors"
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -206,7 +207,12 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 	if s.writer != nil {
 		ret := s.writer.ProduceSync(ctx, records...)
-		if ret.FirstErr() != nil {
+		err := ret.FirstErr()
+		if err != nil {
+			if errors.Is(err, kerr.UnknownTopicOrPartition) && s.config.IgnoreUnknownTopicOrPartition {
+				return result.Success()
+			}
+
 			return result.Fail(errors.New(fmt.Sprintf("franz ProduceSync error:%s", ret.FirstErr())))
 		}
 		return result.Success()

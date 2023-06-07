@@ -25,19 +25,20 @@ import (
 const defaultKerberosConfigPath = "/etc/krb5.conf"
 
 type Config struct {
-	Brokers             []string          `yaml:"brokers,omitempty" validate:"required"`
-	Topic               string            `yaml:"topic,omitempty" validate:"required" default:"loggie"`
-	IfRenderTopicFailed RenderTopicFail   `yaml:"ifRenderTopicFailed,omitempty"`
-	Balance             string            `yaml:"balance,omitempty" default:"roundRobin"`
-	BatchSize           int               `yaml:"batchSize,omitempty"`
-	BatchBytes          int32             `yaml:"batchBytes,omitempty"`
-	RetryTimeout        time.Duration     `yaml:"retryTimeout,omitempty"`
-	WriteTimeout        time.Duration     `yaml:"writeTimeout,omitempty"`
-	Compression         string            `yaml:"compression,omitempty" default:"gzip"`
-	SASL                SASL              `yaml:"sasl,omitempty"`
-	TLS                 TLS               `yaml:"tls,omitempty"`
-	Security            map[string]string `yaml:"security,omitempty"`
-	PartitionKey        string            `yaml:"partitionKey,omitempty"`
+	Brokers                       []string          `yaml:"brokers,omitempty" validate:"required"`
+	Topic                         string            `yaml:"topic,omitempty" validate:"required" default:"loggie"`
+	IfRenderTopicFailed           RenderTopicFail   `yaml:"ifRenderTopicFailed,omitempty"`
+	IgnoreUnknownTopicOrPartition bool              `yaml:"ignoreUnknownTopicOrPartition,omitempty"`
+	Balance                       string            `yaml:"balance,omitempty" default:"roundRobin"`
+	BatchSize                     int               `yaml:"batchSize,omitempty"`
+	BatchBytes                    int32             `yaml:"batchBytes,omitempty"`
+	RetryTimeout                  time.Duration     `yaml:"retryTimeout,omitempty"`
+	WriteTimeout                  time.Duration     `yaml:"writeTimeout,omitempty"`
+	Compression                   string            `yaml:"compression,omitempty" default:"gzip"`
+	SASL                          SASL              `yaml:"sasl,omitempty"`
+	TLS                           TLS               `yaml:"tls,omitempty"`
+	Security                      map[string]string `yaml:"security,omitempty"`
+	PartitionKey                  string            `yaml:"partitionKey,omitempty"`
 }
 
 type RenderTopicFail struct {

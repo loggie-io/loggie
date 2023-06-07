@@ -38,7 +38,7 @@ func NewJobCollectContextAndValidate(job *Job, readBuffer, backlogBuffer []byte)
 func validateJob(job *Job) (lastOffset int64, err error) {
 	filename := job.filename
 	status := job.status
-	if status == JobStop {
+	if job.IsStop() {
 		log.Info("Job(uid: %s) file(%s) status(%d) is stop, Job will be ignore", job.Uid(), filename, status)
 		return 0, errors.New("Job is stop")
 	}

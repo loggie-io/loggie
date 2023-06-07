@@ -181,9 +181,9 @@ func (w *Watcher) removeOsNotify(file string) {
 	}
 }
 
-// The operations here should be as lightweight as possible.
+// DecideJob should be as lightweight as possible.
 // Operations such as releasing file handles should be placed in a separate goroutine of watch
-func (w *Watcher) decideJob(job *Job) {
+func (w *Watcher) DecideJob(job *Job) {
 	job.Sync()
 
 	w.reportMetric(job)
@@ -520,10 +520,10 @@ func (w *Watcher) legalFile(filename string, watchTask *WatchTask, withIgnoreOld
 func (w *Watcher) scan() {
 	start := time.Now()
 
-	// check any new files
-	w.scanNewFiles()
 	// active job
 	w.scanActiveJob()
+	// check any new files
+	w.scanNewFiles()
 	// zombie job
 	w.scanZombieJob()
 
@@ -545,6 +545,16 @@ func (w *Watcher) scanActiveJob() {
 			log.Info("[pipeline(%s)-source(%s)]: job stop because file(%s) fdHoldTimeoutWhenRemove(%d second) reached", job.task.pipelineName, job.task.sourceName, job.filename, fdHoldTimeoutWhenRemove/time.Second)
 			continue
 		}
+		// check FdHoldTimeoutWhenInactive
+		if time.Since(job.LastActiveTime()) > w.config.FdHoldTimeoutWhenInactive {
+			job.Stop()
+			log.Info("[pipeline(%s)-source(%s)]: job stop because file(%s) fdHoldTimeoutWhenInactive(%d second) reached", job.task.pipelineName, job.task.sourceName, job.filename, w.config.FdHoldTimeoutWhenInactive/time.Second)
+			// more aggressive releasing of fd to prevent excessive memory usage
+			if job.Release() {
+				w.currentOpenFds--
+			}
+			continue
+		}
 	}
 }
 
@@ -556,26 +566,24 @@ func (w *Watcher) scanActiveJob() {
 //  4. truncated file
 func (w *Watcher) scanZombieJob() {
 	for _, job := range w.zombieJobs {
-		if job.IsDelete() || job.IsStop() {
+		if job.IsDelete() {
 			w.finalizeJob(job)
 			continue
 		}
 		filename := job.filename
-		var stat os.FileInfo
-		var err error
-		if job.file == nil {
-			// check remove
-			stat, err = os.Stat(filename)
+		stat, err := os.Stat(filename)
+		//var stat os.FileInfo
+		//var err error
+		var checkRemove = func() bool {
 			if err != nil {
 				if os.IsNotExist(err) {
 					w.eventBus(jobEvent{
 						opt: REMOVE,
 						job: job,
 					})
-				} else {
-					log.Error("stat file(%s) fail: %v", filename, err)
+					return true
 				}
-				continue
+				log.Error("stat file(%s) fail: %v", filename, err)
 			}
 			// check whether jobUid change
 			newJobUid := JobUid(stat)
@@ -585,6 +593,22 @@ func (w *Watcher) scanZombieJob() {
 					opt: REMOVE,
 					job: job,
 				})
+				return true
+			}
+			return false
+		}
+
+		if job.IsStop() {
+			if checkRemove() {
+				continue
+			}
+			w.finalizeJob(job)
+			continue
+		}
+
+		if job.file == nil {
+			// check remove
+			if checkRemove() {
 				continue
 			}
 			// check whether file was reduced
@@ -606,7 +630,7 @@ func (w *Watcher) scanZombieJob() {
 			}
 		} else {
 			// release fd
-			if time.Since(job.LastActiveTime) > w.config.FdHoldTimeoutWhenInactive {
+			if time.Since(job.LastActiveTime()) > w.config.FdHoldTimeoutWhenInactive {
 				if job.Release() {
 					w.currentOpenFds--
 				}
@@ -634,6 +658,7 @@ func (w *Watcher) scanZombieJob() {
 }
 
 func (w *Watcher) finalizeJob(job *Job) {
+	log.Info("finalize job(filename: %s)", job.filename)
 	key := job.WatchUid()
 	delete(w.zombieJobs, key)
 	delete(w.allJobs, key)
@@ -764,17 +789,13 @@ func (w *Watcher) asyncStopTaskJobs(watchTask *WatchTask) {
 		case <-timeout.C:
 			return
 		case j := <-watchTask.activeChan:
-			w.decideJob(j)
+			w.DecideJob(j)
 		}
 	}
 }
 
 func (w *Watcher) decideZombieJob(job *Job) {
 	watchJobId := job.WatchUid()
-	if job.IsStop() {
-		w.finalizeJob(job)
-		return
-	}
 	if !w.isZombieJob(job) {
 		w.zombieJobs[watchJobId] = job
 		w.addOsNotify(job.filename)

@@ -45,6 +45,8 @@ type Config struct {
 	TypeVmFields   KubeMetaFields    `yaml:"typeVmFields"`
 	ParseStdout    bool              `yaml:"parseStdout"`
 
+	Defaults Defaults `yaml:"defaults"`
+
 	// If set to true, it means that the pipeline configuration generated does not contain specific Pod paths and meta information.
 	// These data will be dynamically obtained by the file source, thereby reducing the number of configuration changes and reloads.
 	DynamicContainerLog bool `yaml:"dynamicContainerLog"`
@@ -53,6 +55,10 @@ type Config struct {
 }
 
 type KubeMetaFields map[string]string
+
+type Defaults struct {
+	SinkRef string `yaml:"sinkRef"`
+}
 
 // Fields Deprecated
 type Fields struct {
