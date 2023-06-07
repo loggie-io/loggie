@@ -185,7 +185,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			return result.Fail(err)
 		}
 
-		message := &kgo.Message{
+		message := &kgo.Record{
 			Value: msg,
 			Topic: topic,
 		}
