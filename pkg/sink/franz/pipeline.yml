@@ -1,0 +1,4 @@
+sink:
+  type: franzKafka
+  brokers: ["127.0.0.1:6400"]
+  topic: "log-${fields.topic}"
