@@ -185,7 +185,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			return result.Fail(err)
 		}
 
-		message := kafka.Message{
+		message := &kgo.Message{
 			Value: msg,
 			Topic: topic,
 		}
