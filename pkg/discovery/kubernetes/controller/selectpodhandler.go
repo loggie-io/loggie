@@ -231,6 +231,9 @@ func (c *Controller) handlePodAddOrUpdateOfClusterLogConfig(pod *corev1.Pod) {
 }
 
 func (c *Controller) handleLogConfigPerPod(lgc *logconfigv1beta1.LogConfig, pod *corev1.Pod) error {
+	// set defaults
+	c.setDefaultsLogConfigFields(lgc)
+
 	// generate pod related pipeline configs
 	pipeRaw, err := c.getConfigFromPodAndLogConfig(lgc, pod, c.sinkLister, c.interceptorLister)
 	if err != nil {

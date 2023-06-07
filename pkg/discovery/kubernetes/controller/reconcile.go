@@ -262,6 +262,10 @@ func (c *Controller) reconcileLogConfigAddOrUpdate(lgc *logconfigv1beta1.LogConf
 }
 
 func (c *Controller) handleAllTypesAddOrUpdate(lgc *logconfigv1beta1.LogConfig) (err error, keys []string) {
+
+	// set defaults
+	c.setDefaultsLogConfigFields(lgc)
+
 	lgc = lgc.DeepCopy()
 	switch lgc.Spec.Selector.Type {
 	case logconfigv1beta1.SelectorTypePod:
@@ -397,4 +401,11 @@ func (c *Controller) syncConfigToFile(selectorType string) error {
 		return err
 	}
 	return nil
+}
+
+func (c *Controller) setDefaultsLogConfigFields(lgc *logconfigv1beta1.LogConfig) {
+	// set defaults
+	if lgc.Spec.Pipeline.Sink == "" && lgc.Spec.Pipeline.SinkRef == "" && c.config.Defaults.SinkRef != "" {
+		lgc.Spec.Pipeline.SinkRef = c.config.Defaults.SinkRef
+	}
 }
