@@ -67,8 +67,9 @@ type Job struct {
 
 	task *WatchTask
 
-	EofCount       int
-	LastActiveTime time.Time
+	EofCount int
+	//LastActiveTime time.Time
+	lastActiveTime atomic.Value
 
 	lineEnd       []byte
 	encodeLineEnd []byte
@@ -109,8 +110,17 @@ func (j *Job) WatchUid() string {
 func (j *Job) Uid() string {
 	return j.uid
 }
+
 func (j *Job) Index() uint32 {
 	return j.index
+}
+
+func (j *Job) LastActiveTime() time.Time {
+	return j.lastActiveTime.Load().(time.Time)
+}
+
+func (j *Job) SetLastActiveTime(t time.Time) {
+	j.lastActiveTime.Store(t)
 }
 
 func (j *Job) Delete() {
@@ -239,7 +249,7 @@ func (j *Job) Active() (error, bool) {
 	}
 	j.ChangeStatusTo(JobActive)
 	j.EofCount = 0
-	j.LastActiveTime = time.Now()
+	j.SetLastActiveTime(time.Now())
 	return nil, fdOpen
 }
 

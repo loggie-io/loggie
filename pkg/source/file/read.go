@@ -69,7 +69,7 @@ func (r *Reader) cleanData() {
 		case <-timeout.C:
 			return
 		case j := <-r.jobChan:
-			r.watcher.decideJob(j)
+			r.watcher.DecideJob(j)
 		}
 	}
 }
@@ -103,7 +103,7 @@ func (r *Reader) work(index int) {
 			if ctx, err := NewJobCollectContextAndValidate(job, readBuffer, backlogBuffer); err == nil {
 				processChain.Process(ctx)
 			}
-			r.watcher.decideJob(job)
+			r.watcher.DecideJob(job)
 		}
 	}
 }
