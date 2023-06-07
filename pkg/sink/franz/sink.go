@@ -46,7 +46,8 @@ type Sink struct {
 	writer *kgo.Client
 	cod    codec.Codec
 
-	topicPattern *pattern.Pattern
+	topicPattern        *pattern.Pattern
+	partitionKeyPattern *pattern.Pattern
 }
 
 func NewSink() *Sink {
@@ -73,6 +74,11 @@ func (s *Sink) Type() api.Type {
 
 func (s *Sink) Init(context api.Context) error {
 	s.topicPattern, _ = pattern.Init(s.config.Topic)
+
+	if s.config.PartitionKey != "" {
+		s.partitionKeyPattern, _ = pattern.Init(s.config.PartitionKey)
+	}
+
 	return nil
 }
 
@@ -178,10 +184,22 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 			return result.Fail(err)
 		}
 
-		records = append(records, &kgo.Record{
+		message := kafka.Message{
 			Value: msg,
 			Topic: topic,
-		})
+		}
+
+		if s.partitionKeyPattern != nil {
+			key, err := s.getPartitionKey(e)
+			if err == nil {
+				message.Key = []byte(key)
+			} else {
+				log.Warn("fail to get kafka key: %+v", err)
+			}
+
+		}
+
+		km = append(km, message)
 	}
 
 	ctx := context.Background()
@@ -199,4 +217,8 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 func (s *Sink) selectTopic(e api.Event) (string, error) {
 	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).Render()
+}
+
+func (s *Sink) getPartitionKey(e api.Event) (string, error) {
+	return s.partitionKeyPattern.WithObject(runtime.NewObject(e.Header())).Render()
 }
