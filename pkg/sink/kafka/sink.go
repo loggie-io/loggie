@@ -176,6 +176,10 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 	if s.writer != nil {
 		err := s.writer.WriteMessages(context.Background(), km...)
 		if err != nil {
+			if errors.Is(err, kafka.UnknownTopicOrPartition) && s.config.IgnoreUnknownTopicOrPartition {
+				return result.Success()
+			}
+
 			return result.Fail(errors.WithMessage(err, "write to kafka"))
 		}
 
