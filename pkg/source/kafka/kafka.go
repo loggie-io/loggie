@@ -95,12 +95,6 @@ func (k *Source) Start() error {
 		return err
 	}
 
-	topicRegx, err := regexp.Compile(k.config.Topic)
-	if err != nil {
-		log.Error("compile kafka topic regex %s error: %s", k.config.Topic, err.Error())
-		return err
-	}
-
 	client := &kafka.Client{
 		Addr: kafka.TCP(k.config.Brokers...),
 		Transport: &kafka.Transport{
@@ -110,13 +104,33 @@ func (k *Source) Start() error {
 			SASL: mechanism,
 		},
 	}
-	kts, err := topics.ListRe(context.Background(), client, topicRegx)
-	if err != nil {
-		return errors.WithMessage(err, "list kafka topics that match a regex error")
+
+	// list all Kafka topics by pattern
+	var confTopic []string
+	if k.config.Topic != "" {
+		confTopic = append(confTopic, k.config.Topic)
+	}
+	if len(k.config.Topics) > 0 {
+		confTopic = append(confTopic, k.config.Topics...)
+	}
+
+	var kTopics []kafka.Topic
+	for _, t := range confTopic {
+		topicRegx, err := regexp.Compile(t)
+		if err != nil {
+			log.Error("compile kafka topic regex %s error: %s", t, err.Error())
+			return err
+		}
+
+		kts, err := topics.ListRe(context.Background(), client, topicRegx)
+		if err != nil {
+			return errors.WithMessage(err, "list kafka topics that match a regex error")
+		}
+		kTopics = append(kTopics, kts...)
 	}
 
 	var groupTopics []string
-	for _, t := range kts {
+	for _, t := range kTopics {
 		groupTopics = append(groupTopics, t.Name)
 	}
 	if len(groupTopics) <= 0 {
