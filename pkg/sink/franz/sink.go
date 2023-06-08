@@ -200,7 +200,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 		}
 
-		km = append(km, message)
+		records = append(records, message)
 	}
 
 	ctx := context.Background()
