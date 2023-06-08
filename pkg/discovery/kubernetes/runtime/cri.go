@@ -27,6 +27,13 @@ import (
 	"path"
 )
 
+type RuntimeType string
+
+const (
+	KataRuntimeType RuntimeType = "io.containerd.kata.v2"
+	RuncRuntimeType RuntimeType = "io.containerd.runc.v2"
+)
+
 type ContainerD struct {
 	cli criapi.RuntimeServiceClient
 }
@@ -47,6 +54,31 @@ func (c *ContainerD) Name() string {
 
 func (c *ContainerD) Client() interface{} {
 	return c.cli
+}
+
+func (c *ContainerD) getKataRuntimeRootfsPath(infoMap map[string]any, containerId string) (string, error) {
+	sandboxID, ok := infoMap["sandboxID"]
+	if !ok {
+		im, _ := json.Marshal(infoMap)
+		log.Debug("get info map: %s from container(id: %s)", string(im), containerId)
+		return "", errors.Errorf("cannot get sandboxID from container(id: %s) status", containerId)
+	}
+	//refer to https://github.com/kata-containers/kata-containers/blob/main/src/runtime/virtcontainers/kata_agent.go#L83
+	rootfs := fmt.Sprintf("/run/kata-containers/shared/sandboxes/%v/shared/%v/rootfs", sandboxID, containerId)
+	return rootfs, nil
+}
+
+func (c *ContainerD) getRuncRuntimeRootfsPath(infoMap map[string]any, containerId string) (string, error) {
+	pid, ok := infoMap["pid"]
+	if !ok {
+		if log.IsDebugLevel() {
+			im, _ := json.Marshal(infoMap)
+			log.Debug("get info map: %s from container(id: %s)", string(im), containerId)
+		}
+		return "", errors.Errorf("cannot get pid from container(id: %s) status", containerId)
+	}
+
+	return fmt.Sprintf("/proc/%.0f/root", pid), nil
 }
 
 func (c *ContainerD) GetRootfsPath(ctx context.Context, containerId string, containerPaths []string) ([]string, error) {
@@ -73,17 +105,24 @@ func (c *ContainerD) GetRootfsPath(ctx context.Context, containerId string, cont
 	if err := json.Unmarshal([]byte(infoStr), &infoMap); err != nil {
 		return nil, errors.WithMessagef(err, "get pid from container(id: %s)", containerId)
 	}
-
-	pid, ok := infoMap["pid"]
+	runtime, ok := infoMap["runtimeType"]
 	if !ok {
-		if log.IsDebugLevel() {
-			im, _ := json.Marshal(infoMap)
-			log.Debug("get info map: %s from container(id: %s)", string(im), containerId)
-		}
-		return nil, errors.Errorf("cannot get pid from container(id: %s) status", containerId)
+		return nil, errors.Errorf("can not get runtime type from container(id: %s) status", containerId)
 	}
-
-	prefix := fmt.Sprintf("/proc/%.0f/root", pid)
+	var prefix string
+	if runtime == string(KataRuntimeType) {
+		prefix, err = c.getKataRuntimeRootfsPath(infoMap, containerId)
+		if err != nil {
+			return nil, err
+		}
+	} else if runtime == string(RuncRuntimeType) {
+		prefix, err = c.getRuncRuntimeRootfsPath(infoMap, containerId)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		return nil, errors.Errorf("Unknown runtime type from container(id: %s) status", containerId)
+	}
 
 	var rootfsPaths []string
 	for _, p := range containerPaths {
