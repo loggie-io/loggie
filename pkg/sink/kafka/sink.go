@@ -94,16 +94,17 @@ func (s *Sink) Start() error {
 	}
 
 	w := &kafka.Writer{
-		Addr:         kafka.TCP(c.Brokers...),
-		MaxAttempts:  c.MaxAttempts,
-		Balancer:     balanceInstance(c.Balance),
-		BatchSize:    c.BatchSize,
-		BatchBytes:   c.BatchBytes,
-		BatchTimeout: c.BatchTimeout,
-		ReadTimeout:  c.ReadTimeout,
-		WriteTimeout: c.WriteTimeout,
-		RequiredAcks: kafka.RequiredAcks(c.RequiredAcks),
-		Compression:  compression(c.Compression),
+		Addr:                   kafka.TCP(c.Brokers...),
+		MaxAttempts:            c.MaxAttempts,
+		Balancer:               balanceInstance(c.Balance),
+		BatchSize:              c.BatchSize,
+		BatchBytes:             c.BatchBytes,
+		BatchTimeout:           c.BatchTimeout,
+		ReadTimeout:            c.ReadTimeout,
+		WriteTimeout:           c.WriteTimeout,
+		RequiredAcks:           kafka.RequiredAcks(c.RequiredAcks),
+		Compression:            compression(c.Compression),
+		AllowAutoTopicCreation: true,
 		Transport: &kafka.Transport{
 			SASL: mechanism,
 		},
