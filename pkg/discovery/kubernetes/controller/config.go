@@ -38,12 +38,13 @@ type Config struct {
 
 	HostRootMountPath string `yaml:"hostRootMountPath"`
 
-	Fields         Fields            `yaml:"fields"`    // Deprecated: use typePodFields
-	K8sFields      map[string]string `yaml:"k8sFields"` // Deprecated: use typePodFields
-	TypePodFields  KubeMetaFields    `yaml:"typePodFields"`
-	TypeNodeFields KubeMetaFields    `yaml:"typeNodeFields"`
-	TypeVmFields   KubeMetaFields    `yaml:"typeVmFields"`
-	ParseStdout    bool              `yaml:"parseStdout"`
+	Fields          Fields            `yaml:"fields"`    // Deprecated: use typePodFields
+	K8sFields       map[string]string `yaml:"k8sFields"` // Deprecated: use typePodFields
+	TypePodFields   KubeMetaFields    `yaml:"typePodFields"`
+	TypeNodeFields  KubeMetaFields    `yaml:"typeNodeFields"`
+	TypeVmFields    KubeMetaFields    `yaml:"typeVmFields"`
+	FieldsOmitEmpty bool              `yaml:"fieldsOmitEmpty"`
+	ParseStdout     bool              `yaml:"parseStdout"`
 
 	Defaults Defaults `yaml:"defaults"`
 

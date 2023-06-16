@@ -451,6 +451,8 @@ func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.
 		src.Fields = make(map[string]interface{})
 	}
 
+	omitempty := c.config.FieldsOmitEmpty
+
 	k8sFields := make(map[string]interface{})
 
 	// Deprecated
@@ -478,7 +480,7 @@ func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.
 	}
 
 	if len(c.extraTypePodFieldsPattern) > 0 {
-		for k, v := range renderTypePodFieldsPattern(c.extraTypePodFieldsPattern, pod, containerName, lgc) {
+		for k, v := range renderTypePodFieldsPattern(c.extraTypePodFieldsPattern, pod, containerName, lgc, omitempty) {
 			k8sFields[k] = v
 		}
 	}
@@ -489,25 +491,35 @@ func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.
 			return err
 		}
 		podPattern := podFields.initPattern()
-		for k, v := range renderTypePodFieldsPattern(podPattern, pod, containerName, lgc) {
+		for k, v := range renderTypePodFieldsPattern(podPattern, pod, containerName, lgc, omitempty) {
 			k8sFields[k] = v
 		}
 	}
 
+	// inject pod labels, annotations, envs as fields
 	match := extra.MatchFields
 	if match != nil {
 		if len(match.LabelKey) > 0 {
 			for k, v := range helper.GetMatchedPodLabel(match.LabelKey, pod) {
+				if omitempty && v == "" {
+					continue
+				}
 				k8sFields[k] = v
 			}
 		}
 		if len(match.AnnotationKey) > 0 {
 			for k, v := range helper.GetMatchedPodAnnotation(match.AnnotationKey, pod) {
+				if omitempty && v == "" {
+					continue
+				}
 				k8sFields[k] = v
 			}
 		}
 		if len(match.Env) > 0 {
 			for k, v := range helper.GetMatchedPodEnv(match.Env, pod, containerName) {
+				if omitempty && v == "" {
+					continue
+				}
 				k8sFields[k] = v
 			}
 		}
@@ -518,6 +530,9 @@ func (c *Controller) injectTypePodFields(dynamicContainerLogs bool, src *source.
 				return err
 			}
 			for k, v := range ret {
+				if omitempty && v == "" {
+					continue
+				}
 				k8sFields[k] = v
 			}
 		}
@@ -707,12 +722,15 @@ func toPipelineInterceptorWithPodInject(dynamicContainerLog bool, interceptorRaw
 	return icpConfList, nil
 }
 
-func renderTypePodFieldsPattern(pm map[string]*pattern.Pattern, pod *corev1.Pod, containerName string, lgc *logconfigv1beta1.LogConfig) map[string]interface{} {
+func renderTypePodFieldsPattern(pm map[string]*pattern.Pattern, pod *corev1.Pod, containerName string, lgc *logconfigv1beta1.LogConfig, omitempty bool) map[string]interface{} {
 	fields := make(map[string]interface{}, len(pm))
 	for k, p := range pm {
 		res, err := p.WithK8sPod(pattern.NewTypePodFieldsData(pod, containerName, lgc)).Render()
 		if err != nil {
 			log.Warn("add extra k8s fields %s failed: %v", k, err)
+			continue
+		}
+		if omitempty && res == "" {
 			continue
 		}
 		fields[k] = res
