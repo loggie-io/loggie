@@ -18,6 +18,7 @@ package pattern
 
 import (
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/helper"
 	corev1 "k8s.io/api/core/v1"
 	"strings"
@@ -30,16 +31,27 @@ const (
 )
 
 type TypePodFieldsData struct {
-	Pod           *corev1.Pod
-	ContainerName string
-	LogConfig     string
+	Pod              *corev1.Pod
+	ContainerName    string
+	LogConfig        string
+	ClusterLogConfig string
 }
 
-func NewTypePodFieldsData(pod *corev1.Pod, containerName string, logConfig string) *TypePodFieldsData {
+func NewTypePodFieldsData(pod *corev1.Pod, containerName string, lgc *logconfigv1beta1.LogConfig) *TypePodFieldsData {
+	var logconfig, clusterlogconfig string
+	if lgc != nil {
+		if lgc.Namespace != "" {
+			logconfig = lgc.Name
+		} else {
+			clusterlogconfig = lgc.Name
+		}
+	}
+
 	return &TypePodFieldsData{
-		Pod:           pod,
-		ContainerName: containerName,
-		LogConfig:     logConfig,
+		Pod:              pod,
+		ContainerName:    containerName,
+		LogConfig:        logconfig,
+		ClusterLogConfig: clusterlogconfig,
 	}
 }
 
@@ -131,6 +143,9 @@ func renderTypePod(data *TypePodFieldsData, field string) string {
 
 	case "logconfig":
 		return data.LogConfig
+
+	case "clusterlogconfig":
+		return data.ClusterLogConfig
 
 	case "workload.kind":
 		return helper.GetWorkload(data.Pod).Kind
