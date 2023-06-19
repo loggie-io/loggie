@@ -162,11 +162,10 @@ func (e *Engine) DeleteBy(jobUid string, sourceName string, pipelineName string)
 		if err != nil {
 			resErr = errors.WithMessagef(err, "%s stmt exec fail", e.String())
 		}
-		affected, err := result.RowsAffected()
+		_, err = result.RowsAffected()
 		if err != nil {
 			resErr = errors.WithMessagef(err, "%s get result fail", e.String())
 		}
-		log.Info("delete registry(jobUid:%s, sourceName:%s, pipelineName:%s). affected: %d", jobUid, sourceName, pipelineName, affected)
 	})
 	return resErr
 }
