@@ -147,8 +147,20 @@ func (c *ClientSet) BulkIndex(ctx context.Context, batch api.Batch) error {
 		return err
 	}
 	if ret.Errors {
-		out, _ := json.Marshal(ret)
-		return errors.Errorf("request to elasticsearch response error: %s", out)
+		failed := ret.Failed()
+		// to avoid too many error messages
+		if len(ret.Failed()) > 2 {
+			failed = ret.Failed()[:1]
+		}
+		out, _ := json.Marshal(failed)
+
+		// if there are some events succeed, retry will cause these events to be sent repeatedly, so here we will not retry
+		if len(ret.Failed()) < len(ret.Items) {
+			log.Error("partial bulk to elasticsearch response error, will drop failed events, all(%d), failed(%d), reason: %s", len(ret.Items), len(ret.Failed()), out)
+			return nil
+		}
+
+		return errors.Errorf("all bulk to elasticsearch response error, all(%d), failed(%d), reason: %s", len(ret.Items), len(ret.Failed()), out)
 	}
 
 	return nil
