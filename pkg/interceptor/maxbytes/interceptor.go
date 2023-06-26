@@ -21,7 +21,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/pipeline"
-	"github.com/thinkeridea/go-extend/exunicode/exutf8"
+	"unicode/utf8"
 )
 
 const Type = "maxbytes"
@@ -75,7 +75,7 @@ func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invoca
 	event := invocation.Event
 	body := event.Body()
 	if len(body) > i.config.MaxBytes {
-		event.Fill(event.Meta(), event.Header(), exutf8.RuneSub(body, 0, i.config.MaxBytes))
+		event.Fill(event.Meta(), event.Header(), subUtf8(body, i.config.MaxBytes))
 	}
 	return invoker.Invoke(invocation)
 }
@@ -90,4 +90,16 @@ func (i *Interceptor) BelongTo() (componentTypes []string) {
 
 func (i *Interceptor) IgnoreRetry() bool {
 	return true
+}
+
+// subUtf8 提供字节数组按字节长度截取，如果最后一个字节非utf8字节结尾则往后取
+// 示例：bytes=中文, maxBytes=2 => 中
+func subUtf8(bytes []byte, maxBytes int) []byte {
+	for i := maxBytes; i < len(bytes); i++ {
+		if utf8.RuneStart(bytes[i]) {
+			bytes = bytes[:i]
+			break
+		}
+	}
+	return bytes
 }
