@@ -64,6 +64,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/source/elasticsearch"
 	_ "github.com/loggie-io/loggie/pkg/source/file"
 	_ "github.com/loggie-io/loggie/pkg/source/file/process"
+	_ "github.com/loggie-io/loggie/pkg/source/franz"
 	_ "github.com/loggie-io/loggie/pkg/source/grpc"
 	_ "github.com/loggie-io/loggie/pkg/source/kafka"
 	_ "github.com/loggie-io/loggie/pkg/source/kubernetes_event"
