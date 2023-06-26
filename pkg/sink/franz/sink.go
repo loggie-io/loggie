@@ -114,7 +114,7 @@ func (s *Sink) Start() error {
 	}
 
 	if c.SASL.Enabled == true {
-		mch := getMechanism(c.SASL)
+		mch := GetMechanism(c.SASL)
 		if mch != nil {
 			opts = append(opts, kgo.SASL(mch))
 		}

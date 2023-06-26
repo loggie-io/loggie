@@ -64,7 +64,7 @@ func getCompression(name string) kgo.CompressionCodec {
 	}
 }
 
-func getMechanism(sasl SASL) sasl.Mechanism {
+func GetMechanism(sasl SASL) sasl.Mechanism {
 	switch sasl.Mechanism {
 	case "PLAIN":
 		auth := plain.Auth{
