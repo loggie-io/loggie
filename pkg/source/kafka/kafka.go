@@ -265,8 +265,8 @@ func (k *Source) Commit(events []api.Event) {
 		for _, e := range events {
 			meta := e.Meta()
 
-			var mKafka, mPartition, mOffset interface{}
-			mKafka, exist := meta.Get(fKafka)
+			var mTopic, mPartition, mOffset interface{}
+			mTopic, exist := meta.Get(fTopic)
 			if !exist {
 				continue
 			}
@@ -280,7 +280,7 @@ func (k *Source) Commit(events []api.Event) {
 			}
 
 			msgs = append(msgs, kafka.Message{
-				Topic:     mKafka.(string),
+				Topic:     mTopic.(string),
 				Partition: mPartition.(int),
 				Offset:    mOffset.(int64),
 			})
