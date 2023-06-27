@@ -57,6 +57,7 @@ type Sink struct {
 	codec        codec.Codec
 	done         chan struct{}
 
+	totalCount       *atomic.Uint64
 	count            *atomic.Uint64
 	sampleEvent      *atomic.String
 	resultStatusFlag *atomic.String
@@ -66,6 +67,7 @@ func NewSink(pipelineName string) *Sink {
 	return &Sink{
 		config:       &Config{},
 		count:        atomic.NewUint64(0),
+		totalCount:   atomic.NewUint64(0),
 		sampleEvent:  atomic.NewString(""),
 		done:         make(chan struct{}),
 		pipelineName: pipelineName,
@@ -122,7 +124,7 @@ func (s *Sink) Start() error {
 				case <-tick.C:
 					// print metrics logs
 					qps := float64(s.count.Load()) / s.config.MetricsInterval.Seconds()
-					log.Info("[dev sink] qps: %s / %s = %.1f", s.count.String(), s.config.MetricsInterval.String(), qps)
+					log.Info("[dev sink] totalCount: %s, qps: %s / %s = %.1f", s.totalCount.String(), s.count.String(), s.config.MetricsInterval.String(), qps)
 					s.count.Store(0)
 				}
 			}
@@ -173,6 +175,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 
 	if s.config.PrintMetrics {
 		s.count.Add(uint64(l))
+		s.totalCount.Add(uint64(l))
 	}
 
 	for i, e := range events {
