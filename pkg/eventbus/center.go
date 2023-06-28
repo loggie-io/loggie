@@ -206,8 +206,6 @@ func (ec *EventCenter) run() {
 				for _, subscribe := range metas {
 					subscribe.listener.Subscribe(e)
 				}
-			} else {
-				log.Debug("topic(%s) has no consumer listener", topic)
 			}
 		}
 	}
