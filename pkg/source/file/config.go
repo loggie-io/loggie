@@ -45,6 +45,9 @@ type CollectConfig struct {
 	AddonMeta                bool               `yaml:"addonMeta,omitempty"`
 	excludeFilePatterns      []*regexp.Regexp
 	Charset                  string `yaml:"charset,omitempty" default:"utf-8"`
+
+	ReadFromTail bool        `yaml:"readFromTail,omitempty" default:"false"`
+	CleanFiles   *CleanFiles `yaml:"cleanFiles,omitempty"`
 }
 
 type LineDelimiterValue struct {
@@ -82,13 +85,13 @@ type WatchConfig struct {
 	EnableOsWatch             bool          `yaml:"enableOsWatch,omitempty" default:"true"`
 	ScanTimeInterval          time.Duration `yaml:"scanTimeInterval,omitempty" default:"10s"`
 	MaintenanceInterval       time.Duration `yaml:"maintenanceInterval,omitempty" default:"5m"`
-	CleanFiles                *CleanFiles   `yaml:"cleanFiles,omitempty"`
+	CleanFiles                *CleanFiles   `yaml:"cleanFiles,omitempty"` // deprecated
 	FdHoldTimeoutWhenInactive time.Duration `yaml:"fdHoldTimeoutWhenInactive,omitempty" default:"5m"`
 	FdHoldTimeoutWhenRemove   time.Duration `yaml:"fdHoldTimeoutWhenRemove,omitempty" default:"5m"`
 	MaxOpenFds                int           `yaml:"maxOpenFds,omitempty" default:"4096"`
 	MaxEofCount               int           `yaml:"maxEofCount,omitempty" default:"3"`
 	CleanWhenRemoved          bool          `yaml:"cleanWhenRemoved,omitempty" default:"true"`
-	ReadFromTail              bool          `yaml:"readFromTail,omitempty" default:"false"`
+	ReadFromTail              bool          `yaml:"readFromTail,omitempty" default:"false"` // deprecated
 	TaskStopTimeout           time.Duration `yaml:"taskStopTimeout,omitempty" default:"30s"`
 	CleanDataTimeout          time.Duration `yaml:"cleanDataTimeout,omitempty" default:"5s"`
 }

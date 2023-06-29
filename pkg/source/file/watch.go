@@ -295,7 +295,10 @@ func (w *Watcher) eventBus(e jobEvent) {
 		}
 		// Pre-allocation offset
 		if existAckOffset == 0 {
-			if w.config.ReadFromTail {
+			if e.job.task.config.ReadFromTail {
+				existAckOffset = fileSize
+			} else if w.config.ReadFromTail {
+				// readFromTail is deprecated in watcher, keep it only for compatibility with older versions
 				existAckOffset = fileSize
 			}
 			w.preAllocationOffset(existAckOffset, job)
@@ -900,7 +903,7 @@ func (w *Watcher) reportWatchMetricAndCleanFiles() {
 		watchMetricData := w.reportWatchMetric(watchTask, paths, pipelineName, sourceName)
 		eventbus.PublishOrDrop(eventbus.FileWatcherTopic, watchMetricData)
 
-		removedFiles := w.cleanFiles(watchMetricData.FileInfos)
+		removedFiles := w.cleanFiles(watchTask, watchMetricData.FileInfos)
 		if len(removedFiles) > 0 {
 			log.Info("cleanLogs: removed files %+v", removedFiles)
 		}
@@ -987,12 +990,23 @@ func ExportWatchMetric() map[string]eventbus.WatchMetricData {
 	return watcherMetrics
 }
 
-func (w *Watcher) cleanFiles(infos []eventbus.FileInfo) []string {
-	if w.config.CleanFiles == nil {
+func (w *Watcher) cleanFiles(watchTask *WatchTask, infos []eventbus.FileInfo) []string {
+	if watchTask == nil {
+		return nil
+	}
+	if w.config.CleanFiles == nil && watchTask.config.CleanFiles == nil {
 		return nil
 	}
 
-	history, err := time.ParseDuration(fmt.Sprintf("%dh", w.config.CleanFiles.MaxHistoryDays*24))
+	var maxHistoryDays int
+	if w.config.CleanFiles != nil {
+		maxHistoryDays = w.config.CleanFiles.MaxHistoryDays
+	}
+	if watchTask.config.CleanFiles != nil {
+		maxHistoryDays = watchTask.config.CleanFiles.MaxHistoryDays
+	}
+
+	history, err := time.ParseDuration(fmt.Sprintf("%dh", maxHistoryDays*24))
 	if err != nil {
 		log.Warn("parse duration of cleanLogs.maxHistoryDays error: %v", err)
 		return nil
@@ -1000,7 +1014,7 @@ func (w *Watcher) cleanFiles(infos []eventbus.FileInfo) []string {
 
 	var fileRemoved []string
 	for _, info := range infos {
-		if w.config.CleanFiles.MaxHistoryDays > 0 {
+		if maxHistoryDays > 0 {
 			if time.Since(info.LastModifyTime) < history {
 				continue
 			}
