@@ -41,7 +41,6 @@ loggie:
     sources:
       - type: file
         watcher:
-          cleanFiles:
-            maxHistoryDays: 3
+          maxOpenFds: 6000
   http:
     enabled: true

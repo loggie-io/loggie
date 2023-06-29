@@ -98,6 +98,8 @@ type WatchConfig struct {
 
 type CleanFiles struct {
 	MaxHistoryDays int `yaml:"maxHistoryDays,omitempty"`
+	// clean unfinished files
+	CleanUnfinished bool `yaml:"cleanUnfinished,omitempty"`
 }
 
 type ReaderConfig struct {
