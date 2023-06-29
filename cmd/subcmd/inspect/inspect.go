@@ -17,6 +17,7 @@ limitations under the License.
 package inspect
 
 import (
+	"errors"
 	"flag"
 	"github.com/loggie-io/loggie/pkg/ops/dashboard"
 	"github.com/loggie-io/loggie/pkg/ops/dashboard/gui"
@@ -50,5 +51,5 @@ func RunInspect() error {
 		return err
 	}
 
-	return nil
+	return errors.New("exit")
 }

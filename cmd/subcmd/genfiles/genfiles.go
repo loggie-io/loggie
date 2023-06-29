@@ -17,6 +17,7 @@ limitations under the License.
 package genfiles
 
 import (
+	"errors"
 	"flag"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/source/dev"
@@ -55,5 +56,5 @@ func RunGenFiles() error {
 	dev.GenLines(stop, totalCount, lineBytes, qps, func(content []byte, index int64) {
 		log.Info("%d %s", index, content)
 	})
-	return nil
+	return errors.New("exit")
 }
