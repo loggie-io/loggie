@@ -20,27 +20,62 @@ package driver
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/dgraph-io/badger/v3"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util/persistence/reg"
 	"github.com/pkg/errors"
 	"math"
+	"time"
 )
 
 type Engine struct {
 	db *badger.DB
+
+	stop chan struct{}
+}
+
+type Logger struct {
+}
+
+func (l *Logger) Errorf(format string, args ...interface{}) {
+	log.Error(format, args...)
+}
+
+func (l *Logger) Warningf(format string, args ...interface{}) {
+	log.Warn(format, args...)
+}
+
+func (l *Logger) Infof(format string, args ...interface{}) {
+	log.Info(format, args...)
+}
+
+func (l *Logger) Debugf(format string, args ...interface{}) {
+	log.Debug(format, args...)
 }
 
 func Init(file string) reg.DbEngine {
 	log.Info("using database engine: badger")
-	db, err := badger.Open(badger.DefaultOptions(file).WithLogger(nil))
+	opts := badger.DefaultOptions(file)
+	opts.MemTableSize = 5 << 20
+	opts.BaseTableSize = 1 << 20
+	opts.BaseLevelSize = 2 << 20
+	opts.ValueThreshold = 196608
+	opts.ValueLogFileSize = 100 << 20
+	opts.ValueLogMaxEntries = 1000
+
+	logger := &Logger{}
+	db, err := badger.Open(opts.WithLogger(logger))
 	if err != nil {
-		panic(fmt.Sprintf("open db(%s) fail: %s", file, err))
+		log.Fatal("open db(%s) fail: %s", file, err)
 	}
-	return &Engine{
-		db: db,
+
+	eg := &Engine{
+		db:   db,
+		stop: make(chan struct{}),
 	}
+
+	go eg.PeriodGC()
+	return eg
 }
 
 func (e *Engine) Insert(registries []reg.Registry) error {
@@ -63,7 +98,27 @@ func (e *Engine) Insert(registries []reg.Registry) error {
 }
 
 func (e *Engine) Close() error {
+	close(e.stop)
 	return e.db.Close()
+}
+
+func (e *Engine) PeriodGC() {
+	ticker := time.NewTicker(10 * time.Hour)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-e.stop:
+			return
+
+		case <-ticker.C:
+			log.Info("start running badger value log gc")
+			err := e.db.RunValueLogGC(0.7)
+			if err != nil {
+				log.Info("try to run gc: %s", err)
+			}
+		}
+	}
 }
 
 func (e *Engine) Update(registries []reg.Registry) error {
