@@ -259,6 +259,7 @@ func (w *Watcher) eventBus(e jobEvent) {
 		currentOffset := job.endOffset
 		if filesize < currentOffset {
 			// maybe the file is truncated
+			log.Info("filesize: %d, currentOffset: %d", filesize, currentOffset)
 			existRegistry := w.findExistJobRegistry(job)
 			existAckOffset := existRegistry.Offset
 			if existAckOffset > filesize+int64(len(job.GetEncodeLineEnd())) {
@@ -666,8 +667,9 @@ func (w *Watcher) scanZombieJob() {
 		size := stat.Size()
 		if size > job.nextOffset && !job.task.config.IsIgnoreOlder(stat) {
 			w.eventBus(jobEvent{
-				opt: WRITE,
-				job: job,
+				opt:         WRITE,
+				job:         job,
+				newFileSize: size,
 			})
 			continue
 		}
