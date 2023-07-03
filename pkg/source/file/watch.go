@@ -695,14 +695,14 @@ func (w *Watcher) isZombieJob(job *Job) bool {
 
 func (w *Watcher) run() {
 	w.countDown.Add(1)
-	log.Info("watcher start")
+	log.Info("file watcher start")
 	scanFileTicker := time.NewTicker(w.config.ScanTimeInterval)
 	maintenanceTicker := time.NewTicker(w.config.MaintenanceInterval)
 	defer func() {
 		w.countDown.Done()
 		scanFileTicker.Stop()
 		maintenanceTicker.Stop()
-		log.Info("watcher stop")
+		log.Info("file watcher stop")
 	}()
 	var osEvents chan fsnotify.Event
 	if w.config.EnableOsWatch && w.osWatcher != nil {
