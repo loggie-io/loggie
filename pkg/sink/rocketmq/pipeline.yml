@@ -1,0 +1,10 @@
+pipelines:
+  - name: local
+    sources:
+      - type: kubeEvent
+        name: events
+    sink:
+      type: rocketmq
+      nameServer:
+        - 127.0.0.1:9876
+      topic: k8s_event
