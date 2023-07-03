@@ -17,6 +17,7 @@ limitations under the License.
 package franz
 
 import (
+	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"strings"
 	"time"
 )
@@ -37,6 +38,7 @@ type Config struct {
 	SASL                          SASL              `yaml:"sasl,omitempty"`
 	TLS                           TLS               `yaml:"tls,omitempty"`
 	Security                      map[string]string `yaml:"security,omitempty"`
+	PartitionKey                  string            `yaml:"partitionKey,omitempty"`
 }
 
 type RenderTopicFail struct {
@@ -75,6 +77,21 @@ type GSSAPI struct {
 	Password           string `yaml:"password,omitempty"`
 	Realm              string `yaml:"realm,omitempty"`
 	DisablePAFXFAST    bool   `yaml:"disablePAFXFAST,omitempty"`
+}
+
+func (c *Config) Validate() error {
+
+	if err := pattern.Validate(c.Topic); err != nil {
+		return err
+	}
+
+	if c.PartitionKey != "" {
+		if err := pattern.Validate(c.PartitionKey); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // convert java client style configuration into sinker
