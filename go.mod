@@ -174,6 +174,7 @@ require (
 
 require (
 	github.com/apache/rocketmq-client-go/v2 v2.1.1
+	github.com/elastic/go-elasticsearch/v7 v7.17.10
 	github.com/goccy/go-yaml v1.11.0
 	github.com/mattn/go-sqlite3 v1.11.0
 	k8s.io/metrics v0.25.4
@@ -182,6 +183,7 @@ require (
 
 replace (
 	github.com/docker/docker => github.com/docker/docker v1.13.1
+	github.com/elastic/go-elasticsearch/v7 => github.com/loggie-io/go-elasticsearch/v7 v7.17.11-0.20230703032733-f33cec60fa85
 	google.golang.org/grpc => google.golang.org/grpc v1.33.2
 	google.golang.org/protobuf => google.golang.org/protobuf v1.26.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0 => github.com/machine3/lumberjack v0.2.0

@@ -45,7 +45,7 @@ func makeSink(info pipeline.Info) api.Component {
 
 type Sink struct {
 	config *Config
-	cli    *ClientSet
+	cli    Client
 	codec  codec.Codec
 }
 
@@ -103,7 +103,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		return result.Fail(clientNotInitError)
 	}
 
-	err := s.cli.BulkIndex(context.TODO(), batch)
+	err := s.cli.Bulk(context.Background(), batch)
 	if err != nil {
 		if errors.Is(err, eventer.ErrorDropEvent) {
 			return result.DropWith(err)
