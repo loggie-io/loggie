@@ -137,6 +137,12 @@ github.com/dvsekhvalnov/jose2go/compact
 github.com/dvsekhvalnov/jose2go/kdf
 github.com/dvsekhvalnov/jose2go/keys/ecc
 github.com/dvsekhvalnov/jose2go/padding
+# github.com/elastic/go-elasticsearch/v7 v7.17.10 => github.com/loggie-io/go-elasticsearch/v7 v7.17.11-0.20230703032733-f33cec60fa85
+## explicit; go 1.11
+github.com/elastic/go-elasticsearch/v7
+github.com/elastic/go-elasticsearch/v7/esapi
+github.com/elastic/go-elasticsearch/v7/estransport
+github.com/elastic/go-elasticsearch/v7/internal/version
 # github.com/emicklei/go-restful/v3 v3.8.0
 ## explicit; go 1.13
 github.com/emicklei/go-restful/v3
@@ -1281,5 +1287,6 @@ sigs.k8s.io/structured-merge-diff/v4/value
 ## explicit; go 1.12
 sigs.k8s.io/yaml
 # github.com/docker/docker => github.com/docker/docker v1.13.1
+# github.com/elastic/go-elasticsearch/v7 => github.com/loggie-io/go-elasticsearch/v7 v7.17.11-0.20230703032733-f33cec60fa85
 # google.golang.org/grpc => google.golang.org/grpc v1.33.2
 # google.golang.org/protobuf => google.golang.org/protobuf v1.26.0
