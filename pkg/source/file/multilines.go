@@ -39,15 +39,16 @@ const (
 type MultiTaskType string
 
 type MultiTask struct {
-	mTaskType   MultiTaskType
-	epoch       *pipeline.Epoch
-	sourceName  string
-	key         string
-	config      MultiConfig
-	matcher     util.Matcher
-	eventPool   *event.Pool
-	productFunc api.ProductFunc
-	countDown   *sync.WaitGroup
+	sampleLogger *log.Logger
+	mTaskType    MultiTaskType
+	epoch        *pipeline.Epoch
+	sourceName   string
+	key          string
+	config       MultiConfig
+	matcher      util.Matcher
+	eventPool    *event.Pool
+	productFunc  api.ProductFunc
+	countDown    *sync.WaitGroup
 }
 
 func (mt *MultiTask) String() string {
@@ -63,15 +64,17 @@ func (mt *MultiTask) isParentOf(mh *MultiHolder) bool {
 }
 
 func NewMultiTask(epoch *pipeline.Epoch, sourceName string, config MultiConfig, eventPool *event.Pool, productFunc api.ProductFunc) *MultiTask {
+	multiSampleLogger := log.SubLogger(subLogger+"/multiline").Sample(1, 10*time.Second)
 	return &MultiTask{
-		epoch:       epoch,
-		sourceName:  sourceName,
-		key:         fmt.Sprintf("%s:%s", epoch.PipelineName, sourceName),
-		config:      config,
-		matcher:     util.MustCompile(config.Pattern),
-		eventPool:   eventPool,
-		productFunc: productFunc,
-		countDown:   &sync.WaitGroup{},
+		sampleLogger: multiSampleLogger,
+		epoch:        epoch,
+		sourceName:   sourceName,
+		key:          fmt.Sprintf("%s:%s", epoch.PipelineName, sourceName),
+		config:       config,
+		matcher:      util.MustCompile(config.Pattern),
+		eventPool:    eventPool,
+		productFunc:  productFunc,
+		countDown:    &sync.WaitGroup{},
 	}
 }
 
@@ -141,7 +144,7 @@ func (mh *MultiHolder) appendContent(content []byte, state persistence.State) {
 
 	if mh.currentLines >= mh.mTask.config.MaxLines || mh.currentSize >= mh.mTask.config.MaxBytes {
 		// flush immediately when (line maximum) or (the first line size exceed)
-		log.Error("task(%s) multiline log exceeds limit: currentLines(%d),maxLines(%d);currentBytes(%d),maxBytes(%d)",
+		mh.mTask.sampleLogger.Error("task(%s) multiline log exceeds limit: currentLines(%d),maxLines(%d);currentBytes(%d),maxBytes(%d)",
 			mh.mTask.String(), mh.currentLines, mh.mTask.config.MaxLines, mh.currentSize, mh.mTask.config.MaxBytes)
 		mh.flush()
 	}

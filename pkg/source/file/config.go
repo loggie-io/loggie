@@ -25,6 +25,8 @@ import (
 	timeutil "github.com/loggie-io/loggie/pkg/util/time"
 )
 
+const subLogger = "source/file"
+
 type Config struct {
 	AckConfig     AckConfig              `yaml:"ack,omitempty"`
 	WatchConfig   WatchConfig            `yaml:"watcher,omitempty"`

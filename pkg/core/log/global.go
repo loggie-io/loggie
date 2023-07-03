@@ -19,14 +19,13 @@ package log
 import (
 	"flag"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/core/log/spi"
+	"github.com/rs/zerolog"
+	"gopkg.in/natefinch/lumberjack.v2"
 	"io"
 	"os"
 	"path"
-
-	"github.com/rs/zerolog"
-	"gopkg.in/natefinch/lumberjack.v2"
-
-	"github.com/loggie-io/loggie/pkg/core/log/spi"
+	"time"
 )
 
 var (
@@ -176,6 +175,25 @@ func (logger *Logger) Fatal(format string, a ...interface{}) {
 	}
 }
 
+func (logger *Logger) SubLogger(name string) *Logger {
+	subLogger := logger.l.With().Str("component", name).CallerWithSkipFrameCount(gLoggerConfig.CallerSkipCount - 1).Logger()
+	return &Logger{
+		l: &subLogger,
+	}
+}
+
+// Sample returns a logger with a sampler.
+// max: the maximum number of events to be logged per period
+func (logger *Logger) Sample(max uint32, period time.Duration) *Logger {
+	s := logger.l.Sample(&zerolog.BurstSampler{
+		Burst:  max,
+		Period: period,
+	})
+	return &Logger{
+		l: &s,
+	}
+}
+
 func (logger *Logger) GetLevel() string {
 	return logger.l.GetLevel().String()
 }
@@ -216,6 +234,10 @@ func Panic(format string, a ...interface{}) {
 
 func Fatal(format string, a ...interface{}) {
 	defaultLogger.Fatal(format, a...)
+}
+
+func SubLogger(name string) *Logger {
+	return defaultLogger.SubLogger(name)
 }
 
 func afterErrorOpt(format string, a ...interface{}) {
