@@ -537,19 +537,18 @@ func (w *Watcher) scan() {
 }
 
 func (w *Watcher) scanActiveJob() {
-	fdHoldTimeoutWhenRemove := w.config.FdHoldTimeoutWhenRemove
 	for _, job := range w.allJobs {
 		if job.IsStop() || w.isZombieJob(job) {
 			continue
 		}
 		// check FdHoldTimeoutWhenRemove
-		if job.IsDeleteTimeout(fdHoldTimeoutWhenRemove) {
+		if job.IsDeleteTimeout(job.task.config.FdHoldTimeoutWhenRemove) || job.IsDeleteTimeout(w.config.FdHoldTimeoutWhenRemove) {
 			job.Stop()
-			log.Info("[pipeline(%s)-source(%s)]: job stop because file(%s) fdHoldTimeoutWhenRemove(%d second) reached", job.task.pipelineName, job.task.sourceName, job.filename, fdHoldTimeoutWhenRemove/time.Second)
+			log.Info("[pipeline(%s)-source(%s)]: job stop because file(%s) fdHoldTimeoutWhenRemove(%d second) reached", job.task.pipelineName, job.task.sourceName, job.filename, job.task.config.FdHoldTimeoutWhenRemove/time.Second)
 			continue
 		}
 		// check FdHoldTimeoutWhenInactive
-		if time.Since(job.LastActiveTime()) > w.config.FdHoldTimeoutWhenInactive {
+		if time.Since(job.LastActiveTime()) > job.task.config.FdHoldTimeoutWhenInactive || time.Since(job.LastActiveTime()) > w.config.FdHoldTimeoutWhenInactive {
 			job.Stop()
 			log.Info("[pipeline(%s)-source(%s)]: job stop because file(%s) fdHoldTimeoutWhenInactive(%d second) reached", job.task.pipelineName, job.task.sourceName, job.filename, w.config.FdHoldTimeoutWhenInactive/time.Second)
 			// more aggressive releasing of fd to prevent excessive memory usage
@@ -633,7 +632,7 @@ func (w *Watcher) scanZombieJob() {
 			}
 		} else {
 			// release fd
-			if time.Since(job.LastActiveTime()) > w.config.FdHoldTimeoutWhenInactive {
+			if time.Since(job.LastActiveTime()) > job.task.config.FdHoldTimeoutWhenInactive || time.Since(job.LastActiveTime()) > w.config.FdHoldTimeoutWhenInactive {
 				if job.Release() {
 					w.currentOpenFds--
 				}
