@@ -42,6 +42,7 @@ type AckTaskEvent struct {
 }
 
 type AckTask struct {
+	sampleLogger    *log.Logger
 	Epoch           *pipeline.Epoch
 	PipelineName    string
 	SourceName      string
@@ -51,7 +52,9 @@ type AckTask struct {
 }
 
 func NewAckTask(epoch *pipeline.Epoch, pipelineName string, sourceName string, persistenceFunc persistenceFunc) *AckTask {
+	l := log.SubLogger(subLogger+"/ack").Sample(1, 1*time.Second)
 	return &AckTask{
+		sampleLogger:    l,
 		Epoch:           epoch,
 		PipelineName:    pipelineName,
 		SourceName:      sourceName,
@@ -130,6 +133,7 @@ func ReleaseAck(a *ack) {
 }
 
 type JobAckChain struct {
+	sampleLogger    *log.Logger
 	Epoch           *pipeline.Epoch
 	PipelineName    string
 	SourceName      string
@@ -142,7 +146,9 @@ type JobAckChain struct {
 }
 
 func newJobAckChain(epoch *pipeline.Epoch, pipelineName string, sourceName string, jobWatchUid string, persistenceFunc persistenceFunc) *JobAckChain {
+	l := log.SubLogger(subLogger+"/ackChain").Sample(1, 5*time.Second)
 	return &JobAckChain{
+		sampleLogger:    l,
 		Epoch:           epoch,
 		PipelineName:    pipelineName,
 		SourceName:      sourceName,
@@ -167,13 +173,13 @@ func (ac *JobAckChain) Key() string {
 
 func (ac *JobAckChain) Append(s *persistence.State) {
 	if !ac.Epoch.Equal(s.Epoch) {
-		log.Warn("state(%+v) epoch not equal ack chain: state.Epoch(%+v) vs chain.Epoch(%+v)", s, s.Epoch, ac.Epoch)
+		ac.sampleLogger.Warn("state(%+v) epoch not equal ack chain: state.Epoch(%+v) vs chain.Epoch(%+v)", s, s.Epoch, ac.Epoch)
 		return
 	}
 	a := NewAckWith(s)
 	existAck, ok := ac.allAck[a.Key()]
 	if ok {
-		log.Error("append state(%+v) exist: %+v; last fileName: %s", s, existAck.state, ac.lastFileName)
+		ac.sampleLogger.Warn("append state(%+v) exist: %+v; last fileName: %s", s, existAck.state, ac.lastFileName)
 		return
 	}
 	ac.allAck[a.Key()] = a
@@ -189,7 +195,7 @@ func (ac *JobAckChain) Append(s *persistence.State) {
 	// Check whether the chain is too long
 	l := len(ac.allAck)
 	if l > largeAckSize {
-		log.Error("JobAckChain is too long(%d). head(%s) fileName: %s", l, ac.tail.state.WatchUid, ac.tail.state.Filename)
+		ac.sampleLogger.Error("Ack chain is too long(%d). Maybe the sink send an event too slowly, try to increase sink.parallelism. uid(%s), fileName(%s)", l, ac.tail.state.WatchUid, ac.tail.state.Filename)
 	}
 }
 

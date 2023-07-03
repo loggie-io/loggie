@@ -188,7 +188,7 @@ func (i *Interceptor) run() {
 			// block consumer
 			l := len(buffer)
 			if l > 1 {
-				log.Warn("%s retry buffer size(%d) too large", i.String(), l)
+				log.Warn("retry buffer is full, trying to block consumer")
 				i.pauseSign.Store(true)
 			}
 		case <-c:
