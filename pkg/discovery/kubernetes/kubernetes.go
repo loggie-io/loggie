@@ -57,7 +57,6 @@ func (d *Discovery) scanRunTime() {
 	name, err := runtime.GetRunTimeName(d.config.RuntimeEndpoints)
 	if err != nil {
 		log.Error("%s", err)
-		return
 	}
 
 	if name == "" {
