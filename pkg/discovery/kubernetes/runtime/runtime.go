@@ -46,6 +46,7 @@ func Init(endpoints []string, runtime string) Runtime {
 		runtimeName, err := getRuntimeName(endpoints)
 		if err != nil {
 			// fallback to Docker runtime
+			log.Warn("get runtime name failed, fallback to docker runtime")
 			return NewDocker()
 		}
 		runtime = runtimeName
