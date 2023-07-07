@@ -19,8 +19,10 @@ package maxbytes
 import (
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
+	eventer "github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/pipeline"
+	"github.com/loggie-io/loggie/pkg/util/eventops"
 	"unicode/utf8"
 )
 
@@ -73,11 +75,20 @@ func (i *Interceptor) Stop() {
 
 func (i *Interceptor) Intercept(invoker source.Invoker, invocation source.Invocation) api.Result {
 	event := invocation.Event
-	body := event.Body()
-	if len(body) > i.config.MaxBytes {
-		event.Fill(event.Meta(), event.Header(), subUtf8(body, i.config.MaxBytes))
-	}
+	maxBytes(event, i.config.Target, i.config.MaxBytes)
 	return invoker.Invoke(invocation)
+}
+
+// if the length of the target field of the event exceeds maxBytes, then truncate it
+func maxBytes(event api.Event, target string, maxBytes int) {
+	val := eventops.GetBytes(event, target)
+	if len(val) > maxBytes {
+		if target == eventer.Body {
+			event.Fill(event.Meta(), event.Header(), subUtf8(val, maxBytes))
+		} else {
+			eventops.Set(event, target, string(subUtf8(val, maxBytes)))
+		}
+	}
 }
 
 func (i *Interceptor) Order() int {
