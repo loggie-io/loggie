@@ -1013,8 +1013,10 @@ func (w *Watcher) cleanFiles(watchTask *WatchTask, infos []eventbus.FileInfo) []
 			}
 
 			// if file is not finished, do not remove it
-			if !watchTask.config.CleanFiles.CleanUnfinished && info.Offset < info.Size {
-				continue
+			if watchTask.config.CleanFiles != nil {
+				if !watchTask.config.CleanFiles.CleanUnfinished && info.Offset < info.Size {
+					continue
+				}
 			}
 
 			_ = truncateAndRemoveFile(info.FileName)
