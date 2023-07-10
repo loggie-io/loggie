@@ -297,9 +297,6 @@ func (w *Watcher) eventBus(e jobEvent) {
 		if existAckOffset == 0 {
 			if e.job.task.config.ReadFromTail {
 				existAckOffset = fileSize
-			} else if w.config.ReadFromTail {
-				// readFromTail is deprecated in watcher, keep it only for compatibility with older versions
-				existAckOffset = fileSize
 			}
 			w.preAllocationOffset(existAckOffset, job)
 		}
@@ -542,15 +539,15 @@ func (w *Watcher) scanActiveJob() {
 			continue
 		}
 		// check FdHoldTimeoutWhenRemove
-		if job.IsDeleteTimeout(job.task.config.FdHoldTimeoutWhenRemove) || job.IsDeleteTimeout(w.config.FdHoldTimeoutWhenRemove) {
+		if job.IsDeleteTimeout(job.task.config.FdHoldTimeoutWhenRemove) {
 			job.Stop()
 			log.Info("[pipeline(%s)-source(%s)]: job stop because file(%s) fdHoldTimeoutWhenRemove(%d second) reached", job.task.pipelineName, job.task.sourceName, job.filename, job.task.config.FdHoldTimeoutWhenRemove/time.Second)
 			continue
 		}
 		// check FdHoldTimeoutWhenInactive
-		if time.Since(job.LastActiveTime()) > job.task.config.FdHoldTimeoutWhenInactive || time.Since(job.LastActiveTime()) > w.config.FdHoldTimeoutWhenInactive {
+		if time.Since(job.LastActiveTime()) > job.task.config.FdHoldTimeoutWhenInactive {
 			job.Stop()
-			log.Info("[pipeline(%s)-source(%s)]: job stop because file(%s) fdHoldTimeoutWhenInactive(%d second) reached", job.task.pipelineName, job.task.sourceName, job.filename, w.config.FdHoldTimeoutWhenInactive/time.Second)
+			log.Info("[pipeline(%s)-source(%s)]: job stop because file(%s) fdHoldTimeoutWhenInactive(%d second) reached", job.task.pipelineName, job.task.sourceName, job.filename, job.task.config.FdHoldTimeoutWhenInactive/time.Second)
 			// more aggressive releasing of fd to prevent excessive memory usage
 			if job.Release() {
 				w.currentOpenFds--
@@ -632,7 +629,7 @@ func (w *Watcher) scanZombieJob() {
 			}
 		} else {
 			// release fd
-			if time.Since(job.LastActiveTime()) > job.task.config.FdHoldTimeoutWhenInactive || time.Since(job.LastActiveTime()) > w.config.FdHoldTimeoutWhenInactive {
+			if time.Since(job.LastActiveTime()) > job.task.config.FdHoldTimeoutWhenInactive {
 				if job.Release() {
 					w.currentOpenFds--
 				}
@@ -993,14 +990,11 @@ func (w *Watcher) cleanFiles(watchTask *WatchTask, infos []eventbus.FileInfo) []
 	if watchTask == nil {
 		return nil
 	}
-	if w.config.CleanFiles == nil && watchTask.config.CleanFiles == nil {
+	if watchTask.config.CleanFiles == nil {
 		return nil
 	}
 
 	var maxHistoryDays int
-	if w.config.CleanFiles != nil {
-		maxHistoryDays = w.config.CleanFiles.MaxHistoryDays
-	}
 	if watchTask.config.CleanFiles != nil {
 		maxHistoryDays = watchTask.config.CleanFiles.MaxHistoryDays
 	}
