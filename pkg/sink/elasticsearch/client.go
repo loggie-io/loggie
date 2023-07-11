@@ -177,19 +177,19 @@ func (c *ClientSet) Bulk(ctx context.Context, batch api.Batch) error {
 		c.cli.Bulk.WithParameters(c.config.Params),
 		c.cli.Bulk.WithHeader(c.config.Headers))
 	if err != nil {
-		return err
+		return errors.WithMessagef(err, "request to elasticsearch bulk failed")
 	}
 	if resp.Body != nil {
 		defer resp.Body.Close()
 	}
-	if resp.IsError() {
-		blkResp := BulkIndexerResponse{}
-		err := json.NewDecoder(resp.Body).Decode(&blkResp)
-		if err != nil {
-			out, _ := json.Marshal(resp.Body)
-			return errors.Errorf("elasticsearch response error: %s", out)
-		}
 
+	blkResp := BulkIndexerResponse{}
+	if err := json.NewDecoder(resp.Body).Decode(&blkResp); err != nil {
+		out, _ := json.Marshal(resp.Body)
+		return errors.Errorf("elasticsearch response error: %s", out)
+	}
+
+	if blkResp.HasErrors {
 		failed := blkResp.Failed()
 		failedCount := len(failed)
 		// to avoid too many error messages
