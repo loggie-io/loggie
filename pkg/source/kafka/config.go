@@ -64,6 +64,12 @@ func getAutoOffset(autoOffsetReset string) int64 {
 	return kafka.LastOffset
 }
 
+func (c *Config) SetDefaults() {
+	if c.SASL.UserName != "" {
+		c.SASL.Username = c.SASL.UserName
+	}
+}
+
 func (c *Config) Validate() error {
 	if c.Topic == "" && len(c.Topics) == 0 {
 		return errors.New("topic or topics is required")
