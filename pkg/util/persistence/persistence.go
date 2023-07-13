@@ -258,16 +258,15 @@ func (d *DbHandler) updateFileName(registries []reg.Registry) {
 func (d *DbHandler) upsertOffsetByJobWatchId(r reg.Registry) {
 	r.CollectTime = time2text(time.Now())
 	r.Version = api.VERSION
-	rs := []reg.Registry{r}
 
 	or := d.FindBy(r.JobUid, r.SourceName, r.PipelineName)
 	if or.JobUid != "" {
 		// update
 		r.Id = or.Id
-		d.updateRegistry(rs)
+		d.updateRegistry([]reg.Registry{r})
 	} else {
 		// insert
-		d.insertRegistry(rs)
+		d.insertRegistry([]reg.Registry{r})
 	}
 }
 
@@ -276,7 +275,7 @@ func (d *DbHandler) delete(r reg.Registry) {
 		log.Error("%s fail to delete registry %s : %s", d.String(), r.Key(), err)
 		return
 	}
-	log.Info("delete registry %s because db.cleanInactiveTimeout(%dh) reached. file: %s", r.Key(), d.config.CleanInactiveTimeout/time.Hour, r.Filename)
+	log.Info("delete registry %s. file: %s", r.Key(), r.Filename)
 }
 
 func (d *DbHandler) deleteRemoved(rs []reg.Registry) {
@@ -300,6 +299,7 @@ func (d *DbHandler) cleanData() {
 		t := text2time(collectTime)
 		if time.Since(t) >= d.config.CleanInactiveTimeout {
 			// delete
+			log.Info("clean inactive registry: %s because CleanInactiveTimeout(%dh) reached ", r.Key(), d.config.CleanInactiveTimeout/time.Hour)
 			d.delete(r)
 		}
 	}
