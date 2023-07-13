@@ -39,12 +39,6 @@ type Config struct {
 	SendBuffer int `yaml:"sendBufferBytes,omitempty" default:"131072" validate:"gte=0"`
 }
 
-type TLS struct {
-	CAFile   string `yaml:"caFile,omitempty"`
-	CertFile string `yaml:"certFile,omitempty"`
-	KeyFile  string `yaml:"keyFile,omitempty"`
-}
-
 type RenderIndexFail struct {
 	DropEvent    bool   `yaml:"dropEvent,omitempty" default:"true"`
 	IgnoreError  bool   `yaml:"ignoreError,omitempty"`
