@@ -51,5 +51,10 @@ func NewEqual(args []string) (*Equal, error) {
 }
 
 func (eq *Equal) Check(e api.Event) bool {
-	return eq.value == eventops.Get(e, eq.field)
+	value := eventops.Get(e, eq.field)
+	if byteValue, ok := value.([]byte); ok {
+		value = string(byteValue)
+	}
+
+	return eq.value == value
 }
