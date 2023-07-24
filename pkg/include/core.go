@@ -1,5 +1,7 @@
+//go:build include_core
+
 /*
-Copyright 2021 Loggie Authors
+Copyright 2023 Loggie Authors
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +24,6 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/filewatcher"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/info"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/logalerting"
-	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/normalize"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/pipeline"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/queue"
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/reload"
@@ -30,14 +31,11 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/eventbus/listener/sys"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/addhostmeta"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/addk8smeta"
-	_ "github.com/loggie-io/loggie/pkg/interceptor/cost"
-	_ "github.com/loggie-io/loggie/pkg/interceptor/json_decode"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/limit"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/logalert"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/logalert/condition"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/maxbytes"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/metric"
-	_ "github.com/loggie-io/loggie/pkg/interceptor/normalize"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/retry"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/schema"
 	_ "github.com/loggie-io/loggie/pkg/interceptor/transformer"
@@ -52,13 +50,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/sink/elasticsearch"
 	_ "github.com/loggie-io/loggie/pkg/sink/file"
 	_ "github.com/loggie-io/loggie/pkg/sink/franz"
-	_ "github.com/loggie-io/loggie/pkg/sink/grpc"
 	_ "github.com/loggie-io/loggie/pkg/sink/kafka"
-	_ "github.com/loggie-io/loggie/pkg/sink/loki"
-	_ "github.com/loggie-io/loggie/pkg/sink/pulsar"
-	_ "github.com/loggie-io/loggie/pkg/sink/rocketmq"
-	_ "github.com/loggie-io/loggie/pkg/sink/sls"
-	_ "github.com/loggie-io/loggie/pkg/sink/zinc"
 	_ "github.com/loggie-io/loggie/pkg/source/codec/json"
 	_ "github.com/loggie-io/loggie/pkg/source/codec/regex"
 	_ "github.com/loggie-io/loggie/pkg/source/dev"
@@ -66,9 +58,5 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/source/file"
 	_ "github.com/loggie-io/loggie/pkg/source/file/process"
 	_ "github.com/loggie-io/loggie/pkg/source/franz"
-	_ "github.com/loggie-io/loggie/pkg/source/grpc"
 	_ "github.com/loggie-io/loggie/pkg/source/kafka"
-	_ "github.com/loggie-io/loggie/pkg/source/kubernetes_event"
-	_ "github.com/loggie-io/loggie/pkg/source/prometheus_exporter"
-	_ "github.com/loggie-io/loggie/pkg/source/unix"
 )
