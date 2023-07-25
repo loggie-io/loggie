@@ -45,6 +45,7 @@ type CollectConfig struct {
 	RereadTruncated          bool               `yaml:"rereadTruncated,omitempty" default:"true"`                           // Read from the beginning when the file is truncated
 	FirstNBytesForIdentifier int                `yaml:"firstNBytesForIdentifier,omitempty" default:"128" validate:"gte=10"` // If the file size is smaller than `firstNBytesForIdentifier`, it will not be collected
 	AddonMeta                bool               `yaml:"addonMeta,omitempty"`
+	AddonMetaSchema          AddonMetaSchema    `yaml:"addonMetaSchema,omitempty"`
 	excludeFilePatterns      []*regexp.Regexp
 	Charset                  string `yaml:"charset,omitempty" default:"utf-8"`
 
@@ -52,6 +53,12 @@ type CollectConfig struct {
 	CleanFiles                *CleanFiles   `yaml:"cleanFiles,omitempty"`
 	FdHoldTimeoutWhenInactive time.Duration `yaml:"fdHoldTimeoutWhenInactive,omitempty" default:"5m"`
 	FdHoldTimeoutWhenRemove   time.Duration `yaml:"fdHoldTimeoutWhenRemove,omitempty" default:"5m"`
+}
+
+type AddonMetaSchema struct {
+	Fields          map[string]string `yaml:"fields,omitempty"`
+	FieldsUnderRoot bool              `yaml:"underRoot,omitempty"`
+	FieldsUnderKey  string            `yaml:"key,omitempty" default:"state"`
 }
 
 type LineDelimiterValue struct {
