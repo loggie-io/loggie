@@ -14,7 +14,7 @@ loggie:
       sink: ~
       queue: ~
       pipeline: ~
-      normalize: ~
+      sys: ~
 
   discovery:
     enabled: false
@@ -31,15 +31,17 @@ loggie:
   defaults:
     sink:
       type: dev
-    interceptors:
-      - type: schema
-        name: global
-        order: 700
-        addMeta:
-          timestamp:
-            key: "@timestamp"
     sources:
       - type: file
+        timestampKey: "@timestamp"
+        bodyKey: "message"
+        fieldsUnderRoot: true
+        addonMeta: true
+        addonMetaSchema:
+          underRoot: true
+          fields:
+            filename: "${_meta.filename}"
+            line: "${_meta.line}"
         watcher:
           maxOpenFds: 6000
   http:

@@ -38,6 +38,11 @@ type Config struct {
 	FieldsFromEnv   map[string]string      `yaml:"fieldsFromEnv,omitempty"`
 	FieldsFromPath  map[string]string      `yaml:"fieldsFromPath,omitempty"`
 	Codec           *codec.Config          `yaml:"codec,omitempty"`
+
+	TimestampKey      string `yaml:"timestampKey,omitempty"`
+	TimestampLocation string `yaml:"timestampLocation,omitempty"`
+	TimestampLayout   string `yaml:"timestampLayout,omitempty"`
+	BodyKey           string `yaml:"bodyKey,omitempty"`
 }
 
 func (c *Config) DeepCopy() *Config {
@@ -82,6 +87,11 @@ func (c *Config) DeepCopy() *Config {
 		FieldsFromEnv:   newFieldsFromEnv,
 		FieldsFromPath:  newFieldsFromPath,
 		Codec:           c.Codec.DeepCopy(),
+
+		TimestampKey:      c.TimestampKey,
+		TimestampLocation: c.TimestampLocation,
+		TimestampLayout:   c.TimestampLayout,
+		BodyKey:           c.BodyKey,
 	}
 
 	return out
@@ -154,6 +164,19 @@ func (c *Config) Merge(from *Config) {
 		c.Codec = from.Codec
 	} else {
 		c.Codec.Merge(from.Codec)
+	}
+
+	if c.TimestampKey == "" {
+		c.TimestampKey = from.TimestampKey
+	}
+	if c.TimestampLocation == "" {
+		c.TimestampLocation = from.TimestampLocation
+	}
+	if c.TimestampLayout == "" {
+		c.TimestampLayout = from.TimestampLayout
+	}
+	if c.BodyKey == "" {
+		c.BodyKey = from.BodyKey
 	}
 }
 
