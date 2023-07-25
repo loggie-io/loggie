@@ -18,6 +18,7 @@ package pipeline
 
 import (
 	"fmt"
+	timeutil "github.com/loggie-io/loggie/pkg/util/time"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -46,10 +47,9 @@ import (
 )
 
 const (
-	FieldsUnderRoot = event.PrivateKeyPrefix + "FieldsUnderRoot"
-	FieldsUnderKey  = event.PrivateKeyPrefix + "FieldsUnderKey"
-
 	fieldsFromPathMaxBytes = 1024
+
+	defaultTsLayout = "2006-01-02T15:04:05.000Z"
 )
 
 var (
@@ -1054,11 +1054,10 @@ func (p *Pipeline) initFieldsFromPath(fieldsFromPath map[string]string) {
 
 func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 	// add meta fields
-	e.Meta().Set(event.SystemProductTimeKey, time.Now())
+	now := time.Now()
+	e.Meta().Set(event.SystemProductTimeKey, now)
 	e.Meta().Set(event.SystemPipelineKey, p.name)
 	e.Meta().Set(event.SystemSourceKey, config.Name)
-	e.Meta().Set(FieldsUnderRoot, config.FieldsUnderRoot)
-	e.Meta().Set(FieldsUnderKey, config.FieldsUnderKey)
 
 	header := e.Header()
 	if header == nil {
@@ -1073,6 +1072,28 @@ func (p *Pipeline) fillEventMetaAndHeader(e api.Event, config source.Config) {
 
 	// add header source fields from file
 	AddSourceFields(header, p.pathMap, config.FieldsUnderRoot, config.FieldsUnderKey)
+
+	// remap timestamp
+	if config.TimestampKey != "" {
+		layout := config.TimestampLayout
+		if layout == "" {
+			layout = defaultTsLayout
+		}
+
+		// conf.Location could be "" or "UTC" or "Local"
+		// default "" indicate "UTC"
+		ts, err := timeutil.Format(now, config.TimestampLocation, layout)
+		if err != nil {
+			log.Warn("time format system product timestamp err: %+v", err)
+			return
+		}
+		header[config.TimestampKey] = ts
+	}
+
+	if config.BodyKey != "" {
+		header[config.BodyKey] = util.ByteToStringUnsafe(e.Body())
+		e.Fill(e.Meta(), header, []byte{})
+	}
 }
 
 func AddSourceFields(header map[string]interface{}, fields map[string]interface{}, underRoot bool, fieldsKey string) {
