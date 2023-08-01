@@ -19,7 +19,6 @@ package pipeline
 import (
 	"fmt"
 	timeutil "github.com/loggie-io/loggie/pkg/util/time"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -1032,7 +1031,7 @@ func (p *Pipeline) initFieldsFromPath(fieldsFromPath map[string]string) {
 	}
 
 	for k, pathKey := range fieldsFromPath {
-		out, err := ioutil.ReadFile(pathKey)
+		out, err := os.ReadFile(pathKey)
 		if err != nil {
 			log.Error("init fieldsFromPath %s failed, read file %s err: %v", k, pathKey, err)
 			continue

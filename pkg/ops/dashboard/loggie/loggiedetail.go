@@ -25,6 +25,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/ops/helper"
 	"github.com/loggie-io/loggie/pkg/util"
 	"github.com/rivo/tview"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -234,7 +235,7 @@ func (p *LogStatusPanel) SetData() {
 	}
 	defer resp.Body.Close()
 
-	out, err := ioutil.ReadAll(resp.Body)
+	out, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}
