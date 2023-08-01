@@ -61,7 +61,6 @@ require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/danieljoos/wincred v1.0.2 // indirect
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
-	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/dvsekhvalnov/jose2go v0.0.0-20200901110807-248326c1351b // indirect
 	github.com/emirpasic/gods v1.12.0 // indirect
 	github.com/fatih/color v1.10.0 // indirect
@@ -174,6 +173,7 @@ require (
 
 require (
 	github.com/apache/rocketmq-client-go/v2 v2.1.1
+	github.com/dustin/go-humanize v1.0.0
 	github.com/elastic/go-elasticsearch/v7 v7.17.10
 	github.com/goccy/go-yaml v1.11.0
 	github.com/mattn/go-sqlite3 v1.11.0
