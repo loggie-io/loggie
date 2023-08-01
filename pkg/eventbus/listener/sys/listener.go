@@ -19,6 +19,7 @@ package sys
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"os"
 	"strconv"
 	"time"
@@ -48,8 +49,9 @@ func makeListener() eventbus.Listener {
 }
 
 type sysData struct {
-	MemoryRss  uint64  `json:"memRss"`
-	CPUPercent float64 `json:"cpuPercent"`
+	MemoryRss         uint64  `json:"-"`
+	MemoryRssHumanize string  `json:"memRss"`
+	CPUPercent        float64 `json:"cpuPercent"`
 }
 
 type Config struct {
@@ -122,6 +124,7 @@ func (l *Listener) getSysStat() error {
 		return err
 	}
 	l.data.MemoryRss = mem.RSS
+	l.data.MemoryRssHumanize = humanize.Bytes(mem.RSS)
 
 	cpuPer, err := l.proc.Percent(1 * time.Second)
 	if err != nil {

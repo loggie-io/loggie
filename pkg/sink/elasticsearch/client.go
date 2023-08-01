@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	es "github.com/elastic/go-elasticsearch/v7"
-	"github.com/elastic/go-elasticsearch/v7/esapi"
 	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	eventer "github.com/loggie-io/loggie/pkg/core/event"
@@ -44,14 +43,76 @@ type ClientSet struct {
 	cli    *es.Client
 	opType string
 
-	buf      *bytes.Buffer
-	aux      []byte
 	reqCount int
 
 	codec               codec.Codec
 	indexPattern        *pattern.Pattern
 	defaultIndexPattern *pattern.Pattern
 	documentIdPattern   *pattern.Pattern
+}
+
+type bulkRequest struct {
+	lines []line
+}
+
+type line struct {
+	meta []byte
+	body []byte
+}
+
+func (b *bulkRequest) body() []byte {
+	var buf bytes.Buffer
+	size := 0
+	for _, l := range b.lines {
+		size += len(l.meta) + len(l.body) + 1
+	}
+	buf.Grow(size)
+
+	for _, l := range b.lines {
+		buf.Write(l.meta)
+		buf.Write(l.body)
+		buf.WriteRune('\n')
+	}
+	return buf.Bytes()
+}
+
+func (b *bulkRequest) add(body []byte, action string, documentID string, index string) {
+	if len(body) == 0 {
+		return
+	}
+
+	var buf bytes.Buffer
+	var aux []byte
+
+	// { "index" : { "_index" : "test", "_id" : "1" } }
+	buf.WriteRune('{')
+	aux = strconv.AppendQuote(aux, action)
+	buf.Write(aux)
+	aux = aux[:0]
+	buf.WriteRune(':')
+	buf.WriteRune('{')
+	if documentID != "" {
+		buf.WriteString(`"_id":`)
+		aux = strconv.AppendQuote(aux, documentID)
+		buf.Write(aux)
+		aux = aux[:0]
+	}
+
+	if index != "" {
+		buf.WriteString(`"_index":`)
+		aux = strconv.AppendQuote(aux, index)
+		buf.Write(aux)
+	}
+	buf.WriteRune('}')
+	buf.WriteRune('}')
+	buf.WriteRune('\n')
+
+	l := line{
+		meta: buf.Bytes(),
+		body: body,
+	}
+
+	b.lines = append(b.lines, l)
 }
 
 type Client interface {
@@ -94,8 +155,6 @@ func NewClient(config *Config, cod codec.Codec, indexPattern *pattern.Pattern, d
 		config:              config,
 		cli:                 cli,
 		opType:              config.OpType,
-		buf:                 bytes.NewBuffer(make([]byte, 0, config.SendBuffer)),
-		aux:                 make([]byte, 0, 512),
 		reqCount:            0,
 		codec:               cod,
 		indexPattern:        indexPattern,
@@ -109,16 +168,11 @@ func (c *ClientSet) Bulk(ctx context.Context, batch api.Batch) error {
 		return errors.WithMessagef(eventer.ErrorDropEvent, "request to elasticsearch bulk is null")
 	}
 
-	bulkReq := esapi.BulkRequest{}
-
-	if c.config.Etype != "" {
-		bulkReq.DocumentType = c.config.Etype
-	}
 	defer func() {
-		c.buf.Reset()
 		c.reqCount = 0
 	}()
 
+	req := bulkRequest{}
 	for _, event := range batch.Events() {
 		headerObj := runtime.NewObject(event.Header())
 
@@ -160,19 +214,14 @@ func (c *ClientSet) Bulk(ctx context.Context, batch api.Batch) error {
 		}
 
 		c.reqCount++
-		if err := c.writeMeta(c.opType, docId, idx); err != nil {
-			return err
-		}
-		if err := c.writeBody(data); err != nil {
-			return err
-		}
+		req.add(data, c.opType, docId, idx)
 	}
 
 	if c.reqCount == 0 {
 		return errors.WithMessagef(eventer.ErrorDropEvent, "request to elasticsearch bulk is null")
 	}
 
-	resp, err := c.cli.Bulk(bytes.NewReader(c.buf.Bytes()),
+	resp, err := c.cli.Bulk(bytes.NewReader(req.body()),
 		c.cli.Bulk.WithDocumentType(c.config.Etype),
 		c.cli.Bulk.WithParameters(c.config.Params),
 		c.cli.Bulk.WithHeader(c.config.Headers))
@@ -212,40 +261,4 @@ func (c *ClientSet) Bulk(ctx context.Context, batch api.Batch) error {
 
 func (c *ClientSet) Stop() {
 	// Do nothing
-}
-
-// { "index" : { "_index" : "test", "_id" : "1" } }
-func (c *ClientSet) writeMeta(action string, documentID string, index string) error {
-	c.buf.WriteRune('{')
-	c.aux = strconv.AppendQuote(c.aux, action)
-	c.buf.Write(c.aux)
-	c.aux = c.aux[:0]
-	c.buf.WriteRune(':')
-	c.buf.WriteRune('{')
-	if documentID != "" {
-		c.buf.WriteString(`"_id":`)
-		c.aux = strconv.AppendQuote(c.aux, documentID)
-		c.buf.Write(c.aux)
-		c.aux = c.aux[:0]
-	}
-
-	if index != "" {
-		c.buf.WriteString(`"_index":`)
-		c.aux = strconv.AppendQuote(c.aux, index)
-		c.buf.Write(c.aux)
-		c.aux = c.aux[:0]
-	}
-	c.buf.WriteRune('}')
-	c.buf.WriteRune('}')
-	c.buf.WriteRune('\n')
-	return nil
-}
-
-func (c *ClientSet) writeBody(body []byte) error {
-	if len(body) == 0 {
-		return nil
-	}
-	c.buf.Write(body)
-	c.buf.WriteRune('\n')
-	return nil
 }
