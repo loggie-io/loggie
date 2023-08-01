@@ -174,6 +174,9 @@ func diffPipes(request *http.Request) string {
 
 func queryPipelineConfig(cfgInPath *control.PipelineConfig, pipelineQuery string, sourceQuery string) map[string]pipeline.Config {
 	result := make(map[string]pipeline.Config)
+	if cfgInPath == nil {
+		return result
+	}
 
 	setResult := func(pipData pipeline.Config, srcData ...*source.Config) {
 		pip, ok := result[pipData.Name]
