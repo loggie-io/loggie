@@ -130,11 +130,21 @@ func ReadPipelineConfigFromFile(path string, ignore FileIgnore) (*PipelineConfig
 	for _, fn := range all {
 		pipes := &PipelineConfig{}
 		unpack := cfg.UnPackFromFile(fn, pipes)
-		if err = unpack.Defaults().Validate().Do(); err != nil {
-			log.Error("invalid pipeline configs: %v, \n%s", err, unpack.Contents())
+		if err = unpack.Do(); err != nil {
+			log.Error("read pipeline configs from path %s failed: %v", path, err)
 			continue
 		}
-		pipecfgs.AddPipelines(pipes.Pipelines)
+
+		for _, p := range pipes.Pipelines {
+			pip := p
+			if err := cfg.NewUnpack(nil, &pip, nil).Defaults().Validate().Do(); err != nil {
+				// ignore invalid pipeline, but continue to read other pipelines
+				// invalid pipeline will check by reloader later
+				log.Error("pipeline: %s configs invalid: %v", p.Name, err)
+				continue
+			}
+			pipecfgs.AddPipelines([]pipeline.Config{pip})
+		}
 	}
 	return pipecfgs, nil
 }
