@@ -17,7 +17,6 @@ limitations under the License.
 package reloader
 
 import (
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -49,7 +48,7 @@ func (r *reloader) readPipelineConfigHandler(writer http.ResponseWriter, request
 			continue
 		}
 
-		content, err := ioutil.ReadFile(m)
+		content, err := os.ReadFile(m)
 		if err != nil {
 			log.Warn("read config error. err: %v", err)
 			return
