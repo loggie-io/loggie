@@ -364,7 +364,7 @@ func (c *Controller) makeConfigPerSource(s *source.Config, pod *corev1.Pod, lgc 
 		}
 
 		// change the source name, add pod.Name-containerName as prefix, since there maybe multiple containers in pod
-		filesrc.Name = helper.GenTypePodSourceName(pod.Name, status.Name, filesrc.Name)
+		filesrc.Name = helper.GenTypePodSourceName(lgc.Namespace, pod.Namespace, pod.Name, status.Name, filesrc.Name)
 
 		// inject default pod metadata
 		if err := c.injectTypePodFields(c.config.DynamicContainerLog, filesrc, extra, pod, lgc, status.Name); err != nil {
