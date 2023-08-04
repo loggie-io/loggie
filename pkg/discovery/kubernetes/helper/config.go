@@ -122,7 +122,12 @@ func ToPipelineInterceptor(interceptorsRaw string, interceptorRef string, interc
 	return interConfList, nil
 }
 
-func GenTypePodSourceName(podName string, containerName string, sourceName string) string {
+func GenTypePodSourceName(lgcNamespace string, podNamespace string, podName string, containerName string, sourceName string) string {
+	// if lgcNamespace is empty, we use podNamespace as the first part of the source name,
+	// because this is the pod matched by clusterLogConfig, if the pod namespace is not added, it may cause the source to be duplicated
+	if lgcNamespace == "" {
+		return fmt.Sprintf("%s/%s/%s/%s", podNamespace, podName, containerName, sourceName)
+	}
 	return fmt.Sprintf("%s/%s/%s", podName, containerName, sourceName)
 }
 
