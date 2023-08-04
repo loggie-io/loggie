@@ -29,7 +29,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 	"github.com/pkg/errors"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -129,7 +129,7 @@ func NewClient(config *Config, cod codec.Codec, indexPattern *pattern.Pattern, d
 	}
 	var ca []byte
 	if config.CACertPath != "" {
-		caData, err := ioutil.ReadFile(config.CACertPath)
+		caData, err := os.ReadFile(config.CACertPath)
 		if err != nil {
 			return nil, err
 		}
@@ -137,14 +137,16 @@ func NewClient(config *Config, cod codec.Codec, indexPattern *pattern.Pattern, d
 	}
 
 	cfg := es.Config{
-		Addresses:           config.Hosts,
-		DisableRetry:        true,
-		Username:            config.UserName,
-		Password:            config.Password,
-		APIKey:              config.APIKey,
-		ServiceToken:        config.ServiceToken,
-		CompressRequestBody: config.Compress,
-		CACert:              ca,
+		Addresses:             config.Hosts,
+		DisableRetry:          true,
+		Username:              config.UserName,
+		Password:              config.Password,
+		APIKey:                config.APIKey,
+		ServiceToken:          config.ServiceToken,
+		CompressRequestBody:   config.Compress,
+		DiscoverNodesOnStart:  config.DiscoverNodesOnStart,
+		DiscoverNodesInterval: config.DiscoverNodesInterval,
+		CACert:                ca,
 	}
 	cli, err := es.NewClient(cfg)
 	if err != nil {
