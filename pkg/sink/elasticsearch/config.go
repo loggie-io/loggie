@@ -16,27 +16,29 @@ limitations under the License.
 
 package elasticsearch
 
-import "github.com/loggie-io/loggie/pkg/util/pattern"
+import (
+	"github.com/loggie-io/loggie/pkg/util/pattern"
+	"time"
+)
 
 type Config struct {
-	Hosts               []string          `yaml:"hosts,omitempty" validate:"required"`
-	UserName            string            `yaml:"username,omitempty"`
-	Password            string            `yaml:"password,omitempty"`
-	Index               string            `yaml:"index,omitempty"`
-	Headers             map[string]string `yaml:"headers,omitempty"`
-	Params              map[string]string `yaml:"parameters,omitempty"`
-	IfRenderIndexFailed RenderIndexFail   `yaml:"ifRenderIndexFailed,omitempty"`
-	Etype               string            `yaml:"etype,omitempty"` // elasticsearch type, for v5.* backward compatibility
-	DocumentId          string            `yaml:"documentId,omitempty"`
-	Sniff               *bool             `yaml:"sniff,omitempty"` // deprecated
-	APIKey              string            `yaml:"apiKey,omitempty"`
-	ServiceToken        string            `yaml:"serviceToken,omitempty"`
-	CACertPath          string            `yaml:"caCertPath,omitempty"`
-	Compress            bool              `yaml:"compress,omitempty"`
-	Gzip                *bool             `yaml:"gzip,omitempty"` // deprecated, use compress above
-	OpType              string            `yaml:"opType,omitempty" default:"index"`
-
-	SendBuffer int `yaml:"sendBufferBytes,omitempty" default:"131072" validate:"gte=0"`
+	Hosts                 []string          `yaml:"hosts,omitempty" validate:"required"`
+	UserName              string            `yaml:"username,omitempty"`
+	Password              string            `yaml:"password,omitempty"`
+	Index                 string            `yaml:"index,omitempty"`
+	Headers               map[string]string `yaml:"headers,omitempty"`
+	Params                map[string]string `yaml:"parameters,omitempty"`
+	IfRenderIndexFailed   RenderIndexFail   `yaml:"ifRenderIndexFailed,omitempty"`
+	Etype                 string            `yaml:"etype,omitempty"` // elasticsearch type, for v5.* backward compatibility
+	DocumentId            string            `yaml:"documentId,omitempty"`
+	APIKey                string            `yaml:"apiKey,omitempty"`
+	ServiceToken          string            `yaml:"serviceToken,omitempty"`
+	CACertPath            string            `yaml:"caCertPath,omitempty"`
+	Compress              bool              `yaml:"compress,omitempty"`
+	Gzip                  *bool             `yaml:"gzip,omitempty"` // deprecated, use compress above
+	OpType                string            `yaml:"opType,omitempty" default:"index"`
+	DiscoverNodesOnStart  bool              `yaml:"discoverNodesOnStart,omitempty"`
+	DiscoverNodesInterval time.Duration     `yaml:"discoverNodesInterval,omitempty"`
 }
 
 type RenderIndexFail struct {
