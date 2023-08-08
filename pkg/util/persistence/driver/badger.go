@@ -19,9 +19,10 @@ limitations under the License.
 package driver
 
 import (
-	"encoding/json"
+	"fmt"
 	"github.com/dgraph-io/badger/v3"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/loggie-io/loggie/pkg/util/persistence/reg"
 	"github.com/pkg/errors"
 	"math"

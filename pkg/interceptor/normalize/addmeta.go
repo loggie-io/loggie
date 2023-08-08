@@ -17,6 +17,7 @@ limitations under the License.
 package normalize
 
 import (
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"reflect"
 	"strings"
 	"time"

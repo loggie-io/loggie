@@ -18,7 +18,7 @@ package reg
 
 import (
 	"bytes"
-	"encoding/json"
+	"github.com/loggie-io/loggie/pkg/util/json"
 )
 
 type Registry struct {

@@ -21,6 +21,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	eventer "github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/pkg/errors"
 )
 

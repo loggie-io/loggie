@@ -18,8 +18,8 @@ package kubernetes_event
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"os"
 	"strings"
 	"time"

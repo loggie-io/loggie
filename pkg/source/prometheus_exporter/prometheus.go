@@ -2,12 +2,11 @@ package prometheus_exporter
 
 import (
 	ctx "context"
-	"encoding/json"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/loggie-io/loggie/pkg/util/pattern"
 	timeutil "github.com/loggie-io/loggie/pkg/util/time"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strconv"
 	"time"
@@ -161,7 +160,7 @@ func (e *PromExporter) scrape(c ctx.Context, req *http.Request) ([]byte, error) 
 		return out, nil
 	}
 
-	out, err := ioutil.ReadAll(resp.Body)
+	out, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, errors.WithMessage(err, "read response body failed")
 	}

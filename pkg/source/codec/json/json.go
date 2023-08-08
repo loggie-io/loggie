@@ -17,15 +17,11 @@ limitations under the License.
 package json
 
 import (
-	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/source/codec"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/pkg/errors"
-)
-
-var (
-	json = jsoniter.ConfigFastest
 )
 
 const (

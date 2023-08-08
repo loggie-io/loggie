@@ -23,22 +23,18 @@ import (
 	"strings"
 	"time"
 
-	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/core/result"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	pb "github.com/loggie-io/loggie/pkg/sink/grpc/pb"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/resolver"
 )
 
 const Type = "grpc"
-
-var (
-	json = jsoniter.ConfigFastest
-)
 
 func init() {
 	pipeline.Register(api.SINK, Type, makeSink)

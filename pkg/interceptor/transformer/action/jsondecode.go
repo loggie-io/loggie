@@ -17,20 +17,16 @@ limitations under the License.
 package action
 
 import (
-	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/util/eventops"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/pkg/errors"
 )
 
 const (
 	JsonDecodeName     = "jsonDecode"
 	JsonDecodeUsageMsg = "usage: jsonDecode(key) or jsonDecode(key, to)"
-)
-
-var (
-	json = jsoniter.ConfigFastest
 )
 
 func init() {

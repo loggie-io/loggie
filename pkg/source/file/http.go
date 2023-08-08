@@ -18,8 +18,8 @@ package file
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"io"
 	"net/http"
 	"os"

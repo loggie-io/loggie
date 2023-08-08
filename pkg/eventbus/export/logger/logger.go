@@ -17,7 +17,7 @@ limitations under the License.
 package logger
 
 import (
-	"encoding/json"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"time"
 
 	"github.com/loggie-io/loggie/pkg/core/log"

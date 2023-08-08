@@ -45,6 +45,7 @@ type Loggie struct {
 	Defaults         Defaults                    `yaml:"defaults"`
 	Db               persistence.DbConfig        `yaml:"db"`
 	ErrorAlertConfig log.AfterErrorConfiguration `yaml:"errorAlert"`
+	JSONEngine       string                      `yaml:"jsonEngine,omitempty" default:"jsoniter" validate:"oneof=jsoniter sonic std go-json"`
 }
 
 type Defaults struct {
