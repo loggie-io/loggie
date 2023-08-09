@@ -18,9 +18,9 @@ package json_decode
 
 import (
 	"fmt"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"strings"
 
-	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -34,10 +34,6 @@ const Type = "jsonDecode"
 func init() {
 	pipeline.Register(api.INTERCEPTOR, Type, makeInterceptor)
 }
-
-var (
-	json = jsoniter.ConfigFastest
-)
 
 func makeInterceptor(info pipeline.Info) api.Component {
 	return &Interceptor{

@@ -18,10 +18,10 @@ package runtime
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	logconfigv1beta1 "github.com/loggie-io/loggie/pkg/discovery/kubernetes/apis/loggie/v1beta1"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/pkg/errors"
 	criapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
 	"path"

@@ -21,21 +21,17 @@ import (
 	"io"
 	"net"
 
-	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/pipeline"
 	pb "github.com/loggie-io/loggie/pkg/sink/grpc/pb"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 )
 
 const Type = "grpc"
-
-var (
-	json = jsoniter.ConfigFastest
-)
 
 func init() {
 	pipeline.Register(api.SOURCE, Type, makeSource)

@@ -17,7 +17,7 @@ limitations under the License.
 package filesource
 
 import (
-	"encoding/json"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"os"
 	"strings"
 	"time"

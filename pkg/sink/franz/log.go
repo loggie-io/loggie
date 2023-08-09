@@ -17,8 +17,8 @@ limitations under the License.
 package franz
 
 import (
-	"encoding/json"
 	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/rs/zerolog"
 	"github.com/twmb/franz-go/pkg/kgo"
 	"strings"

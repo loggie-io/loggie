@@ -18,7 +18,7 @@ package alertmanager
 
 import (
 	"bytes"
-	"encoding/json"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/pkg/errors"
 	"io"
 	"net/http"

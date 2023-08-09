@@ -19,14 +19,13 @@ package loggie
 import (
 	"fmt"
 	"github.com/gdamore/tcell/v2"
-	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/ops/dashboard/content"
 	"github.com/loggie-io/loggie/pkg/ops/dashboard/gui"
 	"github.com/loggie-io/loggie/pkg/ops/helper"
 	"github.com/loggie-io/loggie/pkg/util"
+	jsoniter "github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/rivo/tview"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -92,7 +91,7 @@ func (p *PipelineDetailPanel) SetData() {
 	}
 	defer resp.Body.Close()
 
-	out, err := ioutil.ReadAll(resp.Body)
+	out, err := io.ReadAll(resp.Body)
 	if err != nil {
 		p.SetText(err.Error()).SetTextColor(tcell.ColorRed)
 		return

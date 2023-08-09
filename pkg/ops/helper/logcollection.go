@@ -18,7 +18,7 @@ package helper
 
 import (
 	"fmt"
-	jsoniter "github.com/json-iterator/go"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"math"
 	"net/http"
 	"time"
@@ -158,7 +158,7 @@ func (h *Helper) helperLogCollectionHandler(writer http.ResponseWriter, request 
 }
 
 func resultReturn(writer http.ResponseWriter, result interface{}) {
-	out, err := jsoniter.Marshal(result)
+	out, err := json.Marshal(result)
 	if err != nil {
 		writer.WriteHeader(http.StatusInternalServerError)
 		writer.Write([]byte(err.Error()))

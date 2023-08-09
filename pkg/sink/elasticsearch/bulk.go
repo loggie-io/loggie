@@ -17,7 +17,6 @@ limitations under the License.
 package elasticsearch
 
 // BulkIndexerResponse represents the Elasticsearch response.
-//
 type BulkIndexerResponse struct {
 	Took      int                                   `json:"took"`
 	HasErrors bool                                  `json:"errors"`
@@ -25,7 +24,6 @@ type BulkIndexerResponse struct {
 }
 
 // BulkIndexerResponseItem represents the Elasticsearch response item.
-//
 type BulkIndexerResponseItem struct {
 	Index      string `json:"_index"`
 	DocumentID string `json:"_id"`

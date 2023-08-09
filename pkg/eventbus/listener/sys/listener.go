@@ -17,9 +17,9 @@ limitations under the License.
 package sys
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/dustin/go-humanize"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"os"
 	"strconv"
 	"time"

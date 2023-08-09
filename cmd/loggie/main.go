@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/ops"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/pkg/errors"
 	"go.uber.org/automaxprocs/maxprocs"
 	"net/http"
@@ -86,7 +87,8 @@ func main() {
 	// system config file
 	syscfg := sysconfig.Config{}
 	cfg.UnpackTypeDefaultsAndValidate(strings.ToLower(configType), globalConfigFile, &syscfg)
-
+	// register jsonEngine
+	json.SetDefaultEngine(syscfg.Loggie.JSONEngine)
 	// start eventBus listeners
 	eventbus.StartAndRun(syscfg.Loggie.MonitorEventBus)
 	// init log after error func

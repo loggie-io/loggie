@@ -17,17 +17,13 @@ limitations under the License.
 package normalize
 
 import (
-	jsoniter "github.com/json-iterator/go"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/loggie-io/loggie/pkg/util/runtime"
 )
 
 const ProcessorJsonDecode = "jsonDecode"
-
-var (
-	json = jsoniter.ConfigFastest
-)
 
 type JsonDecodeProcessor struct {
 	config      *JsonDecodeConfig

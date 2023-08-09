@@ -18,7 +18,7 @@ package elasticsearch
 
 import (
 	"context"
-	"encoding/json"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/olivere/elastic/v7"
 	"github.com/pkg/errors"
 	"time"

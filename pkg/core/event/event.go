@@ -18,7 +18,7 @@ package event
 
 import (
 	"fmt"
-	jsoniter "github.com/json-iterator/go"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/pkg/errors"
 	"strings"
 	"sync"
@@ -128,7 +128,7 @@ func (de *DefaultEvent) Release() {
 func (de *DefaultEvent) String() string {
 	var sb strings.Builder
 	sb.WriteString(`header:`)
-	header, _ := jsoniter.Marshal(de.Header())
+	header, _ := json.Marshal(de.Header())
 	sb.Write(header)
 	sb.WriteString(`, body:"`)
 	sb.WriteString(string(de.Body()))

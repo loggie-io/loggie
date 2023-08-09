@@ -17,7 +17,7 @@ limitations under the License.
 package filewatcher
 
 import (
-	"encoding/json"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"strings"
 	"time"
 

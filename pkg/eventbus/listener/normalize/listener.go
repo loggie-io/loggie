@@ -17,10 +17,10 @@ limitations under the License.
 package normalize
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/eventbus/export/logger"
 	promeExporter "github.com/loggie-io/loggie/pkg/eventbus/export/prometheus"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/prometheus/client_golang/prometheus"
 	"time"
 
