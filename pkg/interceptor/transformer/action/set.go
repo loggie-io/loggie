@@ -42,16 +42,13 @@ func init() {
 		return NewSet(args)
 	})
 	RegisterAction(SetFloatName, func(args []string, extra cfg.CommonCfg) (Action, error) {
-		args = append(args, "float")
-		return NewStrConvSet(args, SetFloatMsg)
+		return NewStrConvSet(args, "float", SetFloatMsg)
 	})
 	RegisterAction(SetIntName, func(args []string, extra cfg.CommonCfg) (Action, error) {
-		args = append(args, "int")
-		return NewStrConvSet(args, SetIntMsg)
+		return NewStrConvSet(args, "int", SetIntMsg)
 	})
 	RegisterAction(SetBoolName, func(args []string, extra cfg.CommonCfg) (Action, error) {
-		args = append(args, "bool")
-		return NewStrConvSet(args, SetBoolMsg)
+		return NewStrConvSet(args, "bool", SetBoolMsg)
 	})
 }
 
@@ -83,15 +80,15 @@ type StrConvSet struct {
 	dstType string
 }
 
-func NewStrConvSet(args []string, msg string) (*StrConvSet, error) {
-	if len(args) != 3 {
+func NewStrConvSet(args []string, destType, msg string) (*StrConvSet, error) {
+	if len(args) != 2 {
 		return nil, errors.Errorf("invalid args, %s", msg)
 	}
 
 	return &StrConvSet{
 		key:     args[0],
 		value:   args[1],
-		dstType: args[2],
+		dstType: destType,
 	}, nil
 }
 
