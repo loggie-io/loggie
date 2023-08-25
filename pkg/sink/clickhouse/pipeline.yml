@@ -13,23 +13,44 @@ pipelines:
   - type: transformer
     name: jsonDecode
     actions:
-    - action: jsonDecode(body)
+    - if: exist(body)
+      then:
+      - action: jsonDecode(body)
   - type: transformer
-    name: underRoot1
+    name: underRoot
     actions:
-    - action: underRoot(metadata)
+    - if: exist(metadata)
+      then:
+      - action: underRoot(metadata)
+    - if: exist(involvedObject)
+      then:
+      - action: underRoot(involvedObject)
+    - if: exist(source)
+      then:
+      - action: underRoot(source)
   - type: transformer
-    name: underRoot2
-    actions:
-    - action: underRoot(involvedObject)
-  - type: transformer
-    name: underRoot3
-    actions:
-    - action: underRoot(source)
-  - type: transformer
-    name: setField1
+    name: setField
     actions:
     - action: set(managedFields, "")
+  - type: transformer
+    name: setEmpty
+    actions:
+    - if: NOT exist(host)
+      then:
+      - action: set(host, "")
+    - if: NOT exist(fieldPath)
+      then:
+      - action: set(fieldPath, "")
+    - if: NOT exist(apiVersion)
+      then:
+      - action: set(apiVersion, "")
+    - if: NOT exist(count)
+      then:
+        - action: set(count, 0)
+        - action: strconv(count, float)
+        - action: return()
+      else:
+        - action: return()
   - type: maxbytes
     maxBytes: 1048576
   - type: rateLimit
