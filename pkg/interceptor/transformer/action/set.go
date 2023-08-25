@@ -26,11 +26,32 @@ import (
 const (
 	SetName     = "set"
 	SetUsageMsg = "usage: set(key, value)"
+
+	SetFloatName = "setFloat"
+	SetFloatMsg  = "usage: setFloat(key, value)"
+
+	SetIntName = "setInt"
+	SetIntMsg  = "usage: setInt(key, value)"
+
+	SetBoolName = "setBool"
+	SetBoolMsg  = "usage: setBool(key, value)"
 )
 
 func init() {
 	RegisterAction(SetName, func(args []string, extra cfg.CommonCfg) (Action, error) {
 		return NewSet(args)
+	})
+	RegisterAction(SetFloatName, func(args []string, extra cfg.CommonCfg) (Action, error) {
+		args = append(args, "float")
+		return NewStrConvSet(args, SetFloatMsg)
+	})
+	RegisterAction(SetIntName, func(args []string, extra cfg.CommonCfg) (Action, error) {
+		args = append(args, "int")
+		return NewStrConvSet(args, SetIntMsg)
+	})
+	RegisterAction(SetBoolName, func(args []string, extra cfg.CommonCfg) (Action, error) {
+		args = append(args, "bool")
+		return NewStrConvSet(args, SetBoolMsg)
 	})
 }
 
@@ -53,5 +74,33 @@ func NewSet(args []string) (*Set, error) {
 
 func (a *Set) act(e api.Event) error {
 	eventops.Set(e, a.key, a.value)
+	return nil
+}
+
+type StrConvSet struct {
+	key     string
+	value   string
+	dstType string
+}
+
+func NewStrConvSet(args []string, msg string) (*StrConvSet, error) {
+	if len(args) != 3 {
+		return nil, errors.Errorf("invalid args, %s", msg)
+	}
+
+	return &StrConvSet{
+		key:     args[0],
+		value:   args[1],
+		dstType: args[2],
+	}, nil
+}
+
+func (a *StrConvSet) act(e api.Event) error {
+	dstVal, err := convert(a.value, a.dstType)
+	if err != nil {
+		return errors.Errorf("convert field %s value %v to type %s error: %v", a.key, a.value, a.dstType, err)
+	}
+
+	eventops.Set(e, a.key, dstVal)
 	return nil
 }
