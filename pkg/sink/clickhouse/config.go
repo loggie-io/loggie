@@ -64,7 +64,7 @@ type Config struct {
 	BlockBufferSize uint8 `yaml:"blockBufferSize,omitempty"` // default 2 - can be overwritten on query
 
 	//skip null row if enabled, by default would append nil
-	SkipRowIfNullField bool `yaml:"skipRowIfNullField,omitempty"`
+	SkipRowIfFieldNull bool `yaml:"skipRowIfFieldNull,omitempty"`
 }
 
 func (c *Config) SetDefaults() {

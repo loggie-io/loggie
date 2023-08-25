@@ -146,7 +146,8 @@ func (s *Sink) Stop() {
 
 func (s *Sink) Consume(batch api.Batch) api.Result {
 	log.Debug("start to consume events")
-	driverBatch, err := s.conn.PrepareBatch(context.Background(), fmt.Sprintf("INSERT INTO `%s`.`%s`", s.config.Database, s.config.Table))
+	insertQ := fmt.Sprintf("INSERT INTO `%s`.`%s`", s.config.Database, s.config.Table)
+	driverBatch, err := s.conn.PrepareBatch(context.Background(), insertQ)
 	if err != nil {
 		return result.Fail(err)
 	}
@@ -166,7 +167,6 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		return result.DropWith(errors.New("send to clickhouse message batch is null"))
 	}
 
-	log.Debug("start to append rows to clickhouse batch")
 	for i := range rows {
 		if err := driverBatch.Append(rows[i]...); err != nil {
 			log.Warn("append to clickhouse batch failed: %s", err.Error())
@@ -174,17 +174,13 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 		}
 	}
 
-	log.Debug("start to send rows(%d) to clickhouse batch", len(rows))
-	sendFunc := func(driverBatch driver.Batch) api.Result {
-		if err := driverBatch.Send(); err != nil {
-			log.Warn("send to clickhouse failed: %s", err.Error())
-			return result.Fail(err)
-		} else {
-			log.Info("events %d, send rows %d to clickhouse success", len(events), len(rows))
-			return result.Success()
-		}
+	if err := driverBatch.Send(); err != nil {
+		log.Warn("send to clickhouse failed: %s", err.Error())
+		return result.Fail(err)
+	} else {
+		log.Info("events %d, send rows %d to clickhouse success", len(events), len(rows))
+		return result.Success()
 	}
-	return sendFunc(driverBatch)
 }
 
 func (s *Sink) getColums(ctx context.Context) (colNames []string, err error) {
@@ -238,7 +234,8 @@ func (s *Sink) getRowsFromEvents(events []api.Event, rows *[][]interface{}) erro
 				continue
 			}
 
-			if s.config.SkipRowIfNullField {
+			if s.config.SkipRowIfFieldNull {
+				log.Warn("field %s val not found, would skip this row", colName)
 				skipRow = true
 				break
 			}
@@ -249,12 +246,6 @@ func (s *Sink) getRowsFromEvents(events []api.Event, rows *[][]interface{}) erro
 
 		if skipRow {
 			continue
-		}
-
-		if len(row) != len(s.colNames) {
-			msg := fmt.Sprintf("field count not match, expect %d, got %d", len(s.colNames), len(row))
-			log.Warn(msg)
-			return fmt.Errorf(msg)
 		}
 
 		*rows = append(*rows, row)
