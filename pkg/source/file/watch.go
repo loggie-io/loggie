@@ -318,10 +318,8 @@ func (w *Watcher) eventBus(e jobEvent) {
 			}
 		}
 		// Pre-allocation offset
-		if existAckOffset == 0 {
-			if e.job.task.config.ReadFromTail {
-				existAckOffset = fileSize
-			}
+		if e.job.task.config.ReadFromTail {
+			existAckOffset = fileSize
 			w.preAllocationOffset(existAckOffset, job)
 		}
 		// set ack offset
