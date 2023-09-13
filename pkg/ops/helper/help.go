@@ -105,13 +105,13 @@ func pipelineStatus(controller *control.Controller) string {
 
 	sb.WriteString(SprintfWithLF("--------- Pipeline Status: --------------"))
 
-	length := len(controller.CurrentConfig.Pipelines)
+	length := len(controller.CurrentConfig.GetPipelines())
 	sb.WriteString(SprintfWithLF("all %d pipelines running", length))
 	if length == 0 {
 		return sb.String()
 	}
 
-	for _, p := range controller.CurrentConfig.Pipelines {
+	for _, p := range controller.CurrentConfig.GetPipelines() {
 		var sourceNames []string
 		for _, s := range p.Sources {
 			sourceNames = append(sourceNames, s.Name)
@@ -198,7 +198,7 @@ func queryPipelineConfig(cfgInPath *control.PipelineConfig, pipelineQuery string
 		result[data.Name] = data
 	}
 
-	for _, pip := range cfgInPath.Pipelines {
+	for _, pip := range cfgInPath.GetPipelines() {
 		if pipelineQuery != "" && sourceQuery != "" {
 			if pip.Name != pipelineQuery {
 				continue
@@ -298,7 +298,7 @@ func fmtLogFileCollection(f eventbus.FileInfo) string {
 }
 
 func hasFileSource(controller *control.Controller) bool {
-	for _, pip := range controller.CurrentConfig.Pipelines {
+	for _, pip := range controller.CurrentConfig.GetPipelines() {
 		for _, src := range pip.Sources {
 			if src.Type == file.Type {
 				return true

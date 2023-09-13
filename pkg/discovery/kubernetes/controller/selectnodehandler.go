@@ -66,12 +66,12 @@ func (c *Controller) handleLogConfigTypeNode(lgc *logconfigv1beta1.LogConfig) er
 	}
 
 	lgcKey := helper.MetaNamespaceKey(lgc.Namespace, lgc.Name)
-	if err = c.typeNodeIndex.ValidateAndSetConfig(lgcKey, pipRaws.Pipelines, lgc); err != nil {
+	if err = c.typeNodeIndex.ValidateAndSetConfig(lgcKey, pipRaws.GetPipelines(), lgc); err != nil {
 		return err
 	}
 
-	for i := range pipRaws.Pipelines {
-		for _, s := range pipRaws.Pipelines[i].Sources {
+	for i := range pipRaws.GetPipelines() {
+		for _, s := range pipRaws.GetPipelines()[i].Sources {
 			if err := c.injectTypeNodeFields(s, lgc.Name); err != nil {
 				return err
 			}

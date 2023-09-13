@@ -19,6 +19,7 @@ package control
 import (
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -33,13 +34,15 @@ var (
 
 type PipelineConfig struct {
 	Pipelines []pipeline.Config `yaml:"pipelines" validate:"dive,required"`
+	mtx       sync.RWMutex
 }
 
 func (c *PipelineConfig) DeepCopy() *PipelineConfig {
 	if c == nil {
 		return nil
 	}
-
+	c.mtx.RLock()
+	defer c.mtx.RUnlock()
 	out := new(PipelineConfig)
 	if len(c.Pipelines) > 0 {
 		pip := make([]pipeline.Config, 0)
@@ -53,6 +56,8 @@ func (c *PipelineConfig) DeepCopy() *PipelineConfig {
 }
 
 func (c *PipelineConfig) Validate() error {
+	c.mtx.RLock()
+	defer c.mtx.RUnlock()
 	if err := c.ValidateUniquePipeName(); err != nil {
 		return err
 	}
@@ -65,6 +70,8 @@ func (c *PipelineConfig) Validate() error {
 }
 
 func (c *PipelineConfig) ValidateUniquePipeName() error {
+	c.mtx.RLock()
+	defer c.mtx.RUnlock()
 	unique := make(map[string]struct{})
 	for _, p := range c.Pipelines {
 		if _, ok := unique[p.Name]; ok {
@@ -77,10 +84,14 @@ func (c *PipelineConfig) ValidateUniquePipeName() error {
 }
 
 func (c *PipelineConfig) AddPipelines(cfg []pipeline.Config) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	c.Pipelines = append(c.Pipelines, cfg...)
 }
 
 func (c *PipelineConfig) RemovePipelines(cfg []pipeline.Config) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
 	for _, p := range cfg {
 		target := p.Name
 		for i := 0; i < len(c.Pipelines); i++ {
@@ -89,6 +100,19 @@ func (c *PipelineConfig) RemovePipelines(cfg []pipeline.Config) {
 			}
 		}
 	}
+}
+
+func (c *PipelineConfig) GetPipelines() []pipeline.Config {
+	c.mtx.RLock()
+	defer c.mtx.RUnlock()
+	return c.Pipelines
+}
+
+func (c *PipelineConfig) SetPipelines(pipelines []pipeline.Config) {
+	c.mtx.Lock()
+	defer c.mtx.Unlock()
+	c.Pipelines = pipelines
+	return
 }
 
 type FileIgnore func(s os.FileInfo) bool

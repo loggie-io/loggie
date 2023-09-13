@@ -58,7 +58,7 @@ func ToPipeline(lgc *logconfigv1beta1.LogConfig, sinkLister v1beta1.SinkLister, 
 
 	pipRaws = append(pipRaws, pipRaw)
 
-	pipelineCfg.Pipelines = pipRaws
+	pipelineCfg.SetPipelines(pipRaws)
 	return pipelineCfg, nil
 }
 

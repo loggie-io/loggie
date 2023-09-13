@@ -134,7 +134,7 @@ func DiffPipelineConfigs(ignoreFunc control.FileIgnore) (newCfg *control.Pipelin
 
 func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineConfig) (diffList []string, stopComponentList []pipeline.Config, startComponentList []pipeline.Config) {
 	oldPipeIndex := make(map[string]pipeline.Config)
-	for _, p := range oldConfig.Pipelines {
+	for _, p := range oldConfig.GetPipelines() {
 		oldPipeIndex[p.Name] = p
 	}
 
@@ -160,7 +160,7 @@ func diffConfig(newConfig *control.PipelineConfig, oldConfig *control.PipelineCo
 	})
 
 	var diffs []string
-	for _, newPipe := range newConfig.Pipelines {
+	for _, newPipe := range newConfig.GetPipelines() {
 		oldPipe, ok := oldPipeIndex[newPipe.Name]
 		if !ok {
 			// pipeline is new

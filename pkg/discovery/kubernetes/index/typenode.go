@@ -73,9 +73,8 @@ func (index *LogConfigTypeNodeIndex) GetAll() *control.PipelineConfig {
 	for _, v := range index.pipeConfigs {
 		cfgRaws = append(cfgRaws, v.Raw...)
 	}
-	all := &control.PipelineConfig{
-		Pipelines: cfgRaws,
-	}
+	all := &control.PipelineConfig{}
+	all.SetPipelines(cfgRaws)
 	return all
 }
 

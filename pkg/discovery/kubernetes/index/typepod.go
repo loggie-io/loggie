@@ -196,7 +196,7 @@ func (p *LogConfigTypePodIndex) GetAllGroupByLogConfig(dynamicContainerLog bool)
 		}
 	}
 
-	conf.Pipelines = pipeConfigs
+	conf.SetPipelines(pipeConfigs)
 	return &conf
 }
 

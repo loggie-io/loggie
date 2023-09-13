@@ -40,7 +40,7 @@ func NewController() *Controller {
 
 func (c *Controller) Start(config *PipelineConfig) {
 	c.initHttp()
-	c.StartPipelines(config.Pipelines)
+	c.StartPipelines(config.GetPipelines())
 }
 
 func (c *Controller) StartPipelines(configs []pipeline.Config) {
