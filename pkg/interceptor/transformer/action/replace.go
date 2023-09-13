@@ -17,6 +17,7 @@ limitations under the License.
 package action
 
 import (
+	"regexp"
 	"strings"
 
 	"github.com/loggie-io/loggie/pkg/core/api"
@@ -28,11 +29,18 @@ import (
 const (
 	ReplaceName     = "replace"
 	ReplaceUsageMsg = "usage: replace(key)"
+
+	ReplaceRegexName     = "replaceRegex"
+	ReplaceRegexUsageMsg = "usage: replaceRegex(key)"
 )
 
 func init() {
 	RegisterAction(ReplaceName, func(args []string, extra cfg.CommonCfg) (Action, error) {
 		return NewReplace(args, extra)
+	})
+
+	RegisterAction(ReplaceRegexName, func(args []string, extra cfg.CommonCfg) (Action, error) {
+		return NewReplaceRegex(args, extra)
 	})
 }
 
@@ -50,7 +58,7 @@ type ReplaceExtra struct {
 func NewReplace(args []string, extra cfg.CommonCfg) (*Replace, error) {
 	aCount := len(args)
 	if aCount != 1 {
-		return nil, errors.Errorf("invalid args, %s", ReplaceUsageMsg)
+		return nil, errors.Errorf("invalid args, %s", ReplaceRegexUsageMsg)
 	}
 
 	extraCfg := &ReplaceExtra{}
@@ -73,4 +81,58 @@ func (r *Replace) act(e api.Event) error {
 	replaceResult := strings.Replace(val, r.extra.Old, r.extra.New, r.extra.Max)
 	eventops.Set(e, r.key, replaceResult)
 	return nil
+}
+
+type ReplaceRegex struct {
+	key   string
+	reg   *regexp.Regexp
+	extra *ReplaceRegexExtra
+}
+
+type ReplaceRegexExtra struct {
+	Expression string `yaml:"expression,omitempty" validate:"required"`
+	Replace    string `yaml:"replace,omitempty" validate:"required"`
+}
+
+func NewReplaceRegex(args []string, extra cfg.CommonCfg) (*ReplaceRegex, error) {
+	aCount := len(args)
+	if aCount != 1 {
+		return nil, errors.Errorf("invalid args, %s", ReplaceUsageMsg)
+	}
+
+	extraCfg := &ReplaceRegexExtra{}
+	if err := cfg.UnpackFromCommonCfg(extra, extraCfg).Validate().Defaults().Do(); err != nil {
+		return nil, err
+	}
+
+	expr, err := extraCfg.compile()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ReplaceRegex{
+		key:   args[0],
+		reg:   expr,
+		extra: extraCfg,
+	}, nil
+}
+
+func (r *ReplaceRegex) act(e api.Event) error {
+	val := eventops.GetString(e, r.key)
+	match := r.reg.ReplaceAllString(val, r.extra.Replace)
+	eventops.Set(e, r.key, match)
+	return nil
+}
+
+func (r *ReplaceRegexExtra) compile() (*regexp.Regexp, error) {
+	if r.Expression == "" {
+		return nil, errors.New("regex expression is required")
+	}
+
+	expr, err := regexp.Compile(r.Expression)
+	if err != nil {
+		return nil, err
+	}
+
+	return expr, nil
 }

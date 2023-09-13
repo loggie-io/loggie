@@ -102,3 +102,62 @@ func TestReplace_act(t *testing.T) {
 		})
 	}
 }
+
+func TestReplaceRegexAct(t *testing.T) {
+	log.InitDefaultLogger()
+	type fields struct {
+		key   string
+		extra cfg.CommonCfg
+	}
+	type args struct {
+		e api.Event
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   api.Event
+	}{
+		{
+			name: "replaceRegex body",
+			fields: fields{
+				key: "body",
+				extra: cfg.CommonCfg{
+					"replace":    "ERROR",
+					"expression": "E(\\S+)",
+				},
+			},
+			args: args{
+				e: event.NewEvent(map[string]interface{}{}, []byte(`E0906 02:09:23.872499       1 controller.go:114] loading OpenAPI spec for "v1beta1.metrics.k8s.io" failed with: failed to retrieve openAPI spec, http error: ResponseCode: 503, Body: service unavailable`)),
+			},
+			want: event.NewEvent(map[string]interface{}{
+				"body": "ERROR 02:09:23.872499       1 controller.go:114] loading OpenAPI spec for \"v1beta1.metrics.k8s.io\" failed with: failed to retrieve openAPI spec, http error: ResponseCode: 503, Body: service unavailable",
+			}, []byte(`E0906 02:09:23.872499       1 controller.go:114] loading OpenAPI spec for "v1beta1.metrics.k8s.io" failed with: failed to retrieve openAPI spec, http error: ResponseCode: 503, Body: service unavailable`)),
+		},
+		{
+			name: "replaceRegex body Password",
+			fields: fields{
+				key: "body",
+				extra: cfg.CommonCfg{
+					"replace":    "******",
+					"expression": "password (\\S+)",
+				},
+			},
+			args: args{
+				e: event.NewEvent(map[string]interface{}{}, []byte(`2023-09-06T11:12:00.000000001Z stderr P i'm a log message who has sensitive information with password xyz!`)),
+			},
+			want: event.NewEvent(map[string]interface{}{
+				"body": "2023-09-06T11:12:00.000000001Z stderr P i'm a log message who has sensitive information with ******",
+			}, []byte(`2023-09-06T11:12:00.000000001Z stderr P i'm a log message who has sensitive information with password xyz!`)),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r, _ := NewReplaceRegex([]string{tt.fields.key}, tt.fields.extra)
+			err := r.act(tt.args.e)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want, tt.args.e)
+
+		})
+	}
+}
