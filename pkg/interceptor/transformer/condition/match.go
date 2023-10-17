@@ -21,6 +21,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/util/eventops"
 	"github.com/pkg/errors"
 	"regexp"
+	"strings"
 )
 
 const (
@@ -41,8 +42,24 @@ func init() {
 }
 
 func NewMatch(args []string) (*Match, error) {
-	if len(args) != 2 {
+	if len(args) < 2 {
 		return nil, errors.Errorf("invalid args, %s", MatchUsageMsg)
+	}
+
+	if len(args) > 2 {
+		key := args[0]
+
+		var matchValue strings.Builder
+		for i := 1; i < len(args); i++ {
+			matchValue.WriteString(args[i])
+			if i != len(args)-1 {
+				matchValue.WriteString(",")
+			}
+		}
+		args = []string{
+			key,
+			matchValue.String(),
+		}
 	}
 
 	regex, err := regexp.Compile(args[1])
