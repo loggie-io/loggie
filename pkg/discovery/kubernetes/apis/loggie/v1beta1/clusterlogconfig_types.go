@@ -77,12 +77,6 @@ type WorkloadSelector struct {
 	ExcludeNamespaceSelector []string `json:"excludeNamespaceSelector,omitempty"`
 }
 
-type LabelExpr struct {
-	Key   string   `json:"key,omitempty"`
-	Value []string `json:"value,omitempty"`
-	Expr  string   `json:"expr,omitempty"`
-}
-
 type Pipeline struct {
 	Name           string `json:"name,omitempty"`
 	Sources        string `json:"sources,omitempty"`
