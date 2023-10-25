@@ -268,7 +268,7 @@ func (c *Controller) handleAllTypesAddOrUpdate(lgc *logconfigv1beta1.LogConfig) 
 
 	lgc = lgc.DeepCopy()
 	switch lgc.Spec.Selector.Type {
-	case logconfigv1beta1.SelectorTypePod:
+	case logconfigv1beta1.SelectorTypePod, logconfigv1beta1.SelectorTypeWorkload:
 		return c.handleLogConfigTypePodAddOrUpdate(lgc)
 
 	case logconfigv1beta1.SelectorTypeNode:
@@ -311,7 +311,7 @@ func (c *Controller) reconcileLogConfigDelete(key string, selectorType string) e
 
 func (c *Controller) handleAllTypesDelete(key string, selectorType string) error {
 	switch selectorType {
-	case logconfigv1beta1.SelectorTypePod:
+	case logconfigv1beta1.SelectorTypePod, logconfigv1beta1.SelectorTypeWorkload:
 		if ok := c.typePodIndex.DeletePipeConfigsByLogConfigKey(key); !ok {
 			return nil
 		}

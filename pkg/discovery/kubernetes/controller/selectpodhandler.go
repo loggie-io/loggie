@@ -132,7 +132,7 @@ type fmtKey struct {
 
 func (c *Controller) handleLogConfigTypePodAddOrUpdate(lgc *logconfigv1beta1.LogConfig) (err error, podsName []string) {
 	// find pods related in the node
-	podList, err := helper.GetLogConfigRelatedPod(lgc, c.podsLister)
+	podList, err := helper.GetLogConfigRelatedPod(lgc, c.podsLister, c.kubeClientset)
 	if err != nil {
 		return err, nil
 	}
@@ -182,7 +182,7 @@ func (c *Controller) handlePodAddOrUpdate(pod *corev1.Pod) error {
 
 func (c *Controller) handlePodAddOrUpdateOfLogConfig(pod *corev1.Pod) {
 	// label selected logConfigs
-	lgcList, err := helper.GetPodRelatedLogConfigs(pod, c.logConfigLister)
+	lgcList, err := helper.GetPodRelatedLogConfigs(pod, c.logConfigLister, c.kubeClientset)
 	if err != nil || len(lgcList) == 0 {
 		return
 	}
@@ -207,7 +207,7 @@ func (c *Controller) handlePodAddOrUpdateOfLogConfig(pod *corev1.Pod) {
 
 func (c *Controller) handlePodAddOrUpdateOfClusterLogConfig(pod *corev1.Pod) {
 	// label selected clusterLogConfigs
-	clgcList, err := helper.GetPodRelatedClusterLogConfigs(pod, c.clusterLogConfigLister)
+	clgcList, err := helper.GetPodRelatedClusterLogConfigs(pod, c.clusterLogConfigLister, c.kubeClientset)
 	if err != nil || len(clgcList) == 0 {
 		return
 	}
