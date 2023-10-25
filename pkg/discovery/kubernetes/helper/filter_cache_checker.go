@@ -25,10 +25,6 @@ type filterCacheChecker struct {
 	workloadSelector map[string]workloadFilterInfo
 	clientSet        kubeclientset.Interface
 	lgc              *logconfigv1beta1.LogConfig
-	//  key (label key) => vale (label value => struct{})
-	inMap map[string]map[string]struct{}
-	//  key (label key) => vale (label value => struct{})
-	notInMap map[string]map[string]struct{}
 }
 
 func newFilterCacheChecker(lgc *logconfigv1beta1.LogConfig, clientSet kubeclientset.Interface) *filterCacheChecker {
