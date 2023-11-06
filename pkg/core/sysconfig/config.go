@@ -88,7 +88,8 @@ func (d *Defaults) SetDefaults() {
 }
 
 type Http struct {
-	Enabled bool   `yaml:"enabled" default:"false"`
-	Host    string `yaml:"host" default:"0.0.0.0"`
-	Port    int    `yaml:"port" default:"9196"`
+	Enabled  bool   `yaml:"enabled" default:"false"`
+	Host     string `yaml:"host" default:"0.0.0.0"`
+	Port     int    `yaml:"port" default:"9196"`
+	RandPort bool   `yaml:"randPort" default:"false"`
 }

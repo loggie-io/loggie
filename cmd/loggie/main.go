@@ -19,10 +19,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/ops"
-	"github.com/loggie-io/loggie/pkg/util/json"
-	"github.com/pkg/errors"
-	"go.uber.org/automaxprocs/maxprocs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -40,9 +37,13 @@ import (
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes"
 	"github.com/loggie-io/loggie/pkg/eventbus"
 	_ "github.com/loggie-io/loggie/pkg/include"
+	"github.com/loggie-io/loggie/pkg/ops"
 	"github.com/loggie-io/loggie/pkg/ops/helper"
+	"github.com/loggie-io/loggie/pkg/util/json"
 	"github.com/loggie-io/loggie/pkg/util/persistence"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
+	"github.com/pkg/errors"
+	"go.uber.org/automaxprocs/maxprocs"
 )
 
 var (
@@ -139,8 +140,18 @@ func main() {
 
 	if syscfg.Loggie.Http.Enabled {
 		go func() {
-			if err = http.ListenAndServe(fmt.Sprintf("%s:%d", syscfg.Loggie.Http.Host, syscfg.Loggie.Http.Port), nil); err != nil {
-				log.Fatal("http listen and serve err: %v", err)
+			if syscfg.Loggie.Http.RandPort {
+				syscfg.Loggie.Http.Port = 0
+			}
+
+			listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", syscfg.Loggie.Http.Host, syscfg.Loggie.Http.Port))
+			if err != nil {
+				log.Fatal("http listen err: %v", err)
+			}
+
+			log.Info("http listen addr %s", listener.Addr().String())
+			if err = http.Serve(listener, nil); err != nil {
+				log.Fatal("http serve err: %v", err)
 			}
 		}()
 	}
