@@ -99,6 +99,7 @@ func (s *Sink) Start() error {
 		kgo.SeedBrokers(c.Brokers...),
 		kgo.ProducerBatchCompression(getCompression(c.Compression)),
 		kgo.WithLogger(&logger),
+		kgo.AllowAutoTopicCreation(),
 	}
 
 	if c.BatchSize > 0 {
