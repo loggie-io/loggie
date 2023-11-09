@@ -1,0 +1,64 @@
+pipelines:
+- name: clickhouse
+  sources:
+  - type: kubeEvent
+    name: events
+    kubeconfig: "/root/.kube/config"
+  queue:
+    type: channel
+    batchSize: 2048000
+    batchBytes: 33554432000
+    batchAggTimeout: 10s
+  interceptors:
+  - type: transformer
+    name: jsonDecode
+    actions:
+    - if: exist(body)
+      then:
+      - action: jsonDecode(body)
+  - type: transformer
+    name: underRoot
+    actions:
+    - if: exist(metadata)
+      then:
+      - action: underRoot(metadata)
+    - if: exist(involvedObject)
+      then:
+      - action: underRoot(involvedObject)
+    - if: exist(source)
+      then:
+      - action: underRoot(source)
+  - type: transformer
+    name: setField
+    actions:
+    - action: set(managedFields, "")
+  - type: transformer
+    name: setEmpty
+    actions:
+    - if: NOT exist(host)
+      then:
+      - action: set(host, "")
+    - if: NOT exist(fieldPath)
+      then:
+      - action: set(fieldPath, "")
+    - if: NOT exist(apiVersion)
+      then:
+      - action: set(apiVersion, "")
+    - if: NOT exist(count)
+      then:
+        - action: set(count, 0)
+        - action: strconv(count, float)
+        - action: return()
+      else:
+        - action: return()
+  - type: maxbytes
+    maxBytes: 1048576
+  - type: rateLimit
+    qps: 10000
+  sink:
+    type: clickhouse
+    addr: ["localhost:9000"]
+    user: "default"
+    password: "default"
+    database: "events"
+    table: "events"

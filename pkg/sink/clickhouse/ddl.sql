@@ -1,0 +1,22 @@
+CREATE TABLE events.events (
+    namespace String,
+    name String,
+    selfLink String,
+    uid String,
+    resourceVersion String,
+    creationTimestamp String,
+    managedFields String,
+    kind String,
+    apiVersion String,
+    fieldPath String,
+    reason String,
+    message String,
+    host String,
+    firstTimestamp String,
+    lastTimestamp String,
+    count Float64,
+    type String,
+    eventTime String,
+    reportingComponent String,
+    reportingInstance String
+) ENGINE = MergeTree() ORDER BY (namespace, name, creationTimestamp)

@@ -48,6 +48,7 @@ import (
 	_ "github.com/loggie-io/loggie/pkg/queue/channel"
 	_ "github.com/loggie-io/loggie/pkg/queue/memory"
 	_ "github.com/loggie-io/loggie/pkg/sink/alertwebhook"
+	_ "github.com/loggie-io/loggie/pkg/sink/clickhouse"
 	_ "github.com/loggie-io/loggie/pkg/sink/codec/json"
 	_ "github.com/loggie-io/loggie/pkg/sink/codec/raw"
 	_ "github.com/loggie-io/loggie/pkg/sink/dev"
