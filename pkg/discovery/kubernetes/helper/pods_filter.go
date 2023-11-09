@@ -59,7 +59,7 @@ func (p *PodsFilter) getLabelSelector(lgc *logconfigv1beta1.LogConfig) (labels.S
 
 // GetPodsByLabelSelector select pod by label
 func (p *PodsFilter) getPodsByLabelSelector() ([]*corev1.Pod, error) {
-	// 默认情况下读取所有
+	// By default read all
 	if p.lgc.Spec.Selector == nil || (len(p.lgc.Spec.Selector.PodSelector.LabelSelector) == 0) {
 		selector, err := metav1.LabelSelectorAsSelector(&metav1.LabelSelector{})
 		if err != nil {
@@ -72,7 +72,7 @@ func (p *PodsFilter) getPodsByLabelSelector() ([]*corev1.Pod, error) {
 		return ret, nil
 	}
 
-	// 优先选择labelSelector
+	// Prefer labelSelector
 	labelSelectors, err := p.getLabelSelector(p.lgc)
 	if err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func (p *PodsFilter) getPodsByLabelSelector() ([]*corev1.Pod, error) {
 	return ret, nil
 }
 
-// Filter 过滤pod
+// Filter Filter pods
 func (p *PodsFilter) Filter() ([]*corev1.Pod, error) {
 	pods, err := p.getPodsByLabelSelector()
 

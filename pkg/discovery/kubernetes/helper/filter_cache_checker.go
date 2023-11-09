@@ -10,11 +10,11 @@ import (
 )
 
 type workloadFilterInfo struct {
-	// 命名空间
+	// namespace list
 	namespaces map[string]struct{}
-	// 排除的命名空间
+	// exclude namespace list
 	excludeNamespaces map[string]struct{}
-	// 负载名字
+	// workload name
 	names map[string]struct{}
 }
 
@@ -95,7 +95,7 @@ func newFilterCacheChecker(lgc *logconfigv1beta1.LogConfig, clientSet kubeclient
 	return f
 }
 
-// checkNamespace 检查namespace 是否合法
+// checkNamespace Check whether the namespace is legal
 func (p *filterCacheChecker) checkNamespace(pod *corev1.Pod) bool {
 	if len(p.namespaces) == 0 && len(p.excludeNamespaces) == 0 {
 		return true
@@ -122,7 +122,7 @@ func (p *filterCacheChecker) checkNamespace(pod *corev1.Pod) bool {
 
 func (p *filterCacheChecker) checkOwner(owner metav1.OwnerReference, namespace string) (bool, error) {
 
-	// 如果没有选workloadSelector，那么默认是全部符合的
+	// If workloadSelector is not selected, then all are consistent by default.
 	if len(p.workloadSelector) == 0 {
 		return true, nil
 	}

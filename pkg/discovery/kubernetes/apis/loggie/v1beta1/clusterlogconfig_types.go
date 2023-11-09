@@ -54,7 +54,7 @@ type Selector struct {
 	PodSelector       `json:",inline"`
 	NodeSelector      `json:",inline"`
 	NamespaceSelector `json:",inline"`
-	WorkloadSelector  []WorkloadSelector `json:"workload_selector,omitempty"`
+	WorkloadSelector  []WorkloadSelector `json:"workloadSelector,omitempty"`
 }
 
 type PodSelector struct {

@@ -22,7 +22,7 @@ func NewPodsConfirm(lgc *logconfigv1beta1.LogConfig, clientSet kubeclientset.Int
 	}
 }
 
-// Confirm 确认pod 是否满足lgc的规则
+// Confirm Confirm whether the pod meets the lgc rules
 func (p *PodsConfirm) Confirm(pod *corev1.Pod) (bool, error) {
 	if pod == nil {
 		return false, errors.New("confirm pod error;pod is nil")
@@ -32,7 +32,7 @@ func (p *PodsConfirm) Confirm(pod *corev1.Pod) (bool, error) {
 		return false, nil
 	}
 
-	// 检查label
+	// check label
 	if !p.cache.checkLabels(pod) {
 		return false, nil
 	}
