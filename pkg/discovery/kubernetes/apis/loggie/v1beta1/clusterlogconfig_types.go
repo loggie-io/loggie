@@ -23,11 +23,12 @@ import (
 )
 
 const (
-	SelectorTypePod     = "pod"
-	SelectorTypeNode    = "node"
-	SelectorTypeCluster = "cluster"
-	SelectorTypeVm      = "vm"
-	SelectorTypeAll     = "all"
+	SelectorTypePod      = "pod"
+	SelectorTypeNode     = "node"
+	SelectorTypeCluster  = "cluster"
+	SelectorTypeVm       = "vm"
+	SelectorTypeWorkload = "workload"
+	SelectorTypeAll      = "all"
 )
 
 // +genclient
@@ -48,10 +49,12 @@ type Spec struct {
 }
 
 type Selector struct {
-	Cluster      string `json:"cluster,omitempty"`
-	Type         string `json:"type,omitempty"`
-	PodSelector  `json:",inline"`
-	NodeSelector `json:",inline"`
+	Cluster           string `json:"cluster,omitempty"`
+	Type              string `json:"type,omitempty"`
+	PodSelector       `json:",inline"`
+	NodeSelector      `json:",inline"`
+	NamespaceSelector `json:",inline"`
+	WorkloadSelector  []WorkloadSelector `json:"workloadSelector,omitempty"`
 }
 
 type PodSelector struct {
@@ -60,6 +63,18 @@ type PodSelector struct {
 
 type NodeSelector struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+}
+
+type NamespaceSelector struct {
+	NamespaceSelector        []string `json:"namespaceSelector,omitempty"`
+	ExcludeNamespaceSelector []string `json:"excludeNamespaceSelector,omitempty"`
+}
+
+type WorkloadSelector struct {
+	Type                     []string `json:"type,omitempty"`
+	NameSelector             []string `json:"nameSelector,omitempty"`
+	NamespaceSelector        []string `json:"namespaceSelector,omitempty"`
+	ExcludeNamespaceSelector []string `json:"excludeNamespaceSelector,omitempty"`
 }
 
 type Pipeline struct {
@@ -91,7 +106,7 @@ func (in *ClusterLogConfig) Validate() error {
 	}
 
 	tp := in.Spec.Selector.Type
-	if tp != SelectorTypePod && tp != SelectorTypeNode && tp != SelectorTypeCluster && tp != SelectorTypeVm {
+	if tp != SelectorTypePod && tp != SelectorTypeNode && tp != SelectorTypeCluster && tp != SelectorTypeVm && tp != SelectorTypeWorkload {
 		return errors.New("spec.selector.type is invalidate")
 	}
 

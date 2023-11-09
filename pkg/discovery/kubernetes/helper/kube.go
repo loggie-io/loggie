@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"k8s.io/client-go/kubernetes"
 	"path/filepath"
 	"strings"
 	"time"
@@ -66,18 +67,13 @@ func MetaNamespaceKey(namespace string, name string) string {
 
 type FuncGetRelatedPod func() ([]*corev1.Pod, error)
 
-func GetLogConfigRelatedPod(lgc *logconfigv1beta1.LogConfig, podsLister corev1listers.PodLister) ([]*corev1.Pod, error) {
-
-	sel, err := Selector(lgc.Spec.Selector.LabelSelector)
+func GetLogConfigRelatedPod(lgc *logconfigv1beta1.LogConfig, podsLister corev1listers.PodLister, clientSet kubernetes.Interface) ([]*corev1.Pod, error) {
+	filter := NewPodFilter(lgc, podsLister, clientSet)
+	pods, err := filter.Filter()
 	if err != nil {
 		return nil, err
 	}
-	ret, err := podsLister.Pods(lgc.Namespace).List(sel)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "%s/%s cannot find pod by labelSelector %#v", lgc.Namespace, lgc.Name, lgc.Spec.Selector.PodSelector.LabelSelector)
-	}
-
-	return ret, nil
+	return pods, nil
 }
 
 func Selector(labelSelector map[string]string) (labels.Selector, error) {
@@ -110,7 +106,7 @@ func Selector(labelSelector map[string]string) (labels.Selector, error) {
 	return selector, nil
 }
 
-func GetPodRelatedLogConfigs(pod *corev1.Pod, lgcLister logconfigLister.LogConfigLister) ([]*logconfigv1beta1.LogConfig, error) {
+func GetPodRelatedLogConfigs(pod *corev1.Pod, lgcLister logconfigLister.LogConfigLister, clientSet kubernetes.Interface) ([]*logconfigv1beta1.LogConfig, error) {
 	lgcList, err := lgcLister.LogConfigs(pod.Namespace).List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -122,14 +118,19 @@ func GetPodRelatedLogConfigs(pod *corev1.Pod, lgcLister logconfigLister.LogConfi
 			continue
 		}
 
-		if LabelsSubset(lgc.Spec.Selector.LabelSelector, pod.Labels) {
+		confirm := NewPodsConfirm(lgc, clientSet)
+		result, err := confirm.Confirm(pod)
+		if err != nil {
+			return nil, err
+		}
+		if result {
 			ret = append(ret, lgc)
 		}
 	}
 	return ret, nil
 }
 
-func GetPodRelatedClusterLogConfigs(pod *corev1.Pod, clgcLister logconfigLister.ClusterLogConfigLister) ([]*logconfigv1beta1.ClusterLogConfig, error) {
+func GetPodRelatedClusterLogConfigs(pod *corev1.Pod, clgcLister logconfigLister.ClusterLogConfigLister, clientSet kubernetes.Interface) ([]*logconfigv1beta1.ClusterLogConfig, error) {
 	clgcList, err := clgcLister.List(labels.Everything())
 	if err != nil {
 		return nil, err
@@ -137,11 +138,18 @@ func GetPodRelatedClusterLogConfigs(pod *corev1.Pod, clgcLister logconfigLister.
 
 	ret := make([]*logconfigv1beta1.ClusterLogConfig, 0)
 	for _, lgc := range clgcList {
-		if lgc.Spec.Selector == nil || lgc.Spec.Selector.Type != logconfigv1beta1.SelectorTypePod {
+		if lgc.Spec.Selector.Type != logconfigv1beta1.SelectorTypeWorkload && (lgc.Spec.Selector == nil || lgc.Spec.Selector.Type != logconfigv1beta1.SelectorTypePod) {
 			continue
 		}
 
-		if LabelsSubset(lgc.Spec.Selector.LabelSelector, pod.Labels) {
+		logConfig := lgc.ToLogConfig()
+		confirm := NewPodsConfirm(logConfig, clientSet)
+		result, err := confirm.Confirm(pod)
+		if err != nil {
+			log.Error("filter pod error:%s", err)
+			continue
+		}
+		if result {
 			ret = append(ret, lgc)
 		}
 	}

@@ -397,7 +397,7 @@ func (c *Controller) handleLogConfigSelectorHasChange(new *logconfigv1beta1.LogC
 
 	lgcKey := helper.MetaNamespaceKey(old.Namespace, old.Name)
 	switch new.Spec.Selector.Type {
-	case logconfigv1beta1.SelectorTypePod:
+	case logconfigv1beta1.SelectorTypePod, logconfigv1beta1.SelectorTypeWorkload:
 		if !helper.MatchStringMap(new.Spec.Selector.LabelSelector,
 			old.Spec.Selector.LabelSelector) {
 			err = c.handleAllTypesDelete(lgcKey, logconfigv1beta1.SelectorTypePod)
