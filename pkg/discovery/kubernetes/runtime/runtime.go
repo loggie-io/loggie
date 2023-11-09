@@ -21,7 +21,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
-	criapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 	"net"
 	"net/url"
 	"time"
