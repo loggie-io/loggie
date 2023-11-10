@@ -29,7 +29,7 @@ import (
 	dockerclient "github.com/docker/docker/client"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	criapi "k8s.io/cri-api/pkg/apis/runtime/v1alpha2"
+	criapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
