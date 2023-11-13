@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
 	"github.com/loggie-io/loggie/pkg/core/interceptor"
@@ -79,7 +78,7 @@ func main() {
 	controller := control.NewController()
 	controller.Start(pipecfgs)
 
-	if err := http.ListenAndServe(fmt.Sprintf(":9196"), nil); err != nil {
+	if err := http.ListenAndServe(":9196", nil); err != nil {
 		log.Fatal("http listen and serve err: %v", err)
 	}
 }
