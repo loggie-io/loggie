@@ -994,6 +994,9 @@ func ExportWatchMetric() map[string]eventbus.WatchMetricData {
 
 	watchLock.Lock()
 	defer watchLock.Unlock()
+	if globalWatcher == nil {
+		return watcherMetrics
+	}
 	for _, watchTask := range globalWatcher.sourceWatchTasks {
 		paths := getPathsIfDynamicContainerLogs(watchTask.config.Paths, watchTask.pipelineName, watchTask.sourceName)
 		m := globalWatcher.reportWatchMetric(watchTask, paths, watchTask.pipelineName, watchTask.sourceName)
