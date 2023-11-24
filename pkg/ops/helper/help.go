@@ -357,7 +357,7 @@ func fileInfoMetrics(request *http.Request) (active int, inActive int, metric ma
 }
 
 func CRLF() string {
-	return fmt.Sprintf("\n")
+	return "\n"
 }
 
 func SprintfWithLF(format string, a ...interface{}) string {
