@@ -222,7 +222,7 @@ func (s *Sink) Consume(batch api.Batch) api.Result {
 }
 
 func (s *Sink) selectTopic(e api.Event) (string, error) {
-	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).Render()
+	return s.topicPattern.WithObject(runtime.NewObject(e.Header())).RenderWithStrict()
 }
 
 func (s *Sink) getPartitionKey(e api.Event) (string, error) {
