@@ -25,11 +25,10 @@ var (
 var TraverseLink = errors.New("traverse symlink, assuming target is a directory")
 
 type zenv struct {
-	dirmask  string
-	fre      *regexp.Regexp
-	braceDir bool
-	pattern  string
-	root     string
+	dirmask string
+	fre     *regexp.Regexp
+	pattern string
+	root    string
 }
 
 func toSlash(path string) string {

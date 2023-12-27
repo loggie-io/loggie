@@ -174,7 +174,7 @@ func (ac *JobAckChain) ackLoop(a *ack) {
 		ReleaseAck(prev)
 	}
 
-	if prevState.GetProgress() != nil {
+	if prevState.GetProgress() != (storage.CollectProgress)(nil) {
 		// persistence ack
 		prevState.GetProgress().Save()
 	}

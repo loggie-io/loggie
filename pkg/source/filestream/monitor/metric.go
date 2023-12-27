@@ -15,14 +15,8 @@ type MetricReporter struct {
 
 // ZL: 保存上下文，用于导出metrics
 type ProducerHandleStreamContext struct {
-	streamName    string
-	fields        map[string]interface{}
-	productEvents uint64
-	// 生产耗时
-	duration uint64
-	// 扫描耗时
-	scanDuration uint64
-	FilesCount   uint32
+	fields     map[string]interface{}
+	FilesCount uint32
 }
 
 func NewMetricReporter(pipelineName string, sourceName string) *MetricReporter {

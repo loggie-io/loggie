@@ -34,7 +34,7 @@ func (c *ChainProcessor) AddProcessor(processor define.CollectProcessor) {
 		return
 	}
 
-	if c.begin == nil {
+	if c.begin == (define.CollectProcessor)(nil) {
 		c.begin = processor
 		c.current = processor
 		return

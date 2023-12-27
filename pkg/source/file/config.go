@@ -28,12 +28,11 @@ import (
 const subLogger = "source/file"
 
 type Config struct {
-	AckConfig     AckConfig              `yaml:"ack,omitempty"`
-	WatchConfig   WatchConfig            `yaml:"watcher,omitempty"`
-	ReaderConfig  ReaderConfig           `yaml:",inline,omitempty"`
-	CollectConfig CollectConfig          `yaml:",inline,omitempty" validate:"required,dive"`
-	Isolation     string                 `yaml:"isolation,omitempty" default:"pipeline"`
-	Fields        map[string]interface{} `yaml:"fields,omitempty"`
+	AckConfig     AckConfig     `yaml:"ack,omitempty"`
+	WatchConfig   WatchConfig   `yaml:"watcher,omitempty"`
+	ReaderConfig  ReaderConfig  `yaml:",inline,omitempty"`
+	CollectConfig CollectConfig `yaml:",inline,omitempty" validate:"required,dive"`
+	Isolation     string        `yaml:"isolation,omitempty" default:"pipeline"`
 }
 
 type CollectConfig struct {

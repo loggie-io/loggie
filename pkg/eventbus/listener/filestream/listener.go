@@ -71,14 +71,6 @@ type streamFileHarvester struct {
 	WaitAckNumber    int
 }
 
-type fileInfo struct {
-	FileName       string    `json:"name"`
-	FileSize       int64     `json:"size"` // It will not be brought when reporting. It is obtained by directly using OS. Stat (filename). Size() on the consumer side
-	AckOffset      int64     `json:"ackOffset"`
-	LastModifyTime time.Time `json:"modify"`
-	IgnoreOlder    bool      `json:"ignoreOlder"`
-}
-
 func (l *Listener) Name() string {
 	return name
 }
@@ -198,12 +190,6 @@ func (l *Listener) exportPrometheus() {
 
 func buildFQName(name string) string {
 	return prometheus.BuildFQName(promeExporter.Loggie, eventbus.FileStreamMetricTopic, name)
-}
-
-func (l *Listener) clean() {
-	for k := range l.data {
-		delete(l.data, k)
-	}
 }
 
 func (l *Listener) run() {
