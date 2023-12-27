@@ -90,12 +90,72 @@ github.com/cenkalti/backoff
 # github.com/cespare/xxhash v1.1.0
 ## explicit
 github.com/cespare/xxhash
-# github.com/cespare/xxhash/v2 v2.1.2
+# github.com/cespare/xxhash/v2 v2.2.0
 ## explicit; go 1.11
 github.com/cespare/xxhash/v2
 # github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311
 ## explicit; go 1.15
 github.com/chenzhuoyu/base64x
+# github.com/cockroachdb/errors v1.8.1
+## explicit; go 1.13
+github.com/cockroachdb/errors
+github.com/cockroachdb/errors/assert
+github.com/cockroachdb/errors/barriers
+github.com/cockroachdb/errors/contexttags
+github.com/cockroachdb/errors/domains
+github.com/cockroachdb/errors/errbase
+github.com/cockroachdb/errors/errorspb
+github.com/cockroachdb/errors/errutil
+github.com/cockroachdb/errors/hintdetail
+github.com/cockroachdb/errors/issuelink
+github.com/cockroachdb/errors/markers
+github.com/cockroachdb/errors/oserror
+github.com/cockroachdb/errors/report
+github.com/cockroachdb/errors/safedetails
+github.com/cockroachdb/errors/secondary
+github.com/cockroachdb/errors/stdstrings
+github.com/cockroachdb/errors/telemetrykeys
+github.com/cockroachdb/errors/withstack
+# github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f
+## explicit
+github.com/cockroachdb/logtags
+# github.com/cockroachdb/pebble v1.0.0
+## explicit; go 1.19
+github.com/cockroachdb/pebble
+github.com/cockroachdb/pebble/internal/arenaskl
+github.com/cockroachdb/pebble/internal/base
+github.com/cockroachdb/pebble/internal/batchskl
+github.com/cockroachdb/pebble/internal/bytealloc
+github.com/cockroachdb/pebble/internal/cache
+github.com/cockroachdb/pebble/internal/crc
+github.com/cockroachdb/pebble/internal/fastrand
+github.com/cockroachdb/pebble/internal/humanize
+github.com/cockroachdb/pebble/internal/intern
+github.com/cockroachdb/pebble/internal/invariants
+github.com/cockroachdb/pebble/internal/keyspan
+github.com/cockroachdb/pebble/internal/manifest
+github.com/cockroachdb/pebble/internal/manual
+github.com/cockroachdb/pebble/internal/private
+github.com/cockroachdb/pebble/internal/rangedel
+github.com/cockroachdb/pebble/internal/rangekey
+github.com/cockroachdb/pebble/internal/rate
+github.com/cockroachdb/pebble/internal/rawalloc
+github.com/cockroachdb/pebble/internal/testkeys
+github.com/cockroachdb/pebble/objstorage
+github.com/cockroachdb/pebble/objstorage/shared
+github.com/cockroachdb/pebble/objstorage/sharedobjcat
+github.com/cockroachdb/pebble/record
+github.com/cockroachdb/pebble/sstable
+github.com/cockroachdb/pebble/vfs
+github.com/cockroachdb/pebble/vfs/atomicfs
+# github.com/cockroachdb/redact v1.0.8
+## explicit; go 1.14
+github.com/cockroachdb/redact
+github.com/cockroachdb/redact/internal
+github.com/cockroachdb/redact/internal/fmtsort
+# github.com/cockroachdb/sentry-go v0.6.1-cockroachdb.2
+## explicit; go 1.12
+github.com/cockroachdb/sentry-go
 # github.com/creasty/defaults v1.7.0
 ## explicit; go 1.14
 github.com/creasty/defaults
@@ -317,7 +377,7 @@ github.com/golang/protobuf/ptypes
 github.com/golang/protobuf/ptypes/any
 github.com/golang/protobuf/ptypes/duration
 github.com/golang/protobuf/ptypes/timestamp
-# github.com/golang/snappy v0.0.3
+# github.com/golang/snappy v0.0.4
 ## explicit
 github.com/golang/snappy
 # github.com/google/flatbuffers v1.12.1
@@ -415,8 +475,8 @@ github.com/json-iterator/go
 # github.com/keybase/go-keychain v0.0.0-20190712205309-48d3d31d256d
 ## explicit
 github.com/keybase/go-keychain
-# github.com/klauspost/compress v1.15.9
-## explicit; go 1.16
+# github.com/klauspost/compress v1.15.15
+## explicit; go 1.17
 github.com/klauspost/compress
 github.com/klauspost/compress/flate
 github.com/klauspost/compress/fse
@@ -434,6 +494,12 @@ github.com/klauspost/cpuid/v2
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
 ## explicit
 github.com/konsorten/go-windows-terminal-sequences
+# github.com/kr/pretty v0.3.1
+## explicit; go 1.12
+github.com/kr/pretty
+# github.com/kr/text v0.2.0
+## explicit
+github.com/kr/text
 # github.com/leodido/go-urn v1.2.0
 ## explicit; go 1.13
 github.com/leodido/go-urn
@@ -532,7 +598,7 @@ github.com/power-devops/perfstat
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/internal
 github.com/prometheus/client_golang/prometheus/promhttp
-# github.com/prometheus/client_model v0.2.0
+# github.com/prometheus/client_model v0.2.1-0.20210607210712-147c58e9608a
 ## explicit; go 1.9
 github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.32.1
@@ -567,6 +633,9 @@ github.com/rivo/tview
 # github.com/rivo/uniseg v0.4.2
 ## explicit; go 1.18
 github.com/rivo/uniseg
+# github.com/rogpeppe/go-internal v1.10.0
+## explicit; go 1.19
+github.com/rogpeppe/go-internal/fmtsort
 # github.com/rs/zerolog v1.20.0
 ## explicit
 github.com/rs/zerolog
@@ -646,6 +715,7 @@ github.com/stathat/consistent
 # github.com/stretchr/testify v1.8.2
 ## explicit; go 1.13
 github.com/stretchr/testify/assert
+github.com/stretchr/testify/require
 # github.com/tidwall/gjson v1.13.0
 ## explicit; go 1.12
 github.com/tidwall/gjson
@@ -697,6 +767,12 @@ github.com/twmb/franz-go/pkg/kmsg/internal/kbin
 # github.com/twmb/franz-go/pkg/sasl/kerberos v1.1.0
 ## explicit; go 1.15
 github.com/twmb/franz-go/pkg/sasl/kerberos
+# github.com/ulikunitz/xz v0.5.11
+## explicit; go 1.12
+github.com/ulikunitz/xz
+github.com/ulikunitz/xz/internal/hash
+github.com/ulikunitz/xz/internal/xlog
+github.com/ulikunitz/xz/lzma
 # github.com/xdg/scram v1.0.5
 ## explicit
 github.com/xdg/scram
@@ -721,6 +797,17 @@ go.uber.org/atomic
 go.uber.org/automaxprocs/internal/cgroups
 go.uber.org/automaxprocs/internal/runtime
 go.uber.org/automaxprocs/maxprocs
+# go.uber.org/multierr v1.6.0
+## explicit; go 1.12
+go.uber.org/multierr
+# go.uber.org/zap v1.21.0
+## explicit; go 1.13
+go.uber.org/zap
+go.uber.org/zap/buffer
+go.uber.org/zap/internal/bufferpool
+go.uber.org/zap/internal/color
+go.uber.org/zap/internal/exit
+go.uber.org/zap/zapcore
 # golang.org/x/arch v0.0.0-20210923205945-b76863e36670
 ## explicit; go 1.17
 golang.org/x/arch/x86/x86asm
@@ -730,6 +817,9 @@ golang.org/x/crypto/md4
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/sha3
 golang.org/x/crypto/ssh/terminal
+# golang.org/x/exp v0.0.0-20200513190911-00229845015e
+## explicit; go 1.12
+golang.org/x/exp/rand
 # golang.org/x/mod v0.8.0
 ## explicit; go 1.17
 golang.org/x/mod/internal/lazyregexp
