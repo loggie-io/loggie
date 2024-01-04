@@ -18,11 +18,12 @@ package file
 
 import (
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/util/persistence/reg"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"github.com/loggie-io/loggie/pkg/util/persistence/reg"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/loggie-io/loggie/pkg/core/log"
@@ -726,6 +727,9 @@ func (w *Watcher) run() {
 		case <-w.done:
 			return
 		case watchTaskEvent := <-w.watchTaskEventChan:
+			if watchTaskEvent.watchTaskType == START {
+				w.scanNewFiles()
+			}
 			w.handleWatchTaskEvent(watchTaskEvent)
 		case job := <-w.zombieJobChan:
 			w.decideZombieJob(job)
