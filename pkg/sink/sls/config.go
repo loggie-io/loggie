@@ -17,10 +17,13 @@ limitations under the License.
 package sls
 
 type Config struct {
-	Endpoint        string `yaml:"endpoint,omitempty" validate:"required"`
-	AccessKeyId     string `yaml:"accessKeyId,omitempty" validate:"required"`
-	AccessKeySecret string `yaml:"accessKeySecret,omitempty" validate:"required"`
-	Project         string `yaml:"project,omitempty" validate:"required"`
-	LogStore        string `yaml:"logstore,omitempty" validate:"required"`
-	Topic           string `yaml:"topic,omitempty"` // empty topic is supported in sls storage
+	Endpoint                  string   `yaml:"endpoint,omitempty" validate:"required"`
+	AccessKeyId               string   `yaml:"accessKeyId,omitempty"`
+	AccessKeySecret           string   `yaml:"accessKeySecret,omitempty"`
+	CredentialProviderCommand string   `yaml:"cridentialProviderCommand,omitempty"`
+	CredentialProviderArgs    []string `yaml:"credentialProviderArgs,omitempty"`
+	CredentialProviderTimeout int      `yaml:"credentialProviderTimeout,omitempty" default:"5"`
+	Project                   string   `yaml:"project,omitempty" validate:"required"`
+	LogStore                  string   `yaml:"logstore,omitempty" validate:"required"`
+	Topic                     string   `yaml:"topic,omitempty"` // empty topic is supported in sls storage
 }

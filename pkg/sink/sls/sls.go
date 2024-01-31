@@ -46,6 +46,7 @@ type Sink struct {
 	config *Config
 
 	client sls.ClientInterface
+	shutdownChan chan struct{}
 }
 
 func NewSink() *Sink {
@@ -77,7 +78,22 @@ func (s *Sink) Init(context api.Context) error {
 func (s *Sink) Start() error {
 	log.Info("starting %s", s.String())
 	conf := s.config
-	s.client = sls.CreateNormalInterface(conf.Endpoint, conf.AccessKeyId, conf.AccessKeySecret, "")
+	if (conf.AccessKeyId == "" || conf.AccessKeySecret == "") && conf.CredentialProviderCommand == "" {
+		return errors.New("Neither access key pair nor credential provider command is provided")
+	}
+
+	if conf.AccessKeyId != "" {
+		s.client = sls.CreateNormalInterface(conf.Endpoint, conf.AccessKeyId, conf.AccessKeySecret, "")
+	} else {
+		var err error
+		s.shutdownChan = make(chan struct{})
+
+		provider := newCredentialProvider(conf.CredentialProviderCommand, conf.CredentialProviderArgs, conf.CredentialProviderTimeout)
+		s.client, err = sls.CreateTokenAutoUpdateClient(conf.Endpoint, provider.GetCredentials, s.shutdownChan)
+		if err != nil {
+			return errors.WithMessagef(err, "Create sls client failed")
+		}
+	}
 
 	// Check if project exist
 	exist, err := s.client.CheckProjectExist(conf.Project)
@@ -105,6 +121,11 @@ func (s *Sink) Start() error {
 func (s *Sink) Stop() {
 	if s.client != nil {
 		s.client.Close()
+	}
+
+ 	if s.shutdownChan != nil {
+		close(s.shutdownChan)
+		s.shutdownChan = nil
 	}
 }
 
