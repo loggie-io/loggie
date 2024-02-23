@@ -115,13 +115,11 @@ func (c *ContainerD) GetRootfsPath(ctx context.Context, containerId string, cont
 		if err != nil {
 			return nil, err
 		}
-	} else if runtime == string(RuncRuntimeType) {
+	} else {
 		prefix, err = c.getRuncRuntimeRootfsPath(infoMap, containerId)
 		if err != nil {
 			return nil, err
 		}
-	} else {
-		return nil, errors.Errorf("Unknown runtime type from container(id: %s) status", containerId)
 	}
 
 	var rootfsPaths []string
