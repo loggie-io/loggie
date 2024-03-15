@@ -21,10 +21,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"k8s.io/client-go/kubernetes"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"k8s.io/client-go/kubernetes"
 
 	dockerclient "github.com/docker/docker/client"
 	"github.com/loggie-io/loggie/pkg/discovery/kubernetes/runtime"
@@ -448,6 +449,10 @@ func nodePathByContainerPath(pathPattern string, pod *corev1.Pod, volumeName str
 			return getEmptyDirNodePath(pathPattern, pod, volumeName, volumeMountPath, kubeletRootDir, subPathRes), nil
 		}
 
+		if vol.NFS != nil && containerRuntime.Name() == runtime.RuntimeDocker {
+			return getNfsPath(pathPattern, pod, volumeName, volumeMountPath, kubeletRootDir, subPathRes), nil
+		}
+
 		// If pod mount pvc as log path，we need set rootFsCollectionEnabled to true.
 		if vol.PersistentVolumeClaim != nil && rootFsCollectionEnabled {
 			return getPVNodePath(pathPattern, volumeMountPath, containerId, containerRuntime)
@@ -467,6 +472,13 @@ func getHostPath(pathPattern string, volumeMountPath string, hostPath string, su
 
 func getEmptyDirNodePath(pathPattern string, pod *corev1.Pod, volumeName string, volumeMountPath string, kubeletRootDir string, subPath string) string {
 	emptyDirPath := filepath.Join(kubeletRootDir, "pods", string(pod.UID), "volumes/kubernetes.io~empty-dir", volumeName)
+	pathSuffix := strings.TrimPrefix(pathPattern, volumeMountPath)
+	return filepath.Join(emptyDirPath, subPath, pathSuffix)
+}
+
+// refers to https://github.com/kubernetes/kubernetes/blob/6aac45ff1e99068e834ba3b93b673530cf62c007/pkg/volume/nfs/nfs.go#L202
+func getNfsPath(pathPattern string, pod *corev1.Pod, volumeName string, volumeMountPath string, kubeletRootDir string, subPath string) string {
+	emptyDirPath := filepath.Join(kubeletRootDir, "pods", string(pod.UID), "volumes/kubernetes.io~nfs", volumeName)
 	pathSuffix := strings.TrimPrefix(pathPattern, volumeMountPath)
 	return filepath.Join(emptyDirPath, subPath, pathSuffix)
 }
