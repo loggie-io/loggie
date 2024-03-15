@@ -144,6 +144,7 @@ func (i *Interceptor) Intercept(invoker sink.Invoker, invocation sink.Invocation
 		rm := i.retryMeta(batch)
 		retryMaxCount := i.config.RetryMaxCount
 		if rm != nil && retryMaxCount > 0 && retryMaxCount < rm.count {
+			i.signChan <- Reset
 			return result.DropWith(errors.New(fmt.Sprintf("retry reaches the limit: retryMaxCount(%d)", retryMaxCount)))
 		}
 		i.in <- batch
