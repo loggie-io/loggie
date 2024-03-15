@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"strings"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kubeinformers "k8s.io/client-go/informers"
@@ -98,7 +99,7 @@ func (d *Discovery) Start(stopCh <-chan struct{}) {
 		log.Panic("Error building logConf clientset: %s", err.Error())
 	}
 
-	logConfInformerFactory := logconfigInformer.NewSharedInformerFactory(logConfigClient, 0)
+	logConfInformerFactory := logconfigInformer.NewSharedInformerFactory(logConfigClient, 5*time.Minute)
 
 	kubeInformerFactory := kubeinformers.NewSharedInformerFactoryWithOptions(kubeClient, 0, kubeinformers.WithTweakListOptions(func(lo *metav1.ListOptions) {
 		lo.FieldSelector = fields.OneTermEqualSelector("spec.nodeName", d.config.NodeName).String()
