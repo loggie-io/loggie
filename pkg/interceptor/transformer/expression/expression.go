@@ -62,9 +62,8 @@ func parseArgs(name string, expression string) []string {
 	var args []string
 	for _, s := range splitParams {
 		p := strings.TrimSpace(s)
-		if p == "" {
-			continue
-		}
+		p = strings.TrimLeft(p, `"`)
+		p = strings.TrimRight(p, `"`)
 		args = append(args, p)
 	}
 	return args
