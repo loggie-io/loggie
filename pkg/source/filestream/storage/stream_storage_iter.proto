@@ -1,0 +1,14 @@
+syntax = "proto3";
+option go_package = "github.com/loggie-io/loggie/pkg/source/filestream/util";
+
+import "google/protobuf/timestamp.proto";
+
+message StreamIter {
+	uint64 Hash = 1;
+	int64 Offset = 2;
+	bool Done = 4;
+	uint64 Seq = 5;
+	uint64 Line = 6;
+	google.protobuf.Timestamp Mtime  = 7;
+	google.protobuf.Timestamp DataListUptime  = 8;
+}
