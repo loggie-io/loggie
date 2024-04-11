@@ -37,8 +37,8 @@ require (
 	github.com/twmb/franz-go/pkg/sasl/kerberos v1.1.0
 	go.uber.org/atomic v1.7.0
 	go.uber.org/automaxprocs v1.5.1
-	golang.org/x/net v0.17.0
-	golang.org/x/text v0.13.0
+	golang.org/x/net v0.19.0
+	golang.org/x/text v0.14.0
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
 	google.golang.org/grpc v1.54.0
 	google.golang.org/protobuf v1.30.0
@@ -69,6 +69,7 @@ require (
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/mock v1.5.0 // indirect
 	github.com/google/flatbuffers v1.12.1 // indirect
+	github.com/google/uuid v1.5.0 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
@@ -77,15 +78,16 @@ require (
 	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/keybase/go-keychain v0.0.0-20190712205309-48d3d31d256d // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
-	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/linkedin/goavro/v2 v2.9.8 // indirect
 	github.com/mattn/go-colorable v0.1.8 // indirect
-	github.com/mattn/go-isatty v0.0.12 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mtibben/percent v0.2.1 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.15 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stathat/consistent v1.0.0 // indirect
@@ -96,15 +98,19 @@ require (
 	github.com/twmb/franz-go/pkg/kmsg v1.2.0 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/arch v0.0.0-20210923205945-b76863e36670 // indirect
-	golang.org/x/crypto v0.14.0 // indirect
-	golang.org/x/mod v0.8.0 // indirect
+	golang.org/x/crypto v0.16.0 // indirect
+	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
-	golang.org/x/sys v0.13.0 // indirect
-	golang.org/x/term v0.13.0 // indirect
-	golang.org/x/tools v0.6.0 // indirect
-	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
+	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/term v0.15.0 // indirect
+	golang.org/x/tools v0.16.1 // indirect
+	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220107163113-42d7afdf6368 // indirect
+	modernc.org/libc v1.37.6 // indirect
+	modernc.org/mathutil v1.6.0 // indirect
+	modernc.org/memory v1.7.2 // indirect
+	modernc.org/sqlite v1.28.0 // indirect
 )
 
 require (
@@ -177,11 +183,11 @@ require (
 require (
 	github.com/apache/rocketmq-client-go/v2 v2.1.1
 	github.com/bytedance/sonic v1.9.2
-	github.com/dustin/go-humanize v1.0.0
+	github.com/dustin/go-humanize v1.0.1
 	github.com/elastic/go-elasticsearch/v7 v7.17.10
+	github.com/glebarez/go-sqlite v1.22.0
 	github.com/goccy/go-json v0.10.2
 	github.com/goccy/go-yaml v1.11.0
-	github.com/mattn/go-sqlite3 v1.11.0
 	k8s.io/cri-api v0.28.3
 	k8s.io/metrics v0.25.4
 	sigs.k8s.io/controller-runtime v0.13.1

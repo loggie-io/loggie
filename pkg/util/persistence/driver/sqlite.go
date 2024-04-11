@@ -21,18 +21,20 @@ package driver
 import (
 	"database/sql"
 	"fmt"
-	"github.com/loggie-io/loggie/pkg/core/log"
-	"github.com/loggie-io/loggie/pkg/util/persistence/reg"
-	_ "github.com/mattn/go-sqlite3"
-	"github.com/pkg/errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	_ "github.com/glebarez/go-sqlite"
+	"github.com/pkg/errors"
+
+	"github.com/loggie-io/loggie/pkg/core/log"
+	"github.com/loggie-io/loggie/pkg/util/persistence/reg"
 )
 
 const (
-	driver      = "sqlite3"
+	driver      = "sqlite"
 	createTable = `
 	CREATE TABLE IF NOT EXISTS registry (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,

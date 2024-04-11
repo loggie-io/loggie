@@ -150,8 +150,8 @@ github.com/docker/go-connections/tlsconfig
 # github.com/docker/go-units v0.4.0
 ## explicit
 github.com/docker/go-units
-# github.com/dustin/go-humanize v1.0.0
-## explicit
+# github.com/dustin/go-humanize v1.0.1
+## explicit; go 1.16
 github.com/dustin/go-humanize
 # github.com/dvsekhvalnov/jose2go v0.0.0-20200901110807-248326c1351b
 ## explicit
@@ -234,6 +234,9 @@ github.com/gdamore/tcell/v2/terminfo/x/xfce
 github.com/gdamore/tcell/v2/terminfo/x/xterm
 github.com/gdamore/tcell/v2/terminfo/x/xterm_kitty
 github.com/gdamore/tcell/v2/terminfo/x/xterm_termite
+# github.com/glebarez/go-sqlite v1.22.0
+## explicit; go 1.17
+github.com/glebarez/go-sqlite
 # github.com/go-kit/kit v0.10.0
 ## explicit; go 1.13
 github.com/go-kit/kit/log
@@ -341,6 +344,9 @@ github.com/google/go-cmp/cmp/internal/value
 # github.com/google/gofuzz v1.1.0
 ## explicit; go 1.12
 github.com/google/gofuzz
+# github.com/google/uuid v1.5.0
+## explicit
+github.com/google/uuid
 # github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c
 ## explicit
 github.com/gsterjov/go-libsecret
@@ -428,8 +434,8 @@ github.com/klauspost/compress/s2
 github.com/klauspost/compress/snappy
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
-# github.com/klauspost/cpuid/v2 v2.0.9
-## explicit; go 1.13
+# github.com/klauspost/cpuid/v2 v2.2.3
+## explicit; go 1.15
 github.com/klauspost/cpuid/v2
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
 ## explicit
@@ -455,15 +461,12 @@ github.com/mailru/easyjson/jwriter
 # github.com/mattn/go-colorable v0.1.8
 ## explicit; go 1.13
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.12
-## explicit; go 1.12
+# github.com/mattn/go-isatty v0.0.20
+## explicit; go 1.15
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.13
 ## explicit; go 1.9
 github.com/mattn/go-runewidth
-# github.com/mattn/go-sqlite3 v1.11.0
-## explicit
-github.com/mattn/go-sqlite3
 # github.com/mattn/go-zglob v0.0.3
 ## explicit
 github.com/mattn/go-zglob
@@ -561,6 +564,9 @@ github.com/prometheus/prometheus/tsdb/errors
 github.com/prometheus/prometheus/tsdb/fileutil
 github.com/prometheus/prometheus/tsdb/tsdbutil
 github.com/prometheus/prometheus/util/strutil
+# github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec
+## explicit; go 1.12
+github.com/remyoudompheng/bigfft
 # github.com/rivo/tview v0.0.0-20221029100920-c4a7e501810d
 ## explicit; go 1.18
 github.com/rivo/tview
@@ -724,19 +730,19 @@ go.uber.org/automaxprocs/maxprocs
 # golang.org/x/arch v0.0.0-20210923205945-b76863e36670
 ## explicit; go 1.17
 golang.org/x/arch/x86/x86asm
-# golang.org/x/crypto v0.14.0
-## explicit; go 1.17
+# golang.org/x/crypto v0.16.0
+## explicit; go 1.18
 golang.org/x/crypto/md4
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/sha3
 golang.org/x/crypto/ssh/terminal
-# golang.org/x/mod v0.8.0
-## explicit; go 1.17
+# golang.org/x/mod v0.14.0
+## explicit; go 1.18
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.17.0
-## explicit; go 1.17
+# golang.org/x/net v0.19.0
+## explicit; go 1.18
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/http/httpguts
@@ -753,18 +759,17 @@ golang.org/x/net/trace
 golang.org/x/oauth2
 golang.org/x/oauth2/clientcredentials
 golang.org/x/oauth2/internal
-# golang.org/x/sys v0.13.0
-## explicit; go 1.17
+# golang.org/x/sys v0.15.0
+## explicit; go 1.18
 golang.org/x/sys/cpu
-golang.org/x/sys/execabs
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.13.0
-## explicit; go 1.17
+# golang.org/x/term v0.15.0
+## explicit; go 1.18
 golang.org/x/term
-# golang.org/x/text v0.13.0
-## explicit; go 1.17
+# golang.org/x/text v0.14.0
+## explicit; go 1.18
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/internal
@@ -784,18 +789,19 @@ golang.org/x/text/width
 # golang.org/x/time v0.0.0-20220609170525-579cf78fd858
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.6.0
+# golang.org/x/tools v0.16.1
 ## explicit; go 1.18
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/internal/packagesdriver
 golang.org/x/tools/go/packages
+golang.org/x/tools/go/types/objectpath
 golang.org/x/tools/imports
 golang.org/x/tools/internal/event
 golang.org/x/tools/internal/event/core
 golang.org/x/tools/internal/event/keys
 golang.org/x/tools/internal/event/label
-golang.org/x/tools/internal/fastwalk
+golang.org/x/tools/internal/event/tag
 golang.org/x/tools/internal/gcimporter
 golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/gopathwalk
@@ -805,8 +811,9 @@ golang.org/x/tools/internal/pkgbits
 golang.org/x/tools/internal/tokeninternal
 golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
-# golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
-## explicit; go 1.11
+golang.org/x/tools/internal/versions
+# golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028
+## explicit; go 1.18
 golang.org/x/xerrors
 golang.org/x/xerrors/internal
 # google.golang.org/appengine v1.6.7
@@ -1329,6 +1336,43 @@ k8s.io/utils/internal/third_party/forked/golang/net
 k8s.io/utils/net
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
+# modernc.org/libc v1.37.6
+## explicit; go 1.20
+modernc.org/libc
+modernc.org/libc/errno
+modernc.org/libc/fcntl
+modernc.org/libc/fts
+modernc.org/libc/grp
+modernc.org/libc/honnef.co/go/netdb
+modernc.org/libc/langinfo
+modernc.org/libc/limits
+modernc.org/libc/netdb
+modernc.org/libc/netinet/in
+modernc.org/libc/poll
+modernc.org/libc/pthread
+modernc.org/libc/pwd
+modernc.org/libc/signal
+modernc.org/libc/stdio
+modernc.org/libc/stdlib
+modernc.org/libc/sys/socket
+modernc.org/libc/sys/stat
+modernc.org/libc/sys/types
+modernc.org/libc/termios
+modernc.org/libc/time
+modernc.org/libc/unistd
+modernc.org/libc/utime
+modernc.org/libc/uuid
+modernc.org/libc/uuid/uuid
+modernc.org/libc/wctype
+# modernc.org/mathutil v1.6.0
+## explicit; go 1.18
+modernc.org/mathutil
+# modernc.org/memory v1.7.2
+## explicit; go 1.18
+modernc.org/memory
+# modernc.org/sqlite v1.28.0
+## explicit; go 1.19
+modernc.org/sqlite/lib
 # sigs.k8s.io/controller-runtime v0.13.1
 ## explicit; go 1.17
 sigs.k8s.io/controller-runtime/pkg/client/config
