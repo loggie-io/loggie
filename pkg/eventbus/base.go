@@ -46,6 +46,7 @@ var (
 	NormalizeTopic        = "normalize"
 	NoDataTopic           = "noDataAlert"
 	InfoTopic             = "info"
+	FileStreamMetricTopic = "filestream"
 )
 
 type BaseMetric struct {
@@ -164,6 +165,19 @@ type ComponentBaseConfig struct {
 	Name     string
 	Type     api.Type
 	Category api.Category
+}
+
+type FileStreamCollectMetricData struct {
+	BaseMetric
+	StreamName       string
+	SourceFields     map[string]interface{}
+	ProductCount     uint64
+	DurationTime     uint64
+	ScanDurationTime uint64
+	FilesCount       int
+	Done             bool
+	ChangeAckNumber  int
+	ClearAckNumber   bool
 }
 
 func (cbc ComponentBaseConfig) Code() string {
