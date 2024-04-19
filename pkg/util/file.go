@@ -108,6 +108,7 @@ func WriteFileOrCreate(dir string, filename string, content []byte) error {
 }
 
 func GlobWithRecursive(pattern string) (matches []string, err error) {
+	pattern = filepath.ToSlash(pattern)
 	dir, pattern := xglob.SplitPattern(pattern)
 	basePath := os.DirFS(dir)
 	matches = make([]string, 0)
