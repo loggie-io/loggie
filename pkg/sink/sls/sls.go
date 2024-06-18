@@ -45,7 +45,7 @@ func makeSink(info pipeline.Info) api.Component {
 type Sink struct {
 	config *Config
 
-	client sls.ClientInterface
+	client       sls.ClientInterface
 	shutdownChan chan struct{}
 }
 
@@ -98,24 +98,32 @@ func (s *Sink) Start() error {
 	// Check if project exist
 	exist, err := s.client.CheckProjectExist(conf.Project)
 	if err != nil {
-		return errors.WithMessagef(err, "Check sls project %s failed", conf.Project)
+		err = errors.WithMessagef(err, "Check sls project %s failed", conf.Project)
+		goto errClean
 	}
 	if !exist {
-		return errors.Errorf("Project %s is not exist", conf.Project)
+		err = errors.Errorf("Project %s is not exist", conf.Project)
+		goto errClean
 	}
 
 	// Check if LogStore exist
 	exist, err = s.client.CheckLogstoreExist(conf.Project, conf.LogStore)
 	if err != nil {
-		return errors.WithMessagef(err, "Check logstore %s failed", conf.LogStore)
+		err = errors.WithMessagef(err, "Check logstore %s failed", conf.LogStore)
+		goto errClean
 	}
 	if !exist {
-		return errors.Errorf("Logstore %s is not exist", conf.LogStore)
+		err = errors.Errorf("Logstore %s is not exist", conf.LogStore)
+		goto errClean
 	}
 
 	s.client.SetUserAgent(sls.DefaultLogUserAgent + " loggie/" + global.GetVersion())
 
 	return nil
+
+errClean:
+	s.client.Close()
+	return err
 }
 
 func (s *Sink) Stop() {
@@ -123,7 +131,7 @@ func (s *Sink) Stop() {
 		s.client.Close()
 	}
 
- 	if s.shutdownChan != nil {
+	if s.shutdownChan != nil {
 		close(s.shutdownChan)
 		s.shutdownChan = nil
 	}
