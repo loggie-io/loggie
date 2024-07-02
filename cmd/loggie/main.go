@@ -60,7 +60,6 @@ func init() {
 	flag.StringVar(&pipelineConfigPath, "config.pipeline", "pipelines.yml", "reloadable config file")
 	flag.StringVar(&configType, "config.from", "file", "config from file or env")
 	flag.StringVar(&nodeName, "meta.nodeName", hostName, "override nodeName")
-	flag.StringVar(&mainServer, "mainServer", mainServer, "config mainServer")
 }
 
 func main() {
@@ -85,11 +84,6 @@ func main() {
 
 	global.NodeName = nodeName
 	log.Info("node name: %s", nodeName)
-
-	if mainServer == "" {
-		log.Fatal("mainServer can not be null")
-		return
-	}
 
 	// system config file
 	syscfg := sysconfig.Config{}
