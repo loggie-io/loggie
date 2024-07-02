@@ -3,6 +3,7 @@ package heartbeat
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -45,6 +46,10 @@ func sendPostRequest(config Config) error {
 	if err != nil {
 		return err
 	}
+	if resp.StatusCode != 200 {
+		return errors.New(fmt.Sprintf("【warning】heatbeat request got status code: %d", resp.StatusCode))
+	}
 	defer resp.Body.Close()
+	//fmt.Println("heatbeat success :", resp.StatusCode)
 	return nil
 }
