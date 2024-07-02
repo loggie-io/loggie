@@ -47,7 +47,8 @@ func sendPostRequest(config Config) error {
 		return err
 	}
 	if resp.StatusCode != 200 {
-		return errors.New(fmt.Sprintf("【warning】heatbeat request got status code: %d", resp.StatusCode))
+		return errors.New(fmt.Sprintf("The request to the beat server: %s received a response code: %d",
+			config.Address, resp.StatusCode))
 	}
 	defer resp.Body.Close()
 	//fmt.Println("heatbeat success :", resp.StatusCode)
