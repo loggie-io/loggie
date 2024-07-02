@@ -25,6 +25,7 @@ import (
 	"github.com/loggie-io/loggie/pkg/core/source"
 	"github.com/loggie-io/loggie/pkg/discovery"
 	"github.com/loggie-io/loggie/pkg/eventbus"
+	"github.com/loggie-io/loggie/pkg/heartbeat"
 	"github.com/loggie-io/loggie/pkg/interceptor/maxbytes"
 	"github.com/loggie-io/loggie/pkg/interceptor/metric"
 	"github.com/loggie-io/loggie/pkg/interceptor/retry"
@@ -45,6 +46,7 @@ type Loggie struct {
 	Defaults         Defaults                    `yaml:"defaults"`
 	Db               persistence.DbConfig        `yaml:"db"`
 	ErrorAlertConfig log.AfterErrorConfiguration `yaml:"errorAlert"`
+	HeartbeatConfig  heartbeat.Config            `yaml:"heartbeat"`
 }
 
 type Defaults struct {

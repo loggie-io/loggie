@@ -46,3 +46,8 @@ loggie:
           maxOpenFds: 6000
   http:
     enabled: true
+
+  heartbeat:
+    address: http://127.0.0.1:80/api/heartbeat
+    interval: 30
+    nodeName: 01
