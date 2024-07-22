@@ -1,11 +1,10 @@
-
 <img src="https://github.com/loggie-io/loggie/blob/main/logo/loggie-draw.png" width="250">
 
 [![go.dev reference](https://img.shields.io/badge/go.dev-reference-007d9c?logo=go&logoColor=white)](https://loggie-io.github.io/docs/)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/569/badge)](https://bestpractices.coreinfrastructure.org/projects/569)
 [![dockerHub](https://img.shields.io/badge/dockerHub-loggieio%2Floggie-9cf)](https://hub.docker.com/r/loggieio/loggie/)
 
-> English | [中文](./README_cn.md)
+> English | [中文](./README_cn.md) | [日本語](./README_ja.md)
 
 Loggie is a lightweight, high-performance, cloud-native agent and aggregator based on Golang.
 
