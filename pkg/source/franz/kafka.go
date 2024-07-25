@@ -18,6 +18,7 @@ package franz
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"github.com/loggie-io/loggie/pkg/core/api"
 	"github.com/loggie-io/loggie/pkg/core/event"
@@ -147,6 +148,16 @@ func (k *Source) Start() error {
 		if mch != nil {
 			opts = append(opts, kgo.SASL(mch))
 		}
+	}
+
+	//set tls
+	if c.TLS.Enabled == true {
+		var tlsCfg *tls.Config
+		var err error
+		if tlsCfg, err = franz.NewTLSConfig(c.TLS.CaCertFiles, c.TLS.ClientCertFile, c.TLS.ClientKeyFile, c.TLS.EndpIdentAlgo == ""); err != nil {
+			return err
+		}
+		opts = append(opts, kgo.DialTLSConfig(tlsCfg))
 	}
 
 	// new client

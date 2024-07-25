@@ -47,6 +47,7 @@ type Config struct {
 	AutoOffsetReset    string        `yaml:"autoOffsetReset,omitempty" default:"latest"`
 
 	SASL franz.SASL `yaml:"sasl,omitempty"`
+	TLS  franz.TLS  `yaml:"tls,omitempty"`
 
 	AddonMeta *bool `yaml:"addonMeta,omitempty" default:"true"`
 }
