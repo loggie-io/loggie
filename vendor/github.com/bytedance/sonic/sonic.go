@@ -1,4 +1,5 @@
-// +build amd64,go1.15,!go1.21
+//go:build (amd64 && go1.17 && !go1.24) || (arm64 && go1.20 && !go1.24)
+// +build amd64,go1.17,!go1.24 arm64,go1.20,!go1.24
 
 /*
  * Copyright 2021 ByteDance Inc.
@@ -29,6 +30,8 @@ import (
     `github.com/bytedance/sonic/internal/rt`
 )
 
+const apiKind = UseSonicJSON
+
 type frozenConfig struct {
     Config
     encoderOpts encoder.Options
@@ -58,8 +61,20 @@ func (cfg Config) Froze() API {
     if cfg.ValidateString {
         api.encoderOpts |= encoder.ValidateString
     }
+    if cfg.NoValidateJSONMarshaler {
+        api.encoderOpts |= encoder.NoValidateJSONMarshaler
+    }
+    if cfg.NoEncoderNewline {
+        api.encoderOpts |= encoder.NoEncoderNewline
+    }
+    if cfg.EncodeNullForInfOrNan {
+        api.encoderOpts |= encoder.EncodeNullForInfOrNan
+    }
 
     // configure decoder options:
+    if cfg.NoValidateJSONSkip {
+        api.decoderOpts |= decoder.OptionNoValidateJSON
+    }
     if cfg.UseInt64 {
         api.decoderOpts |= decoder.OptionUseInt64
     }
@@ -139,23 +154,23 @@ func (cfg frozenConfig) Valid(data []byte) bool {
 // Opts are the compile options, for example, "option.WithCompileRecursiveDepth" is
 // a compile option to set the depth of recursive compile for the nested struct type.
 func Pretouch(vt reflect.Type, opts ...option.CompileOption) error {
-	if err := encoder.Pretouch(vt, opts...); err != nil {
-	    return err
-	} 
-	if err := decoder.Pretouch(vt, opts...); err != nil {
-		return err
-	}
-	// to pretouch the corresponding pointer type as well
-	if vt.Kind() == reflect.Ptr {
-		vt = vt.Elem()
-	} else {
-		vt = reflect.PtrTo(vt)
-	}
-	if err := encoder.Pretouch(vt, opts...); err != nil {
-	    return err
-	} 
-	if err := decoder.Pretouch(vt, opts...); err != nil {
-		return err
-	}
-	return nil
+    if err := encoder.Pretouch(vt, opts...); err != nil {
+        return err
+    } 
+    if err := decoder.Pretouch(vt, opts...); err != nil {
+        return err
+    }
+    // to pretouch the corresponding pointer type as well
+    if vt.Kind() == reflect.Ptr {
+        vt = vt.Elem()
+    } else {
+        vt = reflect.PtrTo(vt)
+    }
+    if err := encoder.Pretouch(vt, opts...); err != nil {
+        return err
+    } 
+    if err := decoder.Pretouch(vt, opts...); err != nil {
+        return err
+    }
+    return nil
 }

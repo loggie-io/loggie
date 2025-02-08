@@ -215,7 +215,8 @@ func (p *Pattern) WithVm(data *TypeVmFieldsData) *Pattern {
 
 // GetSplits
 // eg: target="/var/log/${pod.uid}/${pod.name}/"
-//     returns ["var/log/", "/", "/"] and ["pod.uid", "pod.name"]
+//
+//	returns ["var/log/", "/", "/"] and ["pod.uid", "pod.name"]
 func GetSplits(target string) (splitStr []string, matchers []string) {
 
 	var splitStrList []string
@@ -265,7 +266,8 @@ func GetSplits(target string) (splitStr []string, matchers []string) {
 
 // Extract
 // eg: input="/var/log/76fb94cbb5/tomcat/", splitsStr=["/var/log/", "/", "/"]
-//     return ["76fb94cbb5", "tomcat"]
+//
+//	return ["76fb94cbb5", "tomcat"]
 func Extract(input string, splitsStr []string) []string {
 	var ret []string
 	segment := input

@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -104,7 +103,7 @@ func WriteFileOrCreate(dir string, filename string, content []byte) error {
 		}
 		return err
 	}
-	return ioutil.WriteFile(f, content, os.ModePerm)
+	return os.WriteFile(f, content, os.ModePerm)
 }
 
 func GlobWithRecursive(pattern string) (matches []string, err error) {

@@ -31,7 +31,7 @@ func UnmarshalWithPrettyError(in []byte, out interface{}) error {
 	if err != nil {
 		prettyErr := goccyyaml.Unmarshal(in, out)
 		if prettyErr != nil {
-			err = fmt.Errorf("%w\n; %s", prettyErr, err)
+			err = fmt.Errorf("%w\n; %w", prettyErr, err)
 		}
 	}
 	return err

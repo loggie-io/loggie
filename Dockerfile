@@ -1,5 +1,5 @@
 # Build the binary
-FROM --platform=$BUILDPLATFORM golang:1.18 as builder
+FROM --platform=$BUILDPLATFORM golang:1.22 AS builder
 
 ARG TARGETARCH
 ARG TARGETOS

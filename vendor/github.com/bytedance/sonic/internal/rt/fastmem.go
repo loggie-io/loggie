@@ -17,8 +17,10 @@
 package rt
 
 import (
-    `unsafe`
-    `reflect`
+	"reflect"
+	"unsafe"
+
+	"github.com/bytedance/sonic/option"
 )
 
 //go:nosplit
@@ -66,15 +68,16 @@ func FuncAddr(f interface{}) unsafe.Pointer {
     }
 }
 
+//go:nocheckptr
 func IndexChar(src string, index int) unsafe.Pointer {
 	return unsafe.Pointer(uintptr((*GoString)(unsafe.Pointer(&src)).Ptr) + uintptr(index))
 }
 
+//go:nocheckptr
 func IndexByte(ptr []byte, index int) unsafe.Pointer {
 	return unsafe.Pointer(uintptr((*GoSlice)(unsafe.Pointer(&ptr)).Ptr) + uintptr(index))
 }
 
-//go:nosplit
 func GuardSlice(buf *[]byte, n int) {
 	c := cap(*buf)
 	l := len(*buf)
@@ -87,6 +90,21 @@ func GuardSlice(buf *[]byte, n int) {
 		copy(tmp, *buf)
 		*buf = tmp
 	}
+}
+
+func GuardSlice2(buf []byte, n int) []byte {
+	c := cap(buf)
+	l := len(buf)
+	if c-l < n {
+		c = c>>1 + n + l
+		if c < 32 {
+			c = 32
+		}
+		tmp := make([]byte, l, c)
+		copy(tmp, buf)
+		buf = tmp
+	}
+    return buf
 }
 
 //go:nosplit
@@ -109,4 +127,29 @@ func StrFrom(p unsafe.Pointer, n int64) (s string) {
     (*GoString)(unsafe.Pointer(&s)).Ptr = p
     (*GoString)(unsafe.Pointer(&s)).Len = int(n)
     return
+}
+
+// NoEscape hides a pointer from escape analysis. NoEscape is
+// the identity function but escape analysis doesn't think the
+// output depends on the input. NoEscape is inlined and currently
+// compiles down to zero instructions.
+// USE CAREFULLY!
+//go:nosplit
+//goland:noinspection GoVetUnsafePointer
+func NoEscape(p unsafe.Pointer) unsafe.Pointer {
+    x := uintptr(p)
+    return unsafe.Pointer(x ^ 0)
+}
+
+//go:nosplit
+func MoreStack(size uintptr)
+
+//go:nosplit
+func Add(ptr unsafe.Pointer, off uintptr) unsafe.Pointer {
+    return unsafe.Pointer(uintptr(ptr) + off)
+}
+
+// CanSizeResue
+func CanSizeResue(cap int) bool {
+    return cap <= int(option.LimitBufferSize)
 }

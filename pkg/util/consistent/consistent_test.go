@@ -18,9 +18,10 @@ package consistent
 
 import (
 	"bufio"
+	"crypto/rand"
 	"encoding/base64"
 	"errors"
-	"math/rand"
+	mathrand "math/rand"
 	"os"
 	"runtime"
 	"sort"
@@ -727,9 +728,9 @@ func TestConcurrentGetSet(t *testing.T) {
 		go func() {
 			for i := 0; i < 1000; i++ {
 				x.Set([]string{"abc", "def", "ghi", "jkl", "mno"})
-				time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
+				time.Sleep(time.Duration(mathrand.Intn(10)) * time.Millisecond)
 				x.Set([]string{"pqr", "stu", "vwx"})
-				time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
+				time.Sleep(time.Duration(mathrand.Intn(10)) * time.Millisecond)
 			}
 			wg.Done()
 		}()
@@ -746,7 +747,7 @@ func TestConcurrentGetSet(t *testing.T) {
 				if a != "def" && a != "vwx" {
 					t.Errorf("got %s, expected abc", a)
 				}
-				time.Sleep(time.Duration(rand.Intn(10)) * time.Millisecond)
+				time.Sleep(time.Duration(mathrand.Intn(10)) * time.Millisecond)
 			}
 			wg.Done()
 		}()

@@ -17,13 +17,13 @@ limitations under the License.
 package cfg
 
 import (
+	"os"
+
 	"github.com/creasty/defaults"
 	"github.com/go-playground/validator/v10"
 	"github.com/loggie-io/loggie/pkg/core/log"
 	"github.com/loggie-io/loggie/pkg/util/yaml"
 	"github.com/pkg/errors"
-	"io/ioutil"
-	"os"
 )
 
 type CommonCfg map[string]interface{}
@@ -132,7 +132,7 @@ func NewUnpack(raw []byte, config interface{}, err error) *UnPack {
 
 // UnPackFromFile create an Unpack struct from file
 func UnPackFromFile(path string, config interface{}) *UnPack {
-	content, err := ioutil.ReadFile(path)
+	content, err := os.ReadFile(path)
 	if err != nil {
 		err = errors.Errorf("read config error. err: %v", err)
 	}

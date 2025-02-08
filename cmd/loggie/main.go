@@ -24,8 +24,10 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 
+	"github.com/KimMachineGun/automemlimit/memlimit"
 	"github.com/loggie-io/loggie/cmd/subcmd"
 	"github.com/loggie-io/loggie/pkg/control"
 	"github.com/loggie-io/loggie/pkg/core/cfg"
@@ -52,6 +54,8 @@ var (
 	configType         string
 	nodeName           string
 )
+
+const DefaultMemlimitRatio = 0.9
 
 func init() {
 	hostName, _ := os.Hostname()
@@ -81,6 +85,20 @@ func main() {
 		log.Fatal("set maxprocs error: %v", err)
 	}
 	log.Info("real GOMAXPROCS %d", runtime.GOMAXPROCS(-1))
+
+	// Automatically set GOMEMLIMIT automatically
+	if _, err := memlimit.SetGoMemLimitWithOpts(
+		memlimit.WithRatio(DefaultMemlimitRatio),
+		memlimit.WithProvider(
+			memlimit.ApplyFallback(
+				memlimit.FromCgroup,
+				memlimit.FromSystem,
+			),
+		),
+	); err != nil {
+		log.Fatal("Failed to set GOMEMLIMIT automatically. err: %v", err)
+	}
+	log.Info("real GOMEMLIMIT set to %d", debug.SetMemoryLimit(-1))
 
 	global.NodeName = nodeName
 	log.Info("node name: %s", nodeName)

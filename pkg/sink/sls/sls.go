@@ -45,7 +45,7 @@ func makeSink(info pipeline.Info) api.Component {
 type Sink struct {
 	config *Config
 
-	client sls.ClientInterface
+	client       sls.ClientInterface
 	shutdownChan chan struct{}
 }
 
@@ -123,7 +123,7 @@ func (s *Sink) Stop() {
 		s.client.Close()
 	}
 
- 	if s.shutdownChan != nil {
+	if s.shutdownChan != nil {
 		close(s.shutdownChan)
 		s.shutdownChan = nil
 	}

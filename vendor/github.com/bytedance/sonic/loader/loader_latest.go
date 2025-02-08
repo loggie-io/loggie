@@ -1,5 +1,3 @@
-//go:build go1.16 && !go1.21
-// +build go1.16,!go1.21
 
 /*
  * Copyright 2021 ByteDance Inc.
@@ -20,7 +18,7 @@
 package loader
 
 import (
-    `github.com/bytedance/sonic/internal/rt`
+    `github.com/bytedance/sonic/loader/internal/rt`
 )
 
 // LoadFuncs loads only one function as module, and returns the function pointer
@@ -72,7 +70,7 @@ func (self Loader) LoadOne(text []byte, funcName string, frameSize int, argSize 
     }
     
     if localPtrs != nil {
-        locals := rt .StackMapBuilder{}
+        locals := rt.StackMapBuilder{}
         for _, b := range localPtrs {
             locals.AddField(b)
         }
