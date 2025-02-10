@@ -1,6 +1,6 @@
 module github.com/loggie-io/loggie
 
-go 1.18
+go 1.20
 
 require (
 	github.com/aliyun/aliyun-log-go-sdk v0.1.35
@@ -36,7 +36,7 @@ require (
 	github.com/twmb/franz-go v1.10.4
 	github.com/twmb/franz-go/pkg/sasl/kerberos v1.1.0
 	go.uber.org/atomic v1.7.0
-	go.uber.org/automaxprocs v1.5.1
+	go.uber.org/automaxprocs v1.6.0
 	golang.org/x/net v0.17.0
 	golang.org/x/text v0.13.0
 	golang.org/x/time v0.0.0-20220609170525-579cf78fd858
