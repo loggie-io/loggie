@@ -2,13 +2,13 @@
 // complete overhaul to be faster, more understandable, and optimal.
 //
 // For some points on how Java's strategy is flawed, see
-// https://github.com/Shopify/sarama/pull/1416/files/b29086bdaae0da7ce71eae3f854d50685fd6b631#r315005878
+// https://github.com/IBM/sarama/pull/1416/files/b29086bdaae0da7ce71eae3f854d50685fd6b631#r315005878
 package sticky
 
 import (
 	"math"
-	"sort"
 
+	"github.com/twmb/franz-go/pkg/kbin"
 	"github.com/twmb/franz-go/pkg/kmsg"
 )
 
@@ -22,9 +22,12 @@ import (
 
 // GroupMember is a Kafka group member.
 type GroupMember struct {
-	ID       string
-	Topics   []string
-	UserData []byte
+	ID          string
+	Topics      []string
+	UserData    []byte
+	Owned       []kmsg.ConsumerMemberMetadataOwnedPartition
+	Generation  int32
+	Cooperative bool
 }
 
 // Plan is the plan this package came up with (member => topic => partitions).
@@ -134,7 +137,7 @@ func (b *balancer) into() Plan {
 		// partOwners is created by topic, and partNums refers to
 		// indices in partOwners. If we sort by partNum, we have sorted
 		// topics and partitions.
-		sort.Sort(&partNums) //nolint:gosec // sorting the slice, not using the pointer across iter
+		sortPartNums(partNums)
 
 		// We can reuse partNums for our topic partitions.
 		topicParts := partNums[:0]
@@ -198,10 +201,6 @@ func (m *memberPartitions) takeEnd() int32 {
 func (m *memberPartitions) add(partNum int32) {
 	*m = append(*m, partNum)
 }
-
-func (m *memberPartitions) Len() int           { return len(*m) }
-func (m *memberPartitions) Less(i, j int) bool { return (*m)[i] < (*m)[j] }
-func (m *memberPartitions) Swap(i, j int)      { (*m)[i], (*m)[j] = (*m)[j], (*m)[i] }
 
 // membersPartitions maps members to their partitions.
 type membersPartitions []memberPartitions
@@ -294,13 +293,28 @@ func (b *balancer) parseMemberMetadata() {
 	partitionConsumersByGeneration := make([]memberGeneration, cap(b.partOwners))
 
 	const highBit uint32 = 1 << 31
-	s := kmsg.NewStickyMemberMetadata()
 	var memberPlan []topicPartition
 	var gen uint32
 
 	for _, member := range b.members {
-		resetSticky(&s)
-		memberPlan, gen = deserializeUserData(&s, member.UserData, memberPlan[:0])
+		// KAFKA-13715 / KIP-792: cooperative-sticky now includes a
+		// generation directly with the currently-owned partitions, and
+		// we can avoid deserializing UserData. This guards against
+		// some zombie issues (see KIP).
+		//
+		// The eager (sticky) balancer revokes all partitions before
+		// rejoining, so we cannot use Owned.
+		if member.Cooperative && member.Generation >= 0 {
+			memberPlan = memberPlan[:0]
+			for _, t := range member.Owned {
+				for _, p := range t.Partitions {
+					memberPlan = append(memberPlan, topicPartition{t.Topic, p})
+				}
+			}
+			gen = uint32(member.Generation)
+		} else {
+			memberPlan, gen = deserializeUserData(member.UserData, memberPlan[:0])
+		}
 		gen |= highBit
 		memberNum := b.memberNums[member.ID]
 		for _, topicPartition := range memberPlan {
@@ -345,33 +359,33 @@ type topicPartition struct {
 	partition int32
 }
 
-func resetSticky(s *kmsg.StickyMemberMetadata) {
-	s.CurrentAssignment = s.CurrentAssignment[:0]
-}
-
 // deserializeUserData returns the topic partitions a member was consuming and
 // the join generation it was consuming from.
 //
 // If anything fails or we do not understand the userdata parsing generation,
 // we return empty defaults. The member will just be assumed to have no
 // history.
-func deserializeUserData(s *kmsg.StickyMemberMetadata, userdata []byte, base []topicPartition) (memberPlan []topicPartition, generation uint32) {
-	if err := s.UnsafeReadFrom(userdata); err != nil {
-		return nil, 0
-	}
+func deserializeUserData(userdata []byte, base []topicPartition) (memberPlan []topicPartition, generation uint32) {
 	memberPlan = base[:0]
-	// A generation of -1 is just as good of a generation as 0, so we use 0
-	// and then use the high bit to signify this generation has been set.
-	if s.Generation >= 0 {
-		generation = uint32(s.Generation)
-	}
-	for _, topicAssignment := range s.CurrentAssignment {
-		for _, partition := range topicAssignment.Partitions {
+	b := kbin.Reader{Src: userdata}
+	for numAssignments := b.ArrayLen(); numAssignments > 0; numAssignments-- {
+		topic := b.UnsafeString()
+		for numPartitions := b.ArrayLen(); numPartitions > 0; numPartitions-- {
 			memberPlan = append(memberPlan, topicPartition{
-				topicAssignment.Topic,
-				partition,
+				topic,
+				b.Int32(),
 			})
 		}
+	}
+	if len(b.Src) > 0 {
+		// A generation of -1 is just as good of a generation as 0, so we use 0
+		// and then use the high bit to signify this generation has been set.
+		if generationI32 := b.Int32(); generationI32 > 0 {
+			generation = uint32(generationI32)
+		}
+	}
+	if b.Complete() != nil {
+		memberPlan = memberPlan[:0]
 	}
 	return
 }
@@ -453,22 +467,49 @@ func (b *balancer) assignUnassignedAndInitGraph() {
 	}
 
 	b.tryRestickyStales(topicPotentials, partitionConsumers)
-	for _, potentials := range topicPotentials {
-		(&membersByPartitions{potentials, b.plan}).init()
+
+	// For each member, we now sort their current partitions by partition,
+	// then topic. Sorting the lowest numbers first means that once we
+	// steal from the end (when adding a member), we steal equally across
+	// all topics. This benefits the standard case the most, where all
+	// members consume equally.
+	for memberNum := range b.plan {
+		b.sortMemberByLiteralPartNum(memberNum)
 	}
 
-	for partNum, owner := range partitionConsumers {
-		if owner.memberNum != unassignedPart {
-			continue
+	if !b.isComplex && len(topicPotentials) > 0 {
+		potentials := topicPotentials[0]
+		(&membersByPartitions{potentials, b.plan}).init()
+		for partNum, owner := range partitionConsumers {
+			if owner.memberNum != unassignedPart {
+				continue
+			}
+			assigned := potentials[0]
+			b.plan[assigned].add(int32(partNum))
+			(&membersByPartitions{potentials, b.plan}).fix0()
+			partitionConsumers[partNum].memberNum = assigned
 		}
-		potentials := topicPotentials[b.partOwners[partNum]]
-		if len(potentials) == 0 {
-			continue
+	} else {
+		for partNum, owner := range partitionConsumers {
+			if owner.memberNum != unassignedPart {
+				continue
+			}
+			potentials := topicPotentials[b.partOwners[partNum]]
+			if len(potentials) == 0 {
+				continue
+			}
+			leastConsumingPotential := potentials[0]
+			leastConsuming := len(b.plan[leastConsumingPotential])
+			for _, potential := range potentials[1:] {
+				potentialConsuming := len(b.plan[potential])
+				if potentialConsuming < leastConsuming {
+					leastConsumingPotential = potential
+					leastConsuming = potentialConsuming
+				}
+			}
+			b.plan[leastConsumingPotential].add(int32(partNum))
+			partitionConsumers[partNum].memberNum = leastConsumingPotential
 		}
-		assigned := potentials[0]
-		b.plan[assigned].add(int32(partNum))
-		(&membersByPartitions{potentials, b.plan}).fix0()
-		partitionConsumers[partNum].memberNum = assigned
 	}
 
 	// Lastly, with everything assigned, we build our steal graph for
@@ -516,7 +557,7 @@ func (b *balancer) tryRestickyStales(
 		currentOwner := partitionConsumers[staleNum].memberNum
 		lastOwnerPartitions := &b.plan[lastOwnerNum]
 		currentOwnerPartitions := &b.plan[currentOwner]
-		if lastOwnerPartitions.Len()+1 < currentOwnerPartitions.Len() {
+		if len(*lastOwnerPartitions)+1 < len(*currentOwnerPartitions) {
 			currentOwnerPartitions.remove(staleNum)
 			lastOwnerPartitions.add(staleNum)
 		}
@@ -667,8 +708,8 @@ func (b *balancer) reassignPartition(src, dst uint16, partNum int32) {
 	srcPartitions := &b.plan[src]
 	dstPartitions := &b.plan[dst]
 
-	oldSrcLevel := srcPartitions.Len()
-	oldDstLevel := dstPartitions.Len()
+	oldSrcLevel := len(*srcPartitions)
+	oldDstLevel := len(*dstPartitions)
 
 	srcPartitions.remove(partNum)
 	dstPartitions.add(partNum)

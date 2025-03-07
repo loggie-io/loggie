@@ -18,8 +18,8 @@
 //
 // Thus, whenever you initialize a struct from this package, do the following:
 //
-//     struct := kmsg.NewFoo()
-//     struct.Field = "value I want to set"
+//	struct := kmsg.NewFoo()
+//	struct.Field = "value I want to set"
 //
 // Most of this package is generated, but a few things are manual. What is
 // manual: all interfaces, the RequestFormatter, record / message / record
@@ -32,16 +32,6 @@ import (
 
 	"github.com/twmb/franz-go/pkg/kmsg/internal/kbin"
 )
-
-// GroupMemberMetadata is a type alias for ConsumerMemberMetadata. This is the
-// old deprecated name. The old name is kept around as part of API guarantees
-// in the kgo package.
-type GroupMemberMetadata = ConsumerMemberMetadata
-
-// GroupMemberAssignment is a type alias for ConsumerMemberAssignment. This is
-// the old deprecated name. The old name is kept around as part of API
-// guarantees in the kgo package.
-type GroupMemberAssignment = ConsumerMemberAssignment
 
 //go:generate cp ../kbin/primitives.go internal/kbin/
 
@@ -147,7 +137,8 @@ type UnsafeReadFrom interface {
 }
 
 // ThrottleResponse represents a response that could have a throttle applied by
-// Kafka.
+// Kafka. Any response that implements ThrottleResponse also implements
+// SetThrottleResponse.
 //
 // Kafka 2.0.0 switched throttles from being applied before responses to being
 // applied after responses.
@@ -157,10 +148,27 @@ type ThrottleResponse interface {
 	Throttle() (int32, bool)
 }
 
-// TimeoutRequest represents a request that can have a TimeoutMillis field.
+// SetThrottleResponse sets the throttle in a response that can have a throttle
+// applied. Any kmsg interface that implements ThrottleResponse also implements
+// SetThrottleResponse.
+type SetThrottleResponse interface {
+	// SetThrottle sets the response's throttle millis value.
+	SetThrottle(int32)
+}
+
+// TimeoutRequest represents a request that has a TimeoutMillis field.
+// Any request that implements TimeoutRequest also implements SetTimeoutRequest.
 type TimeoutRequest interface {
 	// Timeout returns the request's timeout millis value.
 	Timeout() int32
+}
+
+// SetTimeoutRequest sets the timeout in a request that can have a timeout
+// applied. Any kmsg interface that implements ThrottleRequest also implements
+// SetThrottleRequest.
+type SetTimeoutRequest interface {
+	// SetTimeout sets the request's timeout millis value.
+	SetTimeout(timeoutMillis int32)
 }
 
 // RequestFormatter formats requests.

@@ -7,6 +7,8 @@ package kversion
 import (
 	"bytes"
 	"fmt"
+	"regexp"
+	"sync"
 	"text/tabwriter"
 
 	"github.com/twmb/franz-go/pkg/kmsg"
@@ -27,6 +29,85 @@ type Versions struct {
 	// for 52, 53, 54, 55, but it was not a part of the 2.7.0 release,
 	// so ApiVersionsResponse goes from 51 to 56.
 	k2v []int16
+}
+
+var (
+	reFromString     *regexp.Regexp
+	reFromStringOnce sync.Once
+)
+
+var versions = []struct {
+	name string
+	v    *Versions
+}{
+	{"v0.8.0", V0_8_0()},
+	{"v0.8.1", V0_8_1()},
+	{"v0.8.2", V0_8_2()},
+	{"v0.9.0", V0_9_0()},
+	{"v0.10.0", V0_10_0()},
+	{"v0.10.1", V0_10_1()},
+	{"v0.10.2", V0_10_2()},
+	{"v0.11.0", V0_11_0()},
+	{"v1.0", V1_0_0()},
+	{"v1.1", V1_1_0()},
+	{"v2.0", V2_0_0()},
+	{"v2.1", V2_1_0()},
+	{"v2.2", V2_2_0()},
+	{"v2.3", V2_3_0()},
+	{"v2.4", V2_4_0()},
+	{"v2.5", V2_5_0()},
+	{"v2.6", V2_6_0()},
+	{"v2.7", V2_7_0()},
+	{"v2.8", V2_8_0()},
+	{"v3.0", V3_0_0()},
+	{"v3.1", V3_1_0()},
+	{"v3.2", V3_2_0()},
+	{"v3.3", V3_3_0()},
+	{"v3.4", V3_4_0()},
+	{"v3.5", V3_5_0()},
+	{"v3.6", V3_6_0()},
+	{"v3.7", V3_7_0()},
+	{"v3.8", V3_8_0()},
+}
+
+// VersionStrings returns all recognized versions, minus any patch, that can be
+// used as input to FromString.
+func VersionStrings() []string {
+	var vs []string
+	for _, v := range versions {
+		vs = append(vs, v.name)
+	}
+	return vs
+}
+
+// FromString returns a Versions from v.
+// The expected input is:
+//   - for v0, v0.#.# or v0.#.#.#
+//   - for v1, v1.# or v1.#.#
+//
+// The "v" is optional.
+func FromString(v string) *Versions {
+	reFromStringOnce.Do(func() {
+		// 0: entire string
+		// 1: v1+ match, minus patch
+		// 2: v0 match, minus subpatch
+		reFromString = regexp.MustCompile(`^(?:(v?[1-9]+\.\d+)(?:\.\d+)?|(v?0\.\d+\.\d+)(?:\.\d+)?)$`)
+	})
+	m := reFromString.FindStringSubmatch(v)
+	if m == nil {
+		return nil
+	}
+	v = m[1]
+	if m[2] != "" {
+		v = m[2]
+	}
+	withv := "v" + v
+	for _, v2 := range versions {
+		if v2.name == v || v2.name == withv {
+			return v2.v
+		}
+	}
+	return nil
 }
 
 // FromApiVersionsResponse returns a Versions from a kmsg.ApiVersionsResponse.
@@ -125,20 +206,12 @@ type guessOpt struct{ fn func(*guessCfg) }
 func (opt guessOpt) apply(cfg *guessCfg) { opt.fn(cfg) }
 
 // SkipKeys skips the given keys while guessing versions.
-//
-// The current default is to skip keys that are only used by brokers:
-//
-//	 4: LeaderAndISR
-//	 5: StopReplica
-//	 6: UpdateMetadata
-//	 7: ControlledShutdown
-//	27: WriteTxnMarkers
 func SkipKeys(keys ...int16) VersionGuessOpt {
 	return guessOpt{func(cfg *guessCfg) { cfg.skipKeys = keys }}
 }
 
 // TryRaftBroker changes from guessing the version for a classical ZooKeeper
-// based broker to guessing for a raft based broker (v2.8.0+).
+// based broker to guessing for a raft based broker (v2.8+).
 //
 // Note that with raft, there can be a TryRaftController attempt as well.
 func TryRaftBroker() VersionGuessOpt {
@@ -147,7 +220,7 @@ func TryRaftBroker() VersionGuessOpt {
 
 // TryRaftController changes from guessing the version for a classical
 // ZooKeeper based broker to guessing for a raft based controller broker
-// (v2.8.0+).
+// (v2.8+).
 //
 // Note that with raft, there can be a TryRaftBroker attempt as well. Odds are
 // that if you are an end user speaking to a raft based Kafka cluster, you are
@@ -164,7 +237,7 @@ type guessCfg struct {
 
 // VersionGuess attempts to guess which version of Kafka these versions belong
 // to. If an exact match can be determined, this returns a string in the format
-// v0.#.# or v#.# (depending on whether Kafka is pre-1.0.0 or post). For
+// v0.#.# or v#.# (depending on whether Kafka is pre-1.0 or post). For
 // example, v0.8.0 or v2.7.
 //
 // Patch numbers are not included in the guess as it is not possible to
@@ -179,10 +252,89 @@ type guessCfg struct {
 // Options can be specified to change how version guessing is performed, for
 // example, certain keys can be skipped, or the guessing can try evaluating the
 // versions as Raft broker based versions.
+//
+// Internally, this function tries guessing the version against both KRaft and
+// Kafka APIs. The more exact match is returned.
 func (vs *Versions) VersionGuess(opts ...VersionGuessOpt) string {
+	standard := vs.versionGuess(opts...)
+	raftBroker := vs.versionGuess(append(opts, TryRaftBroker())...)
+	raftController := vs.versionGuess(append(opts, TryRaftController())...)
+
+	// If any of these are exact, return the exact guess.
+	for _, g := range []guess{
+		standard,
+		raftBroker,
+		raftController,
+	} {
+		if g.how == guessExact {
+			return g.String()
+		}
+	}
+
+	// If any are atLeast, that means it is newer than we can guess and we
+	// return the highest version.
+	for _, g := range []guess{
+		standard,
+		raftBroker,
+		raftController,
+	} {
+		if g.how == guessAtLeast {
+			return g.String()
+		}
+	}
+
+	// This is a custom version. We could do some advanced logic to try to
+	// return highest of all three guesses, but that may be inaccurate:
+	// KRaft may detect a higher guess because not all requests exist in
+	// KRaft. Instead, we just return our standard guess.
+	return standard.String()
+}
+
+type guess struct {
+	v1  string
+	v2  string // for between
+	how int8
+}
+
+const (
+	guessExact = iota
+	guessAtLeast
+	guessCustomUnknown
+	guessCustomAtLeast
+	guessBetween
+	guessNotEven
+)
+
+func (g guess) String() string {
+	switch g.how {
+	case guessExact:
+		return g.v1
+	case guessAtLeast:
+		return "at least " + g.v1
+	case guessCustomUnknown:
+		return "unknown custom version"
+	case guessCustomAtLeast:
+		return "unknown custom version at least " + g.v1
+	case guessBetween:
+		return "between " + g.v1 + " and " + g.v2
+	case guessNotEven:
+		return "not even " + g.v1
+	}
+	return g.v1
+}
+
+func (vs *Versions) versionGuess(opts ...VersionGuessOpt) guess {
 	cfg := guessCfg{
 		listener: zkBroker,
-		skipKeys: []int16{4, 5, 6, 7, 27},
+		// Envelope was added in 2.7 for kraft and zkBroker in 3.4; we
+		// need to skip it for 2.7 through 3.4 otherwise the version
+		// detection fails. We can just skip it generally since there
+		// are enough differentiating factors that accurately detecting
+		// envelope doesn't matter.
+		//
+		// TODO: add introduced-version to differentiate some specific
+		// keys.
+		skipKeys: []int16{4, 5, 6, 7, 27, 52, 53, 54, 55, 56, 57, 58, 59, 62, 63, 64, 67, 74, 75},
 	}
 	for _, opt := range opts {
 		opt.apply(&cfg)
@@ -195,6 +347,7 @@ func (vs *Versions) VersionGuess(opts ...VersionGuessOpt) string {
 
 	var last string
 	cmp := make(map[int16]int16, len(maxTip))
+	cmpskip := make(map[int16]int16)
 	for _, comparison := range []struct {
 		cmp  listenerKeys
 		name string
@@ -222,10 +375,21 @@ func (vs *Versions) VersionGuess(opts ...VersionGuessOpt) string {
 		{max310, "v3.1"},
 		{max320, "v3.2"},
 		{max330, "v3.3"},
+		{max340, "v3.4"},
+		{max350, "v3.5"},
+		{max360, "v3.6"},
+		{max370, "v3.7"},
+		{max380, "v3.8"},
 	} {
 		for k, v := range comparison.cmp.filter(cfg.listener) {
-			if !skip[int16(k)] && v != -1 {
-				cmp[int16(k)] = v
+			if v == -1 {
+				continue
+			}
+			k16 := int16(k)
+			if skip[k16] {
+				cmpskip[k16] = v
+			} else {
+				cmp[k16] = v
 			}
 		}
 
@@ -234,7 +398,11 @@ func (vs *Versions) VersionGuess(opts ...VersionGuessOpt) string {
 		for k, v := range vs.k2v {
 			k16 := int16(k)
 			if skip[k16] {
-				continue
+				skipv, ok := cmpskip[k16]
+				if v == -1 || !ok {
+					continue
+				}
+				cmp[k16] = skipv
 			}
 			cmpv, has := cmp[k16]
 			if has {
@@ -274,30 +442,30 @@ func (vs *Versions) VersionGuess(opts ...VersionGuessOpt) string {
 		case under && over:
 			// Regardless of equal being true or not, this is a custom version.
 			if last != "" {
-				return "unknown custom version at least " + last
+				return guess{v1: last, how: guessCustomAtLeast}
 			}
-			return "unknown custom version"
+			return guess{v1: last, how: guessCustomUnknown}
 
 		case under:
 			// Regardless of equal being true or not, we have not yet hit
 			// this version.
 			if last != "" {
-				return "between " + last + " and " + current
+				return guess{v1: last, v2: current, how: guessBetween}
 			}
-			return "not even " + current
+			return guess{v1: current, how: guessNotEven}
 
 		case over:
 			// Regardless of equal being true or not, we try again.
 			last = current
 
 		case equal:
-			return current
+			return guess{v1: current, how: guessExact}
 		}
 		// At least one of under, equal, or over must be true, so there
 		// is no default case.
 	}
 
-	return "at least " + last
+	return guess{v1: last, how: guessAtLeast}
 }
 
 // String returns a string representation of the versions; the format may
@@ -350,6 +518,11 @@ func V3_0_0() *Versions  { return zkBrokerOf(max300) }
 func V3_1_0() *Versions  { return zkBrokerOf(max310) }
 func V3_2_0() *Versions  { return zkBrokerOf(max320) }
 func V3_3_0() *Versions  { return zkBrokerOf(max330) }
+func V3_4_0() *Versions  { return zkBrokerOf(max340) }
+func V3_5_0() *Versions  { return zkBrokerOf(max350) }
+func V3_6_0() *Versions  { return zkBrokerOf(max360) }
+func V3_7_0() *Versions  { return zkBrokerOf(max370) }
+func V3_8_0() *Versions  { return zkBrokerOf(max380) }
 
 func zkBrokerOf(lks listenerKeys) *Versions {
 	return &Versions{lks.filter(zkBroker)}
@@ -493,7 +666,7 @@ var max0110 = nextMax(max0102, func(v listenerKeys) listenerKeys {
 		k(zkBroker, rBroker), // 23 offset for leader epoch KAFKA-1211 0baea2ac13 KIP-101
 
 		k(zkBroker, rBroker), // 24 add partitions to txn KAFKA-4990 865d82af2c KIP-98 (raft 3.0 6e857c531f14d07d5b05f174e6063a124c917324)
-		k(zkBroker),          // 25 add offsets to txn (same, same raft)
+		k(zkBroker, rBroker), // 25 add offsets to txn (same, same raft)
 		k(zkBroker, rBroker), // 26 end txn (same, same raft)
 		k(zkBroker, rBroker), // 27 write txn markers (same)
 		k(zkBroker, rBroker), // 28 txn offset commit (same, same raft)
@@ -754,8 +927,8 @@ var max270 = nextMax(max260, func(v listenerKeys) listenerKeys {
 	v[26].inc() // 2 end txn
 
 	v = append(v,
-		k(zkBroker), // 50 describe user scram creds, KAFKA-10259 e8524ccd8fca0caac79b844d87e98e9c055f76fb KIP-554
-		k(zkBroker), // 51 alter user scram creds, same
+		k(zkBroker, rBroker, rController), // 50 describe user scram creds, KAFKA-10259 e8524ccd8fca0caac79b844d87e98e9c055f76fb KIP-554; 38c409cf33c kraft
+		k(zkBroker, rBroker, rController), // 51 alter user scram creds, same
 	)
 
 	// KAFKA-10435 634c9175054cc69d10b6da22ea1e95edff6a4747 KIP-595
@@ -788,7 +961,7 @@ var max270 = nextMax(max260, func(v listenerKeys) listenerKeys {
 var max280 = nextMax(max270, func(v listenerKeys) listenerKeys {
 	// KAFKA-10181 KAFKA-10181 KIP-590
 	v = append(v,
-		k(rController), // 58 envelope
+		k(zkBroker, rController), // 58 envelope, controller first, zk in KAFKA-14446 8b045dcbf6b89e1a9594ff95642d4882765e4b0d KIP-866 Kafka 3.4
 	)
 
 	// KAFKA-10729 85f94d50271c952c3e9ee49c4fc814c0da411618 KIP-482
@@ -820,7 +993,7 @@ var max280 = nextMax(max270, func(v listenerKeys) listenerKeys {
 
 	// KAFKA-12204 / KAFKA-10851 302eee63c479fd4b955c44f1058a5e5d111acb57 KIP-700
 	v = append(v,
-		k(zkBroker, rBroker), // 60 describe cluster
+		k(zkBroker, rBroker, rController), // 60 describe cluster; rController in KAFKA-15396 41b695b6e30baa4243d9ca4f359b833e17ed0e77 KIP-919
 	)
 
 	// KAFKA-12212 7a1d1d9a69a241efd68e572badee999229b3942f KIP-700
@@ -934,13 +1107,92 @@ var max330 = nextMax(max320, func(v listenerKeys) listenerKeys {
 	return v
 })
 
+var max340 = nextMax(max330, func(v listenerKeys) listenerKeys {
+	// KAFKA-14304 7b7e40a536a79cebf35cc278b9375c8352d342b9 KIP-866
+	// KAFKA-14448 67c72596afe58363eceeb32084c5c04637a33831 added BrokerRegistration
+	// KAFKA-14493 db490707606855c265bc938e1b236070e0e2eba5 changed BrokerRegistration
+	// KAFKA-14304 0bb05d8679b684ad8fbb2eb40dfc00066186a75a changed BrokerRegistration back to a bool...
+	// 5b521031edea8ea7cbcca7dc24a58429423740ff added tag to ApiVersions
+	v[4].inc()  // 7 leader and isr
+	v[5].inc()  // 4 stop replica
+	v[6].inc()  // 8 update metadata
+	v[62].inc() // 1 broker registration
+	return v
+})
+
+var max350 = nextMax(max340, func(v listenerKeys) listenerKeys {
+	// KAFKA-13369 7146ac57ba9ddd035dac992b9f188a8e7677c08d KIP-405
+	v[1].inc() // 14 fetch
+	v[2].inc() // 8 list offsets
+
+	v[1].inc()  // 15 fetch // KAFKA-14617 79b5f7f1ce2 KIP-903
+	v[56].inc() // 3 alter partition // KAFKA-14617 8c88cdb7186b1d594f991eb324356dcfcabdf18a KIP-903
+	return v
+})
+
+var max360 = nextMax(max350, func(v listenerKeys) listenerKeys {
+	// KAFKA-14402 29a1a16668d76a1cc04ec9e39ea13026f2dce1de KIP-890
+	// Later commit swapped to stable
+	v[24].inc() // 4 add partitions to txn
+	return v
+})
+
+var max370 = nextMax(max360, func(v listenerKeys) listenerKeys {
+	// KAFKA-15661 c8f687ac1505456cb568de2b60df235eb1ceb5f0 KIP-951
+	v[0].inc() // 10 produce
+	v[1].inc() // 16 fetch
+
+	// 7826d5fc8ab695a5ad927338469ddc01b435a298 KIP-848
+	// (change introduced in 3.6 but was marked unstable and not visible)
+	v[8].inc() // 9 offset commit
+	// KAFKA-14499 7054625c45dc6edb3c07271fe4a6c24b4638424f KIP-848 (and prior)
+	v[9].inc() // 9 offset fetch
+
+	// KAFKA-15368 41b695b6e30baa4243d9ca4f359b833e17ed0e77 KIP-919
+	// (added rController as well, see above)
+	v[60].inc() // 1 describe cluster
+
+	// KAFKA-14391 3be7f7d611d0786f2f98159d5c7492b0d94a2bb7 KIP-848
+	// as well as some patches following
+	v = append(v,
+		k(zkBroker, rBroker), // 68 consumer group heartbeat
+	)
+
+	return v
+})
+
+var max380 = nextMax(max370, func(v listenerKeys) listenerKeys {
+	// KAFKA-16314 2e8d69b78ca52196decd851c8520798aa856c073 KIP-890
+	// Then error rename in cf1ba099c0723f9cf65dda4cd334d36b7ede6327
+	v[0].inc()  // 11 produce
+	v[10].inc() // 5 find coordinator
+	v[22].inc() // 5 init producer id
+	v[24].inc() // 5 add partitions to txn
+	v[25].inc() // 4 add offsets to txn
+	v[26].inc() // 4 end txn
+	v[28].inc() // 4 txn offset commit
+
+	// KAFKA-15460 68745ef21a9d8fe0f37a8c5fbc7761a598718d46 KIP-848
+	v[16].inc() // 5 list groups
+
+	// KAFKA-14509 90e646052a17e3f6ec1a013d76c1e6af2fbb756e KIP-848 added
+	// 7b0352f1bd9b923b79e60b18b40f570d4bfafcc0
+	// b7c99e22a77392d6053fe231209e1de32b50a98b
+	// 68389c244e720566aaa8443cd3fc0b9d2ec4bb7a
+	// 5f410ceb04878ca44d2d007655155b5303a47907 stabilized
+	v = append(v,
+		k(zkBroker, rBroker), // 69 consumer group describe
+	)
+
+	// KAFKA-16265 b4e96913cc6c827968e47a31261e0bd8fdf677b5 KIP-994 (part 1)
+	v[66].inc()
+
+	return v
+})
+
 var (
-	maxStable = max330
+	maxStable = max380
 	maxTip    = nextMax(maxStable, func(v listenerKeys) listenerKeys {
-		// KAFKA-14304 7b7e40a536a79cebf35cc278b9375c8352d342b9 KIP-866
-		v[4].inc() // 7 leader and isr
-		v[5].inc() // 4 stop replica
-		v[6].inc() // 8 update metadata
 		return v
 	})
 )

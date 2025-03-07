@@ -8,7 +8,12 @@ import (
 	"sync/atomic"
 
 	"github.com/twmb/franz-go/pkg/kerr"
+	"github.com/twmb/franz-go/pkg/kmsg"
 )
+
+/////////////
+// HELPERS // -- ugly types to eliminate the toil of nil maps and lookups
+/////////////
 
 func dupmsi32(m map[string]int32) map[string]int32 {
 	d := make(map[string]int32, len(m))
@@ -71,11 +76,70 @@ func (m mtps) String() string {
 	return sb.String()
 }
 
+type mtmps map[string]map[int32]struct{} // map of topics to map of partitions
+
+func (m *mtmps) add(t string, p int32) {
+	if *m == nil {
+		*m = make(mtmps)
+	}
+	mps := (*m)[t]
+	if mps == nil {
+		mps = make(map[int32]struct{})
+		(*m)[t] = mps
+	}
+	mps[p] = struct{}{}
+}
+
+func (m *mtmps) addt(t string) {
+	if *m == nil {
+		*m = make(mtmps)
+	}
+	mps := (*m)[t]
+	if mps == nil {
+		mps = make(map[int32]struct{})
+		(*m)[t] = mps
+	}
+}
+
+func (m mtmps) onlyt(t string) bool {
+	if m == nil {
+		return false
+	}
+	ps, exists := m[t]
+	return exists && len(ps) == 0
+}
+
+func (m mtmps) remove(t string, p int32) {
+	if m == nil {
+		return
+	}
+	mps, exists := m[t]
+	if !exists {
+		return
+	}
+	delete(mps, p)
+	if len(mps) == 0 {
+		delete(m, t)
+	}
+}
+
+////////////
+// PAUSED // -- types for pausing topics and partitions
+////////////
+
 type pausedTopics map[string]pausedPartitions
 
 type pausedPartitions struct {
 	all bool
 	m   map[int32]struct{}
+}
+
+func (m pausedTopics) t(topic string) (pausedPartitions, bool) {
+	if len(m) == 0 { // potentially nil
+		return pausedPartitions{}, false
+	}
+	pps, exists := m[topic]
+	return pps, exists
 }
 
 func (m pausedTopics) has(topic string, partition int32) (paused bool) {
@@ -174,6 +238,10 @@ func (m pausedTopics) clone() pausedTopics {
 	return dup
 }
 
+//////////
+// GUTS // -- the key types for storing important metadata for topics & partitions
+//////////
+
 func newTopicPartitions() *topicPartitions {
 	parts := new(topicPartitions)
 	parts.v.Store(new(topicPartitionsData))
@@ -190,8 +258,6 @@ type topicPartitions struct {
 }
 
 func (t *topicPartitions) load() *topicPartitionsData { return t.v.Load().(*topicPartitionsData) }
-
-var noTopicsPartitions = newTopicsPartitions()
 
 func newTopicsPartitions() *topicsPartitions {
 	var t topicsPartitions
@@ -312,7 +378,7 @@ func (cl *Client) storePartitionsUpdate(topic string, l *topicPartitions, lv *to
 		return
 	}
 
-	// If we loaded no partitions because of a retriable error, we signal
+	// If we loaded no partitions because of a retryable error, we signal
 	// the waiting goroutine that a try happened. It is possible the
 	// goroutine is quitting and will not be draining unknownWait, so we do
 	// not require the send.
@@ -412,6 +478,8 @@ type topicPartitionsData struct {
 	isInternal         bool
 	partitions         []*topicPartition // partition num => partition
 	writablePartitions []*topicPartition // subset of above
+	topic              string
+	when               int64
 }
 
 // topicPartition contains all information from Kafka for a topic's partition,
@@ -444,6 +512,13 @@ type topicPartition struct {
 	cursor  *cursor
 }
 
+func (tp *topicPartition) partition() int32 {
+	if tp.records != nil {
+		return tp.records.partition
+	}
+	return tp.cursor.partition
+}
+
 // Contains stuff that changes on metadata update that we copy into a cursor or
 // recBuf.
 type topicPartitionData struct {
@@ -466,7 +541,7 @@ type topicPartitionData struct {
 // has changed. This moves record production from one sink to the other; this
 // must be done such that records produced during migration follow those
 // already buffered.
-func (old *topicPartition) migrateProductionTo(new *topicPartition) {
+func (old *topicPartition) migrateProductionTo(new *topicPartition) { //nolint:revive // old/new naming makes this clearer
 	// First, remove our record buffer from the old sink.
 	old.records.sink.removeRecBuf(old.records)
 
@@ -497,12 +572,11 @@ func (old *topicPartition) migrateProductionTo(new *topicPartition) {
 // This is a little bit different from above, in that we do this logic only
 // after stopping a consumer session. With the consumer session stopped, we
 // have fewer concurrency issues to worry about.
-func (old *topicPartition) migrateCursorTo(
+func (old *topicPartition) migrateCursorTo( //nolint:revive // old/new naming makes this clearer
 	new *topicPartition,
-	reloadOffsets *listOrEpochLoads,
-	stopConsumerSession func(),
+	css *consumerSessionStopper,
 ) {
-	stopConsumerSession()
+	css.stop()
 
 	old.cursor.source.removeCursor(old.cursor)
 
@@ -521,7 +595,7 @@ func (old *topicPartition) migrateCursorTo(
 		// We use it so that the epoch load can finish using it
 		// properly.
 		old.cursor.use()
-		reloadOffsets.addLoad(old.cursor.topic, old.cursor.partition, loadTypeEpoch, offsetLoad{
+		css.reloadOffsets.addLoad(old.cursor.topic, old.cursor.partition, loadTypeEpoch, offsetLoad{
 			replica: -1,
 			Offset: Offset{
 				at:    old.cursor.offset,
@@ -534,4 +608,315 @@ func (old *topicPartition) migrateCursorTo(
 
 	old.cursor.source.addCursor(old.cursor)
 	new.cursor = old.cursor
+}
+
+type kip951move struct {
+	recBufs map[*recBuf]topicPartitionData
+	cursors map[*cursor]topicPartitionData
+	brokers []BrokerMetadata
+}
+
+func (k *kip951move) empty() bool {
+	return len(k.brokers) == 0
+}
+
+func (k *kip951move) hasRecBuf(rb *recBuf) bool {
+	if k == nil || k.recBufs == nil {
+		return false
+	}
+	_, ok := k.recBufs[rb]
+	return ok
+}
+
+func (k *kip951move) maybeAddProducePartition(resp *kmsg.ProduceResponse, p *kmsg.ProduceResponseTopicPartition, rb *recBuf) bool {
+	if resp.GetVersion() < 10 ||
+		p.ErrorCode != kerr.NotLeaderForPartition.Code ||
+		len(resp.Brokers) == 0 ||
+		p.CurrentLeader.LeaderID < 0 ||
+		p.CurrentLeader.LeaderEpoch < 0 {
+		return false
+	}
+	if len(k.brokers) == 0 {
+		for _, rb := range resp.Brokers {
+			b := BrokerMetadata{
+				NodeID: rb.NodeID,
+				Host:   rb.Host,
+				Port:   rb.Port,
+				Rack:   rb.Rack,
+			}
+			k.brokers = append(k.brokers, b)
+		}
+	}
+	if k.recBufs == nil {
+		k.recBufs = make(map[*recBuf]topicPartitionData)
+	}
+	k.recBufs[rb] = topicPartitionData{
+		leader:      p.CurrentLeader.LeaderID,
+		leaderEpoch: p.CurrentLeader.LeaderEpoch,
+	}
+	return true
+}
+
+func (k *kip951move) maybeAddFetchPartition(resp *kmsg.FetchResponse, p *kmsg.FetchResponseTopicPartition, c *cursor) bool {
+	if resp.GetVersion() < 16 ||
+		p.ErrorCode != kerr.NotLeaderForPartition.Code ||
+		len(resp.Brokers) == 0 ||
+		p.CurrentLeader.LeaderID < 0 ||
+		p.CurrentLeader.LeaderEpoch < 0 {
+		return false
+	}
+
+	if len(k.brokers) == 0 {
+		for _, rb := range resp.Brokers {
+			b := BrokerMetadata{
+				NodeID: rb.NodeID,
+				Host:   rb.Host,
+				Port:   rb.Port,
+				Rack:   rb.Rack,
+			}
+			k.brokers = append(k.brokers, b)
+		}
+	}
+	if k.cursors == nil {
+		k.cursors = make(map[*cursor]topicPartitionData)
+	}
+	k.cursors[c] = topicPartitionData{
+		leader:      p.CurrentLeader.LeaderID,
+		leaderEpoch: p.CurrentLeader.LeaderEpoch,
+	}
+	return true
+}
+
+func (k *kip951move) ensureSinksAndSources(cl *Client) {
+	cl.sinksAndSourcesMu.Lock()
+	defer cl.sinksAndSourcesMu.Unlock()
+
+	ensure := func(leader int32) {
+		if _, exists := cl.sinksAndSources[leader]; exists {
+			return
+		}
+		cl.sinksAndSources[leader] = sinkAndSource{
+			sink:   cl.newSink(leader),
+			source: cl.newSource(leader),
+		}
+	}
+
+	for _, td := range k.recBufs {
+		ensure(td.leader)
+	}
+	for _, td := range k.cursors {
+		ensure(td.leader)
+	}
+}
+
+func (k *kip951move) ensureBrokers(cl *Client) {
+	if len(k.brokers) == 0 {
+		return
+	}
+
+	kbs := make([]kmsg.MetadataResponseBroker, 0, len(k.brokers))
+	for _, b := range k.brokers {
+		kbs = append(kbs, kmsg.MetadataResponseBroker{
+			NodeID: b.NodeID,
+			Host:   b.Host,
+			Port:   b.Port,
+			Rack:   b.Rack,
+		})
+	}
+	cl.updateBrokers(kbs)
+}
+
+func (k *kip951move) maybeBeginMove(cl *Client) {
+	if k.empty() {
+		return
+	}
+	// We want to do the move independent of whatever is calling us, BUT we
+	// want to ensure it is not concurrent with a metadata request.
+	go cl.blockingMetadataFn(func() {
+		k.ensureBrokers(cl)
+		k.ensureSinksAndSources(cl)
+		k.doMove(cl)
+	})
+}
+
+func (k *kip951move) doMove(cl *Client) {
+	// Moving partitions is theoretically simple, but the client is written
+	// in a confusing way around concurrency.
+	//
+	// The problem is that topicPartitionsData is read-only after
+	// initialization. Updates are done via atomic stores of the containing
+	// topicPartitionsData struct. Moving a single partition requires some
+	// deep copying.
+
+	// oldNew pairs what NEEDS to be atomically updated (old; left value)
+	// with the value that WILL be stored (new; right value).
+	type oldNew struct {
+		l *topicPartitions
+		r *topicPartitionsData
+	}
+	topics := make(map[string]oldNew)
+
+	// getT returns the oldNew for the topic, performing a shallow clone of
+	// the old whole-topic struct.
+	getT := func(m topicsPartitionsData, topic string) (oldNew, bool) {
+		lr, ok := topics[topic]
+		if !ok {
+			l := m[topic]
+			if l == nil {
+				return oldNew{}, false
+			}
+			dup := *l.load()
+			r := &dup
+			r.writablePartitions = append([]*topicPartition{}, r.writablePartitions...)
+			r.partitions = append([]*topicPartition{}, r.partitions...)
+			lr = oldNew{l, r}
+			topics[topic] = lr
+		}
+		return lr, true
+	}
+
+	// modifyP returns the old topicPartition and a new one that will be
+	// used in migrate<Fn>To. The new topicPartition only contains the sink
+	// and topicPartitionData that will be copied into old under old's
+	// mutex. The actual migration is done in the migrate function (see
+	// below).
+	//
+	// A migration is not needed if the old value has a higher leader
+	// epoch.  If the leader epoch is equal, we check if the leader is the
+	// same (this allows easier injection of failures in local testing).  A
+	// higher epoch can come from a concurrent metadata update that
+	// actually performed the move first.
+	modifyP := func(d *topicPartitionsData, partition int32, td topicPartitionData) (old, new *topicPartition, modified bool) {
+		old = d.partitions[partition]
+		if old.leaderEpoch > td.leaderEpoch {
+			return nil, nil, false
+		}
+		if old.leaderEpoch == td.leaderEpoch && old.leader == td.leader {
+			return nil, nil, false
+		}
+
+		cl.sinksAndSourcesMu.Lock()
+		sns := cl.sinksAndSources[td.leader]
+		cl.sinksAndSourcesMu.Unlock()
+
+		dup := *old
+		new = &dup
+		new.topicPartitionData = topicPartitionData{
+			leader:      td.leader,
+			leaderEpoch: td.leaderEpoch,
+		}
+		if new.records != nil {
+			new.records = &recBuf{
+				sink:               sns.sink,
+				topicPartitionData: new.topicPartitionData,
+			}
+		} else {
+			new.cursor = &cursor{
+				source:             sns.source,
+				topicPartitionData: new.topicPartitionData,
+			}
+		}
+
+		// We now have to mirror the new partition back to the topic
+		// slice that will be atomically stored.
+		d.partitions[partition] = new
+		idxWritable := sort.Search(len(d.writablePartitions), func(i int) bool { return d.writablePartitions[i].partition() >= partition })
+		if idxWritable < len(d.writablePartitions) && d.writablePartitions[idxWritable].partition() == partition {
+			if d.writablePartitions[idxWritable] != old {
+				panic("invalid invariant -- partition in writablePartitions != partition at expected index in partitions")
+			}
+			d.writablePartitions[idxWritable] = new
+		}
+
+		return old, new, true
+	}
+
+	if k.recBufs != nil {
+		tpsProducer := cl.producer.topics.load() // must be non-nil, since we have recBufs to move
+		for recBuf, td := range k.recBufs {
+			lr, ok := getT(tpsProducer, recBuf.topic)
+			if !ok {
+				continue // perhaps concurrently purged
+			}
+			old, new, modified := modifyP(lr.r, recBuf.partition, td)
+			if modified {
+				cl.cfg.logger.Log(LogLevelInfo, "moving producing partition due to kip-951 not_leader_for_partition",
+					"topic", recBuf.topic,
+					"partition", recBuf.partition,
+					"new_leader", new.leader,
+					"new_leader_epoch", new.leaderEpoch,
+					"old_leader", old.leader,
+					"old_leader_epoch", old.leaderEpoch,
+				)
+				old.migrateProductionTo(new)
+			} else {
+				recBuf.clearFailing()
+			}
+		}
+	} else {
+		var tpsConsumer topicsPartitionsData
+		c := &cl.consumer
+		switch {
+		case c.g != nil:
+			tpsConsumer = c.g.tps.load()
+		case c.d != nil:
+			tpsConsumer = c.d.tps.load()
+		}
+		css := &consumerSessionStopper{cl: cl}
+		defer css.maybeRestart()
+		for cursor, td := range k.cursors {
+			lr, ok := getT(tpsConsumer, cursor.topic)
+			if !ok {
+				continue // perhaps concurrently purged
+			}
+			old, new, modified := modifyP(lr.r, cursor.partition, td)
+			if modified {
+				cl.cfg.logger.Log(LogLevelInfo, "moving consuming partition due to kip-951 not_leader_for_partition",
+					"topic", cursor.topic,
+					"partition", cursor.partition,
+					"new_leader", new.leader,
+					"new_leader_epoch", new.leaderEpoch,
+					"old_leader", old.leader,
+					"old_leader_epoch", old.leaderEpoch,
+				)
+				old.migrateCursorTo(new, css)
+			}
+		}
+	}
+
+	// We can always do a simple store. For producing, we *must* have
+	// had partitions, so this is not updating an unknown topic.
+	for _, lr := range topics {
+		lr.l.v.Store(lr.r)
+	}
+}
+
+// Migrating a cursor requires stopping any consumer session. If we
+// stop a session, we need to eventually re-start any offset listing or
+// epoch loading that was stopped. Thus, we simply merge what we
+// stopped into what we will reload.
+type consumerSessionStopper struct {
+	cl            *Client
+	stopped       bool
+	reloadOffsets listOrEpochLoads
+	tpsPrior      *topicsPartitions
+}
+
+func (css *consumerSessionStopper) stop() {
+	if css.stopped {
+		return
+	}
+	css.stopped = true
+	loads, tps := css.cl.consumer.stopSession()
+	css.reloadOffsets.mergeFrom(loads)
+	css.tpsPrior = tps
+}
+
+func (css *consumerSessionStopper) maybeRestart() {
+	if !css.stopped {
+		return
+	}
+	session := css.cl.consumer.startNewSession(css.tpsPrior)
+	defer session.decWorker()
+	css.reloadOffsets.loadWithSession(session, "resuming reload offsets after session stopped for cursor migrating in metadata")
 }

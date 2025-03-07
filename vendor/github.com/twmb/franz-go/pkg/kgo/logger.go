@@ -1,6 +1,7 @@
 package kgo
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
@@ -51,7 +52,7 @@ type Logger interface {
 	// level. Keys are always strings, while values can be any type.
 	//
 	// This must be safe to call concurrently.
-	Log(level LogLevel, msg string, keyvals ...interface{})
+	Log(level LogLevel, msg string, keyvals ...any)
 }
 
 // BasicLogger returns a logger that will print to dst in the following format:
@@ -72,36 +73,35 @@ type basicLogger struct {
 }
 
 func (b *basicLogger) Level() LogLevel { return b.level }
-func (b *basicLogger) Log(level LogLevel, msg string, keyvals ...interface{}) {
-	buf := sliceWriters.Get().(*sliceWriter)
-	defer sliceWriters.Put(buf)
+func (b *basicLogger) Log(level LogLevel, msg string, keyvals ...any) {
+	buf := byteBuffers.Get().(*bytes.Buffer)
+	defer byteBuffers.Put(buf)
 
-	buf.inner = buf.inner[:0]
+	buf.Reset()
 	if b.pfxFn != nil {
-		buf.inner = append(buf.inner, b.pfxFn()...)
+		buf.WriteString(b.pfxFn())
 	}
-	buf.inner = append(buf.inner, '[')
-	buf.inner = append(buf.inner, level.String()...)
-	buf.inner = append(buf.inner, "] "...)
-	buf.inner = append(buf.inner, msg...)
+	buf.WriteByte('[')
+	buf.WriteString(level.String())
+	buf.WriteString("] ")
+	buf.WriteString(msg)
 
 	if len(keyvals) > 0 {
-		buf.inner = append(buf.inner, "; "...)
+		buf.WriteString("; ")
 		format := strings.Repeat("%v: %v, ", len(keyvals)/2)
 		format = format[:len(format)-2] // trim trailing comma and space
 		fmt.Fprintf(buf, format, keyvals...)
 	}
 
-	buf.inner = append(buf.inner, '\n')
-
-	b.dst.Write(buf.inner)
+	buf.WriteByte('\n')
+	b.dst.Write(buf.Bytes())
 }
 
 // nopLogger, the default logger, drops everything.
 type nopLogger struct{}
 
 func (*nopLogger) Level() LogLevel { return LogLevelNone }
-func (*nopLogger) Log(LogLevel, string, ...interface{}) {
+func (*nopLogger) Log(LogLevel, string, ...any) {
 }
 
 // wrappedLogger wraps the config logger for convenience at logging callsites.
@@ -116,7 +116,7 @@ func (w *wrappedLogger) Level() LogLevel {
 	return w.inner.Level()
 }
 
-func (w *wrappedLogger) Log(level LogLevel, msg string, keyvals ...interface{}) {
+func (w *wrappedLogger) Log(level LogLevel, msg string, keyvals ...any) {
 	if w.Level() < level {
 		return
 	}

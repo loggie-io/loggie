@@ -13,7 +13,31 @@ import (
 
 // MaxKey is the maximum key used for any messages in this package.
 // Note that this value will change as Kafka adds more messages.
-const MaxKey = 67
+const MaxKey = 69
+
+type AssignmentTopicPartition struct {
+	TopicID [16]byte
+
+	Topic string
+
+	Partitions []int32
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to AssignmentTopicPartition.
+func (v *AssignmentTopicPartition) Default() {
+}
+
+// NewAssignmentTopicPartition returns a default AssignmentTopicPartition
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewAssignmentTopicPartition() AssignmentTopicPartition {
+	var v AssignmentTopicPartition
+	v.Default()
+	return v
+}
 
 // MessageV0 is the message format Kafka used prior to 0.10.
 //
@@ -352,169 +376,6 @@ func (v *Header) Default() {
 // This is a shortcut for creating a struct and calling Default yourself.
 func NewHeader() Header {
 	var v Header
-	v.Default()
-	return v
-}
-
-// A Record is a Kafka v0.11.0.0 record. It corresponds to an individual
-// message as it is written on the wire.
-type Record struct {
-	// Length is the length of this record on the wire of everything that
-	// follows this field. It is an int32 encoded as a varint.
-	Length int32
-
-	// Attributes are record level attributes. This field currently is unused.
-	Attributes int8
-
-	// TimestampDelta is the millisecond delta of this record's timestamp
-	// from the record's RecordBatch's FirstTimestamp.
-	TimestampDelta int32
-
-	// OffsetDelta is the delta of this record's offset from the record's
-	// RecordBatch's FirstOffset.
-	//
-	// For producing, this is usually equal to the index of the record in
-	// the record batch.
-	OffsetDelta int32
-
-	// Key is an blob of data for a record.
-	//
-	// Key's are usually used for hashing the record to specific Kafka partitions.
-	Key []byte
-
-	// Value is a blob of data. This field is the main "message" portion of a
-	// record.
-	Value []byte
-
-	// Headers are optional user provided metadata for records. Unlike normal
-	// arrays, the number of headers is encoded as a varint.
-	Headers []Header
-}
-
-func (v *Record) AppendTo(dst []byte) []byte {
-	{
-		v := v.Length
-		dst = kbin.AppendVarint(dst, v)
-	}
-	{
-		v := v.Attributes
-		dst = kbin.AppendInt8(dst, v)
-	}
-	{
-		v := v.TimestampDelta
-		dst = kbin.AppendVarint(dst, v)
-	}
-	{
-		v := v.OffsetDelta
-		dst = kbin.AppendVarint(dst, v)
-	}
-	{
-		v := v.Key
-		dst = kbin.AppendVarintBytes(dst, v)
-	}
-	{
-		v := v.Value
-		dst = kbin.AppendVarintBytes(dst, v)
-	}
-	{
-		v := v.Headers
-		dst = kbin.AppendVarint(dst, int32(len(v)))
-		for i := range v {
-			v := &v[i]
-			{
-				v := v.Key
-				dst = kbin.AppendVarintString(dst, v)
-			}
-			{
-				v := v.Value
-				dst = kbin.AppendVarintBytes(dst, v)
-			}
-		}
-	}
-	return dst
-}
-
-func (v *Record) ReadFrom(src []byte) error {
-	return v.readFrom(src, false)
-}
-
-func (v *Record) UnsafeReadFrom(src []byte) error {
-	return v.readFrom(src, true)
-}
-
-func (v *Record) readFrom(src []byte, unsafe bool) error {
-	v.Default()
-	b := kbin.Reader{Src: src}
-	s := v
-	{
-		v := b.Varint()
-		s.Length = v
-	}
-	{
-		v := b.Int8()
-		s.Attributes = v
-	}
-	{
-		v := b.Varint()
-		s.TimestampDelta = v
-	}
-	{
-		v := b.Varint()
-		s.OffsetDelta = v
-	}
-	{
-		v := b.VarintBytes()
-		s.Key = v
-	}
-	{
-		v := b.VarintBytes()
-		s.Value = v
-	}
-	{
-		v := s.Headers
-		a := v
-		var l int32
-		l = b.VarintArrayLen()
-		if !b.Ok() {
-			return b.Complete()
-		}
-		a = a[:0]
-		if l > 0 {
-			a = append(a, make([]Header, l)...)
-		}
-		for i := int32(0); i < l; i++ {
-			v := &a[i]
-			v.Default()
-			s := v
-			{
-				var v string
-				if unsafe {
-					v = b.UnsafeVarintString()
-				} else {
-					v = b.VarintString()
-				}
-				s.Key = v
-			}
-			{
-				v := b.VarintBytes()
-				s.Value = v
-			}
-		}
-		v = a
-		s.Headers = v
-	}
-	return b.Complete()
-}
-
-// Default sets any default fields. Calling this allows for future compatibility
-// if new fields are added to Record.
-func (v *Record) Default() {
-}
-
-// NewRecord returns a default Record
-// This is a shortcut for creating a struct and calling Default yourself.
-func NewRecord() Record {
-	var v Record
 	v.Default()
 	return v
 }
@@ -891,7 +752,7 @@ type OffsetCommitValue struct {
 
 	// ExpireTimestamp, introduced in v1 and dropped in v2 with KIP-111,
 	// is when this commit expires.
-	ExpireTimestamp int64 // v1+
+	ExpireTimestamp int64 // v1-v1
 }
 
 func (v *OffsetCommitValue) AppendTo(dst []byte) []byte {
@@ -1061,6 +922,8 @@ type GroupMetadataValueMember struct {
 	ClientHost string
 
 	// RebalanceTimeoutMillis is the rebalance timeout of this group member.
+	//
+	// This field has a default of -1.
 	RebalanceTimeoutMillis int32 // v1+
 
 	// SessionTimeoutMillis is the session timeout of this group member.
@@ -1071,11 +934,15 @@ type GroupMetadataValueMember struct {
 
 	// Assignment is what the leader assigned this group member.
 	Assignment []byte
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags // v4+
 }
 
 // Default sets any default fields. Calling this allows for future compatibility
 // if new fields are added to GroupMetadataValueMember.
 func (v *GroupMetadataValueMember) Default() {
+	v.RebalanceTimeoutMillis = -1
 }
 
 // NewGroupMetadataValueMember returns a default GroupMetadataValueMember
@@ -1119,22 +986,33 @@ type GroupMetadataValue struct {
 
 	// CurrentStateTimestamp is the timestamp for this state of the group
 	// (stable, etc.).
+	//
+	// This field has a default of -1.
 	CurrentStateTimestamp int64 // v2+
 
 	// Members are the group members.
 	Members []GroupMetadataValueMember
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags // v4+
 }
 
 func (v *GroupMetadataValue) AppendTo(dst []byte) []byte {
 	version := v.Version
 	_ = version
+	isFlexible := version >= 4
+	_ = isFlexible
 	{
 		v := v.Version
 		dst = kbin.AppendInt16(dst, v)
 	}
 	{
 		v := v.ProtocolType
-		dst = kbin.AppendString(dst, v)
+		if isFlexible {
+			dst = kbin.AppendCompactString(dst, v)
+		} else {
+			dst = kbin.AppendString(dst, v)
+		}
 	}
 	{
 		v := v.Generation
@@ -1142,11 +1020,19 @@ func (v *GroupMetadataValue) AppendTo(dst []byte) []byte {
 	}
 	{
 		v := v.Protocol
-		dst = kbin.AppendNullableString(dst, v)
+		if isFlexible {
+			dst = kbin.AppendCompactNullableString(dst, v)
+		} else {
+			dst = kbin.AppendNullableString(dst, v)
+		}
 	}
 	{
 		v := v.Leader
-		dst = kbin.AppendNullableString(dst, v)
+		if isFlexible {
+			dst = kbin.AppendCompactNullableString(dst, v)
+		} else {
+			dst = kbin.AppendNullableString(dst, v)
+		}
 	}
 	if version >= 2 {
 		v := v.CurrentStateTimestamp
@@ -1154,24 +1040,44 @@ func (v *GroupMetadataValue) AppendTo(dst []byte) []byte {
 	}
 	{
 		v := v.Members
-		dst = kbin.AppendArrayLen(dst, len(v))
+		if isFlexible {
+			dst = kbin.AppendCompactArrayLen(dst, len(v))
+		} else {
+			dst = kbin.AppendArrayLen(dst, len(v))
+		}
 		for i := range v {
 			v := &v[i]
 			{
 				v := v.MemberID
-				dst = kbin.AppendString(dst, v)
+				if isFlexible {
+					dst = kbin.AppendCompactString(dst, v)
+				} else {
+					dst = kbin.AppendString(dst, v)
+				}
 			}
 			if version >= 3 {
 				v := v.InstanceID
-				dst = kbin.AppendNullableString(dst, v)
+				if isFlexible {
+					dst = kbin.AppendCompactNullableString(dst, v)
+				} else {
+					dst = kbin.AppendNullableString(dst, v)
+				}
 			}
 			{
 				v := v.ClientID
-				dst = kbin.AppendString(dst, v)
+				if isFlexible {
+					dst = kbin.AppendCompactString(dst, v)
+				} else {
+					dst = kbin.AppendString(dst, v)
+				}
 			}
 			{
 				v := v.ClientHost
-				dst = kbin.AppendString(dst, v)
+				if isFlexible {
+					dst = kbin.AppendCompactString(dst, v)
+				} else {
+					dst = kbin.AppendString(dst, v)
+				}
 			}
 			if version >= 1 {
 				v := v.RebalanceTimeoutMillis
@@ -1183,13 +1089,29 @@ func (v *GroupMetadataValue) AppendTo(dst []byte) []byte {
 			}
 			{
 				v := v.Subscription
-				dst = kbin.AppendBytes(dst, v)
+				if isFlexible {
+					dst = kbin.AppendCompactBytes(dst, v)
+				} else {
+					dst = kbin.AppendBytes(dst, v)
+				}
 			}
 			{
 				v := v.Assignment
-				dst = kbin.AppendBytes(dst, v)
+				if isFlexible {
+					dst = kbin.AppendCompactBytes(dst, v)
+				} else {
+					dst = kbin.AppendBytes(dst, v)
+				}
+			}
+			if isFlexible {
+				dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+				dst = v.UnknownTags.AppendEach(dst)
 			}
 		}
+	}
+	if isFlexible {
+		dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+		dst = v.UnknownTags.AppendEach(dst)
 	}
 	return dst
 }
@@ -1208,13 +1130,23 @@ func (v *GroupMetadataValue) readFrom(src []byte, unsafe bool) error {
 	v.Version = b.Int16()
 	version := v.Version
 	_ = version
+	isFlexible := version >= 4
+	_ = isFlexible
 	s := v
 	{
 		var v string
 		if unsafe {
-			v = b.UnsafeString()
+			if isFlexible {
+				v = b.UnsafeCompactString()
+			} else {
+				v = b.UnsafeString()
+			}
 		} else {
-			v = b.String()
+			if isFlexible {
+				v = b.CompactString()
+			} else {
+				v = b.String()
+			}
 		}
 		s.ProtocolType = v
 	}
@@ -1224,19 +1156,35 @@ func (v *GroupMetadataValue) readFrom(src []byte, unsafe bool) error {
 	}
 	{
 		var v *string
-		if unsafe {
-			v = b.UnsafeNullableString()
+		if isFlexible {
+			if unsafe {
+				v = b.UnsafeCompactNullableString()
+			} else {
+				v = b.CompactNullableString()
+			}
 		} else {
-			v = b.NullableString()
+			if unsafe {
+				v = b.UnsafeNullableString()
+			} else {
+				v = b.NullableString()
+			}
 		}
 		s.Protocol = v
 	}
 	{
 		var v *string
-		if unsafe {
-			v = b.UnsafeNullableString()
+		if isFlexible {
+			if unsafe {
+				v = b.UnsafeCompactNullableString()
+			} else {
+				v = b.CompactNullableString()
+			}
 		} else {
-			v = b.NullableString()
+			if unsafe {
+				v = b.UnsafeNullableString()
+			} else {
+				v = b.NullableString()
+			}
 		}
 		s.Leader = v
 	}
@@ -1248,7 +1196,11 @@ func (v *GroupMetadataValue) readFrom(src []byte, unsafe bool) error {
 		v := s.Members
 		a := v
 		var l int32
-		l = b.ArrayLen()
+		if isFlexible {
+			l = b.CompactArrayLen()
+		} else {
+			l = b.ArrayLen()
+		}
 		if !b.Ok() {
 			return b.Complete()
 		}
@@ -1263,36 +1215,68 @@ func (v *GroupMetadataValue) readFrom(src []byte, unsafe bool) error {
 			{
 				var v string
 				if unsafe {
-					v = b.UnsafeString()
+					if isFlexible {
+						v = b.UnsafeCompactString()
+					} else {
+						v = b.UnsafeString()
+					}
 				} else {
-					v = b.String()
+					if isFlexible {
+						v = b.CompactString()
+					} else {
+						v = b.String()
+					}
 				}
 				s.MemberID = v
 			}
 			if version >= 3 {
 				var v *string
-				if unsafe {
-					v = b.UnsafeNullableString()
+				if isFlexible {
+					if unsafe {
+						v = b.UnsafeCompactNullableString()
+					} else {
+						v = b.CompactNullableString()
+					}
 				} else {
-					v = b.NullableString()
+					if unsafe {
+						v = b.UnsafeNullableString()
+					} else {
+						v = b.NullableString()
+					}
 				}
 				s.InstanceID = v
 			}
 			{
 				var v string
 				if unsafe {
-					v = b.UnsafeString()
+					if isFlexible {
+						v = b.UnsafeCompactString()
+					} else {
+						v = b.UnsafeString()
+					}
 				} else {
-					v = b.String()
+					if isFlexible {
+						v = b.CompactString()
+					} else {
+						v = b.String()
+					}
 				}
 				s.ClientID = v
 			}
 			{
 				var v string
 				if unsafe {
-					v = b.UnsafeString()
+					if isFlexible {
+						v = b.UnsafeCompactString()
+					} else {
+						v = b.UnsafeString()
+					}
 				} else {
-					v = b.String()
+					if isFlexible {
+						v = b.CompactString()
+					} else {
+						v = b.String()
+					}
 				}
 				s.ClientHost = v
 			}
@@ -1305,23 +1289,41 @@ func (v *GroupMetadataValue) readFrom(src []byte, unsafe bool) error {
 				s.SessionTimeoutMillis = v
 			}
 			{
-				v := b.Bytes()
+				var v []byte
+				if isFlexible {
+					v = b.CompactBytes()
+				} else {
+					v = b.Bytes()
+				}
 				s.Subscription = v
 			}
 			{
-				v := b.Bytes()
+				var v []byte
+				if isFlexible {
+					v = b.CompactBytes()
+				} else {
+					v = b.Bytes()
+				}
 				s.Assignment = v
+			}
+			if isFlexible {
+				s.UnknownTags = internalReadTags(&b)
 			}
 		}
 		v = a
 		s.Members = v
 	}
+	if isFlexible {
+		s.UnknownTags = internalReadTags(&b)
+	}
 	return b.Complete()
 }
+func (v *GroupMetadataValue) IsFlexible() bool { return v.Version >= 4 }
 
 // Default sets any default fields. Calling this allows for future compatibility
 // if new fields are added to GroupMetadataValue.
 func (v *GroupMetadataValue) Default() {
+	v.CurrentStateTimestamp = -1
 }
 
 // NewGroupMetadataValue returns a default GroupMetadataValue
@@ -1691,7 +1693,7 @@ func NewConsumerMemberMetadataOwnedPartition() ConsumerMemberMetadataOwnedPartit
 // ConsumerMemberMetadata is the metadata that is usually sent with a join group
 // request with the "consumer" protocol (normal, non-connect consumers).
 type ConsumerMemberMetadata struct {
-	// Version is either version 0 or version 1.
+	// Version is 0, 1, 2, or 3.
 	Version int16
 
 	// Topics is the list of topics in the group that this member is interested
@@ -1705,6 +1707,14 @@ type ConsumerMemberMetadata struct {
 	// OwnedPartitions, introduced for KIP-429, are the partitions that this
 	// member currently owns.
 	OwnedPartitions []ConsumerMemberMetadataOwnedPartition // v1+
+
+	// Generation is the generation of the group.
+	//
+	// This field has a default of -1.
+	Generation int32 // v2+
+
+	// Rack, if non-nil, opts into rack-aware replica assignment.
+	Rack *string // v3+
 }
 
 func (v *ConsumerMemberMetadata) AppendTo(dst []byte) []byte {
@@ -1744,6 +1754,14 @@ func (v *ConsumerMemberMetadata) AppendTo(dst []byte) []byte {
 				}
 			}
 		}
+	}
+	if version >= 2 {
+		v := v.Generation
+		dst = kbin.AppendInt32(dst, v)
+	}
+	if version >= 3 {
+		v := v.Rack
+		dst = kbin.AppendNullableString(dst, v)
 	}
 	return dst
 }
@@ -1839,12 +1857,26 @@ func (v *ConsumerMemberMetadata) readFrom(src []byte, unsafe bool) error {
 		v = a
 		s.OwnedPartitions = v
 	}
+	if version >= 2 {
+		v := b.Int32()
+		s.Generation = v
+	}
+	if version >= 3 {
+		var v *string
+		if unsafe {
+			v = b.UnsafeNullableString()
+		} else {
+			v = b.NullableString()
+		}
+		s.Rack = v
+	}
 	return b.Complete()
 }
 
 // Default sets any default fields. Calling this allows for future compatibility
 // if new fields are added to ConsumerMemberMetadata.
 func (v *ConsumerMemberMetadata) Default() {
+	v.Generation = -1
 }
 
 // NewConsumerMemberMetadata returns a default ConsumerMemberMetadata
@@ -1880,7 +1912,7 @@ func NewConsumerMemberAssignmentTopic() ConsumerMemberAssignmentTopic {
 // sync group request with the "consumer" protocol (normal, non-connect
 // consumers).
 type ConsumerMemberAssignment struct {
-	// Verson is currently version 0.
+	// Verson is 0, 1, or 2.
 	Version int16
 
 	// Topics contains topics in the assignment.
@@ -2010,9 +2042,8 @@ func NewConsumerMemberAssignment() ConsumerMemberAssignment {
 // "connect" protocol. v1 introduced incremental cooperative rebalancing (akin
 // to cooperative-sticky) per KIP-415.
 //
-//     v0 defined in connect/runtime/src/main/java/org/apache/kafka/connect/runtime/distributed/ConnectProtocol.java
-//     v1+ defined in connect/runtime/src/main/java/org/apache/kafka/connect/runtime/distributed/IncrementalCooperativeConnectProtocol.java
-//
+//	v0 defined in connect/runtime/src/main/java/org/apache/kafka/connect/runtime/distributed/ConnectProtocol.java
+//	v1+ defined in connect/runtime/src/main/java/org/apache/kafka/connect/runtime/distributed/IncrementalCooperativeConnectProtocol.java
 type ConnectMemberMetadata struct {
 	Version int16
 
@@ -2916,13 +2947,18 @@ type ProduceRequest struct {
 	UnknownTags Tags // v9+
 }
 
-func (*ProduceRequest) Key() int16                 { return 0 }
-func (*ProduceRequest) MaxVersion() int16          { return 9 }
-func (v *ProduceRequest) SetVersion(version int16) { v.Version = version }
-func (v *ProduceRequest) GetVersion() int16        { return v.Version }
-func (v *ProduceRequest) IsFlexible() bool         { return v.Version >= 9 }
-func (v *ProduceRequest) Timeout() int32           { return v.TimeoutMillis }
-func (v *ProduceRequest) ResponseKind() Response   { return &ProduceResponse{Version: v.Version} }
+func (*ProduceRequest) Key() int16                       { return 0 }
+func (*ProduceRequest) MaxVersion() int16                { return 11 }
+func (v *ProduceRequest) SetVersion(version int16)       { v.Version = version }
+func (v *ProduceRequest) GetVersion() int16              { return v.Version }
+func (v *ProduceRequest) IsFlexible() bool               { return v.Version >= 9 }
+func (v *ProduceRequest) Timeout() int32                 { return v.TimeoutMillis }
+func (v *ProduceRequest) SetTimeout(timeoutMillis int32) { v.TimeoutMillis = timeoutMillis }
+func (v *ProduceRequest) ResponseKind() Response {
+	r := &ProduceResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -3188,6 +3224,36 @@ func NewProduceResponseTopicPartitionErrorRecord() ProduceResponseTopicPartition
 	return v
 }
 
+type ProduceResponseTopicPartitionCurrentLeader struct {
+	// The ID of the current leader, or -1 if unknown.
+	//
+	// This field has a default of -1.
+	LeaderID int32
+
+	// The latest known leader epoch.
+	//
+	// This field has a default of -1.
+	LeaderEpoch int32
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags // v9+
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to ProduceResponseTopicPartitionCurrentLeader.
+func (v *ProduceResponseTopicPartitionCurrentLeader) Default() {
+	v.LeaderID = -1
+	v.LeaderEpoch = -1
+}
+
+// NewProduceResponseTopicPartitionCurrentLeader returns a default ProduceResponseTopicPartitionCurrentLeader
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewProduceResponseTopicPartitionCurrentLeader() ProduceResponseTopicPartitionCurrentLeader {
+	var v ProduceResponseTopicPartitionCurrentLeader
+	v.Default()
+	return v
+}
+
 type ProduceResponseTopicPartition struct {
 	// Partition is the partition this response pertains to.
 	Partition int32
@@ -3297,6 +3363,8 @@ type ProduceResponseTopicPartition struct {
 	// to error.
 	ErrorMessage *string // v8+
 
+	CurrentLeader ProduceResponseTopicPartitionCurrentLeader // tag 0
+
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags // v9+
 }
@@ -3306,6 +3374,12 @@ type ProduceResponseTopicPartition struct {
 func (v *ProduceResponseTopicPartition) Default() {
 	v.LogAppendTime = -1
 	v.LogStartOffset = -1
+	{
+		v := &v.CurrentLeader
+		_ = v
+		v.LeaderID = -1
+		v.LeaderEpoch = -1
+	}
 }
 
 // NewProduceResponseTopicPartition returns a default ProduceResponseTopicPartition
@@ -3341,6 +3415,36 @@ func NewProduceResponseTopic() ProduceResponseTopic {
 	return v
 }
 
+type ProduceResponseBroker struct {
+	// NodeID is the node ID of a Kafka broker.
+	NodeID int32
+
+	// Host is the hostname of a Kafka broker.
+	Host string
+
+	// Port is the port of a Kafka broker.
+	Port int32
+
+	// Rack is the rack this Kafka broker is in.
+	Rack *string
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags // v9+
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to ProduceResponseBroker.
+func (v *ProduceResponseBroker) Default() {
+}
+
+// NewProduceResponseBroker returns a default ProduceResponseBroker
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewProduceResponseBroker() ProduceResponseBroker {
+	var v ProduceResponseBroker
+	v.Default()
+	return v
+}
+
 // ProduceResponse is returned from a ProduceRequest.
 type ProduceResponse struct {
 	// Version is the version of this message used with a Kafka broker.
@@ -3358,17 +3462,22 @@ type ProduceResponse struct {
 	// This request switched at version 6.
 	ThrottleMillis int32 // v1+
 
+	// Brokers is present if any partition responses contain the error
+	// NOT_LEADER_OR_FOLLOWER.
+	Brokers []ProduceResponseBroker // tag 0
+
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags // v9+
 }
 
-func (*ProduceResponse) Key() int16                 { return 0 }
-func (*ProduceResponse) MaxVersion() int16          { return 9 }
-func (v *ProduceResponse) SetVersion(version int16) { v.Version = version }
-func (v *ProduceResponse) GetVersion() int16        { return v.Version }
-func (v *ProduceResponse) IsFlexible() bool         { return v.Version >= 9 }
-func (v *ProduceResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 6 }
-func (v *ProduceResponse) RequestKind() Request     { return &ProduceRequest{Version: v.Version} }
+func (*ProduceResponse) Key() int16                         { return 0 }
+func (*ProduceResponse) MaxVersion() int16                  { return 11 }
+func (v *ProduceResponse) SetVersion(version int16)         { v.Version = version }
+func (v *ProduceResponse) GetVersion() int16                { return v.Version }
+func (v *ProduceResponse) IsFlexible() bool                 { return v.Version >= 9 }
+func (v *ProduceResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 6 }
+func (v *ProduceResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *ProduceResponse) RequestKind() Request             { return &ProduceRequest{Version: v.Version} }
 
 func (v *ProduceResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -3457,7 +3566,44 @@ func (v *ProduceResponse) AppendTo(dst []byte) []byte {
 						}
 					}
 					if isFlexible {
-						dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+						var toEncode []uint32
+						if !reflect.DeepEqual(v.CurrentLeader, (func() ProduceResponseTopicPartitionCurrentLeader {
+							var v ProduceResponseTopicPartitionCurrentLeader
+							v.Default()
+							return v
+						})()) {
+							toEncode = append(toEncode, 0)
+						}
+						dst = kbin.AppendUvarint(dst, uint32(len(toEncode)+v.UnknownTags.Len()))
+						for _, tag := range toEncode {
+							switch tag {
+							case 0:
+								{
+									v := v.CurrentLeader
+									dst = kbin.AppendUvarint(dst, 0)
+									sized := false
+									lenAt := len(dst)
+								fCurrentLeader:
+									{
+										v := v.LeaderID
+										dst = kbin.AppendInt32(dst, v)
+									}
+									{
+										v := v.LeaderEpoch
+										dst = kbin.AppendInt32(dst, v)
+									}
+									if isFlexible {
+										dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+										dst = v.UnknownTags.AppendEach(dst)
+									}
+									if !sized {
+										dst = kbin.AppendUvarint(dst[:lenAt], uint32(len(dst[lenAt:])))
+										sized = true
+										goto fCurrentLeader
+									}
+								}
+							}
+						}
 						dst = v.UnknownTags.AppendEach(dst)
 					}
 				}
@@ -3473,7 +3619,64 @@ func (v *ProduceResponse) AppendTo(dst []byte) []byte {
 		dst = kbin.AppendInt32(dst, v)
 	}
 	if isFlexible {
-		dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+		var toEncode []uint32
+		if len(v.Brokers) > 0 {
+			toEncode = append(toEncode, 0)
+		}
+		dst = kbin.AppendUvarint(dst, uint32(len(toEncode)+v.UnknownTags.Len()))
+		for _, tag := range toEncode {
+			switch tag {
+			case 0:
+				{
+					v := v.Brokers
+					dst = kbin.AppendUvarint(dst, 0)
+					sized := false
+					lenAt := len(dst)
+				fBrokers:
+					if isFlexible {
+						dst = kbin.AppendCompactArrayLen(dst, len(v))
+					} else {
+						dst = kbin.AppendArrayLen(dst, len(v))
+					}
+					for i := range v {
+						v := &v[i]
+						{
+							v := v.NodeID
+							dst = kbin.AppendInt32(dst, v)
+						}
+						{
+							v := v.Host
+							if isFlexible {
+								dst = kbin.AppendCompactString(dst, v)
+							} else {
+								dst = kbin.AppendString(dst, v)
+							}
+						}
+						{
+							v := v.Port
+							dst = kbin.AppendInt32(dst, v)
+						}
+						{
+							v := v.Rack
+							if isFlexible {
+								dst = kbin.AppendCompactNullableString(dst, v)
+							} else {
+								dst = kbin.AppendNullableString(dst, v)
+							}
+						}
+						if isFlexible {
+							dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+							dst = v.UnknownTags.AppendEach(dst)
+						}
+					}
+					if !sized {
+						dst = kbin.AppendUvarint(dst[:lenAt], uint32(len(dst[lenAt:])))
+						sized = true
+						goto fBrokers
+					}
+				}
+			}
+		}
 		dst = v.UnknownTags.AppendEach(dst)
 	}
 	return dst
@@ -3638,7 +3841,31 @@ func (v *ProduceResponse) readFrom(src []byte, unsafe bool) error {
 						s.ErrorMessage = v
 					}
 					if isFlexible {
-						s.UnknownTags = internalReadTags(&b)
+						for i := b.Uvarint(); i > 0; i-- {
+							switch key := b.Uvarint(); key {
+							default:
+								s.UnknownTags.Set(key, b.Span(int(b.Uvarint())))
+							case 0:
+								b := kbin.Reader{Src: b.Span(int(b.Uvarint()))}
+								v := &s.CurrentLeader
+								v.Default()
+								s := v
+								{
+									v := b.Int32()
+									s.LeaderID = v
+								}
+								{
+									v := b.Int32()
+									s.LeaderEpoch = v
+								}
+								if isFlexible {
+									s.UnknownTags = internalReadTags(&b)
+								}
+								if err := b.Complete(); err != nil {
+									return err
+								}
+							}
+						}
 					}
 				}
 				v = a
@@ -3656,7 +3883,84 @@ func (v *ProduceResponse) readFrom(src []byte, unsafe bool) error {
 		s.ThrottleMillis = v
 	}
 	if isFlexible {
-		s.UnknownTags = internalReadTags(&b)
+		for i := b.Uvarint(); i > 0; i-- {
+			switch key := b.Uvarint(); key {
+			default:
+				s.UnknownTags.Set(key, b.Span(int(b.Uvarint())))
+			case 0:
+				b := kbin.Reader{Src: b.Span(int(b.Uvarint()))}
+				v := s.Brokers
+				a := v
+				var l int32
+				if isFlexible {
+					l = b.CompactArrayLen()
+				} else {
+					l = b.ArrayLen()
+				}
+				if !b.Ok() {
+					return b.Complete()
+				}
+				a = a[:0]
+				if l > 0 {
+					a = append(a, make([]ProduceResponseBroker, l)...)
+				}
+				for i := int32(0); i < l; i++ {
+					v := &a[i]
+					v.Default()
+					s := v
+					{
+						v := b.Int32()
+						s.NodeID = v
+					}
+					{
+						var v string
+						if unsafe {
+							if isFlexible {
+								v = b.UnsafeCompactString()
+							} else {
+								v = b.UnsafeString()
+							}
+						} else {
+							if isFlexible {
+								v = b.CompactString()
+							} else {
+								v = b.String()
+							}
+						}
+						s.Host = v
+					}
+					{
+						v := b.Int32()
+						s.Port = v
+					}
+					{
+						var v *string
+						if isFlexible {
+							if unsafe {
+								v = b.UnsafeCompactNullableString()
+							} else {
+								v = b.CompactNullableString()
+							}
+						} else {
+							if unsafe {
+								v = b.UnsafeNullableString()
+							} else {
+								v = b.NullableString()
+							}
+						}
+						s.Rack = v
+					}
+					if isFlexible {
+						s.UnknownTags = internalReadTags(&b)
+					}
+				}
+				v = a
+				s.Brokers = v
+				if err := b.Complete(); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return b.Complete()
 }
@@ -3678,6 +3982,36 @@ func (v *ProduceResponse) Default() {
 // This is a shortcut for creating a struct and calling Default yourself.
 func NewProduceResponse() ProduceResponse {
 	var v ProduceResponse
+	v.Default()
+	return v
+}
+
+type FetchRequestReplicaState struct {
+	// The replica ID of the follower, or -1 if this request is from a consumer.
+	//
+	// This field has a default of -1.
+	ID int32
+
+	// The epoch of this follower, or -1 if not available.
+	//
+	// This field has a default of -1.
+	Epoch int64
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags // v12+
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to FetchRequestReplicaState.
+func (v *FetchRequestReplicaState) Default() {
+	v.ID = -1
+	v.Epoch = -1
+}
+
+// NewFetchRequestReplicaState returns a default FetchRequestReplicaState
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewFetchRequestReplicaState() FetchRequestReplicaState {
+	var v FetchRequestReplicaState
 	v.Default()
 	return v
 }
@@ -3738,7 +4072,7 @@ func NewFetchRequestTopicPartition() FetchRequestTopicPartition {
 
 type FetchRequestTopic struct {
 	// Topic is a topic to try to fetch records for.
-	Topic string
+	Topic string // v0-v12
 
 	// TopicID is the uuid of the topic to fetch records for.
 	TopicID [16]byte // v13+
@@ -3765,7 +4099,7 @@ func NewFetchRequestTopic() FetchRequestTopic {
 
 type FetchRequestForgottenTopic struct {
 	// Topic is a topic to remove from being tracked (with the partitions below).
-	Topic string // v7+
+	Topic string // v7-v12
 
 	// TopicID is the uuid of a topic to remove from being tracked (with the
 	// partitions below).
@@ -3803,6 +4137,9 @@ func NewFetchRequestForgottenTopic() FetchRequestForgottenTopic {
 //
 // Starting in v13, topics must use UUIDs rather than their string name
 // identifiers.
+//
+// Version 15 adds the ReplicaState which includes new field ReplicaEpoch and
+// the ReplicaID, and deprecates the old ReplicaID (KIP-903).
 type FetchRequest struct {
 	// Version is the version of this message used with a Kafka broker.
 	Version int16
@@ -3816,7 +4153,12 @@ type FetchRequest struct {
 	// ReplicaID is the broker ID of performing the fetch request. Standard
 	// clients should use -1. To be a "debug" replica, use -2. The debug
 	// replica can be used to fetch messages from non-leaders.
-	ReplicaID int32
+	//
+	// This field has a default of -1.
+	ReplicaID int32 // v0-v14
+
+	// ReplicaState is a broker-only tag for v15+, see KIP-903 for more details.
+	ReplicaState FetchRequestReplicaState // tag 1
 
 	// MaxWaitMillis is how long to wait for MinBytes to be hit before a broker
 	// responds to a fetch request.
@@ -3876,11 +4218,15 @@ type FetchRequest struct {
 }
 
 func (*FetchRequest) Key() int16                 { return 1 }
-func (*FetchRequest) MaxVersion() int16          { return 13 }
+func (*FetchRequest) MaxVersion() int16          { return 16 }
 func (v *FetchRequest) SetVersion(version int16) { v.Version = version }
 func (v *FetchRequest) GetVersion() int16        { return v.Version }
 func (v *FetchRequest) IsFlexible() bool         { return v.Version >= 12 }
-func (v *FetchRequest) ResponseKind() Response   { return &FetchResponse{Version: v.Version} }
+func (v *FetchRequest) ResponseKind() Response {
+	r := &FetchResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -3896,7 +4242,7 @@ func (v *FetchRequest) AppendTo(dst []byte) []byte {
 	_ = version
 	isFlexible := version >= 12
 	_ = isFlexible
-	{
+	if version >= 0 && version <= 14 {
 		v := v.ReplicaID
 		dst = kbin.AppendInt32(dst, v)
 	}
@@ -4042,6 +4388,9 @@ func (v *FetchRequest) AppendTo(dst []byte) []byte {
 		if v.ClusterID != nil {
 			toEncode = append(toEncode, 0)
 		}
+		if !reflect.DeepEqual(v.ReplicaState, (func() FetchRequestReplicaState { var v FetchRequestReplicaState; v.Default(); return v })()) {
+			toEncode = append(toEncode, 1)
+		}
 		dst = kbin.AppendUvarint(dst, uint32(len(toEncode)+v.UnknownTags.Len()))
 		for _, tag := range toEncode {
 			switch tag {
@@ -4061,6 +4410,31 @@ func (v *FetchRequest) AppendTo(dst []byte) []byte {
 						dst = kbin.AppendUvarint(dst[:lenAt], uint32(len(dst[lenAt:])))
 						sized = true
 						goto fClusterID
+					}
+				}
+			case 1:
+				{
+					v := v.ReplicaState
+					dst = kbin.AppendUvarint(dst, 1)
+					sized := false
+					lenAt := len(dst)
+				fReplicaState:
+					{
+						v := v.ID
+						dst = kbin.AppendInt32(dst, v)
+					}
+					{
+						v := v.Epoch
+						dst = kbin.AppendInt64(dst, v)
+					}
+					if isFlexible {
+						dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+						dst = v.UnknownTags.AppendEach(dst)
+					}
+					if !sized {
+						dst = kbin.AppendUvarint(dst[:lenAt], uint32(len(dst[lenAt:])))
+						sized = true
+						goto fReplicaState
 					}
 				}
 			}
@@ -4086,7 +4460,7 @@ func (v *FetchRequest) readFrom(src []byte, unsafe bool) error {
 	isFlexible := version >= 12
 	_ = isFlexible
 	s := v
-	{
+	if version >= 0 && version <= 14 {
 		v := b.Int32()
 		s.ReplicaID = v
 	}
@@ -4326,6 +4700,25 @@ func (v *FetchRequest) readFrom(src []byte, unsafe bool) error {
 				if err := b.Complete(); err != nil {
 					return err
 				}
+			case 1:
+				b := kbin.Reader{Src: b.Span(int(b.Uvarint()))}
+				v := &s.ReplicaState
+				v.Default()
+				s := v
+				{
+					v := b.Int32()
+					s.ID = v
+				}
+				{
+					v := b.Int64()
+					s.Epoch = v
+				}
+				if isFlexible {
+					s.UnknownTags = internalReadTags(&b)
+				}
+				if err := b.Complete(); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -4344,6 +4737,13 @@ func NewPtrFetchRequest() *FetchRequest {
 // if new fields are added to FetchRequest.
 func (v *FetchRequest) Default() {
 	v.ClusterID = nil
+	v.ReplicaID = -1
+	{
+		v := &v.ReplicaState
+		_ = v
+		v.ID = -1
+		v.Epoch = -1
+	}
 	v.MaxBytes = 2147483647
 	v.SessionEpoch = -1
 }
@@ -4502,7 +4902,11 @@ type FetchResponseTopicPartition struct {
 	// OFFSET_OUT_OF_RANGE is returned if requesting an offset past the
 	// current end offset or before the beginning offset.
 	//
-	// UNKNOWN_TOPIC_ID is returned if using uuid's and the uuid is unknown.
+	// UNKNOWN_TOPIC_ID is returned if using uuid's and the uuid is unknown
+	// (v13+ / Kafka 3.1+).
+	//
+	// OFFSET_MOVED_TO_TIERED_STORAGE is returned if a follower is trying to
+	// fetch from an offset that is now in tiered storage.
 	ErrorCode int16
 
 	// HighWatermark is the current high watermark for this partition,
@@ -4604,7 +5008,7 @@ func NewFetchResponseTopicPartition() FetchResponseTopicPartition {
 
 type FetchResponseTopic struct {
 	// Topic is a topic that records may have been received for.
-	Topic string
+	Topic string // v0-v12
 
 	// TopicID is the uuid of a topic that records may have been received for.
 	TopicID [16]byte // v13+
@@ -4626,6 +5030,36 @@ func (v *FetchResponseTopic) Default() {
 // This is a shortcut for creating a struct and calling Default yourself.
 func NewFetchResponseTopic() FetchResponseTopic {
 	var v FetchResponseTopic
+	v.Default()
+	return v
+}
+
+type FetchResponseBroker struct {
+	// NodeID is the node ID of a Kafka broker.
+	NodeID int32
+
+	// Host is the hostname of a Kafka broker.
+	Host string
+
+	// Port is the port of a Kafka broker.
+	Port int32
+
+	// Rack is the rack this Kafka broker is in.
+	Rack *string
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags // v12+
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to FetchResponseBroker.
+func (v *FetchResponseBroker) Default() {
+}
+
+// NewFetchResponseBroker returns a default FetchResponseBroker
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewFetchResponseBroker() FetchResponseBroker {
+	var v FetchResponseBroker
 	v.Default()
 	return v
 }
@@ -4663,17 +5097,22 @@ type FetchResponse struct {
 	// for them.
 	Topics []FetchResponseTopic
 
+	// Brokers is present if any partition responses contain the error
+	// NOT_LEADER_OR_FOLLOWER.
+	Brokers []FetchResponseBroker // tag 0
+
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags // v12+
 }
 
-func (*FetchResponse) Key() int16                 { return 1 }
-func (*FetchResponse) MaxVersion() int16          { return 13 }
-func (v *FetchResponse) SetVersion(version int16) { v.Version = version }
-func (v *FetchResponse) GetVersion() int16        { return v.Version }
-func (v *FetchResponse) IsFlexible() bool         { return v.Version >= 12 }
-func (v *FetchResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 8 }
-func (v *FetchResponse) RequestKind() Request     { return &FetchRequest{Version: v.Version} }
+func (*FetchResponse) Key() int16                         { return 1 }
+func (*FetchResponse) MaxVersion() int16                  { return 16 }
+func (v *FetchResponse) SetVersion(version int16)         { v.Version = version }
+func (v *FetchResponse) GetVersion() int16                { return v.Version }
+func (v *FetchResponse) IsFlexible() bool                 { return v.Version >= 12 }
+func (v *FetchResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 8 }
+func (v *FetchResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *FetchResponse) RequestKind() Request             { return &FetchRequest{Version: v.Version} }
 
 func (v *FetchResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -4891,7 +5330,64 @@ func (v *FetchResponse) AppendTo(dst []byte) []byte {
 		}
 	}
 	if isFlexible {
-		dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+		var toEncode []uint32
+		if len(v.Brokers) > 0 {
+			toEncode = append(toEncode, 0)
+		}
+		dst = kbin.AppendUvarint(dst, uint32(len(toEncode)+v.UnknownTags.Len()))
+		for _, tag := range toEncode {
+			switch tag {
+			case 0:
+				{
+					v := v.Brokers
+					dst = kbin.AppendUvarint(dst, 0)
+					sized := false
+					lenAt := len(dst)
+				fBrokers:
+					if isFlexible {
+						dst = kbin.AppendCompactArrayLen(dst, len(v))
+					} else {
+						dst = kbin.AppendArrayLen(dst, len(v))
+					}
+					for i := range v {
+						v := &v[i]
+						{
+							v := v.NodeID
+							dst = kbin.AppendInt32(dst, v)
+						}
+						{
+							v := v.Host
+							if isFlexible {
+								dst = kbin.AppendCompactString(dst, v)
+							} else {
+								dst = kbin.AppendString(dst, v)
+							}
+						}
+						{
+							v := v.Port
+							dst = kbin.AppendInt32(dst, v)
+						}
+						{
+							v := v.Rack
+							if isFlexible {
+								dst = kbin.AppendCompactNullableString(dst, v)
+							} else {
+								dst = kbin.AppendNullableString(dst, v)
+							}
+						}
+						if isFlexible {
+							dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+							dst = v.UnknownTags.AppendEach(dst)
+						}
+					}
+					if !sized {
+						dst = kbin.AppendUvarint(dst[:lenAt], uint32(len(dst[lenAt:])))
+						sized = true
+						goto fBrokers
+					}
+				}
+			}
+		}
 		dst = v.UnknownTags.AppendEach(dst)
 	}
 	return dst
@@ -5134,7 +5630,84 @@ func (v *FetchResponse) readFrom(src []byte, unsafe bool) error {
 		s.Topics = v
 	}
 	if isFlexible {
-		s.UnknownTags = internalReadTags(&b)
+		for i := b.Uvarint(); i > 0; i-- {
+			switch key := b.Uvarint(); key {
+			default:
+				s.UnknownTags.Set(key, b.Span(int(b.Uvarint())))
+			case 0:
+				b := kbin.Reader{Src: b.Span(int(b.Uvarint()))}
+				v := s.Brokers
+				a := v
+				var l int32
+				if isFlexible {
+					l = b.CompactArrayLen()
+				} else {
+					l = b.ArrayLen()
+				}
+				if !b.Ok() {
+					return b.Complete()
+				}
+				a = a[:0]
+				if l > 0 {
+					a = append(a, make([]FetchResponseBroker, l)...)
+				}
+				for i := int32(0); i < l; i++ {
+					v := &a[i]
+					v.Default()
+					s := v
+					{
+						v := b.Int32()
+						s.NodeID = v
+					}
+					{
+						var v string
+						if unsafe {
+							if isFlexible {
+								v = b.UnsafeCompactString()
+							} else {
+								v = b.UnsafeString()
+							}
+						} else {
+							if isFlexible {
+								v = b.CompactString()
+							} else {
+								v = b.String()
+							}
+						}
+						s.Host = v
+					}
+					{
+						v := b.Int32()
+						s.Port = v
+					}
+					{
+						var v *string
+						if isFlexible {
+							if unsafe {
+								v = b.UnsafeCompactNullableString()
+							} else {
+								v = b.CompactNullableString()
+							}
+						} else {
+							if unsafe {
+								v = b.UnsafeNullableString()
+							} else {
+								v = b.NullableString()
+							}
+						}
+						s.Rack = v
+					}
+					if isFlexible {
+						s.UnknownTags = internalReadTags(&b)
+					}
+				}
+				v = a
+				s.Brokers = v
+				if err := b.Complete(); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return b.Complete()
 }
@@ -5193,6 +5766,11 @@ type ListOffsetsRequestTopicPartition struct {
 	// to determine topic "liveness" (when was the last produce?).
 	// Previously, this was not easy to determine. See KIP-734 for more
 	// detail.
+	//
+	// If you are talking to Kafka 3.4+ and using request version 8+ (for
+	// KIP-405), the new special timestamp -4 returns the local log start
+	// offset. In the context of tiered storage, the earliest local log start
+	// offset is the offset actually available on disk on the broker.
 	Timestamp int64
 
 	// MaxNumOffsets is the maximum number of offsets to report.
@@ -5253,6 +5831,9 @@ func NewListOffsetsRequestTopic() ListOffsetsRequestTopic {
 //
 // Version 7, introduced in Kafka 3.0, supports -3 as a timestamp to return
 // the timestamp and offset for the record with the largest timestamp.
+//
+// Version 8, introduced in Kafka 3.4, supports -4 as a timestamp to return
+// the local log start offset (in the context of tiered storage, see KIP-405).
 type ListOffsetsRequest struct {
 	// Version is the version of this message used with a Kafka broker.
 	Version int16
@@ -5280,11 +5861,15 @@ type ListOffsetsRequest struct {
 }
 
 func (*ListOffsetsRequest) Key() int16                 { return 2 }
-func (*ListOffsetsRequest) MaxVersion() int16          { return 7 }
+func (*ListOffsetsRequest) MaxVersion() int16          { return 8 }
 func (v *ListOffsetsRequest) SetVersion(version int16) { v.Version = version }
 func (v *ListOffsetsRequest) GetVersion() int16        { return v.Version }
 func (v *ListOffsetsRequest) IsFlexible() bool         { return v.Version >= 6 }
-func (v *ListOffsetsRequest) ResponseKind() Response   { return &ListOffsetsResponse{Version: v.Version} }
+func (v *ListOffsetsRequest) ResponseKind() Response {
+	r := &ListOffsetsResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -5640,13 +6225,14 @@ type ListOffsetsResponse struct {
 	UnknownTags Tags // v6+
 }
 
-func (*ListOffsetsResponse) Key() int16                 { return 2 }
-func (*ListOffsetsResponse) MaxVersion() int16          { return 7 }
-func (v *ListOffsetsResponse) SetVersion(version int16) { v.Version = version }
-func (v *ListOffsetsResponse) GetVersion() int16        { return v.Version }
-func (v *ListOffsetsResponse) IsFlexible() bool         { return v.Version >= 6 }
-func (v *ListOffsetsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 3 }
-func (v *ListOffsetsResponse) RequestKind() Request     { return &ListOffsetsRequest{Version: v.Version} }
+func (*ListOffsetsResponse) Key() int16                         { return 2 }
+func (*ListOffsetsResponse) MaxVersion() int16                  { return 8 }
+func (v *ListOffsetsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *ListOffsetsResponse) GetVersion() int16                { return v.Version }
+func (v *ListOffsetsResponse) IsFlexible() bool                 { return v.Version >= 6 }
+func (v *ListOffsetsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 3 }
+func (v *ListOffsetsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *ListOffsetsResponse) RequestKind() Request             { return &ListOffsetsRequest{Version: v.Version} }
 
 func (v *ListOffsetsResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -5941,7 +6527,7 @@ type MetadataRequest struct {
 	// on the cluster. See KIP-430 for more details.
 	//
 	// This field was removed in Kafka 2.8.0 in favor of the new DescribeClusterRequest.
-	IncludeClusterAuthorizedOperations bool // v8+
+	IncludeClusterAuthorizedOperations bool // v8-v10
 
 	// IncludeTopicAuthorizedOperations, introduced in Kakfa 2.3.0, specifies
 	// whether to return a bitfield of AclOperations that this client can perform
@@ -5959,7 +6545,11 @@ func (*MetadataRequest) MaxVersion() int16          { return 12 }
 func (v *MetadataRequest) SetVersion(version int16) { v.Version = version }
 func (v *MetadataRequest) GetVersion() int16        { return v.Version }
 func (v *MetadataRequest) IsFlexible() bool         { return v.Version >= 9 }
-func (v *MetadataRequest) ResponseKind() Response   { return &MetadataResponse{Version: v.Version} }
+func (v *MetadataRequest) ResponseKind() Response {
+	r := &MetadataResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -6343,19 +6933,20 @@ type MetadataResponse struct {
 	// is allowed to perform on this cluster.
 	//
 	// This field has a default of -2147483648.
-	AuthorizedOperations int32 // v8+
+	AuthorizedOperations int32 // v8-v10
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags // v9+
 }
 
-func (*MetadataResponse) Key() int16                 { return 3 }
-func (*MetadataResponse) MaxVersion() int16          { return 12 }
-func (v *MetadataResponse) SetVersion(version int16) { v.Version = version }
-func (v *MetadataResponse) GetVersion() int16        { return v.Version }
-func (v *MetadataResponse) IsFlexible() bool         { return v.Version >= 9 }
-func (v *MetadataResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 6 }
-func (v *MetadataResponse) RequestKind() Request     { return &MetadataRequest{Version: v.Version} }
+func (*MetadataResponse) Key() int16                         { return 3 }
+func (*MetadataResponse) MaxVersion() int16                  { return 12 }
+func (v *MetadataResponse) SetVersion(version int16)         { v.Version = version }
+func (v *MetadataResponse) GetVersion() int16                { return v.Version }
+func (v *MetadataResponse) IsFlexible() bool                 { return v.Version >= 9 }
+func (v *MetadataResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 6 }
+func (v *MetadataResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *MetadataResponse) RequestKind() Request             { return &MetadataRequest{Version: v.Version} }
 
 func (v *MetadataResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -6885,7 +7476,7 @@ func NewMetadataResponse() MetadataResponse {
 // LeaderAndISRRequestTopicPartition is a common struct that is used across
 // different versions of LeaderAndISRRequest.
 type LeaderAndISRRequestTopicPartition struct {
-	Topic string
+	Topic string // v0-v1
 
 	Partition int32
 
@@ -6929,7 +7520,7 @@ func NewLeaderAndISRRequestTopicPartition() LeaderAndISRRequestTopicPartition {
 // LeaderAndISRResponseTopicPartition is a common struct that is used across
 // different versions of LeaderAndISRResponse.
 type LeaderAndISRResponseTopicPartition struct {
-	Topic string
+	Topic string // v0-v4
 
 	Partition int32
 
@@ -7007,14 +7598,18 @@ func NewLeaderAndISRRequestLiveLeader() LeaderAndISRRequestLiveLeader {
 // As this is an advanced request and there is little reason to issue it as a
 // client, this request is undocumented.
 //
-// Kafka 1.0.0 introduced version 1. Kafka 2.2.0 introduced version 2, proposed
+// Kafka 1.0 introduced version 1. Kafka 2.2 introduced version 2, proposed
 // in KIP-380, which changed the layout of the struct to be more memory
 // efficient. Kafka 2.4.0 introduced version 3 with KIP-455.
+// Kafka 3.4 introduced version 7 with KIP-866.
 type LeaderAndISRRequest struct {
 	// Version is the version of this message used with a Kafka broker.
 	Version int16
 
 	ControllerID int32
+
+	// If KRaft controller id is used during migration. See KIP-866.
+	IsKRaftController bool // v7+
 
 	ControllerEpoch int32
 
@@ -7023,7 +7618,7 @@ type LeaderAndISRRequest struct {
 
 	Type int8 // v5+
 
-	PartitionStates []LeaderAndISRRequestTopicPartition
+	PartitionStates []LeaderAndISRRequestTopicPartition // v0-v1
 
 	TopicStates []LeaderAndISRRequestTopicState // v2+
 
@@ -7034,12 +7629,14 @@ type LeaderAndISRRequest struct {
 }
 
 func (*LeaderAndISRRequest) Key() int16                 { return 4 }
-func (*LeaderAndISRRequest) MaxVersion() int16          { return 6 }
+func (*LeaderAndISRRequest) MaxVersion() int16          { return 7 }
 func (v *LeaderAndISRRequest) SetVersion(version int16) { v.Version = version }
 func (v *LeaderAndISRRequest) GetVersion() int16        { return v.Version }
 func (v *LeaderAndISRRequest) IsFlexible() bool         { return v.Version >= 4 }
 func (v *LeaderAndISRRequest) ResponseKind() Response {
-	return &LeaderAndISRResponse{Version: v.Version}
+	r := &LeaderAndISRResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -7059,6 +7656,10 @@ func (v *LeaderAndISRRequest) AppendTo(dst []byte) []byte {
 	{
 		v := v.ControllerID
 		dst = kbin.AppendInt32(dst, v)
+	}
+	if version >= 7 {
+		v := v.IsKRaftController
+		dst = kbin.AppendBool(dst, v)
 	}
 	{
 		v := v.ControllerEpoch
@@ -7354,6 +7955,10 @@ func (v *LeaderAndISRRequest) readFrom(src []byte, unsafe bool) error {
 	{
 		v := b.Int32()
 		s.ControllerID = v
+	}
+	if version >= 7 {
+		v := b.Bool()
+		s.IsKRaftController = v
 	}
 	{
 		v := b.Int32()
@@ -7852,7 +8457,7 @@ type LeaderAndISRResponse struct {
 
 	ErrorCode int16
 
-	Partitions []LeaderAndISRResponseTopicPartition
+	Partitions []LeaderAndISRResponseTopicPartition // v0-v4
 
 	Topics []LeaderAndISRResponseTopic // v5+
 
@@ -7861,7 +8466,7 @@ type LeaderAndISRResponse struct {
 }
 
 func (*LeaderAndISRResponse) Key() int16                 { return 4 }
-func (*LeaderAndISRResponse) MaxVersion() int16          { return 6 }
+func (*LeaderAndISRResponse) MaxVersion() int16          { return 7 }
 func (v *LeaderAndISRResponse) SetVersion(version int16) { v.Version = version }
 func (v *LeaderAndISRResponse) GetVersion() int16        { return v.Version }
 func (v *LeaderAndISRResponse) IsFlexible() bool         { return v.Version >= 4 }
@@ -8177,7 +8782,7 @@ type StopReplicaRequestTopic struct {
 
 	Partition int32
 
-	Partitions []int32 // v1+
+	Partitions []int32 // v1-v2
 
 	PartitionStates []StopReplicaRequestTopicPartitionState // v3+
 
@@ -8203,11 +8808,12 @@ func NewStopReplicaRequestTopic() StopReplicaRequestTopic {
 // As this is an advanced request and there is little reason to issue it as a
 // client, this request is undocumented.
 //
-// Kafka 2.2.0 introduced version 1, proposed in KIP-380, which changed the
+// Kafka 2.2 introduced version 1, proposed in KIP-380, which changed the
 // layout of the struct to be more memory efficient.
 //
-// Kafka 2.6.0 introduced version 3, proposed in KIP-570, reorganizes partitions
+// Kafka 2.6 introduced version 3, proposed in KIP-570, reorganizes partitions
 // to be stored and adds the leader epoch and delete partition fields per partition.
+// Kafka 3.4 introduced version 4 with KIP-866.
 type StopReplicaRequest struct {
 	// Version is the version of this message used with a Kafka broker.
 	Version int16
@@ -8216,10 +8822,13 @@ type StopReplicaRequest struct {
 
 	ControllerEpoch int32
 
+	// If KRaft controller id is used during migration. See KIP-866.
+	IsKRaftController bool // v4+
+
 	// This field has a default of -1.
 	BrokerEpoch int64 // v1+
 
-	DeletePartitions bool
+	DeletePartitions bool // v0-v2
 
 	Topics []StopReplicaRequestTopic
 
@@ -8228,11 +8837,15 @@ type StopReplicaRequest struct {
 }
 
 func (*StopReplicaRequest) Key() int16                 { return 5 }
-func (*StopReplicaRequest) MaxVersion() int16          { return 3 }
+func (*StopReplicaRequest) MaxVersion() int16          { return 4 }
 func (v *StopReplicaRequest) SetVersion(version int16) { v.Version = version }
 func (v *StopReplicaRequest) GetVersion() int16        { return v.Version }
 func (v *StopReplicaRequest) IsFlexible() bool         { return v.Version >= 2 }
-func (v *StopReplicaRequest) ResponseKind() Response   { return &StopReplicaResponse{Version: v.Version} }
+func (v *StopReplicaRequest) ResponseKind() Response {
+	r := &StopReplicaResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -8255,6 +8868,10 @@ func (v *StopReplicaRequest) AppendTo(dst []byte) []byte {
 	{
 		v := v.ControllerEpoch
 		dst = kbin.AppendInt32(dst, v)
+	}
+	if version >= 4 {
+		v := v.IsKRaftController
+		dst = kbin.AppendBool(dst, v)
 	}
 	if version >= 1 {
 		v := v.BrokerEpoch
@@ -8360,6 +8977,10 @@ func (v *StopReplicaRequest) readFrom(src []byte, unsafe bool) error {
 	{
 		v := b.Int32()
 		s.ControllerEpoch = v
+	}
+	if version >= 4 {
+		v := b.Bool()
+		s.IsKRaftController = v
 	}
 	if version >= 1 {
 		v := b.Int64()
@@ -8546,7 +9167,7 @@ type StopReplicaResponse struct {
 }
 
 func (*StopReplicaResponse) Key() int16                 { return 5 }
-func (*StopReplicaResponse) MaxVersion() int16          { return 3 }
+func (*StopReplicaResponse) MaxVersion() int16          { return 4 }
 func (v *StopReplicaResponse) SetVersion(version int16) { v.Version = version }
 func (v *StopReplicaResponse) GetVersion() int16        { return v.Version }
 func (v *StopReplicaResponse) IsFlexible() bool         { return v.Version >= 2 }
@@ -8699,7 +9320,7 @@ func NewStopReplicaResponse() StopReplicaResponse {
 }
 
 type UpdateMetadataRequestTopicPartition struct {
-	Topic string
+	Topic string // v0-v4
 
 	Partition int32
 
@@ -8820,20 +9441,24 @@ func NewUpdateMetadataRequestLiveBroker() UpdateMetadataRequestLiveBroker {
 //
 // Version 1 changed the layout of the live brokers.
 //
-// Kafka 2.2.0 introduced version 5, proposed in KIP-380, which changed the
+// Kafka 2.2 introduced version 5, proposed in KIP-380, which changed the
 // layout of the struct to be more memory efficient.
+// Kafka 3.4 introduced version 8 with KIP-866.
 type UpdateMetadataRequest struct {
 	// Version is the version of this message used with a Kafka broker.
 	Version int16
 
 	ControllerID int32
 
+	// If KRaft controller id is used during migration. See KIP-866.
+	IsKRaftController bool // v8+
+
 	ControllerEpoch int32
 
 	// This field has a default of -1.
 	BrokerEpoch int64 // v5+
 
-	PartitionStates []UpdateMetadataRequestTopicPartition
+	PartitionStates []UpdateMetadataRequestTopicPartition // v0-v4
 
 	TopicStates []UpdateMetadataRequestTopicState // v5+
 
@@ -8844,12 +9469,14 @@ type UpdateMetadataRequest struct {
 }
 
 func (*UpdateMetadataRequest) Key() int16                 { return 6 }
-func (*UpdateMetadataRequest) MaxVersion() int16          { return 7 }
+func (*UpdateMetadataRequest) MaxVersion() int16          { return 8 }
 func (v *UpdateMetadataRequest) SetVersion(version int16) { v.Version = version }
 func (v *UpdateMetadataRequest) GetVersion() int16        { return v.Version }
 func (v *UpdateMetadataRequest) IsFlexible() bool         { return v.Version >= 6 }
 func (v *UpdateMetadataRequest) ResponseKind() Response {
-	return &UpdateMetadataResponse{Version: v.Version}
+	r := &UpdateMetadataResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -8869,6 +9496,10 @@ func (v *UpdateMetadataRequest) AppendTo(dst []byte) []byte {
 	{
 		v := v.ControllerID
 		dst = kbin.AppendInt32(dst, v)
+	}
+	if version >= 8 {
+		v := v.IsKRaftController
+		dst = kbin.AppendBool(dst, v)
 	}
 	{
 		v := v.ControllerEpoch
@@ -9167,6 +9798,10 @@ func (v *UpdateMetadataRequest) readFrom(src []byte, unsafe bool) error {
 	{
 		v := b.Int32()
 		s.ControllerID = v
+	}
+	if version >= 8 {
+		v := b.Bool()
+		s.IsKRaftController = v
 	}
 	{
 		v := b.Int32()
@@ -9668,7 +10303,7 @@ type UpdateMetadataResponse struct {
 }
 
 func (*UpdateMetadataResponse) Key() int16                 { return 6 }
-func (*UpdateMetadataResponse) MaxVersion() int16          { return 7 }
+func (*UpdateMetadataResponse) MaxVersion() int16          { return 8 }
 func (v *UpdateMetadataResponse) SetVersion(version int16) { v.Version = version }
 func (v *UpdateMetadataResponse) GetVersion() int16        { return v.Version }
 func (v *UpdateMetadataResponse) IsFlexible() bool         { return v.Version >= 6 }
@@ -9769,7 +10404,9 @@ func (v *ControlledShutdownRequest) SetVersion(version int16) { v.Version = vers
 func (v *ControlledShutdownRequest) GetVersion() int16        { return v.Version }
 func (v *ControlledShutdownRequest) IsFlexible() bool         { return v.Version >= 3 }
 func (v *ControlledShutdownRequest) ResponseKind() Response {
-	return &ControlledShutdownResponse{Version: v.Version}
+	r := &ControlledShutdownResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -10048,7 +10685,7 @@ type OffsetCommitRequestTopicPartition struct {
 	// timestamp was zero, current time + offset.retention.minutes.
 	//
 	// This field has a default of -1.
-	Timestamp int64 // v1+
+	Timestamp int64 // v1-v1
 
 	// LeaderEpoch, proposed in KIP-320 and introduced in Kafka 2.1.0,
 	// is the leader epoch of the record this request is committing.
@@ -10142,7 +10779,7 @@ type OffsetCommitRequest struct {
 	// group is empty. Read KIP-211 for more details.
 	//
 	// This field has a default of -1.
-	RetentionTimeMillis int64 // v2+
+	RetentionTimeMillis int64 // v2-v4
 
 	// Topics is contains topics and partitions for which to commit offsets.
 	Topics []OffsetCommitRequestTopic
@@ -10152,13 +10789,15 @@ type OffsetCommitRequest struct {
 }
 
 func (*OffsetCommitRequest) Key() int16                   { return 8 }
-func (*OffsetCommitRequest) MaxVersion() int16            { return 8 }
+func (*OffsetCommitRequest) MaxVersion() int16            { return 9 }
 func (v *OffsetCommitRequest) SetVersion(version int16)   { v.Version = version }
 func (v *OffsetCommitRequest) GetVersion() int16          { return v.Version }
 func (v *OffsetCommitRequest) IsFlexible() bool           { return v.Version >= 8 }
 func (v *OffsetCommitRequest) IsGroupCoordinatorRequest() {}
 func (v *OffsetCommitRequest) ResponseKind() Response {
-	return &OffsetCommitResponse{Version: v.Version}
+	r := &OffsetCommitResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -10585,13 +11224,14 @@ type OffsetCommitResponse struct {
 	UnknownTags Tags // v8+
 }
 
-func (*OffsetCommitResponse) Key() int16                 { return 8 }
-func (*OffsetCommitResponse) MaxVersion() int16          { return 8 }
-func (v *OffsetCommitResponse) SetVersion(version int16) { v.Version = version }
-func (v *OffsetCommitResponse) GetVersion() int16        { return v.Version }
-func (v *OffsetCommitResponse) IsFlexible() bool         { return v.Version >= 8 }
-func (v *OffsetCommitResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 4 }
-func (v *OffsetCommitResponse) RequestKind() Request     { return &OffsetCommitRequest{Version: v.Version} }
+func (*OffsetCommitResponse) Key() int16                         { return 8 }
+func (*OffsetCommitResponse) MaxVersion() int16                  { return 9 }
+func (v *OffsetCommitResponse) SetVersion(version int16)         { v.Version = version }
+func (v *OffsetCommitResponse) GetVersion() int16                { return v.Version }
+func (v *OffsetCommitResponse) IsFlexible() bool                 { return v.Version >= 8 }
+func (v *OffsetCommitResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 4 }
+func (v *OffsetCommitResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *OffsetCommitResponse) RequestKind() Request             { return &OffsetCommitRequest{Version: v.Version} }
 
 func (v *OffsetCommitResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -10830,6 +11470,14 @@ func NewOffsetFetchRequestGroupTopic() OffsetFetchRequestGroupTopic {
 type OffsetFetchRequestGroup struct {
 	Group string
 
+	// The member ID assigned by the group coordinator if using the new consumer protocol (KIP-848).
+	MemberID *string // v9+
+
+	// The member epoch if using the new consumer protocol (KIP-848).
+	//
+	// This field has a default of -1.
+	MemberEpoch int32 // v9+
+
 	Topics []OffsetFetchRequestGroupTopic
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
@@ -10839,6 +11487,7 @@ type OffsetFetchRequestGroup struct {
 // Default sets any default fields. Calling this allows for future compatibility
 // if new fields are added to OffsetFetchRequestGroup.
 func (v *OffsetFetchRequestGroup) Default() {
+	v.MemberEpoch = -1
 }
 
 // NewOffsetFetchRequestGroup returns a default OffsetFetchRequestGroup
@@ -10856,11 +11505,11 @@ type OffsetFetchRequest struct {
 	Version int16
 
 	// Group is the group to fetch offsets for.
-	Group string
+	Group string // v0-v7
 
 	// Topics contains topics to fetch offets for. Version 2+ allows this to be
 	// null to return all topics the client is authorized to describe in the group.
-	Topics []OffsetFetchRequestTopic
+	Topics []OffsetFetchRequestTopic // v0-v7
 
 	// Groups, introduced in v8 (Kafka 3.0), allows for fetching offsets for
 	// multiple groups at a time.
@@ -10870,7 +11519,7 @@ type OffsetFetchRequest struct {
 	Groups []OffsetFetchRequestGroup // v8+
 
 	// RequireStable signifies whether the broker should wait on returning
-	// unstable offsets, instead setting a retriable error on the relevant
+	// unstable offsets, instead setting a retryable error on the relevant
 	// unstable partitions (UNSTABLE_OFFSET_COMMIT). See KIP-447 for more
 	// details.
 	RequireStable bool // v7+
@@ -10880,12 +11529,16 @@ type OffsetFetchRequest struct {
 }
 
 func (*OffsetFetchRequest) Key() int16                   { return 9 }
-func (*OffsetFetchRequest) MaxVersion() int16            { return 8 }
+func (*OffsetFetchRequest) MaxVersion() int16            { return 9 }
 func (v *OffsetFetchRequest) SetVersion(version int16)   { v.Version = version }
 func (v *OffsetFetchRequest) GetVersion() int16          { return v.Version }
 func (v *OffsetFetchRequest) IsFlexible() bool           { return v.Version >= 6 }
 func (v *OffsetFetchRequest) IsGroupCoordinatorRequest() {}
-func (v *OffsetFetchRequest) ResponseKind() Response     { return &OffsetFetchResponse{Version: v.Version} }
+func (v *OffsetFetchRequest) ResponseKind() Response {
+	r := &OffsetFetchResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -10968,6 +11621,18 @@ func (v *OffsetFetchRequest) AppendTo(dst []byte) []byte {
 				} else {
 					dst = kbin.AppendString(dst, v)
 				}
+			}
+			if version >= 9 {
+				v := v.MemberID
+				if isFlexible {
+					dst = kbin.AppendCompactNullableString(dst, v)
+				} else {
+					dst = kbin.AppendNullableString(dst, v)
+				}
+			}
+			if version >= 9 {
+				v := v.MemberEpoch
+				dst = kbin.AppendInt32(dst, v)
 			}
 			{
 				v := v.Topics
@@ -11160,6 +11825,27 @@ func (v *OffsetFetchRequest) readFrom(src []byte, unsafe bool) error {
 					}
 				}
 				s.Group = v
+			}
+			if version >= 9 {
+				var v *string
+				if isFlexible {
+					if unsafe {
+						v = b.UnsafeCompactNullableString()
+					} else {
+						v = b.CompactNullableString()
+					}
+				} else {
+					if unsafe {
+						v = b.UnsafeNullableString()
+					} else {
+						v = b.NullableString()
+					}
+				}
+				s.MemberID = v
+			}
+			if version >= 9 {
+				v := b.Int32()
+				s.MemberEpoch = v
 			}
 			{
 				v := s.Topics
@@ -11444,11 +12130,11 @@ type OffsetFetchResponse struct {
 	ThrottleMillis int32 // v3+
 
 	// Topics contains responses for each requested topic/partition.
-	Topics []OffsetFetchResponseTopic
+	Topics []OffsetFetchResponseTopic // v0-v7
 
 	// ErrorCode is a top level error code that applies to all topic/partitions.
 	// This will be any group error.
-	ErrorCode int16 // v2+
+	ErrorCode int16 // v2-v7
 
 	// Groups is the response for all groups. Each field mirrors the fields in the
 	// top level request, thus they are left undocumented. Refer to the top level
@@ -11459,13 +12145,14 @@ type OffsetFetchResponse struct {
 	UnknownTags Tags // v6+
 }
 
-func (*OffsetFetchResponse) Key() int16                 { return 9 }
-func (*OffsetFetchResponse) MaxVersion() int16          { return 8 }
-func (v *OffsetFetchResponse) SetVersion(version int16) { v.Version = version }
-func (v *OffsetFetchResponse) GetVersion() int16        { return v.Version }
-func (v *OffsetFetchResponse) IsFlexible() bool         { return v.Version >= 6 }
-func (v *OffsetFetchResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 4 }
-func (v *OffsetFetchResponse) RequestKind() Request     { return &OffsetFetchRequest{Version: v.Version} }
+func (*OffsetFetchResponse) Key() int16                         { return 9 }
+func (*OffsetFetchResponse) MaxVersion() int16                  { return 9 }
+func (v *OffsetFetchResponse) SetVersion(version int16)         { v.Version = version }
+func (v *OffsetFetchResponse) GetVersion() int16                { return v.Version }
+func (v *OffsetFetchResponse) IsFlexible() bool                 { return v.Version >= 6 }
+func (v *OffsetFetchResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 4 }
+func (v *OffsetFetchResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *OffsetFetchResponse) RequestKind() Request             { return &OffsetFetchRequest{Version: v.Version} }
 
 func (v *OffsetFetchResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -11957,7 +12644,7 @@ type FindCoordinatorRequest struct {
 	// CoordinatorKey is the ID to use for finding the coordinator. For groups,
 	// this is the group name, for transactional producer, this is the
 	// transactional ID.
-	CoordinatorKey string
+	CoordinatorKey string // v0-v3
 
 	// CoordinatorType is the type that key is. Groups are type 0,
 	// transactional IDs are type 1.
@@ -11971,12 +12658,14 @@ type FindCoordinatorRequest struct {
 }
 
 func (*FindCoordinatorRequest) Key() int16                 { return 10 }
-func (*FindCoordinatorRequest) MaxVersion() int16          { return 4 }
+func (*FindCoordinatorRequest) MaxVersion() int16          { return 5 }
 func (v *FindCoordinatorRequest) SetVersion(version int16) { v.Version = version }
 func (v *FindCoordinatorRequest) GetVersion() int16        { return v.Version }
 func (v *FindCoordinatorRequest) IsFlexible() bool         { return v.Version >= 3 }
 func (v *FindCoordinatorRequest) ResponseKind() Response {
-	return &FindCoordinatorResponse{Version: v.Version}
+	r := &FindCoordinatorResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -12185,19 +12874,19 @@ type FindCoordinatorResponse struct {
 	// COORDINATOR_NOT_AVAILABLE is returned if the coordinator is not available
 	// for the requested ID, which would be if the group or transactional topic
 	// does not exist or the partition the requested key maps to is not available.
-	ErrorCode int16
+	ErrorCode int16 // v0-v3
 
 	// ErrorMessage is an informative message if the request errored.
-	ErrorMessage *string // v1+
+	ErrorMessage *string // v1-v3
 
 	// NodeID is the broker ID of the coordinator.
-	NodeID int32
+	NodeID int32 // v0-v3
 
 	// Host is the host of the coordinator.
-	Host string
+	Host string // v0-v3
 
 	// Port is the port of the coordinator.
-	Port int32
+	Port int32 // v0-v3
 
 	// Coordinators, introduced for KIP-699, is the bulk response for
 	// coordinators. The fields in the struct exactly match the original fields
@@ -12209,11 +12898,15 @@ type FindCoordinatorResponse struct {
 }
 
 func (*FindCoordinatorResponse) Key() int16                 { return 10 }
-func (*FindCoordinatorResponse) MaxVersion() int16          { return 4 }
+func (*FindCoordinatorResponse) MaxVersion() int16          { return 5 }
 func (v *FindCoordinatorResponse) SetVersion(version int16) { v.Version = version }
 func (v *FindCoordinatorResponse) GetVersion() int16        { return v.Version }
 func (v *FindCoordinatorResponse) IsFlexible() bool         { return v.Version >= 3 }
 func (v *FindCoordinatorResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 2 }
+func (v *FindCoordinatorResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *FindCoordinatorResponse) RequestKind() Request {
 	return &FindCoordinatorRequest{Version: v.Version}
 }
@@ -12609,7 +13302,11 @@ func (v *JoinGroupRequest) SetVersion(version int16)   { v.Version = version }
 func (v *JoinGroupRequest) GetVersion() int16          { return v.Version }
 func (v *JoinGroupRequest) IsFlexible() bool           { return v.Version >= 6 }
 func (v *JoinGroupRequest) IsGroupCoordinatorRequest() {}
-func (v *JoinGroupRequest) ResponseKind() Response     { return &JoinGroupResponse{Version: v.Version} }
+func (v *JoinGroupRequest) ResponseKind() Response {
+	r := &JoinGroupResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -13014,13 +13711,14 @@ type JoinGroupResponse struct {
 	UnknownTags Tags // v6+
 }
 
-func (*JoinGroupResponse) Key() int16                 { return 11 }
-func (*JoinGroupResponse) MaxVersion() int16          { return 9 }
-func (v *JoinGroupResponse) SetVersion(version int16) { v.Version = version }
-func (v *JoinGroupResponse) GetVersion() int16        { return v.Version }
-func (v *JoinGroupResponse) IsFlexible() bool         { return v.Version >= 6 }
-func (v *JoinGroupResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 3 }
-func (v *JoinGroupResponse) RequestKind() Request     { return &JoinGroupRequest{Version: v.Version} }
+func (*JoinGroupResponse) Key() int16                         { return 11 }
+func (*JoinGroupResponse) MaxVersion() int16                  { return 9 }
+func (v *JoinGroupResponse) SetVersion(version int16)         { v.Version = version }
+func (v *JoinGroupResponse) GetVersion() int16                { return v.Version }
+func (v *JoinGroupResponse) IsFlexible() bool                 { return v.Version >= 6 }
+func (v *JoinGroupResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 3 }
+func (v *JoinGroupResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *JoinGroupResponse) RequestKind() Request             { return &JoinGroupRequest{Version: v.Version} }
 
 func (v *JoinGroupResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -13380,7 +14078,11 @@ func (v *HeartbeatRequest) SetVersion(version int16)   { v.Version = version }
 func (v *HeartbeatRequest) GetVersion() int16          { return v.Version }
 func (v *HeartbeatRequest) IsFlexible() bool           { return v.Version >= 4 }
 func (v *HeartbeatRequest) IsGroupCoordinatorRequest() {}
-func (v *HeartbeatRequest) ResponseKind() Response     { return &HeartbeatResponse{Version: v.Version} }
+func (v *HeartbeatRequest) ResponseKind() Response {
+	r := &HeartbeatResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -13567,13 +14269,14 @@ type HeartbeatResponse struct {
 	UnknownTags Tags // v4+
 }
 
-func (*HeartbeatResponse) Key() int16                 { return 12 }
-func (*HeartbeatResponse) MaxVersion() int16          { return 4 }
-func (v *HeartbeatResponse) SetVersion(version int16) { v.Version = version }
-func (v *HeartbeatResponse) GetVersion() int16        { return v.Version }
-func (v *HeartbeatResponse) IsFlexible() bool         { return v.Version >= 4 }
-func (v *HeartbeatResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 2 }
-func (v *HeartbeatResponse) RequestKind() Request     { return &HeartbeatRequest{Version: v.Version} }
+func (*HeartbeatResponse) Key() int16                         { return 12 }
+func (*HeartbeatResponse) MaxVersion() int16                  { return 4 }
+func (v *HeartbeatResponse) SetVersion(version int16)         { v.Version = version }
+func (v *HeartbeatResponse) GetVersion() int16                { return v.Version }
+func (v *HeartbeatResponse) IsFlexible() bool                 { return v.Version >= 4 }
+func (v *HeartbeatResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 2 }
+func (v *HeartbeatResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *HeartbeatResponse) RequestKind() Request             { return &HeartbeatRequest{Version: v.Version} }
 
 func (v *HeartbeatResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -13685,7 +14388,7 @@ type LeaveGroupRequest struct {
 	Group string
 
 	// MemberID is the member that is leaving.
-	MemberID string
+	MemberID string // v0-v2
 
 	// Members are member and group instance IDs to cause to leave a group.
 	Members []LeaveGroupRequestMember // v3+
@@ -13700,7 +14403,11 @@ func (v *LeaveGroupRequest) SetVersion(version int16)   { v.Version = version }
 func (v *LeaveGroupRequest) GetVersion() int16          { return v.Version }
 func (v *LeaveGroupRequest) IsFlexible() bool           { return v.Version >= 4 }
 func (v *LeaveGroupRequest) IsGroupCoordinatorRequest() {}
-func (v *LeaveGroupRequest) ResponseKind() Response     { return &LeaveGroupResponse{Version: v.Version} }
+func (v *LeaveGroupRequest) ResponseKind() Response {
+	r := &LeaveGroupResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -13997,13 +14704,14 @@ type LeaveGroupResponse struct {
 	UnknownTags Tags // v4+
 }
 
-func (*LeaveGroupResponse) Key() int16                 { return 13 }
-func (*LeaveGroupResponse) MaxVersion() int16          { return 5 }
-func (v *LeaveGroupResponse) SetVersion(version int16) { v.Version = version }
-func (v *LeaveGroupResponse) GetVersion() int16        { return v.Version }
-func (v *LeaveGroupResponse) IsFlexible() bool         { return v.Version >= 4 }
-func (v *LeaveGroupResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 2 }
-func (v *LeaveGroupResponse) RequestKind() Request     { return &LeaveGroupRequest{Version: v.Version} }
+func (*LeaveGroupResponse) Key() int16                         { return 13 }
+func (*LeaveGroupResponse) MaxVersion() int16                  { return 5 }
+func (v *LeaveGroupResponse) SetVersion(version int16)         { v.Version = version }
+func (v *LeaveGroupResponse) GetVersion() int16                { return v.Version }
+func (v *LeaveGroupResponse) IsFlexible() bool                 { return v.Version >= 4 }
+func (v *LeaveGroupResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 2 }
+func (v *LeaveGroupResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *LeaveGroupResponse) RequestKind() Request             { return &LeaveGroupRequest{Version: v.Version} }
 
 func (v *LeaveGroupResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -14242,7 +14950,11 @@ func (v *SyncGroupRequest) SetVersion(version int16)   { v.Version = version }
 func (v *SyncGroupRequest) GetVersion() int16          { return v.Version }
 func (v *SyncGroupRequest) IsFlexible() bool           { return v.Version >= 4 }
 func (v *SyncGroupRequest) IsGroupCoordinatorRequest() {}
-func (v *SyncGroupRequest) ResponseKind() Response     { return &SyncGroupResponse{Version: v.Version} }
+func (v *SyncGroupRequest) ResponseKind() Response {
+	r := &SyncGroupResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -14575,13 +15287,14 @@ type SyncGroupResponse struct {
 	UnknownTags Tags // v4+
 }
 
-func (*SyncGroupResponse) Key() int16                 { return 14 }
-func (*SyncGroupResponse) MaxVersion() int16          { return 5 }
-func (v *SyncGroupResponse) SetVersion(version int16) { v.Version = version }
-func (v *SyncGroupResponse) GetVersion() int16        { return v.Version }
-func (v *SyncGroupResponse) IsFlexible() bool         { return v.Version >= 4 }
-func (v *SyncGroupResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 2 }
-func (v *SyncGroupResponse) RequestKind() Request     { return &SyncGroupRequest{Version: v.Version} }
+func (*SyncGroupResponse) Key() int16                         { return 14 }
+func (*SyncGroupResponse) MaxVersion() int16                  { return 5 }
+func (v *SyncGroupResponse) SetVersion(version int16)         { v.Version = version }
+func (v *SyncGroupResponse) GetVersion() int16                { return v.Version }
+func (v *SyncGroupResponse) IsFlexible() bool                 { return v.Version >= 4 }
+func (v *SyncGroupResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 2 }
+func (v *SyncGroupResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *SyncGroupResponse) RequestKind() Request             { return &SyncGroupRequest{Version: v.Version} }
 
 func (v *SyncGroupResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -14745,7 +15458,9 @@ func (v *DescribeGroupsRequest) GetVersion() int16          { return v.Version }
 func (v *DescribeGroupsRequest) IsFlexible() bool           { return v.Version >= 5 }
 func (v *DescribeGroupsRequest) IsGroupCoordinatorRequest() {}
 func (v *DescribeGroupsRequest) ResponseKind() Response {
-	return &DescribeGroupsResponse{Version: v.Version}
+	r := &DescribeGroupsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -14989,12 +15704,13 @@ type DescribeGroupsResponse struct {
 	UnknownTags Tags // v5+
 }
 
-func (*DescribeGroupsResponse) Key() int16                 { return 15 }
-func (*DescribeGroupsResponse) MaxVersion() int16          { return 5 }
-func (v *DescribeGroupsResponse) SetVersion(version int16) { v.Version = version }
-func (v *DescribeGroupsResponse) GetVersion() int16        { return v.Version }
-func (v *DescribeGroupsResponse) IsFlexible() bool         { return v.Version >= 5 }
-func (v *DescribeGroupsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 2 }
+func (*DescribeGroupsResponse) Key() int16                         { return 15 }
+func (*DescribeGroupsResponse) MaxVersion() int16                  { return 5 }
+func (v *DescribeGroupsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *DescribeGroupsResponse) GetVersion() int16                { return v.Version }
+func (v *DescribeGroupsResponse) IsFlexible() bool                 { return v.Version >= 5 }
+func (v *DescribeGroupsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 2 }
+func (v *DescribeGroupsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
 func (v *DescribeGroupsResponse) RequestKind() Request {
 	return &DescribeGroupsRequest{Version: v.Version}
 }
@@ -15409,16 +16125,24 @@ type ListGroupsRequest struct {
 	// "Dead", or "Empty". If empty, all groups are returned.
 	StatesFilter []string // v4+
 
+	// TypesFilter, part of KIP-848, filters the types of groups we want
+	// to list. If empty, all groups are returned.
+	TypesFilter []string // v5+
+
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags // v3+
 }
 
 func (*ListGroupsRequest) Key() int16                 { return 16 }
-func (*ListGroupsRequest) MaxVersion() int16          { return 4 }
+func (*ListGroupsRequest) MaxVersion() int16          { return 5 }
 func (v *ListGroupsRequest) SetVersion(version int16) { v.Version = version }
 func (v *ListGroupsRequest) GetVersion() int16        { return v.Version }
 func (v *ListGroupsRequest) IsFlexible() bool         { return v.Version >= 3 }
-func (v *ListGroupsRequest) ResponseKind() Response   { return &ListGroupsResponse{Version: v.Version} }
+func (v *ListGroupsRequest) ResponseKind() Response {
+	r := &ListGroupsResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -15436,6 +16160,22 @@ func (v *ListGroupsRequest) AppendTo(dst []byte) []byte {
 	_ = isFlexible
 	if version >= 4 {
 		v := v.StatesFilter
+		if isFlexible {
+			dst = kbin.AppendCompactArrayLen(dst, len(v))
+		} else {
+			dst = kbin.AppendArrayLen(dst, len(v))
+		}
+		for i := range v {
+			v := v[i]
+			if isFlexible {
+				dst = kbin.AppendCompactString(dst, v)
+			} else {
+				dst = kbin.AppendString(dst, v)
+			}
+		}
+	}
+	if version >= 5 {
+		v := v.TypesFilter
 		if isFlexible {
 			dst = kbin.AppendCompactArrayLen(dst, len(v))
 		} else {
@@ -15509,6 +16249,42 @@ func (v *ListGroupsRequest) readFrom(src []byte, unsafe bool) error {
 		v = a
 		s.StatesFilter = v
 	}
+	if version >= 5 {
+		v := s.TypesFilter
+		a := v
+		var l int32
+		if isFlexible {
+			l = b.CompactArrayLen()
+		} else {
+			l = b.ArrayLen()
+		}
+		if !b.Ok() {
+			return b.Complete()
+		}
+		a = a[:0]
+		if l > 0 {
+			a = append(a, make([]string, l)...)
+		}
+		for i := int32(0); i < l; i++ {
+			var v string
+			if unsafe {
+				if isFlexible {
+					v = b.UnsafeCompactString()
+				} else {
+					v = b.UnsafeString()
+				}
+			} else {
+				if isFlexible {
+					v = b.CompactString()
+				} else {
+					v = b.String()
+				}
+			}
+			a[i] = v
+		}
+		v = a
+		s.TypesFilter = v
+	}
 	if isFlexible {
 		s.UnknownTags = internalReadTags(&b)
 	}
@@ -15545,6 +16321,9 @@ type ListGroupsResponseGroup struct {
 
 	// The group state.
 	GroupState string // v4+
+
+	// The group type.
+	GroupType string // v5+
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags // v3+
@@ -15590,13 +16369,14 @@ type ListGroupsResponse struct {
 	UnknownTags Tags // v3+
 }
 
-func (*ListGroupsResponse) Key() int16                 { return 16 }
-func (*ListGroupsResponse) MaxVersion() int16          { return 4 }
-func (v *ListGroupsResponse) SetVersion(version int16) { v.Version = version }
-func (v *ListGroupsResponse) GetVersion() int16        { return v.Version }
-func (v *ListGroupsResponse) IsFlexible() bool         { return v.Version >= 3 }
-func (v *ListGroupsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 2 }
-func (v *ListGroupsResponse) RequestKind() Request     { return &ListGroupsRequest{Version: v.Version} }
+func (*ListGroupsResponse) Key() int16                         { return 16 }
+func (*ListGroupsResponse) MaxVersion() int16                  { return 5 }
+func (v *ListGroupsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *ListGroupsResponse) GetVersion() int16                { return v.Version }
+func (v *ListGroupsResponse) IsFlexible() bool                 { return v.Version >= 3 }
+func (v *ListGroupsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 2 }
+func (v *ListGroupsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *ListGroupsResponse) RequestKind() Request             { return &ListGroupsRequest{Version: v.Version} }
 
 func (v *ListGroupsResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -15638,6 +16418,14 @@ func (v *ListGroupsResponse) AppendTo(dst []byte) []byte {
 			}
 			if version >= 4 {
 				v := v.GroupState
+				if isFlexible {
+					dst = kbin.AppendCompactString(dst, v)
+				} else {
+					dst = kbin.AppendString(dst, v)
+				}
+			}
+			if version >= 5 {
+				v := v.GroupType
 				if isFlexible {
 					dst = kbin.AppendCompactString(dst, v)
 				} else {
@@ -15752,6 +16540,23 @@ func (v *ListGroupsResponse) readFrom(src []byte, unsafe bool) error {
 				}
 				s.GroupState = v
 			}
+			if version >= 5 {
+				var v string
+				if unsafe {
+					if isFlexible {
+						v = b.UnsafeCompactString()
+					} else {
+						v = b.UnsafeString()
+					}
+				} else {
+					if isFlexible {
+						v = b.CompactString()
+					} else {
+						v = b.String()
+					}
+				}
+				s.GroupType = v
+			}
 			if isFlexible {
 				s.UnknownTags = internalReadTags(&b)
 			}
@@ -15809,7 +16614,9 @@ func (v *SASLHandshakeRequest) SetVersion(version int16) { v.Version = version }
 func (v *SASLHandshakeRequest) GetVersion() int16        { return v.Version }
 func (v *SASLHandshakeRequest) IsFlexible() bool         { return false }
 func (v *SASLHandshakeRequest) ResponseKind() Response {
-	return &SASLHandshakeResponse{Version: v.Version}
+	r := &SASLHandshakeResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -16010,8 +16817,7 @@ type ApiVersionsRequest struct {
 	//
 	// If using v3, this field is required and must match the following pattern:
 	//
-	//     [a-zA-Z0-9](?:[a-zA-Z0-9\\-.]*[a-zA-Z0-9])?
-	//
+	//	[a-zA-Z0-9](?:[a-zA-Z0-9\\-.]*[a-zA-Z0-9])?
 	ClientSoftwareName string // v3+
 
 	// ClientSoftwareVersion is the version of the software name in the prior
@@ -16027,7 +16833,11 @@ func (*ApiVersionsRequest) MaxVersion() int16          { return 3 }
 func (v *ApiVersionsRequest) SetVersion(version int16) { v.Version = version }
 func (v *ApiVersionsRequest) GetVersion() int16        { return v.Version }
 func (v *ApiVersionsRequest) IsFlexible() bool         { return v.Version >= 3 }
-func (v *ApiVersionsRequest) ResponseKind() Response   { return &ApiVersionsResponse{Version: v.Version} }
+func (v *ApiVersionsRequest) ResponseKind() Response {
+	r := &ApiVersionsResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -16262,17 +17072,22 @@ type ApiVersionsResponse struct {
 	// FinalizedFeaturesEpoch is >= 0).
 	FinalizedFeatures []ApiVersionsResponseFinalizedFeature // tag 2
 
+	// Set by a KRaft controller if the required configurations for ZK migration
+	// are present
+	ZkMigrationReady bool // tag 3
+
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags // v3+
 }
 
-func (*ApiVersionsResponse) Key() int16                 { return 18 }
-func (*ApiVersionsResponse) MaxVersion() int16          { return 3 }
-func (v *ApiVersionsResponse) SetVersion(version int16) { v.Version = version }
-func (v *ApiVersionsResponse) GetVersion() int16        { return v.Version }
-func (v *ApiVersionsResponse) IsFlexible() bool         { return v.Version >= 3 }
-func (v *ApiVersionsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 2 }
-func (v *ApiVersionsResponse) RequestKind() Request     { return &ApiVersionsRequest{Version: v.Version} }
+func (*ApiVersionsResponse) Key() int16                         { return 18 }
+func (*ApiVersionsResponse) MaxVersion() int16                  { return 3 }
+func (v *ApiVersionsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *ApiVersionsResponse) GetVersion() int16                { return v.Version }
+func (v *ApiVersionsResponse) IsFlexible() bool                 { return v.Version >= 3 }
+func (v *ApiVersionsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 2 }
+func (v *ApiVersionsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *ApiVersionsResponse) RequestKind() Request             { return &ApiVersionsRequest{Version: v.Version} }
 
 func (v *ApiVersionsResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -16324,6 +17139,9 @@ func (v *ApiVersionsResponse) AppendTo(dst []byte) []byte {
 		}
 		if len(v.FinalizedFeatures) > 0 {
 			toEncode = append(toEncode, 2)
+		}
+		if v.ZkMigrationReady != false {
+			toEncode = append(toEncode, 3)
 		}
 		dst = kbin.AppendUvarint(dst, uint32(len(toEncode)+v.UnknownTags.Len()))
 		for _, tag := range toEncode {
@@ -16416,6 +17234,13 @@ func (v *ApiVersionsResponse) AppendTo(dst []byte) []byte {
 						sized = true
 						goto fFinalizedFeatures
 					}
+				}
+			case 3:
+				{
+					v := v.ZkMigrationReady
+					dst = kbin.AppendUvarint(dst, 3)
+					dst = kbin.AppendUvarint(dst, 1)
+					dst = kbin.AppendBool(dst, v)
 				}
 			}
 		}
@@ -16609,6 +17434,13 @@ func (v *ApiVersionsResponse) readFrom(src []byte, unsafe bool) error {
 				if err := b.Complete(); err != nil {
 					return err
 				}
+			case 3:
+				b := kbin.Reader{Src: b.Span(int(b.Uvarint()))}
+				v := b.Bool()
+				s.ZkMigrationReady = v
+				if err := b.Complete(); err != nil {
+					return err
+				}
 			}
 		}
 	}
@@ -16754,15 +17586,18 @@ type CreateTopicsRequest struct {
 	UnknownTags Tags // v5+
 }
 
-func (*CreateTopicsRequest) Key() int16                 { return 19 }
-func (*CreateTopicsRequest) MaxVersion() int16          { return 7 }
-func (v *CreateTopicsRequest) SetVersion(version int16) { v.Version = version }
-func (v *CreateTopicsRequest) GetVersion() int16        { return v.Version }
-func (v *CreateTopicsRequest) IsFlexible() bool         { return v.Version >= 5 }
-func (v *CreateTopicsRequest) Timeout() int32           { return v.TimeoutMillis }
-func (v *CreateTopicsRequest) IsAdminRequest()          {}
+func (*CreateTopicsRequest) Key() int16                       { return 19 }
+func (*CreateTopicsRequest) MaxVersion() int16                { return 7 }
+func (v *CreateTopicsRequest) SetVersion(version int16)       { v.Version = version }
+func (v *CreateTopicsRequest) GetVersion() int16              { return v.Version }
+func (v *CreateTopicsRequest) IsFlexible() bool               { return v.Version >= 5 }
+func (v *CreateTopicsRequest) Timeout() int32                 { return v.TimeoutMillis }
+func (v *CreateTopicsRequest) SetTimeout(timeoutMillis int32) { v.TimeoutMillis = timeoutMillis }
+func (v *CreateTopicsRequest) IsAdminRequest()                {}
 func (v *CreateTopicsRequest) ResponseKind() Response {
-	return &CreateTopicsResponse{Version: v.Version}
+	r := &CreateTopicsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -17246,13 +18081,14 @@ type CreateTopicsResponse struct {
 	UnknownTags Tags // v5+
 }
 
-func (*CreateTopicsResponse) Key() int16                 { return 19 }
-func (*CreateTopicsResponse) MaxVersion() int16          { return 7 }
-func (v *CreateTopicsResponse) SetVersion(version int16) { v.Version = version }
-func (v *CreateTopicsResponse) GetVersion() int16        { return v.Version }
-func (v *CreateTopicsResponse) IsFlexible() bool         { return v.Version >= 5 }
-func (v *CreateTopicsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 3 }
-func (v *CreateTopicsResponse) RequestKind() Request     { return &CreateTopicsRequest{Version: v.Version} }
+func (*CreateTopicsResponse) Key() int16                         { return 19 }
+func (*CreateTopicsResponse) MaxVersion() int16                  { return 7 }
+func (v *CreateTopicsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *CreateTopicsResponse) GetVersion() int16                { return v.Version }
+func (v *CreateTopicsResponse) IsFlexible() bool                 { return v.Version >= 5 }
+func (v *CreateTopicsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 3 }
+func (v *CreateTopicsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *CreateTopicsResponse) RequestKind() Request             { return &CreateTopicsRequest{Version: v.Version} }
 
 func (v *CreateTopicsResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -17615,7 +18451,7 @@ type DeleteTopicsRequest struct {
 	Version int16
 
 	// Topics is an array of topics to delete.
-	TopicNames []string
+	TopicNames []string // v0-v5
 
 	// The name or topic ID of topics to delete.
 	Topics []DeleteTopicsRequestTopic // v6+
@@ -17632,15 +18468,18 @@ type DeleteTopicsRequest struct {
 	UnknownTags Tags // v4+
 }
 
-func (*DeleteTopicsRequest) Key() int16                 { return 20 }
-func (*DeleteTopicsRequest) MaxVersion() int16          { return 6 }
-func (v *DeleteTopicsRequest) SetVersion(version int16) { v.Version = version }
-func (v *DeleteTopicsRequest) GetVersion() int16        { return v.Version }
-func (v *DeleteTopicsRequest) IsFlexible() bool         { return v.Version >= 4 }
-func (v *DeleteTopicsRequest) Timeout() int32           { return v.TimeoutMillis }
-func (v *DeleteTopicsRequest) IsAdminRequest()          {}
+func (*DeleteTopicsRequest) Key() int16                       { return 20 }
+func (*DeleteTopicsRequest) MaxVersion() int16                { return 6 }
+func (v *DeleteTopicsRequest) SetVersion(version int16)       { v.Version = version }
+func (v *DeleteTopicsRequest) GetVersion() int16              { return v.Version }
+func (v *DeleteTopicsRequest) IsFlexible() bool               { return v.Version >= 4 }
+func (v *DeleteTopicsRequest) Timeout() int32                 { return v.TimeoutMillis }
+func (v *DeleteTopicsRequest) SetTimeout(timeoutMillis int32) { v.TimeoutMillis = timeoutMillis }
+func (v *DeleteTopicsRequest) IsAdminRequest()                {}
 func (v *DeleteTopicsRequest) ResponseKind() Response {
-	return &DeleteTopicsResponse{Version: v.Version}
+	r := &DeleteTopicsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -17916,13 +18755,14 @@ type DeleteTopicsResponse struct {
 	UnknownTags Tags // v4+
 }
 
-func (*DeleteTopicsResponse) Key() int16                 { return 20 }
-func (*DeleteTopicsResponse) MaxVersion() int16          { return 6 }
-func (v *DeleteTopicsResponse) SetVersion(version int16) { v.Version = version }
-func (v *DeleteTopicsResponse) GetVersion() int16        { return v.Version }
-func (v *DeleteTopicsResponse) IsFlexible() bool         { return v.Version >= 4 }
-func (v *DeleteTopicsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 2 }
-func (v *DeleteTopicsResponse) RequestKind() Request     { return &DeleteTopicsRequest{Version: v.Version} }
+func (*DeleteTopicsResponse) Key() int16                         { return 20 }
+func (*DeleteTopicsResponse) MaxVersion() int16                  { return 6 }
+func (v *DeleteTopicsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *DeleteTopicsResponse) GetVersion() int16                { return v.Version }
+func (v *DeleteTopicsResponse) IsFlexible() bool                 { return v.Version >= 4 }
+func (v *DeleteTopicsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 2 }
+func (v *DeleteTopicsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *DeleteTopicsResponse) RequestKind() Request             { return &DeleteTopicsRequest{Version: v.Version} }
 
 func (v *DeleteTopicsResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -18210,14 +19050,17 @@ type DeleteRecordsRequest struct {
 	UnknownTags Tags // v2+
 }
 
-func (*DeleteRecordsRequest) Key() int16                 { return 21 }
-func (*DeleteRecordsRequest) MaxVersion() int16          { return 2 }
-func (v *DeleteRecordsRequest) SetVersion(version int16) { v.Version = version }
-func (v *DeleteRecordsRequest) GetVersion() int16        { return v.Version }
-func (v *DeleteRecordsRequest) IsFlexible() bool         { return v.Version >= 2 }
-func (v *DeleteRecordsRequest) Timeout() int32           { return v.TimeoutMillis }
+func (*DeleteRecordsRequest) Key() int16                       { return 21 }
+func (*DeleteRecordsRequest) MaxVersion() int16                { return 2 }
+func (v *DeleteRecordsRequest) SetVersion(version int16)       { v.Version = version }
+func (v *DeleteRecordsRequest) GetVersion() int16              { return v.Version }
+func (v *DeleteRecordsRequest) IsFlexible() bool               { return v.Version >= 2 }
+func (v *DeleteRecordsRequest) Timeout() int32                 { return v.TimeoutMillis }
+func (v *DeleteRecordsRequest) SetTimeout(timeoutMillis int32) { v.TimeoutMillis = timeoutMillis }
 func (v *DeleteRecordsRequest) ResponseKind() Response {
-	return &DeleteRecordsResponse{Version: v.Version}
+	r := &DeleteRecordsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -18509,12 +19352,13 @@ type DeleteRecordsResponse struct {
 	UnknownTags Tags // v2+
 }
 
-func (*DeleteRecordsResponse) Key() int16                 { return 21 }
-func (*DeleteRecordsResponse) MaxVersion() int16          { return 2 }
-func (v *DeleteRecordsResponse) SetVersion(version int16) { v.Version = version }
-func (v *DeleteRecordsResponse) GetVersion() int16        { return v.Version }
-func (v *DeleteRecordsResponse) IsFlexible() bool         { return v.Version >= 2 }
-func (v *DeleteRecordsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
+func (*DeleteRecordsResponse) Key() int16                         { return 21 }
+func (*DeleteRecordsResponse) MaxVersion() int16                  { return 2 }
+func (v *DeleteRecordsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *DeleteRecordsResponse) GetVersion() int16                { return v.Version }
+func (v *DeleteRecordsResponse) IsFlexible() bool                 { return v.Version >= 2 }
+func (v *DeleteRecordsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 1 }
+func (v *DeleteRecordsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
 func (v *DeleteRecordsResponse) RequestKind() Request {
 	return &DeleteRecordsRequest{Version: v.Version}
 }
@@ -18753,13 +19597,15 @@ type InitProducerIDRequest struct {
 }
 
 func (*InitProducerIDRequest) Key() int16                 { return 22 }
-func (*InitProducerIDRequest) MaxVersion() int16          { return 4 }
+func (*InitProducerIDRequest) MaxVersion() int16          { return 5 }
 func (v *InitProducerIDRequest) SetVersion(version int16) { v.Version = version }
 func (v *InitProducerIDRequest) GetVersion() int16        { return v.Version }
 func (v *InitProducerIDRequest) IsFlexible() bool         { return v.Version >= 2 }
 func (v *InitProducerIDRequest) IsTxnCoordinatorRequest() {}
 func (v *InitProducerIDRequest) ResponseKind() Response {
-	return &InitProducerIDResponse{Version: v.Version}
+	r := &InitProducerIDResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -18925,12 +19771,13 @@ type InitProducerIDResponse struct {
 	UnknownTags Tags // v2+
 }
 
-func (*InitProducerIDResponse) Key() int16                 { return 22 }
-func (*InitProducerIDResponse) MaxVersion() int16          { return 4 }
-func (v *InitProducerIDResponse) SetVersion(version int16) { v.Version = version }
-func (v *InitProducerIDResponse) GetVersion() int16        { return v.Version }
-func (v *InitProducerIDResponse) IsFlexible() bool         { return v.Version >= 2 }
-func (v *InitProducerIDResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
+func (*InitProducerIDResponse) Key() int16                         { return 22 }
+func (*InitProducerIDResponse) MaxVersion() int16                  { return 5 }
+func (v *InitProducerIDResponse) SetVersion(version int16)         { v.Version = version }
+func (v *InitProducerIDResponse) GetVersion() int16                { return v.Version }
+func (v *InitProducerIDResponse) IsFlexible() bool                 { return v.Version >= 2 }
+func (v *InitProducerIDResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 1 }
+func (v *InitProducerIDResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
 func (v *InitProducerIDResponse) RequestKind() Request {
 	return &InitProducerIDRequest{Version: v.Version}
 }
@@ -19110,7 +19957,9 @@ func (v *OffsetForLeaderEpochRequest) SetVersion(version int16) { v.Version = ve
 func (v *OffsetForLeaderEpochRequest) GetVersion() int16        { return v.Version }
 func (v *OffsetForLeaderEpochRequest) IsFlexible() bool         { return v.Version >= 4 }
 func (v *OffsetForLeaderEpochRequest) ResponseKind() Response {
-	return &OffsetForLeaderEpochResponse{Version: v.Version}
+	r := &OffsetForLeaderEpochResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -19339,7 +20188,7 @@ type OffsetForLeaderEpochResponseTopicPartition struct {
 	// UNKNOWN_LEADER_EPOCH if returned if the client is using a current leader epoch
 	// that the actual leader does not know of. This could occur when the client
 	// has newer metadata than the broker when the broker just became the leader for
-	//  a replica.
+	// a replica.
 	ErrorCode int16
 
 	// Partition is the partition this response is for.
@@ -19438,6 +20287,10 @@ func (v *OffsetForLeaderEpochResponse) GetVersion() int16        { return v.Vers
 func (v *OffsetForLeaderEpochResponse) IsFlexible() bool         { return v.Version >= 4 }
 func (v *OffsetForLeaderEpochResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 0
+}
+
+func (v *OffsetForLeaderEpochResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
 }
 
 func (v *OffsetForLeaderEpochResponse) RequestKind() Request {
@@ -19673,40 +20526,105 @@ func NewAddPartitionsToTxnRequestTopic() AddPartitionsToTxnRequestTopic {
 	return v
 }
 
+type AddPartitionsToTxnRequestTransactionTopic struct {
+	Topic string
+
+	Partitions []int32
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags // v3+
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to AddPartitionsToTxnRequestTransactionTopic.
+func (v *AddPartitionsToTxnRequestTransactionTopic) Default() {
+}
+
+// NewAddPartitionsToTxnRequestTransactionTopic returns a default AddPartitionsToTxnRequestTransactionTopic
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewAddPartitionsToTxnRequestTransactionTopic() AddPartitionsToTxnRequestTransactionTopic {
+	var v AddPartitionsToTxnRequestTransactionTopic
+	v.Default()
+	return v
+}
+
+type AddPartitionsToTxnRequestTransaction struct {
+	TransactionalID string
+
+	ProducerID int64
+
+	ProducerEpoch int16
+
+	// VerifyOnly signifies if we want to check if the partition is in the
+	// transaction rather than add it.
+	VerifyOnly bool
+
+	Topics []AddPartitionsToTxnRequestTransactionTopic
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags // v3+
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to AddPartitionsToTxnRequestTransaction.
+func (v *AddPartitionsToTxnRequestTransaction) Default() {
+}
+
+// NewAddPartitionsToTxnRequestTransaction returns a default AddPartitionsToTxnRequestTransaction
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewAddPartitionsToTxnRequestTransaction() AddPartitionsToTxnRequestTransaction {
+	var v AddPartitionsToTxnRequestTransaction
+	v.Default()
+	return v
+}
+
 // AddPartitionsToTxnRequest begins the producer side of a transaction for all
 // partitions in the request. Before producing any records to a partition in
 // the transaction, that partition must have been added to the transaction with
 // this request.
+//
+// Versions 3 and below are exclusively used by clients and versions 4 and
+// above are used by brokers.
+//
+// Version 4 adds VerifyOnly field to check if partitions are already in
+// transaction and adds support to batch multiple transactions.
 type AddPartitionsToTxnRequest struct {
 	// Version is the version of this message used with a Kafka broker.
 	Version int16
 
 	// TransactionalID is the transactional ID to use for this request.
-	TransactionalID string
+	TransactionalID string // v0-v3
 
 	// ProducerID is the producer ID of the client for this transactional ID
 	// as received from InitProducerID.
-	ProducerID int64
+	ProducerID int64 // v0-v3
 
 	// ProducerEpoch is the producer epoch of the client for this transactional ID
 	// as received from InitProducerID.
-	ProducerEpoch int16
+	ProducerEpoch int16 // v0-v3
 
 	// Topics are topics to add as part of the producer side of a transaction.
-	Topics []AddPartitionsToTxnRequestTopic
+	Topics []AddPartitionsToTxnRequestTopic // v0-v3
+
+	// The list of transactions to add partitions to, for v4+, for brokers only.
+	// The fields in this are batch broker requests that duplicate the above fields
+	// and thus are undocumented (except VerifyOnly, which is new).
+	Transactions []AddPartitionsToTxnRequestTransaction // v4+
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags // v3+
 }
 
 func (*AddPartitionsToTxnRequest) Key() int16                 { return 24 }
-func (*AddPartitionsToTxnRequest) MaxVersion() int16          { return 3 }
+func (*AddPartitionsToTxnRequest) MaxVersion() int16          { return 5 }
 func (v *AddPartitionsToTxnRequest) SetVersion(version int16) { v.Version = version }
 func (v *AddPartitionsToTxnRequest) GetVersion() int16        { return v.Version }
 func (v *AddPartitionsToTxnRequest) IsFlexible() bool         { return v.Version >= 3 }
 func (v *AddPartitionsToTxnRequest) IsTxnCoordinatorRequest() {}
 func (v *AddPartitionsToTxnRequest) ResponseKind() Response {
-	return &AddPartitionsToTxnResponse{Version: v.Version}
+	r := &AddPartitionsToTxnResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -19723,7 +20641,7 @@ func (v *AddPartitionsToTxnRequest) AppendTo(dst []byte) []byte {
 	_ = version
 	isFlexible := version >= 3
 	_ = isFlexible
-	{
+	if version >= 0 && version <= 3 {
 		v := v.TransactionalID
 		if isFlexible {
 			dst = kbin.AppendCompactString(dst, v)
@@ -19731,15 +20649,15 @@ func (v *AddPartitionsToTxnRequest) AppendTo(dst []byte) []byte {
 			dst = kbin.AppendString(dst, v)
 		}
 	}
-	{
+	if version >= 0 && version <= 3 {
 		v := v.ProducerID
 		dst = kbin.AppendInt64(dst, v)
 	}
-	{
+	if version >= 0 && version <= 3 {
 		v := v.ProducerEpoch
 		dst = kbin.AppendInt16(dst, v)
 	}
-	{
+	if version >= 0 && version <= 3 {
 		v := v.Topics
 		if isFlexible {
 			dst = kbin.AppendCompactArrayLen(dst, len(v))
@@ -19774,6 +20692,76 @@ func (v *AddPartitionsToTxnRequest) AppendTo(dst []byte) []byte {
 			}
 		}
 	}
+	if version >= 4 {
+		v := v.Transactions
+		if isFlexible {
+			dst = kbin.AppendCompactArrayLen(dst, len(v))
+		} else {
+			dst = kbin.AppendArrayLen(dst, len(v))
+		}
+		for i := range v {
+			v := &v[i]
+			{
+				v := v.TransactionalID
+				if isFlexible {
+					dst = kbin.AppendCompactString(dst, v)
+				} else {
+					dst = kbin.AppendString(dst, v)
+				}
+			}
+			{
+				v := v.ProducerID
+				dst = kbin.AppendInt64(dst, v)
+			}
+			{
+				v := v.ProducerEpoch
+				dst = kbin.AppendInt16(dst, v)
+			}
+			{
+				v := v.VerifyOnly
+				dst = kbin.AppendBool(dst, v)
+			}
+			{
+				v := v.Topics
+				if isFlexible {
+					dst = kbin.AppendCompactArrayLen(dst, len(v))
+				} else {
+					dst = kbin.AppendArrayLen(dst, len(v))
+				}
+				for i := range v {
+					v := &v[i]
+					{
+						v := v.Topic
+						if isFlexible {
+							dst = kbin.AppendCompactString(dst, v)
+						} else {
+							dst = kbin.AppendString(dst, v)
+						}
+					}
+					{
+						v := v.Partitions
+						if isFlexible {
+							dst = kbin.AppendCompactArrayLen(dst, len(v))
+						} else {
+							dst = kbin.AppendArrayLen(dst, len(v))
+						}
+						for i := range v {
+							v := v[i]
+							dst = kbin.AppendInt32(dst, v)
+						}
+					}
+					if isFlexible {
+						dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+						dst = v.UnknownTags.AppendEach(dst)
+					}
+				}
+			}
+			if isFlexible {
+				dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+				dst = v.UnknownTags.AppendEach(dst)
+			}
+		}
+	}
 	if isFlexible {
 		dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
 		dst = v.UnknownTags.AppendEach(dst)
@@ -19797,7 +20785,7 @@ func (v *AddPartitionsToTxnRequest) readFrom(src []byte, unsafe bool) error {
 	isFlexible := version >= 3
 	_ = isFlexible
 	s := v
-	{
+	if version >= 0 && version <= 3 {
 		var v string
 		if unsafe {
 			if isFlexible {
@@ -19814,15 +20802,15 @@ func (v *AddPartitionsToTxnRequest) readFrom(src []byte, unsafe bool) error {
 		}
 		s.TransactionalID = v
 	}
-	{
+	if version >= 0 && version <= 3 {
 		v := b.Int64()
 		s.ProducerID = v
 	}
-	{
+	if version >= 0 && version <= 3 {
 		v := b.Int16()
 		s.ProducerEpoch = v
 	}
-	{
+	if version >= 0 && version <= 3 {
 		v := s.Topics
 		a := v
 		var l int32
@@ -19889,6 +20877,129 @@ func (v *AddPartitionsToTxnRequest) readFrom(src []byte, unsafe bool) error {
 		v = a
 		s.Topics = v
 	}
+	if version >= 4 {
+		v := s.Transactions
+		a := v
+		var l int32
+		if isFlexible {
+			l = b.CompactArrayLen()
+		} else {
+			l = b.ArrayLen()
+		}
+		if !b.Ok() {
+			return b.Complete()
+		}
+		a = a[:0]
+		if l > 0 {
+			a = append(a, make([]AddPartitionsToTxnRequestTransaction, l)...)
+		}
+		for i := int32(0); i < l; i++ {
+			v := &a[i]
+			v.Default()
+			s := v
+			{
+				var v string
+				if unsafe {
+					if isFlexible {
+						v = b.UnsafeCompactString()
+					} else {
+						v = b.UnsafeString()
+					}
+				} else {
+					if isFlexible {
+						v = b.CompactString()
+					} else {
+						v = b.String()
+					}
+				}
+				s.TransactionalID = v
+			}
+			{
+				v := b.Int64()
+				s.ProducerID = v
+			}
+			{
+				v := b.Int16()
+				s.ProducerEpoch = v
+			}
+			{
+				v := b.Bool()
+				s.VerifyOnly = v
+			}
+			{
+				v := s.Topics
+				a := v
+				var l int32
+				if isFlexible {
+					l = b.CompactArrayLen()
+				} else {
+					l = b.ArrayLen()
+				}
+				if !b.Ok() {
+					return b.Complete()
+				}
+				a = a[:0]
+				if l > 0 {
+					a = append(a, make([]AddPartitionsToTxnRequestTransactionTopic, l)...)
+				}
+				for i := int32(0); i < l; i++ {
+					v := &a[i]
+					v.Default()
+					s := v
+					{
+						var v string
+						if unsafe {
+							if isFlexible {
+								v = b.UnsafeCompactString()
+							} else {
+								v = b.UnsafeString()
+							}
+						} else {
+							if isFlexible {
+								v = b.CompactString()
+							} else {
+								v = b.String()
+							}
+						}
+						s.Topic = v
+					}
+					{
+						v := s.Partitions
+						a := v
+						var l int32
+						if isFlexible {
+							l = b.CompactArrayLen()
+						} else {
+							l = b.ArrayLen()
+						}
+						if !b.Ok() {
+							return b.Complete()
+						}
+						a = a[:0]
+						if l > 0 {
+							a = append(a, make([]int32, l)...)
+						}
+						for i := int32(0); i < l; i++ {
+							v := b.Int32()
+							a[i] = v
+						}
+						v = a
+						s.Partitions = v
+					}
+					if isFlexible {
+						s.UnknownTags = internalReadTags(&b)
+					}
+				}
+				v = a
+				s.Topics = v
+			}
+			if isFlexible {
+				s.UnknownTags = internalReadTags(&b)
+			}
+		}
+		v = a
+		s.Transactions = v
+	}
 	if isFlexible {
 		s.UnknownTags = internalReadTags(&b)
 	}
@@ -19912,6 +21023,73 @@ func (v *AddPartitionsToTxnRequest) Default() {
 // This is a shortcut for creating a struct and calling Default yourself.
 func NewAddPartitionsToTxnRequest() AddPartitionsToTxnRequest {
 	var v AddPartitionsToTxnRequest
+	v.Default()
+	return v
+}
+
+type AddPartitionsToTxnResponseTransactionTopicPartition struct {
+	Partition int32
+
+	ErrorCode int16
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags // v3+
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to AddPartitionsToTxnResponseTransactionTopicPartition.
+func (v *AddPartitionsToTxnResponseTransactionTopicPartition) Default() {
+}
+
+// NewAddPartitionsToTxnResponseTransactionTopicPartition returns a default AddPartitionsToTxnResponseTransactionTopicPartition
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewAddPartitionsToTxnResponseTransactionTopicPartition() AddPartitionsToTxnResponseTransactionTopicPartition {
+	var v AddPartitionsToTxnResponseTransactionTopicPartition
+	v.Default()
+	return v
+}
+
+type AddPartitionsToTxnResponseTransactionTopic struct {
+	Topic string
+
+	Partitions []AddPartitionsToTxnResponseTransactionTopicPartition
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags // v3+
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to AddPartitionsToTxnResponseTransactionTopic.
+func (v *AddPartitionsToTxnResponseTransactionTopic) Default() {
+}
+
+// NewAddPartitionsToTxnResponseTransactionTopic returns a default AddPartitionsToTxnResponseTransactionTopic
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewAddPartitionsToTxnResponseTransactionTopic() AddPartitionsToTxnResponseTransactionTopic {
+	var v AddPartitionsToTxnResponseTransactionTopic
+	v.Default()
+	return v
+}
+
+type AddPartitionsToTxnResponseTransaction struct {
+	// The transactional id corresponding to the transaction.
+	TransactionalID string
+
+	Topics []AddPartitionsToTxnResponseTransactionTopic
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags // v3+
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to AddPartitionsToTxnResponseTransaction.
+func (v *AddPartitionsToTxnResponseTransaction) Default() {
+}
+
+// NewAddPartitionsToTxnResponseTransaction returns a default AddPartitionsToTxnResponseTransaction
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewAddPartitionsToTxnResponseTransaction() AddPartitionsToTxnResponseTransaction {
+	var v AddPartitionsToTxnResponseTransaction
 	v.Default()
 	return v
 }
@@ -20008,20 +21186,32 @@ type AddPartitionsToTxnResponse struct {
 	// This request switched at version 1.
 	ThrottleMillis int32
 
+	// The response top level error code.
+	ErrorCode int16 // v4+
+
+	// Results categorized by transactional ID, v4+ only, for brokers only.
+	// The fields duplicate v3 and below fields (except TransactionalID) and
+	// are left undocumented.
+	Transactions []AddPartitionsToTxnResponseTransaction // v4+
+
 	// Topics are responses to topics in the request.
-	Topics []AddPartitionsToTxnResponseTopic
+	Topics []AddPartitionsToTxnResponseTopic // v0-v3
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags // v3+
 }
 
 func (*AddPartitionsToTxnResponse) Key() int16                 { return 24 }
-func (*AddPartitionsToTxnResponse) MaxVersion() int16          { return 3 }
+func (*AddPartitionsToTxnResponse) MaxVersion() int16          { return 5 }
 func (v *AddPartitionsToTxnResponse) SetVersion(version int16) { v.Version = version }
 func (v *AddPartitionsToTxnResponse) GetVersion() int16        { return v.Version }
 func (v *AddPartitionsToTxnResponse) IsFlexible() bool         { return v.Version >= 3 }
 func (v *AddPartitionsToTxnResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 1
+}
+
+func (v *AddPartitionsToTxnResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
 }
 
 func (v *AddPartitionsToTxnResponse) RequestKind() Request {
@@ -20037,7 +21227,80 @@ func (v *AddPartitionsToTxnResponse) AppendTo(dst []byte) []byte {
 		v := v.ThrottleMillis
 		dst = kbin.AppendInt32(dst, v)
 	}
-	{
+	if version >= 4 {
+		v := v.ErrorCode
+		dst = kbin.AppendInt16(dst, v)
+	}
+	if version >= 4 {
+		v := v.Transactions
+		if isFlexible {
+			dst = kbin.AppendCompactArrayLen(dst, len(v))
+		} else {
+			dst = kbin.AppendArrayLen(dst, len(v))
+		}
+		for i := range v {
+			v := &v[i]
+			{
+				v := v.TransactionalID
+				if isFlexible {
+					dst = kbin.AppendCompactString(dst, v)
+				} else {
+					dst = kbin.AppendString(dst, v)
+				}
+			}
+			{
+				v := v.Topics
+				if isFlexible {
+					dst = kbin.AppendCompactArrayLen(dst, len(v))
+				} else {
+					dst = kbin.AppendArrayLen(dst, len(v))
+				}
+				for i := range v {
+					v := &v[i]
+					{
+						v := v.Topic
+						if isFlexible {
+							dst = kbin.AppendCompactString(dst, v)
+						} else {
+							dst = kbin.AppendString(dst, v)
+						}
+					}
+					{
+						v := v.Partitions
+						if isFlexible {
+							dst = kbin.AppendCompactArrayLen(dst, len(v))
+						} else {
+							dst = kbin.AppendArrayLen(dst, len(v))
+						}
+						for i := range v {
+							v := &v[i]
+							{
+								v := v.Partition
+								dst = kbin.AppendInt32(dst, v)
+							}
+							{
+								v := v.ErrorCode
+								dst = kbin.AppendInt16(dst, v)
+							}
+							if isFlexible {
+								dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+								dst = v.UnknownTags.AppendEach(dst)
+							}
+						}
+					}
+					if isFlexible {
+						dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+						dst = v.UnknownTags.AppendEach(dst)
+					}
+				}
+			}
+			if isFlexible {
+				dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+				dst = v.UnknownTags.AppendEach(dst)
+			}
+		}
+	}
+	if version >= 0 && version <= 3 {
 		v := v.Topics
 		if isFlexible {
 			dst = kbin.AppendCompactArrayLen(dst, len(v))
@@ -20110,7 +21373,134 @@ func (v *AddPartitionsToTxnResponse) readFrom(src []byte, unsafe bool) error {
 		v := b.Int32()
 		s.ThrottleMillis = v
 	}
-	{
+	if version >= 4 {
+		v := b.Int16()
+		s.ErrorCode = v
+	}
+	if version >= 4 {
+		v := s.Transactions
+		a := v
+		var l int32
+		if isFlexible {
+			l = b.CompactArrayLen()
+		} else {
+			l = b.ArrayLen()
+		}
+		if !b.Ok() {
+			return b.Complete()
+		}
+		a = a[:0]
+		if l > 0 {
+			a = append(a, make([]AddPartitionsToTxnResponseTransaction, l)...)
+		}
+		for i := int32(0); i < l; i++ {
+			v := &a[i]
+			v.Default()
+			s := v
+			{
+				var v string
+				if unsafe {
+					if isFlexible {
+						v = b.UnsafeCompactString()
+					} else {
+						v = b.UnsafeString()
+					}
+				} else {
+					if isFlexible {
+						v = b.CompactString()
+					} else {
+						v = b.String()
+					}
+				}
+				s.TransactionalID = v
+			}
+			{
+				v := s.Topics
+				a := v
+				var l int32
+				if isFlexible {
+					l = b.CompactArrayLen()
+				} else {
+					l = b.ArrayLen()
+				}
+				if !b.Ok() {
+					return b.Complete()
+				}
+				a = a[:0]
+				if l > 0 {
+					a = append(a, make([]AddPartitionsToTxnResponseTransactionTopic, l)...)
+				}
+				for i := int32(0); i < l; i++ {
+					v := &a[i]
+					v.Default()
+					s := v
+					{
+						var v string
+						if unsafe {
+							if isFlexible {
+								v = b.UnsafeCompactString()
+							} else {
+								v = b.UnsafeString()
+							}
+						} else {
+							if isFlexible {
+								v = b.CompactString()
+							} else {
+								v = b.String()
+							}
+						}
+						s.Topic = v
+					}
+					{
+						v := s.Partitions
+						a := v
+						var l int32
+						if isFlexible {
+							l = b.CompactArrayLen()
+						} else {
+							l = b.ArrayLen()
+						}
+						if !b.Ok() {
+							return b.Complete()
+						}
+						a = a[:0]
+						if l > 0 {
+							a = append(a, make([]AddPartitionsToTxnResponseTransactionTopicPartition, l)...)
+						}
+						for i := int32(0); i < l; i++ {
+							v := &a[i]
+							v.Default()
+							s := v
+							{
+								v := b.Int32()
+								s.Partition = v
+							}
+							{
+								v := b.Int16()
+								s.ErrorCode = v
+							}
+							if isFlexible {
+								s.UnknownTags = internalReadTags(&b)
+							}
+						}
+						v = a
+						s.Partitions = v
+					}
+					if isFlexible {
+						s.UnknownTags = internalReadTags(&b)
+					}
+				}
+				v = a
+				s.Topics = v
+			}
+			if isFlexible {
+				s.UnknownTags = internalReadTags(&b)
+			}
+		}
+		v = a
+		s.Transactions = v
+	}
+	if version >= 0 && version <= 3 {
 		v := s.Topics
 		a := v
 		var l int32
@@ -20247,13 +21637,15 @@ type AddOffsetsToTxnRequest struct {
 }
 
 func (*AddOffsetsToTxnRequest) Key() int16                 { return 25 }
-func (*AddOffsetsToTxnRequest) MaxVersion() int16          { return 3 }
+func (*AddOffsetsToTxnRequest) MaxVersion() int16          { return 4 }
 func (v *AddOffsetsToTxnRequest) SetVersion(version int16) { v.Version = version }
 func (v *AddOffsetsToTxnRequest) GetVersion() int16        { return v.Version }
 func (v *AddOffsetsToTxnRequest) IsFlexible() bool         { return v.Version >= 3 }
 func (v *AddOffsetsToTxnRequest) IsTxnCoordinatorRequest() {}
 func (v *AddOffsetsToTxnRequest) ResponseKind() Response {
-	return &AddOffsetsToTxnResponse{Version: v.Version}
+	r := &AddOffsetsToTxnResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -20416,11 +21808,15 @@ type AddOffsetsToTxnResponse struct {
 }
 
 func (*AddOffsetsToTxnResponse) Key() int16                 { return 25 }
-func (*AddOffsetsToTxnResponse) MaxVersion() int16          { return 3 }
+func (*AddOffsetsToTxnResponse) MaxVersion() int16          { return 4 }
 func (v *AddOffsetsToTxnResponse) SetVersion(version int16) { v.Version = version }
 func (v *AddOffsetsToTxnResponse) GetVersion() int16        { return v.Version }
 func (v *AddOffsetsToTxnResponse) IsFlexible() bool         { return v.Version >= 3 }
 func (v *AddOffsetsToTxnResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
+func (v *AddOffsetsToTxnResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *AddOffsetsToTxnResponse) RequestKind() Request {
 	return &AddOffsetsToTxnRequest{Version: v.Version}
 }
@@ -20521,12 +21917,16 @@ type EndTxnRequest struct {
 }
 
 func (*EndTxnRequest) Key() int16                 { return 26 }
-func (*EndTxnRequest) MaxVersion() int16          { return 3 }
+func (*EndTxnRequest) MaxVersion() int16          { return 4 }
 func (v *EndTxnRequest) SetVersion(version int16) { v.Version = version }
 func (v *EndTxnRequest) GetVersion() int16        { return v.Version }
 func (v *EndTxnRequest) IsFlexible() bool         { return v.Version >= 3 }
 func (v *EndTxnRequest) IsTxnCoordinatorRequest() {}
-func (v *EndTxnRequest) ResponseKind() Response   { return &EndTxnResponse{Version: v.Version} }
+func (v *EndTxnRequest) ResponseKind() Response {
+	r := &EndTxnResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -20680,13 +22080,14 @@ type EndTxnResponse struct {
 	UnknownTags Tags // v3+
 }
 
-func (*EndTxnResponse) Key() int16                 { return 26 }
-func (*EndTxnResponse) MaxVersion() int16          { return 3 }
-func (v *EndTxnResponse) SetVersion(version int16) { v.Version = version }
-func (v *EndTxnResponse) GetVersion() int16        { return v.Version }
-func (v *EndTxnResponse) IsFlexible() bool         { return v.Version >= 3 }
-func (v *EndTxnResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
-func (v *EndTxnResponse) RequestKind() Request     { return &EndTxnRequest{Version: v.Version} }
+func (*EndTxnResponse) Key() int16                         { return 26 }
+func (*EndTxnResponse) MaxVersion() int16                  { return 4 }
+func (v *EndTxnResponse) SetVersion(version int16)         { v.Version = version }
+func (v *EndTxnResponse) GetVersion() int16                { return v.Version }
+func (v *EndTxnResponse) IsFlexible() bool                 { return v.Version >= 3 }
+func (v *EndTxnResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 1 }
+func (v *EndTxnResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *EndTxnResponse) RequestKind() Request             { return &EndTxnRequest{Version: v.Version} }
 
 func (v *EndTxnResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -20760,8 +22161,10 @@ func NewEndTxnResponse() EndTxnResponse {
 }
 
 type WriteTxnMarkersRequestMarkerTopic struct {
+	// Topic is the name of the topic to write markers for.
 	Topic string
 
+	// Partitions contains partitions to write markers for.
 	Partitions []int32
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
@@ -20782,14 +22185,22 @@ func NewWriteTxnMarkersRequestMarkerTopic() WriteTxnMarkersRequestMarkerTopic {
 }
 
 type WriteTxnMarkersRequestMarker struct {
+	// ProducerID is the current producer ID to use when writing a marker.
 	ProducerID int64
 
+	// ProducerEpoch is the current producer epoch to use when writing a
+	// marker.
 	ProducerEpoch int16
 
+	// Committed is true if this marker is for a committed transaction,
+	// otherwise false if this is for an aborted transaction.
 	Committed bool
 
+	// Topics contains the topics we are writing markers for.
 	Topics []WriteTxnMarkersRequestMarkerTopic
 
+	// CoordinatorEpoch is the current epoch of the transaction coordinator we
+	// are writing a marker to. This is used to detect fenced writers.
 	CoordinatorEpoch int32
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
@@ -20810,12 +22221,12 @@ func NewWriteTxnMarkersRequestMarker() WriteTxnMarkersRequestMarker {
 }
 
 // WriteTxnMarkersRequest is a broker-to-broker request that Kafka uses to
-// finish transactions. Since this is specifically for inter-broker
-// communication, this is left undocumented.
+// finish transactions.
 type WriteTxnMarkersRequest struct {
 	// Version is the version of this message used with a Kafka broker.
 	Version int16
 
+	// Markers contains transactional markers to be written.
 	Markers []WriteTxnMarkersRequestMarker
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
@@ -20828,7 +22239,9 @@ func (v *WriteTxnMarkersRequest) SetVersion(version int16) { v.Version = version
 func (v *WriteTxnMarkersRequest) GetVersion() int16        { return v.Version }
 func (v *WriteTxnMarkersRequest) IsFlexible() bool         { return v.Version >= 1 }
 func (v *WriteTxnMarkersRequest) ResponseKind() Response {
-	return &WriteTxnMarkersResponse{Version: v.Version}
+	r := &WriteTxnMarkersResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -21072,8 +22485,23 @@ func NewWriteTxnMarkersRequest() WriteTxnMarkersRequest {
 }
 
 type WriteTxnMarkersResponseMarkerTopicPartition struct {
+	// Partition is the partition this result is for.
 	Partition int32
 
+	// ErrorCode is non-nil if writing the transansactional marker for this
+	// partition errored.
+	//
+	// CLUSTER_AUTHORIZATION_FAILED is returned if the user does not have
+	// CLUSTER_ACTION on CLUSTER.
+	//
+	// NOT_LEADER_OR_FOLLOWER is returned if the broker receiving this
+	// request is not the leader of the partition.
+	//
+	// UNKNOWN_TOPIC_OR_PARTITION is returned if the topic or partition is
+	// not known to exist.
+	//
+	// INVALID_PRODUCER_EPOCH is returned if the cluster epoch is provided
+	// and the provided epoch does not match.
 	ErrorCode int16
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
@@ -21094,8 +22522,11 @@ func NewWriteTxnMarkersResponseMarkerTopicPartition() WriteTxnMarkersResponseMar
 }
 
 type WriteTxnMarkersResponseMarkerTopic struct {
+	// Topic is the topic these results are for.
 	Topic string
 
+	// Partitions contains per-partition results for the write markers
+	// request.
 	Partitions []WriteTxnMarkersResponseMarkerTopicPartition
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
@@ -21116,8 +22547,11 @@ func NewWriteTxnMarkersResponseMarkerTopic() WriteTxnMarkersResponseMarkerTopic 
 }
 
 type WriteTxnMarkersResponseMarker struct {
+	// ProducerID is the producer ID these results are for (from the input
+	// request).
 	ProducerID int64
 
+	// Topics contains the results for the write markers request.
 	Topics []WriteTxnMarkersResponseMarkerTopic
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
@@ -21142,6 +22576,7 @@ type WriteTxnMarkersResponse struct {
 	// Version is the version of this message used with a Kafka broker.
 	Version int16
 
+	// Markers contains results for writing transactional markers.
 	Markers []WriteTxnMarkersResponseMarker
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
@@ -21492,13 +22927,15 @@ type TxnOffsetCommitRequest struct {
 }
 
 func (*TxnOffsetCommitRequest) Key() int16                   { return 28 }
-func (*TxnOffsetCommitRequest) MaxVersion() int16            { return 3 }
+func (*TxnOffsetCommitRequest) MaxVersion() int16            { return 4 }
 func (v *TxnOffsetCommitRequest) SetVersion(version int16)   { v.Version = version }
 func (v *TxnOffsetCommitRequest) GetVersion() int16          { return v.Version }
 func (v *TxnOffsetCommitRequest) IsFlexible() bool           { return v.Version >= 3 }
 func (v *TxnOffsetCommitRequest) IsGroupCoordinatorRequest() {}
 func (v *TxnOffsetCommitRequest) ResponseKind() Response {
-	return &TxnOffsetCommitResponse{Version: v.Version}
+	r := &TxnOffsetCommitResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -21955,11 +23392,15 @@ type TxnOffsetCommitResponse struct {
 }
 
 func (*TxnOffsetCommitResponse) Key() int16                 { return 28 }
-func (*TxnOffsetCommitResponse) MaxVersion() int16          { return 3 }
+func (*TxnOffsetCommitResponse) MaxVersion() int16          { return 4 }
 func (v *TxnOffsetCommitResponse) SetVersion(version int16) { v.Version = version }
 func (v *TxnOffsetCommitResponse) GetVersion() int16        { return v.Version }
 func (v *TxnOffsetCommitResponse) IsFlexible() bool         { return v.Version >= 3 }
 func (v *TxnOffsetCommitResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
+func (v *TxnOffsetCommitResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *TxnOffsetCommitResponse) RequestKind() Request {
 	return &TxnOffsetCommitRequest{Version: v.Version}
 }
@@ -22201,7 +23642,9 @@ func (v *DescribeACLsRequest) SetVersion(version int16) { v.Version = version }
 func (v *DescribeACLsRequest) GetVersion() int16        { return v.Version }
 func (v *DescribeACLsRequest) IsFlexible() bool         { return v.Version >= 2 }
 func (v *DescribeACLsRequest) ResponseKind() Response {
-	return &DescribeACLsResponse{Version: v.Version}
+	r := &DescribeACLsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -22502,13 +23945,14 @@ type DescribeACLsResponse struct {
 	UnknownTags Tags // v2+
 }
 
-func (*DescribeACLsResponse) Key() int16                 { return 29 }
-func (*DescribeACLsResponse) MaxVersion() int16          { return 3 }
-func (v *DescribeACLsResponse) SetVersion(version int16) { v.Version = version }
-func (v *DescribeACLsResponse) GetVersion() int16        { return v.Version }
-func (v *DescribeACLsResponse) IsFlexible() bool         { return v.Version >= 2 }
-func (v *DescribeACLsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
-func (v *DescribeACLsResponse) RequestKind() Request     { return &DescribeACLsRequest{Version: v.Version} }
+func (*DescribeACLsResponse) Key() int16                         { return 29 }
+func (*DescribeACLsResponse) MaxVersion() int16                  { return 3 }
+func (v *DescribeACLsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *DescribeACLsResponse) GetVersion() int16                { return v.Version }
+func (v *DescribeACLsResponse) IsFlexible() bool                 { return v.Version >= 2 }
+func (v *DescribeACLsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 1 }
+func (v *DescribeACLsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *DescribeACLsResponse) RequestKind() Request             { return &DescribeACLsRequest{Version: v.Version} }
 
 func (v *DescribeACLsResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -22900,7 +24344,11 @@ func (*CreateACLsRequest) MaxVersion() int16          { return 3 }
 func (v *CreateACLsRequest) SetVersion(version int16) { v.Version = version }
 func (v *CreateACLsRequest) GetVersion() int16        { return v.Version }
 func (v *CreateACLsRequest) IsFlexible() bool         { return v.Version >= 2 }
-func (v *CreateACLsRequest) ResponseKind() Response   { return &CreateACLsResponse{Version: v.Version} }
+func (v *CreateACLsRequest) ResponseKind() Response {
+	r := &CreateACLsResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -23191,13 +24639,14 @@ type CreateACLsResponse struct {
 	UnknownTags Tags // v2+
 }
 
-func (*CreateACLsResponse) Key() int16                 { return 30 }
-func (*CreateACLsResponse) MaxVersion() int16          { return 3 }
-func (v *CreateACLsResponse) SetVersion(version int16) { v.Version = version }
-func (v *CreateACLsResponse) GetVersion() int16        { return v.Version }
-func (v *CreateACLsResponse) IsFlexible() bool         { return v.Version >= 2 }
-func (v *CreateACLsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
-func (v *CreateACLsResponse) RequestKind() Request     { return &CreateACLsRequest{Version: v.Version} }
+func (*CreateACLsResponse) Key() int16                         { return 30 }
+func (*CreateACLsResponse) MaxVersion() int16                  { return 3 }
+func (v *CreateACLsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *CreateACLsResponse) GetVersion() int16                { return v.Version }
+func (v *CreateACLsResponse) IsFlexible() bool                 { return v.Version >= 2 }
+func (v *CreateACLsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 1 }
+func (v *CreateACLsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *CreateACLsResponse) RequestKind() Request             { return &CreateACLsRequest{Version: v.Version} }
 
 func (v *CreateACLsResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -23390,7 +24839,11 @@ func (*DeleteACLsRequest) MaxVersion() int16          { return 3 }
 func (v *DeleteACLsRequest) SetVersion(version int16) { v.Version = version }
 func (v *DeleteACLsRequest) GetVersion() int16        { return v.Version }
 func (v *DeleteACLsRequest) IsFlexible() bool         { return v.Version >= 2 }
-func (v *DeleteACLsRequest) ResponseKind() Response   { return &DeleteACLsResponse{Version: v.Version} }
+func (v *DeleteACLsRequest) ResponseKind() Response {
+	r := &DeleteACLsResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -23724,13 +25177,14 @@ type DeleteACLsResponse struct {
 	UnknownTags Tags // v2+
 }
 
-func (*DeleteACLsResponse) Key() int16                 { return 31 }
-func (*DeleteACLsResponse) MaxVersion() int16          { return 3 }
-func (v *DeleteACLsResponse) SetVersion(version int16) { v.Version = version }
-func (v *DeleteACLsResponse) GetVersion() int16        { return v.Version }
-func (v *DeleteACLsResponse) IsFlexible() bool         { return v.Version >= 2 }
-func (v *DeleteACLsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
-func (v *DeleteACLsResponse) RequestKind() Request     { return &DeleteACLsRequest{Version: v.Version} }
+func (*DeleteACLsResponse) Key() int16                         { return 31 }
+func (*DeleteACLsResponse) MaxVersion() int16                  { return 3 }
+func (v *DeleteACLsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *DeleteACLsResponse) GetVersion() int16                { return v.Version }
+func (v *DeleteACLsResponse) IsFlexible() bool                 { return v.Version >= 2 }
+func (v *DeleteACLsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 1 }
+func (v *DeleteACLsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *DeleteACLsResponse) RequestKind() Request             { return &DeleteACLsRequest{Version: v.Version} }
 
 func (v *DeleteACLsResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -24146,7 +25600,9 @@ func (v *DescribeConfigsRequest) SetVersion(version int16) { v.Version = version
 func (v *DescribeConfigsRequest) GetVersion() int16        { return v.Version }
 func (v *DescribeConfigsRequest) IsFlexible() bool         { return v.Version >= 4 }
 func (v *DescribeConfigsRequest) ResponseKind() Response {
-	return &DescribeConfigsResponse{Version: v.Version}
+	r := &DescribeConfigsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -24522,6 +25978,10 @@ func (v *DescribeConfigsResponse) SetVersion(version int16) { v.Version = versio
 func (v *DescribeConfigsResponse) GetVersion() int16        { return v.Version }
 func (v *DescribeConfigsResponse) IsFlexible() bool         { return v.Version >= 4 }
 func (v *DescribeConfigsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 2 }
+func (v *DescribeConfigsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *DescribeConfigsResponse) RequestKind() Request {
 	return &DescribeConfigsRequest{Version: v.Version}
 }
@@ -25082,7 +26542,9 @@ func (v *AlterConfigsRequest) SetVersion(version int16) { v.Version = version }
 func (v *AlterConfigsRequest) GetVersion() int16        { return v.Version }
 func (v *AlterConfigsRequest) IsFlexible() bool         { return v.Version >= 2 }
 func (v *AlterConfigsRequest) ResponseKind() Response {
-	return &AlterConfigsResponse{Version: v.Version}
+	r := &AlterConfigsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -25396,13 +26858,14 @@ type AlterConfigsResponse struct {
 	UnknownTags Tags // v2+
 }
 
-func (*AlterConfigsResponse) Key() int16                 { return 33 }
-func (*AlterConfigsResponse) MaxVersion() int16          { return 2 }
-func (v *AlterConfigsResponse) SetVersion(version int16) { v.Version = version }
-func (v *AlterConfigsResponse) GetVersion() int16        { return v.Version }
-func (v *AlterConfigsResponse) IsFlexible() bool         { return v.Version >= 2 }
-func (v *AlterConfigsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
-func (v *AlterConfigsResponse) RequestKind() Request     { return &AlterConfigsRequest{Version: v.Version} }
+func (*AlterConfigsResponse) Key() int16                         { return 33 }
+func (*AlterConfigsResponse) MaxVersion() int16                  { return 2 }
+func (v *AlterConfigsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *AlterConfigsResponse) GetVersion() int16                { return v.Version }
+func (v *AlterConfigsResponse) IsFlexible() bool                 { return v.Version >= 2 }
+func (v *AlterConfigsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 1 }
+func (v *AlterConfigsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *AlterConfigsResponse) RequestKind() Request             { return &AlterConfigsRequest{Version: v.Version} }
 
 func (v *AlterConfigsResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -25653,7 +27116,9 @@ func (v *AlterReplicaLogDirsRequest) SetVersion(version int16) { v.Version = ver
 func (v *AlterReplicaLogDirsRequest) GetVersion() int16        { return v.Version }
 func (v *AlterReplicaLogDirsRequest) IsFlexible() bool         { return v.Version >= 2 }
 func (v *AlterReplicaLogDirsRequest) ResponseKind() Response {
-	return &AlterReplicaLogDirsResponse{Version: v.Version}
+	r := &AlterReplicaLogDirsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -25978,6 +27443,10 @@ func (v *AlterReplicaLogDirsResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 1
 }
 
+func (v *AlterReplicaLogDirsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *AlterReplicaLogDirsResponse) RequestKind() Request {
 	return &AlterReplicaLogDirsRequest{Version: v.Version}
 }
@@ -26214,7 +27683,9 @@ func (v *DescribeLogDirsRequest) SetVersion(version int16) { v.Version = version
 func (v *DescribeLogDirsRequest) GetVersion() int16        { return v.Version }
 func (v *DescribeLogDirsRequest) IsFlexible() bool         { return v.Version >= 2 }
 func (v *DescribeLogDirsRequest) ResponseKind() Response {
-	return &DescribeLogDirsResponse{Version: v.Version}
+	r := &DescribeLogDirsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -26525,6 +27996,10 @@ func (v *DescribeLogDirsResponse) SetVersion(version int16) { v.Version = versio
 func (v *DescribeLogDirsResponse) GetVersion() int16        { return v.Version }
 func (v *DescribeLogDirsResponse) IsFlexible() bool         { return v.Version >= 2 }
 func (v *DescribeLogDirsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
+func (v *DescribeLogDirsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *DescribeLogDirsResponse) RequestKind() Request {
 	return &DescribeLogDirsRequest{Version: v.Version}
 }
@@ -26855,7 +28330,9 @@ func (v *SASLAuthenticateRequest) SetVersion(version int16) { v.Version = versio
 func (v *SASLAuthenticateRequest) GetVersion() int16        { return v.Version }
 func (v *SASLAuthenticateRequest) IsFlexible() bool         { return v.Version >= 2 }
 func (v *SASLAuthenticateRequest) ResponseKind() Response {
-	return &SASLAuthenticateResponse{Version: v.Version}
+	r := &SASLAuthenticateResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -27168,15 +28645,18 @@ type CreatePartitionsRequest struct {
 	UnknownTags Tags // v2+
 }
 
-func (*CreatePartitionsRequest) Key() int16                 { return 37 }
-func (*CreatePartitionsRequest) MaxVersion() int16          { return 3 }
-func (v *CreatePartitionsRequest) SetVersion(version int16) { v.Version = version }
-func (v *CreatePartitionsRequest) GetVersion() int16        { return v.Version }
-func (v *CreatePartitionsRequest) IsFlexible() bool         { return v.Version >= 2 }
-func (v *CreatePartitionsRequest) Timeout() int32           { return v.TimeoutMillis }
-func (v *CreatePartitionsRequest) IsAdminRequest()          {}
+func (*CreatePartitionsRequest) Key() int16                       { return 37 }
+func (*CreatePartitionsRequest) MaxVersion() int16                { return 3 }
+func (v *CreatePartitionsRequest) SetVersion(version int16)       { v.Version = version }
+func (v *CreatePartitionsRequest) GetVersion() int16              { return v.Version }
+func (v *CreatePartitionsRequest) IsFlexible() bool               { return v.Version >= 2 }
+func (v *CreatePartitionsRequest) Timeout() int32                 { return v.TimeoutMillis }
+func (v *CreatePartitionsRequest) SetTimeout(timeoutMillis int32) { v.TimeoutMillis = timeoutMillis }
+func (v *CreatePartitionsRequest) IsAdminRequest()                {}
 func (v *CreatePartitionsRequest) ResponseKind() Response {
-	return &CreatePartitionsResponse{Version: v.Version}
+	r := &CreatePartitionsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -27490,6 +28970,10 @@ func (v *CreatePartitionsResponse) SetVersion(version int16) { v.Version = versi
 func (v *CreatePartitionsResponse) GetVersion() int16        { return v.Version }
 func (v *CreatePartitionsResponse) IsFlexible() bool         { return v.Version >= 2 }
 func (v *CreatePartitionsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
+func (v *CreatePartitionsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *CreatePartitionsResponse) RequestKind() Request {
 	return &CreatePartitionsRequest{Version: v.Version}
 }
@@ -27724,7 +29208,9 @@ func (v *CreateDelegationTokenRequest) SetVersion(version int16) { v.Version = v
 func (v *CreateDelegationTokenRequest) GetVersion() int16        { return v.Version }
 func (v *CreateDelegationTokenRequest) IsFlexible() bool         { return v.Version >= 2 }
 func (v *CreateDelegationTokenRequest) ResponseKind() Response {
-	return &CreateDelegationTokenResponse{Version: v.Version}
+	r := &CreateDelegationTokenResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -28005,6 +29491,10 @@ func (v *CreateDelegationTokenResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 1
 }
 
+func (v *CreateDelegationTokenResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *CreateDelegationTokenResponse) RequestKind() Request {
 	return &CreateDelegationTokenRequest{Version: v.Version}
 }
@@ -28270,7 +29760,9 @@ func (v *RenewDelegationTokenRequest) SetVersion(version int16) { v.Version = ve
 func (v *RenewDelegationTokenRequest) GetVersion() int16        { return v.Version }
 func (v *RenewDelegationTokenRequest) IsFlexible() bool         { return v.Version >= 2 }
 func (v *RenewDelegationTokenRequest) ResponseKind() Response {
-	return &RenewDelegationTokenResponse{Version: v.Version}
+	r := &RenewDelegationTokenResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -28396,6 +29888,10 @@ func (v *RenewDelegationTokenResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 1
 }
 
+func (v *RenewDelegationTokenResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *RenewDelegationTokenResponse) RequestKind() Request {
 	return &RenewDelegationTokenRequest{Version: v.Version}
 }
@@ -28490,13 +29986,9 @@ type ExpireDelegationTokenRequest struct {
 	HMAC []byte
 
 	// ExpiryPeriodMillis changes the delegation token's expiry timestamp to
-	// now + expiry time millis. This can be used to force tokens to expiry
-	// quickly, or to allow tokens a grace period before expiry. This can only
-	// change the final expiry timestamp down; you cannot add enough time that
-	// would increase the expiry timestamp.
-	//
-	// Note that you can change the expiry timestamp down and then back up, so
-	// long as you change it back up before the timestamp expires.
+	// now + expiry time millis. This can be used to force tokens to expire
+	// quickly, or to allow tokens a grace period before expiry. You cannot
+	// add enough expiry that exceeds the original max timestamp.
 	ExpiryPeriodMillis int64
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
@@ -28509,7 +30001,9 @@ func (v *ExpireDelegationTokenRequest) SetVersion(version int16) { v.Version = v
 func (v *ExpireDelegationTokenRequest) GetVersion() int16        { return v.Version }
 func (v *ExpireDelegationTokenRequest) IsFlexible() bool         { return v.Version >= 2 }
 func (v *ExpireDelegationTokenRequest) ResponseKind() Response {
-	return &ExpireDelegationTokenResponse{Version: v.Version}
+	r := &ExpireDelegationTokenResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -28632,6 +30126,10 @@ func (v *ExpireDelegationTokenResponse) GetVersion() int16        { return v.Ver
 func (v *ExpireDelegationTokenResponse) IsFlexible() bool         { return v.Version >= 2 }
 func (v *ExpireDelegationTokenResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 1
+}
+
+func (v *ExpireDelegationTokenResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
 }
 
 func (v *ExpireDelegationTokenResponse) RequestKind() Request {
@@ -28763,7 +30261,9 @@ func (v *DescribeDelegationTokenRequest) SetVersion(version int16) { v.Version =
 func (v *DescribeDelegationTokenRequest) GetVersion() int16        { return v.Version }
 func (v *DescribeDelegationTokenRequest) IsFlexible() bool         { return v.Version >= 2 }
 func (v *DescribeDelegationTokenRequest) ResponseKind() Response {
-	return &DescribeDelegationTokenResponse{Version: v.Version}
+	r := &DescribeDelegationTokenResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -29027,6 +30527,10 @@ func (v *DescribeDelegationTokenResponse) GetVersion() int16        { return v.V
 func (v *DescribeDelegationTokenResponse) IsFlexible() bool         { return v.Version >= 2 }
 func (v *DescribeDelegationTokenResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 1
+}
+
+func (v *DescribeDelegationTokenResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
 }
 
 func (v *DescribeDelegationTokenResponse) RequestKind() Request {
@@ -29425,7 +30929,9 @@ func (v *DeleteGroupsRequest) GetVersion() int16          { return v.Version }
 func (v *DeleteGroupsRequest) IsFlexible() bool           { return v.Version >= 2 }
 func (v *DeleteGroupsRequest) IsGroupCoordinatorRequest() {}
 func (v *DeleteGroupsRequest) ResponseKind() Response {
-	return &DeleteGroupsResponse{Version: v.Version}
+	r := &DeleteGroupsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -29601,13 +31107,14 @@ type DeleteGroupsResponse struct {
 	UnknownTags Tags // v2+
 }
 
-func (*DeleteGroupsResponse) Key() int16                 { return 42 }
-func (*DeleteGroupsResponse) MaxVersion() int16          { return 2 }
-func (v *DeleteGroupsResponse) SetVersion(version int16) { v.Version = version }
-func (v *DeleteGroupsResponse) GetVersion() int16        { return v.Version }
-func (v *DeleteGroupsResponse) IsFlexible() bool         { return v.Version >= 2 }
-func (v *DeleteGroupsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 1 }
-func (v *DeleteGroupsResponse) RequestKind() Request     { return &DeleteGroupsRequest{Version: v.Version} }
+func (*DeleteGroupsResponse) Key() int16                         { return 42 }
+func (*DeleteGroupsResponse) MaxVersion() int16                  { return 2 }
+func (v *DeleteGroupsResponse) SetVersion(version int16)         { v.Version = version }
+func (v *DeleteGroupsResponse) GetVersion() int16                { return v.Version }
+func (v *DeleteGroupsResponse) IsFlexible() bool                 { return v.Version >= 2 }
+func (v *DeleteGroupsResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 1 }
+func (v *DeleteGroupsResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *DeleteGroupsResponse) RequestKind() Request             { return &DeleteGroupsRequest{Version: v.Version} }
 
 func (v *DeleteGroupsResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -29802,15 +31309,18 @@ type ElectLeadersRequest struct {
 	UnknownTags Tags // v2+
 }
 
-func (*ElectLeadersRequest) Key() int16                 { return 43 }
-func (*ElectLeadersRequest) MaxVersion() int16          { return 2 }
-func (v *ElectLeadersRequest) SetVersion(version int16) { v.Version = version }
-func (v *ElectLeadersRequest) GetVersion() int16        { return v.Version }
-func (v *ElectLeadersRequest) IsFlexible() bool         { return v.Version >= 2 }
-func (v *ElectLeadersRequest) Timeout() int32           { return v.TimeoutMillis }
-func (v *ElectLeadersRequest) IsAdminRequest()          {}
+func (*ElectLeadersRequest) Key() int16                       { return 43 }
+func (*ElectLeadersRequest) MaxVersion() int16                { return 2 }
+func (v *ElectLeadersRequest) SetVersion(version int16)       { v.Version = version }
+func (v *ElectLeadersRequest) GetVersion() int16              { return v.Version }
+func (v *ElectLeadersRequest) IsFlexible() bool               { return v.Version >= 2 }
+func (v *ElectLeadersRequest) Timeout() int32                 { return v.TimeoutMillis }
+func (v *ElectLeadersRequest) SetTimeout(timeoutMillis int32) { v.TimeoutMillis = timeoutMillis }
+func (v *ElectLeadersRequest) IsAdminRequest()                {}
 func (v *ElectLeadersRequest) ResponseKind() Response {
-	return &ElectLeadersResponse{Version: v.Version}
+	r := &ElectLeadersResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -30088,13 +31598,14 @@ type ElectLeadersResponse struct {
 	UnknownTags Tags // v2+
 }
 
-func (*ElectLeadersResponse) Key() int16                 { return 43 }
-func (*ElectLeadersResponse) MaxVersion() int16          { return 2 }
-func (v *ElectLeadersResponse) SetVersion(version int16) { v.Version = version }
-func (v *ElectLeadersResponse) GetVersion() int16        { return v.Version }
-func (v *ElectLeadersResponse) IsFlexible() bool         { return v.Version >= 2 }
-func (v *ElectLeadersResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 0 }
-func (v *ElectLeadersResponse) RequestKind() Request     { return &ElectLeadersRequest{Version: v.Version} }
+func (*ElectLeadersResponse) Key() int16                         { return 43 }
+func (*ElectLeadersResponse) MaxVersion() int16                  { return 2 }
+func (v *ElectLeadersResponse) SetVersion(version int16)         { v.Version = version }
+func (v *ElectLeadersResponse) GetVersion() int16                { return v.Version }
+func (v *ElectLeadersResponse) IsFlexible() bool                 { return v.Version >= 2 }
+func (v *ElectLeadersResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 0 }
+func (v *ElectLeadersResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *ElectLeadersResponse) RequestKind() Request             { return &ElectLeadersRequest{Version: v.Version} }
 
 func (v *ElectLeadersResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -30421,7 +31932,9 @@ func (v *IncrementalAlterConfigsRequest) SetVersion(version int16) { v.Version =
 func (v *IncrementalAlterConfigsRequest) GetVersion() int16        { return v.Version }
 func (v *IncrementalAlterConfigsRequest) IsFlexible() bool         { return v.Version >= 1 }
 func (v *IncrementalAlterConfigsRequest) ResponseKind() Response {
-	return &IncrementalAlterConfigsResponse{Version: v.Version}
+	r := &IncrementalAlterConfigsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -30757,6 +32270,10 @@ func (v *IncrementalAlterConfigsResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 0
 }
 
+func (v *IncrementalAlterConfigsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *IncrementalAlterConfigsResponse) RequestKind() Request {
 	return &IncrementalAlterConfigsRequest{Version: v.Version}
 }
@@ -31018,9 +32535,14 @@ func (v *AlterPartitionAssignmentsRequest) SetVersion(version int16) { v.Version
 func (v *AlterPartitionAssignmentsRequest) GetVersion() int16        { return v.Version }
 func (v *AlterPartitionAssignmentsRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *AlterPartitionAssignmentsRequest) Timeout() int32           { return v.TimeoutMillis }
-func (v *AlterPartitionAssignmentsRequest) IsAdminRequest()          {}
+func (v *AlterPartitionAssignmentsRequest) SetTimeout(timeoutMillis int32) {
+	v.TimeoutMillis = timeoutMillis
+}
+func (v *AlterPartitionAssignmentsRequest) IsAdminRequest() {}
 func (v *AlterPartitionAssignmentsRequest) ResponseKind() Response {
-	return &AlterPartitionAssignmentsResponse{Version: v.Version}
+	r := &AlterPartitionAssignmentsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -31347,6 +32869,10 @@ func (v *AlterPartitionAssignmentsResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 0
 }
 
+func (v *AlterPartitionAssignmentsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *AlterPartitionAssignmentsResponse) RequestKind() Request {
 	return &AlterPartitionAssignmentsRequest{Version: v.Version}
 }
@@ -31651,9 +33177,14 @@ func (v *ListPartitionReassignmentsRequest) SetVersion(version int16) { v.Versio
 func (v *ListPartitionReassignmentsRequest) GetVersion() int16        { return v.Version }
 func (v *ListPartitionReassignmentsRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *ListPartitionReassignmentsRequest) Timeout() int32           { return v.TimeoutMillis }
-func (v *ListPartitionReassignmentsRequest) IsAdminRequest()          {}
+func (v *ListPartitionReassignmentsRequest) SetTimeout(timeoutMillis int32) {
+	v.TimeoutMillis = timeoutMillis
+}
+func (v *ListPartitionReassignmentsRequest) IsAdminRequest() {}
 func (v *ListPartitionReassignmentsRequest) ResponseKind() Response {
-	return &ListPartitionReassignmentsResponse{Version: v.Version}
+	r := &ListPartitionReassignmentsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -31925,6 +33456,10 @@ func (v *ListPartitionReassignmentsResponse) GetVersion() int16        { return 
 func (v *ListPartitionReassignmentsResponse) IsFlexible() bool         { return v.Version >= 0 }
 func (v *ListPartitionReassignmentsResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 0
+}
+
+func (v *ListPartitionReassignmentsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
 }
 
 func (v *ListPartitionReassignmentsResponse) RequestKind() Request {
@@ -32311,7 +33846,9 @@ func (v *OffsetDeleteRequest) GetVersion() int16          { return v.Version }
 func (v *OffsetDeleteRequest) IsFlexible() bool           { return false }
 func (v *OffsetDeleteRequest) IsGroupCoordinatorRequest() {}
 func (v *OffsetDeleteRequest) ResponseKind() Response {
-	return &OffsetDeleteResponse{Version: v.Version}
+	r := &OffsetDeleteResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -32535,13 +34072,14 @@ type OffsetDeleteResponse struct {
 	Topics []OffsetDeleteResponseTopic
 }
 
-func (*OffsetDeleteResponse) Key() int16                 { return 47 }
-func (*OffsetDeleteResponse) MaxVersion() int16          { return 0 }
-func (v *OffsetDeleteResponse) SetVersion(version int16) { v.Version = version }
-func (v *OffsetDeleteResponse) GetVersion() int16        { return v.Version }
-func (v *OffsetDeleteResponse) IsFlexible() bool         { return false }
-func (v *OffsetDeleteResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 0 }
-func (v *OffsetDeleteResponse) RequestKind() Request     { return &OffsetDeleteRequest{Version: v.Version} }
+func (*OffsetDeleteResponse) Key() int16                         { return 47 }
+func (*OffsetDeleteResponse) MaxVersion() int16                  { return 0 }
+func (v *OffsetDeleteResponse) SetVersion(version int16)         { v.Version = version }
+func (v *OffsetDeleteResponse) GetVersion() int16                { return v.Version }
+func (v *OffsetDeleteResponse) IsFlexible() bool                 { return false }
+func (v *OffsetDeleteResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 0 }
+func (v *OffsetDeleteResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
+func (v *OffsetDeleteResponse) RequestKind() Request             { return &OffsetDeleteRequest{Version: v.Version} }
 
 func (v *OffsetDeleteResponse) AppendTo(dst []byte) []byte {
 	version := v.Version
@@ -32741,7 +34279,9 @@ func (v *DescribeClientQuotasRequest) SetVersion(version int16) { v.Version = ve
 func (v *DescribeClientQuotasRequest) GetVersion() int16        { return v.Version }
 func (v *DescribeClientQuotasRequest) IsFlexible() bool         { return v.Version >= 1 }
 func (v *DescribeClientQuotasRequest) ResponseKind() Response {
-	return &DescribeClientQuotasResponse{Version: v.Version}
+	r := &DescribeClientQuotasResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -33025,6 +34565,10 @@ func (v *DescribeClientQuotasResponse) GetVersion() int16        { return v.Vers
 func (v *DescribeClientQuotasResponse) IsFlexible() bool         { return v.Version >= 1 }
 func (v *DescribeClientQuotasResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 0
+}
+
+func (v *DescribeClientQuotasResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
 }
 
 func (v *DescribeClientQuotasResponse) RequestKind() Request {
@@ -33437,7 +34981,9 @@ func (v *AlterClientQuotasRequest) SetVersion(version int16) { v.Version = versi
 func (v *AlterClientQuotasRequest) GetVersion() int16        { return v.Version }
 func (v *AlterClientQuotasRequest) IsFlexible() bool         { return v.Version >= 1 }
 func (v *AlterClientQuotasRequest) ResponseKind() Response {
-	return &AlterClientQuotasResponse{Version: v.Version}
+	r := &AlterClientQuotasResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -33802,6 +35348,10 @@ func (v *AlterClientQuotasResponse) SetVersion(version int16) { v.Version = vers
 func (v *AlterClientQuotasResponse) GetVersion() int16        { return v.Version }
 func (v *AlterClientQuotasResponse) IsFlexible() bool         { return v.Version >= 1 }
 func (v *AlterClientQuotasResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 0 }
+func (v *AlterClientQuotasResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *AlterClientQuotasResponse) RequestKind() Request {
 	return &AlterClientQuotasRequest{Version: v.Version}
 }
@@ -34081,7 +35631,9 @@ func (v *DescribeUserSCRAMCredentialsRequest) SetVersion(version int16) { v.Vers
 func (v *DescribeUserSCRAMCredentialsRequest) GetVersion() int16        { return v.Version }
 func (v *DescribeUserSCRAMCredentialsRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *DescribeUserSCRAMCredentialsRequest) ResponseKind() Response {
-	return &DescribeUserSCRAMCredentialsResponse{Version: v.Version}
+	r := &DescribeUserSCRAMCredentialsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -34248,6 +35800,10 @@ type DescribeUserSCRAMCredentialsResponseResult struct {
 	User string
 
 	// The user-level error code.
+	//
+	// RESOURCE_NOT_FOUND if the user does not exist or has no credentials.
+	//
+	// DUPLICATE_RESOURCE if the user is requested twice+.
 	ErrorCode int16
 
 	// The user-level error message, if any.
@@ -34283,7 +35839,9 @@ type DescribeUserSCRAMCredentialsResponse struct {
 	// after responding to this request.
 	ThrottleMillis int32
 
-	// The request-level error code. This is 0 except for user or infra issues.
+	// The request-level error code. This is 0 except for auth or infra issues.
+	//
+	// CLUSTER_AUTHORIZATION_FAILED if you do not have DESCRIBE on CLUSTER.
 	ErrorCode int16
 
 	// The request-level error message, if any.
@@ -34303,6 +35861,10 @@ func (v *DescribeUserSCRAMCredentialsResponse) GetVersion() int16        { retur
 func (v *DescribeUserSCRAMCredentialsResponse) IsFlexible() bool         { return v.Version >= 0 }
 func (v *DescribeUserSCRAMCredentialsResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 0
+}
+
+func (v *DescribeUserSCRAMCredentialsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
 }
 
 func (v *DescribeUserSCRAMCredentialsResponse) RequestKind() Request {
@@ -34650,7 +36212,9 @@ func (v *AlterUserSCRAMCredentialsRequest) GetVersion() int16        { return v.
 func (v *AlterUserSCRAMCredentialsRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *AlterUserSCRAMCredentialsRequest) IsAdminRequest()          {}
 func (v *AlterUserSCRAMCredentialsRequest) ResponseKind() Response {
-	return &AlterUserSCRAMCredentialsResponse{Version: v.Version}
+	r := &AlterUserSCRAMCredentialsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -34962,6 +36526,10 @@ func (v *AlterUserSCRAMCredentialsResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 0
 }
 
+func (v *AlterUserSCRAMCredentialsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *AlterUserSCRAMCredentialsResponse) RequestKind() Request {
 	return &AlterUserSCRAMCredentialsRequest{Version: v.Version}
 }
@@ -35206,7 +36774,11 @@ func (v *VoteRequest) SetVersion(version int16) { v.Version = version }
 func (v *VoteRequest) GetVersion() int16        { return v.Version }
 func (v *VoteRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *VoteRequest) IsAdminRequest()          {}
-func (v *VoteRequest) ResponseKind() Response   { return &VoteResponse{Version: v.Version} }
+func (v *VoteRequest) ResponseKind() Response {
+	r := &VoteResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -35794,7 +37366,9 @@ func (v *BeginQuorumEpochRequest) GetVersion() int16        { return v.Version }
 func (v *BeginQuorumEpochRequest) IsFlexible() bool         { return false }
 func (v *BeginQuorumEpochRequest) IsAdminRequest()          {}
 func (v *BeginQuorumEpochRequest) ResponseKind() Response {
-	return &BeginQuorumEpochResponse{Version: v.Version}
+	r := &BeginQuorumEpochResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -36234,7 +37808,9 @@ func (v *EndQuorumEpochRequest) GetVersion() int16        { return v.Version }
 func (v *EndQuorumEpochRequest) IsFlexible() bool         { return false }
 func (v *EndQuorumEpochRequest) IsAdminRequest()          {}
 func (v *EndQuorumEpochRequest) ResponseKind() Response {
-	return &EndQuorumEpochResponse{Version: v.Version}
+	r := &EndQuorumEpochResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -36735,7 +38311,9 @@ func (v *DescribeQuorumRequest) GetVersion() int16        { return v.Version }
 func (v *DescribeQuorumRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *DescribeQuorumRequest) IsAdminRequest()          {}
 func (v *DescribeQuorumRequest) ResponseKind() Response {
-	return &DescribeQuorumResponse{Version: v.Version}
+	r := &DescribeQuorumResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -37356,6 +38934,33 @@ func NewDescribeQuorumResponse() DescribeQuorumResponse {
 	return v
 }
 
+type AlterPartitionRequestTopicPartitionNewEpochISR struct {
+	// The broker ID .
+	BrokerID int32
+
+	// The broker's epoch; -1 if the epoch check is not supported.
+	//
+	// This field has a default of -1.
+	BrokerEpoch int32
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to AlterPartitionRequestTopicPartitionNewEpochISR.
+func (v *AlterPartitionRequestTopicPartitionNewEpochISR) Default() {
+	v.BrokerEpoch = -1
+}
+
+// NewAlterPartitionRequestTopicPartitionNewEpochISR returns a default AlterPartitionRequestTopicPartitionNewEpochISR
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewAlterPartitionRequestTopicPartitionNewEpochISR() AlterPartitionRequestTopicPartitionNewEpochISR {
+	var v AlterPartitionRequestTopicPartitionNewEpochISR
+	v.Default()
+	return v
+}
+
 type AlterPartitionRequestTopicPartition struct {
 	Partition int32
 
@@ -37363,7 +38968,9 @@ type AlterPartitionRequestTopicPartition struct {
 	LeaderEpoch int32
 
 	// The ISR for this partition.
-	NewISR []int32
+	NewISR []int32 // v0-v2
+
+	NewEpochISR []AlterPartitionRequestTopicPartitionNewEpochISR // v3+
 
 	// 1 if the partition is recovering from unclean leader election; 0 otherwise
 	LeaderRecoveryState int8 // v1+
@@ -37390,7 +38997,7 @@ func NewAlterPartitionRequestTopicPartition() AlterPartitionRequestTopicPartitio
 }
 
 type AlterPartitionRequestTopic struct {
-	Topic string
+	Topic string // v0-v1
 
 	TopicID [16]byte // v2+
 
@@ -37415,6 +39022,8 @@ func NewAlterPartitionRequestTopic() AlterPartitionRequestTopic {
 
 // AlterPartitionRequest, proposed in KIP-497 and introduced in Kafka 2.7.0,
 // is an admin request to modify ISR.
+//
+// Version 3 was added for KIP-903 and replaced NewISR.
 type AlterPartitionRequest struct {
 	// Version is the version of this message used with a Kafka broker.
 	Version int16
@@ -37434,13 +39043,15 @@ type AlterPartitionRequest struct {
 }
 
 func (*AlterPartitionRequest) Key() int16                 { return 56 }
-func (*AlterPartitionRequest) MaxVersion() int16          { return 2 }
+func (*AlterPartitionRequest) MaxVersion() int16          { return 3 }
 func (v *AlterPartitionRequest) SetVersion(version int16) { v.Version = version }
 func (v *AlterPartitionRequest) GetVersion() int16        { return v.Version }
 func (v *AlterPartitionRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *AlterPartitionRequest) IsAdminRequest()          {}
 func (v *AlterPartitionRequest) ResponseKind() Response {
-	return &AlterPartitionResponse{Version: v.Version}
+	r := &AlterPartitionResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -37503,7 +39114,7 @@ func (v *AlterPartitionRequest) AppendTo(dst []byte) []byte {
 						v := v.LeaderEpoch
 						dst = kbin.AppendInt32(dst, v)
 					}
-					{
+					if version >= 0 && version <= 2 {
 						v := v.NewISR
 						if isFlexible {
 							dst = kbin.AppendCompactArrayLen(dst, len(v))
@@ -37513,6 +39124,29 @@ func (v *AlterPartitionRequest) AppendTo(dst []byte) []byte {
 						for i := range v {
 							v := v[i]
 							dst = kbin.AppendInt32(dst, v)
+						}
+					}
+					if version >= 3 {
+						v := v.NewEpochISR
+						if isFlexible {
+							dst = kbin.AppendCompactArrayLen(dst, len(v))
+						} else {
+							dst = kbin.AppendArrayLen(dst, len(v))
+						}
+						for i := range v {
+							v := &v[i]
+							{
+								v := v.BrokerID
+								dst = kbin.AppendInt32(dst, v)
+							}
+							{
+								v := v.BrokerEpoch
+								dst = kbin.AppendInt32(dst, v)
+							}
+							if isFlexible {
+								dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+								dst = v.UnknownTags.AppendEach(dst)
+							}
 						}
 					}
 					if version >= 1 {
@@ -37635,7 +39269,7 @@ func (v *AlterPartitionRequest) readFrom(src []byte, unsafe bool) error {
 						v := b.Int32()
 						s.LeaderEpoch = v
 					}
-					{
+					if version >= 0 && version <= 2 {
 						v := s.NewISR
 						a := v
 						var l int32
@@ -37657,6 +39291,41 @@ func (v *AlterPartitionRequest) readFrom(src []byte, unsafe bool) error {
 						}
 						v = a
 						s.NewISR = v
+					}
+					if version >= 3 {
+						v := s.NewEpochISR
+						a := v
+						var l int32
+						if isFlexible {
+							l = b.CompactArrayLen()
+						} else {
+							l = b.ArrayLen()
+						}
+						if !b.Ok() {
+							return b.Complete()
+						}
+						a = a[:0]
+						if l > 0 {
+							a = append(a, make([]AlterPartitionRequestTopicPartitionNewEpochISR, l)...)
+						}
+						for i := int32(0); i < l; i++ {
+							v := &a[i]
+							v.Default()
+							s := v
+							{
+								v := b.Int32()
+								s.BrokerID = v
+							}
+							{
+								v := b.Int32()
+								s.BrokerEpoch = v
+							}
+							if isFlexible {
+								s.UnknownTags = internalReadTags(&b)
+							}
+						}
+						v = a
+						s.NewEpochISR = v
 					}
 					if version >= 1 {
 						v := b.Int8()
@@ -37747,7 +39416,7 @@ func NewAlterPartitionResponseTopicPartition() AlterPartitionResponseTopicPartit
 }
 
 type AlterPartitionResponseTopic struct {
-	Topic string
+	Topic string // v0-v1
 
 	TopidID [16]byte // v2+
 
@@ -37786,12 +39455,13 @@ type AlterPartitionResponse struct {
 	UnknownTags Tags
 }
 
-func (*AlterPartitionResponse) Key() int16                 { return 56 }
-func (*AlterPartitionResponse) MaxVersion() int16          { return 2 }
-func (v *AlterPartitionResponse) SetVersion(version int16) { v.Version = version }
-func (v *AlterPartitionResponse) GetVersion() int16        { return v.Version }
-func (v *AlterPartitionResponse) IsFlexible() bool         { return v.Version >= 0 }
-func (v *AlterPartitionResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 0 }
+func (*AlterPartitionResponse) Key() int16                         { return 56 }
+func (*AlterPartitionResponse) MaxVersion() int16                  { return 3 }
+func (v *AlterPartitionResponse) SetVersion(version int16)         { v.Version = version }
+func (v *AlterPartitionResponse) GetVersion() int16                { return v.Version }
+func (v *AlterPartitionResponse) IsFlexible() bool                 { return v.Version >= 0 }
+func (v *AlterPartitionResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 0 }
+func (v *AlterPartitionResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
 func (v *AlterPartitionResponse) RequestKind() Request {
 	return &AlterPartitionRequest{Version: v.Version}
 }
@@ -38130,15 +39800,18 @@ type UpdateFeaturesRequest struct {
 	UnknownTags Tags
 }
 
-func (*UpdateFeaturesRequest) Key() int16                 { return 57 }
-func (*UpdateFeaturesRequest) MaxVersion() int16          { return 1 }
-func (v *UpdateFeaturesRequest) SetVersion(version int16) { v.Version = version }
-func (v *UpdateFeaturesRequest) GetVersion() int16        { return v.Version }
-func (v *UpdateFeaturesRequest) IsFlexible() bool         { return v.Version >= 0 }
-func (v *UpdateFeaturesRequest) Timeout() int32           { return v.TimeoutMillis }
-func (v *UpdateFeaturesRequest) IsAdminRequest()          {}
+func (*UpdateFeaturesRequest) Key() int16                       { return 57 }
+func (*UpdateFeaturesRequest) MaxVersion() int16                { return 1 }
+func (v *UpdateFeaturesRequest) SetVersion(version int16)       { v.Version = version }
+func (v *UpdateFeaturesRequest) GetVersion() int16              { return v.Version }
+func (v *UpdateFeaturesRequest) IsFlexible() bool               { return v.Version >= 0 }
+func (v *UpdateFeaturesRequest) Timeout() int32                 { return v.TimeoutMillis }
+func (v *UpdateFeaturesRequest) SetTimeout(timeoutMillis int32) { v.TimeoutMillis = timeoutMillis }
+func (v *UpdateFeaturesRequest) IsAdminRequest()                {}
 func (v *UpdateFeaturesRequest) ResponseKind() Response {
-	return &UpdateFeaturesResponse{Version: v.Version}
+	r := &UpdateFeaturesResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -38361,12 +40034,13 @@ type UpdateFeaturesResponse struct {
 	UnknownTags Tags
 }
 
-func (*UpdateFeaturesResponse) Key() int16                 { return 57 }
-func (*UpdateFeaturesResponse) MaxVersion() int16          { return 1 }
-func (v *UpdateFeaturesResponse) SetVersion(version int16) { v.Version = version }
-func (v *UpdateFeaturesResponse) GetVersion() int16        { return v.Version }
-func (v *UpdateFeaturesResponse) IsFlexible() bool         { return v.Version >= 0 }
-func (v *UpdateFeaturesResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 0 }
+func (*UpdateFeaturesResponse) Key() int16                         { return 57 }
+func (*UpdateFeaturesResponse) MaxVersion() int16                  { return 1 }
+func (v *UpdateFeaturesResponse) SetVersion(version int16)         { v.Version = version }
+func (v *UpdateFeaturesResponse) GetVersion() int16                { return v.Version }
+func (v *UpdateFeaturesResponse) IsFlexible() bool                 { return v.Version >= 0 }
+func (v *UpdateFeaturesResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 0 }
+func (v *UpdateFeaturesResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
 func (v *UpdateFeaturesResponse) RequestKind() Request {
 	return &UpdateFeaturesRequest{Version: v.Version}
 }
@@ -38592,7 +40266,11 @@ func (v *EnvelopeRequest) SetVersion(version int16) { v.Version = version }
 func (v *EnvelopeRequest) GetVersion() int16        { return v.Version }
 func (v *EnvelopeRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *EnvelopeRequest) IsAdminRequest()          {}
-func (v *EnvelopeRequest) ResponseKind() Response   { return &EnvelopeResponse{Version: v.Version} }
+func (v *EnvelopeRequest) ResponseKind() Response {
+	r := &EnvelopeResponse{Version: v.Version}
+	r.Default()
+	return r
+}
 
 // RequestWith is requests v on r and returns the response or an error.
 // For sharded requests, the response may be merged and still return an error.
@@ -38927,7 +40605,9 @@ func (v *FetchSnapshotRequest) SetVersion(version int16) { v.Version = version }
 func (v *FetchSnapshotRequest) GetVersion() int16        { return v.Version }
 func (v *FetchSnapshotRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *FetchSnapshotRequest) ResponseKind() Response {
-	return &FetchSnapshotResponse{Version: v.Version}
+	r := &FetchSnapshotResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -39363,12 +41043,13 @@ type FetchSnapshotResponse struct {
 	UnknownTags Tags
 }
 
-func (*FetchSnapshotResponse) Key() int16                 { return 59 }
-func (*FetchSnapshotResponse) MaxVersion() int16          { return 0 }
-func (v *FetchSnapshotResponse) SetVersion(version int16) { v.Version = version }
-func (v *FetchSnapshotResponse) GetVersion() int16        { return v.Version }
-func (v *FetchSnapshotResponse) IsFlexible() bool         { return v.Version >= 0 }
-func (v *FetchSnapshotResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 0 }
+func (*FetchSnapshotResponse) Key() int16                         { return 59 }
+func (*FetchSnapshotResponse) MaxVersion() int16                  { return 0 }
+func (v *FetchSnapshotResponse) SetVersion(version int16)         { v.Version = version }
+func (v *FetchSnapshotResponse) GetVersion() int16                { return v.Version }
+func (v *FetchSnapshotResponse) IsFlexible() bool                 { return v.Version >= 0 }
+func (v *FetchSnapshotResponse) Throttle() (int32, bool)          { return v.ThrottleMillis, v.Version >= 0 }
+func (v *FetchSnapshotResponse) SetThrottle(throttleMillis int32) { v.ThrottleMillis = throttleMillis }
 func (v *FetchSnapshotResponse) RequestKind() Request {
 	return &FetchSnapshotRequest{Version: v.Version}
 }
@@ -39705,17 +41386,24 @@ type DescribeClusterRequest struct {
 	// on CLUSTER.
 	IncludeClusterAuthorizedOperations bool
 
+	// The endpoint type to describe. 1=brokers, 2=controllers.
+	//
+	// This field has a default of 1.
+	EndpointType int8 // v1+
+
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags
 }
 
 func (*DescribeClusterRequest) Key() int16                 { return 60 }
-func (*DescribeClusterRequest) MaxVersion() int16          { return 0 }
+func (*DescribeClusterRequest) MaxVersion() int16          { return 1 }
 func (v *DescribeClusterRequest) SetVersion(version int16) { v.Version = version }
 func (v *DescribeClusterRequest) GetVersion() int16        { return v.Version }
 func (v *DescribeClusterRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *DescribeClusterRequest) ResponseKind() Response {
-	return &DescribeClusterResponse{Version: v.Version}
+	r := &DescribeClusterResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -39735,6 +41423,10 @@ func (v *DescribeClusterRequest) AppendTo(dst []byte) []byte {
 	{
 		v := v.IncludeClusterAuthorizedOperations
 		dst = kbin.AppendBool(dst, v)
+	}
+	if version >= 1 {
+		v := v.EndpointType
+		dst = kbin.AppendInt8(dst, v)
 	}
 	if isFlexible {
 		dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
@@ -39763,6 +41455,10 @@ func (v *DescribeClusterRequest) readFrom(src []byte, unsafe bool) error {
 		v := b.Bool()
 		s.IncludeClusterAuthorizedOperations = v
 	}
+	if version >= 1 {
+		v := b.Int8()
+		s.EndpointType = v
+	}
 	if isFlexible {
 		s.UnknownTags = internalReadTags(&b)
 	}
@@ -39780,6 +41476,7 @@ func NewPtrDescribeClusterRequest() *DescribeClusterRequest {
 // Default sets any default fields. Calling this allows for future compatibility
 // if new fields are added to DescribeClusterRequest.
 func (v *DescribeClusterRequest) Default() {
+	v.EndpointType = 1
 }
 
 // NewDescribeClusterRequest returns a default DescribeClusterRequest
@@ -39835,6 +41532,11 @@ type DescribeClusterResponse struct {
 	// The top level error message, if any.
 	ErrorMessage *string
 
+	// The endpoint type that was described. 1=brokers, 2=controllers.
+	//
+	// This field has a default of 1.
+	EndpointType int8 // v1+
+
 	// The cluster ID that responding broker belongs to.
 	ClusterID string
 
@@ -39856,11 +41558,15 @@ type DescribeClusterResponse struct {
 }
 
 func (*DescribeClusterResponse) Key() int16                 { return 60 }
-func (*DescribeClusterResponse) MaxVersion() int16          { return 0 }
+func (*DescribeClusterResponse) MaxVersion() int16          { return 1 }
 func (v *DescribeClusterResponse) SetVersion(version int16) { v.Version = version }
 func (v *DescribeClusterResponse) GetVersion() int16        { return v.Version }
 func (v *DescribeClusterResponse) IsFlexible() bool         { return v.Version >= 0 }
 func (v *DescribeClusterResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 0 }
+func (v *DescribeClusterResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *DescribeClusterResponse) RequestKind() Request {
 	return &DescribeClusterRequest{Version: v.Version}
 }
@@ -39885,6 +41591,10 @@ func (v *DescribeClusterResponse) AppendTo(dst []byte) []byte {
 		} else {
 			dst = kbin.AppendNullableString(dst, v)
 		}
+	}
+	if version >= 1 {
+		v := v.EndpointType
+		dst = kbin.AppendInt8(dst, v)
 	}
 	{
 		v := v.ClusterID
@@ -39988,6 +41698,10 @@ func (v *DescribeClusterResponse) readFrom(src []byte, unsafe bool) error {
 			}
 		}
 		s.ErrorMessage = v
+	}
+	if version >= 1 {
+		v := b.Int8()
+		s.EndpointType = v
 	}
 	{
 		var v string
@@ -40100,6 +41814,7 @@ func NewPtrDescribeClusterResponse() *DescribeClusterResponse {
 // Default sets any default fields. Calling this allows for future compatibility
 // if new fields are added to DescribeClusterResponse.
 func (v *DescribeClusterResponse) Default() {
+	v.EndpointType = 1
 	v.ControllerID = -1
 	v.ClusterAuthorizedOperations = -2147483648
 }
@@ -40158,7 +41873,9 @@ func (v *DescribeProducersRequest) SetVersion(version int16) { v.Version = versi
 func (v *DescribeProducersRequest) GetVersion() int16        { return v.Version }
 func (v *DescribeProducersRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *DescribeProducersRequest) ResponseKind() Response {
-	return &DescribeProducersResponse{Version: v.Version}
+	r := &DescribeProducersResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -40453,6 +42170,10 @@ func (v *DescribeProducersResponse) SetVersion(version int16) { v.Version = vers
 func (v *DescribeProducersResponse) GetVersion() int16        { return v.Version }
 func (v *DescribeProducersResponse) IsFlexible() bool         { return v.Version >= 0 }
 func (v *DescribeProducersResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 0 }
+func (v *DescribeProducersResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *DescribeProducersResponse) RequestKind() Request {
 	return &DescribeProducersRequest{Version: v.Version}
 }
@@ -40841,17 +42562,23 @@ type BrokerRegistrationRequest struct {
 	// The rack that this broker is in, if any.
 	Rack *string
 
+	// If the required configurations for ZK migration are present, this value is
+	// set to true.
+	IsMigratingZkBroker bool // v1+
+
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags
 }
 
 func (*BrokerRegistrationRequest) Key() int16                 { return 62 }
-func (*BrokerRegistrationRequest) MaxVersion() int16          { return 0 }
+func (*BrokerRegistrationRequest) MaxVersion() int16          { return 1 }
 func (v *BrokerRegistrationRequest) SetVersion(version int16) { v.Version = version }
 func (v *BrokerRegistrationRequest) GetVersion() int16        { return v.Version }
 func (v *BrokerRegistrationRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *BrokerRegistrationRequest) ResponseKind() Response {
-	return &BrokerRegistrationResponse{Version: v.Version}
+	r := &BrokerRegistrationResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -40961,6 +42688,10 @@ func (v *BrokerRegistrationRequest) AppendTo(dst []byte) []byte {
 		} else {
 			dst = kbin.AppendNullableString(dst, v)
 		}
+	}
+	if version >= 1 {
+		v := v.IsMigratingZkBroker
+		dst = kbin.AppendBool(dst, v)
 	}
 	if isFlexible {
 		dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
@@ -41148,6 +42879,10 @@ func (v *BrokerRegistrationRequest) readFrom(src []byte, unsafe bool) error {
 		}
 		s.Rack = v
 	}
+	if version >= 1 {
+		v := b.Bool()
+		s.IsMigratingZkBroker = v
+	}
 	if isFlexible {
 		s.UnknownTags = internalReadTags(&b)
 	}
@@ -41197,12 +42932,16 @@ type BrokerRegistrationResponse struct {
 }
 
 func (*BrokerRegistrationResponse) Key() int16                 { return 62 }
-func (*BrokerRegistrationResponse) MaxVersion() int16          { return 0 }
+func (*BrokerRegistrationResponse) MaxVersion() int16          { return 1 }
 func (v *BrokerRegistrationResponse) SetVersion(version int16) { v.Version = version }
 func (v *BrokerRegistrationResponse) GetVersion() int16        { return v.Version }
 func (v *BrokerRegistrationResponse) IsFlexible() bool         { return v.Version >= 0 }
 func (v *BrokerRegistrationResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 0
+}
+
+func (v *BrokerRegistrationResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
 }
 
 func (v *BrokerRegistrationResponse) RequestKind() Request {
@@ -41322,7 +43061,9 @@ func (v *BrokerHeartbeatRequest) SetVersion(version int16) { v.Version = version
 func (v *BrokerHeartbeatRequest) GetVersion() int16        { return v.Version }
 func (v *BrokerHeartbeatRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *BrokerHeartbeatRequest) ResponseKind() Response {
-	return &BrokerHeartbeatResponse{Version: v.Version}
+	r := &BrokerHeartbeatResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -41463,6 +43204,10 @@ func (v *BrokerHeartbeatResponse) SetVersion(version int16) { v.Version = versio
 func (v *BrokerHeartbeatResponse) GetVersion() int16        { return v.Version }
 func (v *BrokerHeartbeatResponse) IsFlexible() bool         { return v.Version >= 0 }
 func (v *BrokerHeartbeatResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 0 }
+func (v *BrokerHeartbeatResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *BrokerHeartbeatResponse) RequestKind() Request {
 	return &BrokerHeartbeatRequest{Version: v.Version}
 }
@@ -41582,7 +43327,9 @@ func (v *UnregisterBrokerRequest) SetVersion(version int16) { v.Version = versio
 func (v *UnregisterBrokerRequest) GetVersion() int16        { return v.Version }
 func (v *UnregisterBrokerRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *UnregisterBrokerRequest) ResponseKind() Response {
-	return &UnregisterBrokerResponse{Version: v.Version}
+	r := &UnregisterBrokerResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -41682,6 +43429,10 @@ func (v *UnregisterBrokerResponse) SetVersion(version int16) { v.Version = versi
 func (v *UnregisterBrokerResponse) GetVersion() int16        { return v.Version }
 func (v *UnregisterBrokerResponse) IsFlexible() bool         { return v.Version >= 0 }
 func (v *UnregisterBrokerResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 0 }
+func (v *UnregisterBrokerResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *UnregisterBrokerResponse) RequestKind() Request {
 	return &UnregisterBrokerRequest{Version: v.Version}
 }
@@ -41801,7 +43552,9 @@ func (v *DescribeTransactionsRequest) SetVersion(version int16) { v.Version = ve
 func (v *DescribeTransactionsRequest) GetVersion() int16        { return v.Version }
 func (v *DescribeTransactionsRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *DescribeTransactionsRequest) ResponseKind() Response {
-	return &DescribeTransactionsResponse{Version: v.Version}
+	r := &DescribeTransactionsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -42022,6 +43775,10 @@ func (v *DescribeTransactionsResponse) GetVersion() int16        { return v.Vers
 func (v *DescribeTransactionsResponse) IsFlexible() bool         { return v.Version >= 0 }
 func (v *DescribeTransactionsResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 0
+}
+
+func (v *DescribeTransactionsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
 }
 
 func (v *DescribeTransactionsResponse) RequestKind() Request {
@@ -42339,8 +44096,15 @@ type ListTransactionsRequest struct {
 
 	// The producer IDs to filter by: if empty, all transactions will be
 	// returned; if non-empty, only transactions which match one of the filtered
-	// producer IDs will be returned
+	// producer IDs will be returned.
 	ProducerIDFilters []int64
+
+	// Duration (in millis) to filter by: if < 0, all transactions will be
+	// returned; otherwise, only transactions running longer than this duration
+	// will be returned.
+	//
+	// This field has a default of -1.
+	DurationFilterMillis int64 // v1+
 
 	// UnknownTags are tags Kafka sent that we do not know the purpose of.
 	UnknownTags Tags
@@ -42352,7 +44116,9 @@ func (v *ListTransactionsRequest) SetVersion(version int16) { v.Version = versio
 func (v *ListTransactionsRequest) GetVersion() int16        { return v.Version }
 func (v *ListTransactionsRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *ListTransactionsRequest) ResponseKind() Response {
-	return &ListTransactionsResponse{Version: v.Version}
+	r := &ListTransactionsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -42396,6 +44162,10 @@ func (v *ListTransactionsRequest) AppendTo(dst []byte) []byte {
 			v := v[i]
 			dst = kbin.AppendInt64(dst, v)
 		}
+	}
+	if version >= 1 {
+		v := v.DurationFilterMillis
+		dst = kbin.AppendInt64(dst, v)
 	}
 	if isFlexible {
 		dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
@@ -42479,6 +44249,10 @@ func (v *ListTransactionsRequest) readFrom(src []byte, unsafe bool) error {
 		v = a
 		s.ProducerIDFilters = v
 	}
+	if version >= 1 {
+		v := b.Int64()
+		s.DurationFilterMillis = v
+	}
 	if isFlexible {
 		s.UnknownTags = internalReadTags(&b)
 	}
@@ -42496,6 +44270,7 @@ func NewPtrListTransactionsRequest() *ListTransactionsRequest {
 // Default sets any default fields. Calling this allows for future compatibility
 // if new fields are added to ListTransactionsRequest.
 func (v *ListTransactionsRequest) Default() {
+	v.DurationFilterMillis = -1
 }
 
 // NewListTransactionsRequest returns a default ListTransactionsRequest
@@ -42569,6 +44344,10 @@ func (v *ListTransactionsResponse) SetVersion(version int16) { v.Version = versi
 func (v *ListTransactionsResponse) GetVersion() int16        { return v.Version }
 func (v *ListTransactionsResponse) IsFlexible() bool         { return v.Version >= 0 }
 func (v *ListTransactionsResponse) Throttle() (int32, bool)  { return v.ThrottleMillis, v.Version >= 0 }
+func (v *ListTransactionsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *ListTransactionsResponse) RequestKind() Request {
 	return &ListTransactionsRequest{Version: v.Version}
 }
@@ -42822,7 +44601,9 @@ func (v *AllocateProducerIDsRequest) SetVersion(version int16) { v.Version = ver
 func (v *AllocateProducerIDsRequest) GetVersion() int16        { return v.Version }
 func (v *AllocateProducerIDsRequest) IsFlexible() bool         { return v.Version >= 0 }
 func (v *AllocateProducerIDsRequest) ResponseKind() Response {
-	return &AllocateProducerIDsResponse{Version: v.Version}
+	r := &AllocateProducerIDsResponse{Version: v.Version}
+	r.Default()
+	return r
 }
 
 // RequestWith is requests v on r and returns the response or an error.
@@ -42937,6 +44718,10 @@ func (v *AllocateProducerIDsResponse) Throttle() (int32, bool) {
 	return v.ThrottleMillis, v.Version >= 0
 }
 
+func (v *AllocateProducerIDsResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
 func (v *AllocateProducerIDsResponse) RequestKind() Request {
 	return &AllocateProducerIDsRequest{Version: v.Version}
 }
@@ -43024,6 +44809,1842 @@ func (v *AllocateProducerIDsResponse) Default() {
 // This is a shortcut for creating a struct and calling Default yourself.
 func NewAllocateProducerIDsResponse() AllocateProducerIDsResponse {
 	var v AllocateProducerIDsResponse
+	v.Default()
+	return v
+}
+
+type ConsumerGroupHeartbeatRequestTopic struct {
+	// The topic ID.
+	TopicID [16]byte
+
+	// The partitions.
+	Partitions []int32
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to ConsumerGroupHeartbeatRequestTopic.
+func (v *ConsumerGroupHeartbeatRequestTopic) Default() {
+}
+
+// NewConsumerGroupHeartbeatRequestTopic returns a default ConsumerGroupHeartbeatRequestTopic
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewConsumerGroupHeartbeatRequestTopic() ConsumerGroupHeartbeatRequestTopic {
+	var v ConsumerGroupHeartbeatRequestTopic
+	v.Default()
+	return v
+}
+
+// ConsumerGroupHeartbeat is a part of KIP-848; there are a lot of details
+// to this request so documentation is left to the KIP itself.
+type ConsumerGroupHeartbeatRequest struct {
+	// Version is the version of this message used with a Kafka broker.
+	Version int16
+
+	// The group ID.
+	Group string
+
+	// The member ID generated by the coordinator. This must be kept during
+	// the entire lifetime of the member.
+	MemberID string
+
+	// The current member epoch; 0 to join the group, -1 to leave, -2 to
+	// indicate that the static member will rejoin.
+	MemberEpoch int32
+
+	// Instance ID of the member; null if not provided or if unchanging.
+	InstanceID *string
+
+	// The rack ID of the member; null if not provided or if unchanging.
+	RackID *string
+
+	// RebalanceTimeoutMillis is how long the coordinator will wait on a member
+	// to revoke its partitions. -1 if unchanging.
+	//
+	// This field has a default of -1.
+	RebalanceTimeoutMillis int32
+
+	// Subscribed topics; null if unchanging.
+	SubscribedTopicNames []string
+
+	// The server side assignor to use; null if unchanging.
+	ServerAssignor *string
+
+	// Topic partitions owned by the member; null if unchanging.
+	Topics []ConsumerGroupHeartbeatRequestTopic
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+func (*ConsumerGroupHeartbeatRequest) Key() int16                 { return 68 }
+func (*ConsumerGroupHeartbeatRequest) MaxVersion() int16          { return 0 }
+func (v *ConsumerGroupHeartbeatRequest) SetVersion(version int16) { v.Version = version }
+func (v *ConsumerGroupHeartbeatRequest) GetVersion() int16        { return v.Version }
+func (v *ConsumerGroupHeartbeatRequest) IsFlexible() bool         { return v.Version >= 0 }
+func (v *ConsumerGroupHeartbeatRequest) ResponseKind() Response {
+	r := &ConsumerGroupHeartbeatResponse{Version: v.Version}
+	r.Default()
+	return r
+}
+
+// RequestWith is requests v on r and returns the response or an error.
+// For sharded requests, the response may be merged and still return an error.
+// It is better to rely on client.RequestSharded than to rely on proper merging behavior.
+func (v *ConsumerGroupHeartbeatRequest) RequestWith(ctx context.Context, r Requestor) (*ConsumerGroupHeartbeatResponse, error) {
+	kresp, err := r.Request(ctx, v)
+	resp, _ := kresp.(*ConsumerGroupHeartbeatResponse)
+	return resp, err
+}
+
+func (v *ConsumerGroupHeartbeatRequest) AppendTo(dst []byte) []byte {
+	version := v.Version
+	_ = version
+	isFlexible := version >= 0
+	_ = isFlexible
+	{
+		v := v.Group
+		if isFlexible {
+			dst = kbin.AppendCompactString(dst, v)
+		} else {
+			dst = kbin.AppendString(dst, v)
+		}
+	}
+	{
+		v := v.MemberID
+		if isFlexible {
+			dst = kbin.AppendCompactString(dst, v)
+		} else {
+			dst = kbin.AppendString(dst, v)
+		}
+	}
+	{
+		v := v.MemberEpoch
+		dst = kbin.AppendInt32(dst, v)
+	}
+	{
+		v := v.InstanceID
+		if isFlexible {
+			dst = kbin.AppendCompactNullableString(dst, v)
+		} else {
+			dst = kbin.AppendNullableString(dst, v)
+		}
+	}
+	{
+		v := v.RackID
+		if isFlexible {
+			dst = kbin.AppendCompactNullableString(dst, v)
+		} else {
+			dst = kbin.AppendNullableString(dst, v)
+		}
+	}
+	{
+		v := v.RebalanceTimeoutMillis
+		dst = kbin.AppendInt32(dst, v)
+	}
+	{
+		v := v.SubscribedTopicNames
+		if isFlexible {
+			dst = kbin.AppendCompactNullableArrayLen(dst, len(v), v == nil)
+		} else {
+			dst = kbin.AppendNullableArrayLen(dst, len(v), v == nil)
+		}
+		for i := range v {
+			v := v[i]
+			if isFlexible {
+				dst = kbin.AppendCompactString(dst, v)
+			} else {
+				dst = kbin.AppendString(dst, v)
+			}
+		}
+	}
+	{
+		v := v.ServerAssignor
+		if isFlexible {
+			dst = kbin.AppendCompactNullableString(dst, v)
+		} else {
+			dst = kbin.AppendNullableString(dst, v)
+		}
+	}
+	{
+		v := v.Topics
+		if isFlexible {
+			dst = kbin.AppendCompactNullableArrayLen(dst, len(v), v == nil)
+		} else {
+			dst = kbin.AppendNullableArrayLen(dst, len(v), v == nil)
+		}
+		for i := range v {
+			v := &v[i]
+			{
+				v := v.TopicID
+				dst = kbin.AppendUuid(dst, v)
+			}
+			{
+				v := v.Partitions
+				if isFlexible {
+					dst = kbin.AppendCompactArrayLen(dst, len(v))
+				} else {
+					dst = kbin.AppendArrayLen(dst, len(v))
+				}
+				for i := range v {
+					v := v[i]
+					dst = kbin.AppendInt32(dst, v)
+				}
+			}
+			if isFlexible {
+				dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+				dst = v.UnknownTags.AppendEach(dst)
+			}
+		}
+	}
+	if isFlexible {
+		dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+		dst = v.UnknownTags.AppendEach(dst)
+	}
+	return dst
+}
+
+func (v *ConsumerGroupHeartbeatRequest) ReadFrom(src []byte) error {
+	return v.readFrom(src, false)
+}
+
+func (v *ConsumerGroupHeartbeatRequest) UnsafeReadFrom(src []byte) error {
+	return v.readFrom(src, true)
+}
+
+func (v *ConsumerGroupHeartbeatRequest) readFrom(src []byte, unsafe bool) error {
+	v.Default()
+	b := kbin.Reader{Src: src}
+	version := v.Version
+	_ = version
+	isFlexible := version >= 0
+	_ = isFlexible
+	s := v
+	{
+		var v string
+		if unsafe {
+			if isFlexible {
+				v = b.UnsafeCompactString()
+			} else {
+				v = b.UnsafeString()
+			}
+		} else {
+			if isFlexible {
+				v = b.CompactString()
+			} else {
+				v = b.String()
+			}
+		}
+		s.Group = v
+	}
+	{
+		var v string
+		if unsafe {
+			if isFlexible {
+				v = b.UnsafeCompactString()
+			} else {
+				v = b.UnsafeString()
+			}
+		} else {
+			if isFlexible {
+				v = b.CompactString()
+			} else {
+				v = b.String()
+			}
+		}
+		s.MemberID = v
+	}
+	{
+		v := b.Int32()
+		s.MemberEpoch = v
+	}
+	{
+		var v *string
+		if isFlexible {
+			if unsafe {
+				v = b.UnsafeCompactNullableString()
+			} else {
+				v = b.CompactNullableString()
+			}
+		} else {
+			if unsafe {
+				v = b.UnsafeNullableString()
+			} else {
+				v = b.NullableString()
+			}
+		}
+		s.InstanceID = v
+	}
+	{
+		var v *string
+		if isFlexible {
+			if unsafe {
+				v = b.UnsafeCompactNullableString()
+			} else {
+				v = b.CompactNullableString()
+			}
+		} else {
+			if unsafe {
+				v = b.UnsafeNullableString()
+			} else {
+				v = b.NullableString()
+			}
+		}
+		s.RackID = v
+	}
+	{
+		v := b.Int32()
+		s.RebalanceTimeoutMillis = v
+	}
+	{
+		v := s.SubscribedTopicNames
+		a := v
+		var l int32
+		if isFlexible {
+			l = b.CompactArrayLen()
+		} else {
+			l = b.ArrayLen()
+		}
+		if version < 0 || l == 0 {
+			a = []string{}
+		}
+		if !b.Ok() {
+			return b.Complete()
+		}
+		a = a[:0]
+		if l > 0 {
+			a = append(a, make([]string, l)...)
+		}
+		for i := int32(0); i < l; i++ {
+			var v string
+			if unsafe {
+				if isFlexible {
+					v = b.UnsafeCompactString()
+				} else {
+					v = b.UnsafeString()
+				}
+			} else {
+				if isFlexible {
+					v = b.CompactString()
+				} else {
+					v = b.String()
+				}
+			}
+			a[i] = v
+		}
+		v = a
+		s.SubscribedTopicNames = v
+	}
+	{
+		var v *string
+		if isFlexible {
+			if unsafe {
+				v = b.UnsafeCompactNullableString()
+			} else {
+				v = b.CompactNullableString()
+			}
+		} else {
+			if unsafe {
+				v = b.UnsafeNullableString()
+			} else {
+				v = b.NullableString()
+			}
+		}
+		s.ServerAssignor = v
+	}
+	{
+		v := s.Topics
+		a := v
+		var l int32
+		if isFlexible {
+			l = b.CompactArrayLen()
+		} else {
+			l = b.ArrayLen()
+		}
+		if version < 0 || l == 0 {
+			a = []ConsumerGroupHeartbeatRequestTopic{}
+		}
+		if !b.Ok() {
+			return b.Complete()
+		}
+		a = a[:0]
+		if l > 0 {
+			a = append(a, make([]ConsumerGroupHeartbeatRequestTopic, l)...)
+		}
+		for i := int32(0); i < l; i++ {
+			v := &a[i]
+			v.Default()
+			s := v
+			{
+				v := b.Uuid()
+				s.TopicID = v
+			}
+			{
+				v := s.Partitions
+				a := v
+				var l int32
+				if isFlexible {
+					l = b.CompactArrayLen()
+				} else {
+					l = b.ArrayLen()
+				}
+				if !b.Ok() {
+					return b.Complete()
+				}
+				a = a[:0]
+				if l > 0 {
+					a = append(a, make([]int32, l)...)
+				}
+				for i := int32(0); i < l; i++ {
+					v := b.Int32()
+					a[i] = v
+				}
+				v = a
+				s.Partitions = v
+			}
+			if isFlexible {
+				s.UnknownTags = internalReadTags(&b)
+			}
+		}
+		v = a
+		s.Topics = v
+	}
+	if isFlexible {
+		s.UnknownTags = internalReadTags(&b)
+	}
+	return b.Complete()
+}
+
+// NewPtrConsumerGroupHeartbeatRequest returns a pointer to a default ConsumerGroupHeartbeatRequest
+// This is a shortcut for creating a new(struct) and calling Default yourself.
+func NewPtrConsumerGroupHeartbeatRequest() *ConsumerGroupHeartbeatRequest {
+	var v ConsumerGroupHeartbeatRequest
+	v.Default()
+	return &v
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to ConsumerGroupHeartbeatRequest.
+func (v *ConsumerGroupHeartbeatRequest) Default() {
+	v.RebalanceTimeoutMillis = -1
+}
+
+// NewConsumerGroupHeartbeatRequest returns a default ConsumerGroupHeartbeatRequest
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewConsumerGroupHeartbeatRequest() ConsumerGroupHeartbeatRequest {
+	var v ConsumerGroupHeartbeatRequest
+	v.Default()
+	return v
+}
+
+type ConsumerGroupHeartbeatResponseAssignmentTopic struct {
+	TopicID [16]byte
+
+	Partitions []int32
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to ConsumerGroupHeartbeatResponseAssignmentTopic.
+func (v *ConsumerGroupHeartbeatResponseAssignmentTopic) Default() {
+}
+
+// NewConsumerGroupHeartbeatResponseAssignmentTopic returns a default ConsumerGroupHeartbeatResponseAssignmentTopic
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewConsumerGroupHeartbeatResponseAssignmentTopic() ConsumerGroupHeartbeatResponseAssignmentTopic {
+	var v ConsumerGroupHeartbeatResponseAssignmentTopic
+	v.Default()
+	return v
+}
+
+type ConsumerGroupHeartbeatResponseAssignment struct {
+	// The topics partitions that can be used immediately.
+	Topics []ConsumerGroupHeartbeatResponseAssignmentTopic
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to ConsumerGroupHeartbeatResponseAssignment.
+func (v *ConsumerGroupHeartbeatResponseAssignment) Default() {
+}
+
+// NewConsumerGroupHeartbeatResponseAssignment returns a default ConsumerGroupHeartbeatResponseAssignment
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewConsumerGroupHeartbeatResponseAssignment() ConsumerGroupHeartbeatResponseAssignment {
+	var v ConsumerGroupHeartbeatResponseAssignment
+	v.Default()
+	return v
+}
+
+// ConsumerGroupHeartbeatResponse is returned from a ConsumerGroupHeartbeatRequest.
+type ConsumerGroupHeartbeatResponse struct {
+	// Version is the version of this message used with a Kafka broker.
+	Version int16
+
+	// ThrottleMillis is how long of a throttle Kafka will apply to the client
+	// after responding to this request.
+	ThrottleMillis int32
+
+	// ErrorCode is the error for this response.
+	//
+	// Supported errors:
+	// - GROUP_AUTHORIZATION_FAILED (version 0+)
+	// - NOT_COORDINATOR (version 0+)
+	// - COORDINATOR_NOT_AVAILABLE (version 0+)
+	// - COORDINATOR_LOAD_IN_PROGRESS (version 0+)
+	// - INVALID_REQUEST (version 0+)
+	// - UNKNOWN_MEMBER_ID (version 0+)
+	// - FENCED_MEMBER_EPOCH (version 0+)
+	// - UNSUPPORTED_ASSIGNOR (version 0+)
+	// - UNRELEASED_INSTANCE_ID (version 0+)
+	// - GROUP_MAX_SIZE_REACHED (version 0+)
+	ErrorCode int16
+
+	// A supplementary message if this errored.
+	ErrorMessage *string
+
+	// The member ID generated by the coordinator; provided when joining
+	// with MemberEpoch=0.
+	MemberID *string
+
+	// The member epoch.
+	MemberEpoch int32
+
+	// The heartbeat interval, in milliseconds.
+	HeartbeatIntervalMillis int32
+
+	// The assignment; null if not provided.
+	Assignment *ConsumerGroupHeartbeatResponseAssignment
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+func (*ConsumerGroupHeartbeatResponse) Key() int16                 { return 68 }
+func (*ConsumerGroupHeartbeatResponse) MaxVersion() int16          { return 0 }
+func (v *ConsumerGroupHeartbeatResponse) SetVersion(version int16) { v.Version = version }
+func (v *ConsumerGroupHeartbeatResponse) GetVersion() int16        { return v.Version }
+func (v *ConsumerGroupHeartbeatResponse) IsFlexible() bool         { return v.Version >= 0 }
+func (v *ConsumerGroupHeartbeatResponse) Throttle() (int32, bool) {
+	return v.ThrottleMillis, v.Version >= 0
+}
+
+func (v *ConsumerGroupHeartbeatResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
+func (v *ConsumerGroupHeartbeatResponse) RequestKind() Request {
+	return &ConsumerGroupHeartbeatRequest{Version: v.Version}
+}
+
+func (v *ConsumerGroupHeartbeatResponse) AppendTo(dst []byte) []byte {
+	version := v.Version
+	_ = version
+	isFlexible := version >= 0
+	_ = isFlexible
+	{
+		v := v.ThrottleMillis
+		dst = kbin.AppendInt32(dst, v)
+	}
+	{
+		v := v.ErrorCode
+		dst = kbin.AppendInt16(dst, v)
+	}
+	{
+		v := v.ErrorMessage
+		if isFlexible {
+			dst = kbin.AppendCompactNullableString(dst, v)
+		} else {
+			dst = kbin.AppendNullableString(dst, v)
+		}
+	}
+	{
+		v := v.MemberID
+		if isFlexible {
+			dst = kbin.AppendCompactNullableString(dst, v)
+		} else {
+			dst = kbin.AppendNullableString(dst, v)
+		}
+	}
+	{
+		v := v.MemberEpoch
+		dst = kbin.AppendInt32(dst, v)
+	}
+	{
+		v := v.HeartbeatIntervalMillis
+		dst = kbin.AppendInt32(dst, v)
+	}
+	{
+		v := v.Assignment
+		if v == nil {
+			dst = append(dst, 255)
+		} else {
+			dst = append(dst, 1)
+			{
+				v := v.Topics
+				if isFlexible {
+					dst = kbin.AppendCompactArrayLen(dst, len(v))
+				} else {
+					dst = kbin.AppendArrayLen(dst, len(v))
+				}
+				for i := range v {
+					v := &v[i]
+					{
+						v := v.TopicID
+						dst = kbin.AppendUuid(dst, v)
+					}
+					{
+						v := v.Partitions
+						if isFlexible {
+							dst = kbin.AppendCompactArrayLen(dst, len(v))
+						} else {
+							dst = kbin.AppendArrayLen(dst, len(v))
+						}
+						for i := range v {
+							v := v[i]
+							dst = kbin.AppendInt32(dst, v)
+						}
+					}
+					if isFlexible {
+						dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+						dst = v.UnknownTags.AppendEach(dst)
+					}
+				}
+			}
+			if isFlexible {
+				dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+				dst = v.UnknownTags.AppendEach(dst)
+			}
+		}
+	}
+	if isFlexible {
+		dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+		dst = v.UnknownTags.AppendEach(dst)
+	}
+	return dst
+}
+
+func (v *ConsumerGroupHeartbeatResponse) ReadFrom(src []byte) error {
+	return v.readFrom(src, false)
+}
+
+func (v *ConsumerGroupHeartbeatResponse) UnsafeReadFrom(src []byte) error {
+	return v.readFrom(src, true)
+}
+
+func (v *ConsumerGroupHeartbeatResponse) readFrom(src []byte, unsafe bool) error {
+	v.Default()
+	b := kbin.Reader{Src: src}
+	version := v.Version
+	_ = version
+	isFlexible := version >= 0
+	_ = isFlexible
+	s := v
+	{
+		v := b.Int32()
+		s.ThrottleMillis = v
+	}
+	{
+		v := b.Int16()
+		s.ErrorCode = v
+	}
+	{
+		var v *string
+		if isFlexible {
+			if unsafe {
+				v = b.UnsafeCompactNullableString()
+			} else {
+				v = b.CompactNullableString()
+			}
+		} else {
+			if unsafe {
+				v = b.UnsafeNullableString()
+			} else {
+				v = b.NullableString()
+			}
+		}
+		s.ErrorMessage = v
+	}
+	{
+		var v *string
+		if isFlexible {
+			if unsafe {
+				v = b.UnsafeCompactNullableString()
+			} else {
+				v = b.CompactNullableString()
+			}
+		} else {
+			if unsafe {
+				v = b.UnsafeNullableString()
+			} else {
+				v = b.NullableString()
+			}
+		}
+		s.MemberID = v
+	}
+	{
+		v := b.Int32()
+		s.MemberEpoch = v
+	}
+	{
+		v := b.Int32()
+		s.HeartbeatIntervalMillis = v
+	}
+	{
+		if present := b.Int8(); present != -1 && b.Ok() {
+			s.Assignment = new(ConsumerGroupHeartbeatResponseAssignment)
+			v := s.Assignment
+			v.Default()
+			s := v
+			{
+				v := s.Topics
+				a := v
+				var l int32
+				if isFlexible {
+					l = b.CompactArrayLen()
+				} else {
+					l = b.ArrayLen()
+				}
+				if !b.Ok() {
+					return b.Complete()
+				}
+				a = a[:0]
+				if l > 0 {
+					a = append(a, make([]ConsumerGroupHeartbeatResponseAssignmentTopic, l)...)
+				}
+				for i := int32(0); i < l; i++ {
+					v := &a[i]
+					v.Default()
+					s := v
+					{
+						v := b.Uuid()
+						s.TopicID = v
+					}
+					{
+						v := s.Partitions
+						a := v
+						var l int32
+						if isFlexible {
+							l = b.CompactArrayLen()
+						} else {
+							l = b.ArrayLen()
+						}
+						if !b.Ok() {
+							return b.Complete()
+						}
+						a = a[:0]
+						if l > 0 {
+							a = append(a, make([]int32, l)...)
+						}
+						for i := int32(0); i < l; i++ {
+							v := b.Int32()
+							a[i] = v
+						}
+						v = a
+						s.Partitions = v
+					}
+					if isFlexible {
+						s.UnknownTags = internalReadTags(&b)
+					}
+				}
+				v = a
+				s.Topics = v
+			}
+			if isFlexible {
+				s.UnknownTags = internalReadTags(&b)
+			}
+		}
+	}
+	if isFlexible {
+		s.UnknownTags = internalReadTags(&b)
+	}
+	return b.Complete()
+}
+
+// NewPtrConsumerGroupHeartbeatResponse returns a pointer to a default ConsumerGroupHeartbeatResponse
+// This is a shortcut for creating a new(struct) and calling Default yourself.
+func NewPtrConsumerGroupHeartbeatResponse() *ConsumerGroupHeartbeatResponse {
+	var v ConsumerGroupHeartbeatResponse
+	v.Default()
+	return &v
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to ConsumerGroupHeartbeatResponse.
+func (v *ConsumerGroupHeartbeatResponse) Default() {
+	{
+		v := &v.Assignment
+		_ = v
+	}
+}
+
+// NewConsumerGroupHeartbeatResponse returns a default ConsumerGroupHeartbeatResponse
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewConsumerGroupHeartbeatResponse() ConsumerGroupHeartbeatResponse {
+	var v ConsumerGroupHeartbeatResponse
+	v.Default()
+	return v
+}
+
+// Assignment contains consumer group assignments.
+type Assignment struct {
+	// The topics & partitions assigned to the member.
+	TopicPartitions []AssignmentTopicPartition
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to Assignment.
+func (v *Assignment) Default() {
+}
+
+// NewAssignment returns a default Assignment
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewAssignment() Assignment {
+	var v Assignment
+	v.Default()
+	return v
+}
+
+// ConsumerGroupDescribe is a part of KIP-848; this is the
+// "next generation" equivalent of DescribeGroups.
+type ConsumerGroupDescribeRequest struct {
+	// Version is the version of this message used with a Kafka broker.
+	Version int16
+
+	// The IDs of the groups to describe.
+	Groups []string
+
+	// Whether to include authorized operations.
+	IncludeAuthorizedOperations bool
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+func (*ConsumerGroupDescribeRequest) Key() int16                 { return 69 }
+func (*ConsumerGroupDescribeRequest) MaxVersion() int16          { return 0 }
+func (v *ConsumerGroupDescribeRequest) SetVersion(version int16) { v.Version = version }
+func (v *ConsumerGroupDescribeRequest) GetVersion() int16        { return v.Version }
+func (v *ConsumerGroupDescribeRequest) IsFlexible() bool         { return v.Version >= 0 }
+func (v *ConsumerGroupDescribeRequest) ResponseKind() Response {
+	r := &ConsumerGroupDescribeResponse{Version: v.Version}
+	r.Default()
+	return r
+}
+
+// RequestWith is requests v on r and returns the response or an error.
+// For sharded requests, the response may be merged and still return an error.
+// It is better to rely on client.RequestSharded than to rely on proper merging behavior.
+func (v *ConsumerGroupDescribeRequest) RequestWith(ctx context.Context, r Requestor) (*ConsumerGroupDescribeResponse, error) {
+	kresp, err := r.Request(ctx, v)
+	resp, _ := kresp.(*ConsumerGroupDescribeResponse)
+	return resp, err
+}
+
+func (v *ConsumerGroupDescribeRequest) AppendTo(dst []byte) []byte {
+	version := v.Version
+	_ = version
+	isFlexible := version >= 0
+	_ = isFlexible
+	{
+		v := v.Groups
+		if isFlexible {
+			dst = kbin.AppendCompactArrayLen(dst, len(v))
+		} else {
+			dst = kbin.AppendArrayLen(dst, len(v))
+		}
+		for i := range v {
+			v := v[i]
+			if isFlexible {
+				dst = kbin.AppendCompactString(dst, v)
+			} else {
+				dst = kbin.AppendString(dst, v)
+			}
+		}
+	}
+	{
+		v := v.IncludeAuthorizedOperations
+		dst = kbin.AppendBool(dst, v)
+	}
+	if isFlexible {
+		dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+		dst = v.UnknownTags.AppendEach(dst)
+	}
+	return dst
+}
+
+func (v *ConsumerGroupDescribeRequest) ReadFrom(src []byte) error {
+	return v.readFrom(src, false)
+}
+
+func (v *ConsumerGroupDescribeRequest) UnsafeReadFrom(src []byte) error {
+	return v.readFrom(src, true)
+}
+
+func (v *ConsumerGroupDescribeRequest) readFrom(src []byte, unsafe bool) error {
+	v.Default()
+	b := kbin.Reader{Src: src}
+	version := v.Version
+	_ = version
+	isFlexible := version >= 0
+	_ = isFlexible
+	s := v
+	{
+		v := s.Groups
+		a := v
+		var l int32
+		if isFlexible {
+			l = b.CompactArrayLen()
+		} else {
+			l = b.ArrayLen()
+		}
+		if !b.Ok() {
+			return b.Complete()
+		}
+		a = a[:0]
+		if l > 0 {
+			a = append(a, make([]string, l)...)
+		}
+		for i := int32(0); i < l; i++ {
+			var v string
+			if unsafe {
+				if isFlexible {
+					v = b.UnsafeCompactString()
+				} else {
+					v = b.UnsafeString()
+				}
+			} else {
+				if isFlexible {
+					v = b.CompactString()
+				} else {
+					v = b.String()
+				}
+			}
+			a[i] = v
+		}
+		v = a
+		s.Groups = v
+	}
+	{
+		v := b.Bool()
+		s.IncludeAuthorizedOperations = v
+	}
+	if isFlexible {
+		s.UnknownTags = internalReadTags(&b)
+	}
+	return b.Complete()
+}
+
+// NewPtrConsumerGroupDescribeRequest returns a pointer to a default ConsumerGroupDescribeRequest
+// This is a shortcut for creating a new(struct) and calling Default yourself.
+func NewPtrConsumerGroupDescribeRequest() *ConsumerGroupDescribeRequest {
+	var v ConsumerGroupDescribeRequest
+	v.Default()
+	return &v
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to ConsumerGroupDescribeRequest.
+func (v *ConsumerGroupDescribeRequest) Default() {
+}
+
+// NewConsumerGroupDescribeRequest returns a default ConsumerGroupDescribeRequest
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewConsumerGroupDescribeRequest() ConsumerGroupDescribeRequest {
+	var v ConsumerGroupDescribeRequest
+	v.Default()
+	return v
+}
+
+type ConsumerGroupDescribeResponseGroupMember struct {
+	// The member ID.
+	MemberID string
+
+	// The member instance ID, if any.
+	InstanceID *string
+
+	// The member rack ID, if any.
+	RackID *string
+
+	// The current member epoch.
+	MemberEpoch int32
+
+	// The client ID.
+	ClientID string
+
+	// The client host.
+	ClientHost string
+
+	// The subscribed topic names.
+	SubscribedTopics []string
+
+	// The subscribed topic regex, if any.
+	SubscribedTopicRegex *string
+
+	// The current assignment.
+	Assignment Assignment
+
+	// The target assignment.
+	TargetAssignment Assignment
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to ConsumerGroupDescribeResponseGroupMember.
+func (v *ConsumerGroupDescribeResponseGroupMember) Default() {
+	{
+		v := &v.Assignment
+		_ = v
+	}
+	{
+		v := &v.TargetAssignment
+		_ = v
+	}
+}
+
+// NewConsumerGroupDescribeResponseGroupMember returns a default ConsumerGroupDescribeResponseGroupMember
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewConsumerGroupDescribeResponseGroupMember() ConsumerGroupDescribeResponseGroupMember {
+	var v ConsumerGroupDescribeResponseGroupMember
+	v.Default()
+	return v
+}
+
+type ConsumerGroupDescribeResponseGroup struct {
+	// ErrorCode is the error for this response.
+	//
+	// Supported errors:
+	// - GROUP_AUTHORIZATION_FAILED (version 0+)
+	// - NOT_COORDINATOR (version 0+)
+	// - COORDINATOR_NOT_AVAILABLE (version 0+)
+	// - COORDINATOR_LOAD_IN_PROGRESS (version 0+)
+	// - INVALID_REQUEST (version 0+)
+	// - INVALID_GROUP_ID (version 0+)
+	// - GROUP_ID_NOT_FOUND (version 0+)
+	ErrorCode int16
+
+	// A supplementary message if this errored.
+	ErrorMessage *string
+
+	// The group ID.
+	Group string
+
+	// The group state.
+	State string
+
+	// The group epoch.
+	Epoch int32
+
+	// The assignment epoch.
+	AssignmentEpoch int32
+
+	// The selected assignor.
+	AssignorName string
+
+	// Members of the group.
+	Members []ConsumerGroupDescribeResponseGroupMember
+
+	// 32 bit bitfield representing authorized operations for the group.
+	//
+	// This field has a default of -2147483648.
+	AuthorizedOperations int32
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to ConsumerGroupDescribeResponseGroup.
+func (v *ConsumerGroupDescribeResponseGroup) Default() {
+	v.AuthorizedOperations = -2147483648
+}
+
+// NewConsumerGroupDescribeResponseGroup returns a default ConsumerGroupDescribeResponseGroup
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewConsumerGroupDescribeResponseGroup() ConsumerGroupDescribeResponseGroup {
+	var v ConsumerGroupDescribeResponseGroup
+	v.Default()
+	return v
+}
+
+// ConsumerGroupDescribeResponse is returned from a ConsumerGroupDescribeRequest.
+type ConsumerGroupDescribeResponse struct {
+	// Version is the version of this message used with a Kafka broker.
+	Version int16
+
+	// ThrottleMillis is how long of a throttle Kafka will apply to the client
+	// after responding to this request.
+	ThrottleMillis int32
+
+	Groups []ConsumerGroupDescribeResponseGroup
+
+	// UnknownTags are tags Kafka sent that we do not know the purpose of.
+	UnknownTags Tags
+}
+
+func (*ConsumerGroupDescribeResponse) Key() int16                 { return 69 }
+func (*ConsumerGroupDescribeResponse) MaxVersion() int16          { return 0 }
+func (v *ConsumerGroupDescribeResponse) SetVersion(version int16) { v.Version = version }
+func (v *ConsumerGroupDescribeResponse) GetVersion() int16        { return v.Version }
+func (v *ConsumerGroupDescribeResponse) IsFlexible() bool         { return v.Version >= 0 }
+func (v *ConsumerGroupDescribeResponse) Throttle() (int32, bool) {
+	return v.ThrottleMillis, v.Version >= 0
+}
+
+func (v *ConsumerGroupDescribeResponse) SetThrottle(throttleMillis int32) {
+	v.ThrottleMillis = throttleMillis
+}
+
+func (v *ConsumerGroupDescribeResponse) RequestKind() Request {
+	return &ConsumerGroupDescribeRequest{Version: v.Version}
+}
+
+func (v *ConsumerGroupDescribeResponse) AppendTo(dst []byte) []byte {
+	version := v.Version
+	_ = version
+	isFlexible := version >= 0
+	_ = isFlexible
+	{
+		v := v.ThrottleMillis
+		dst = kbin.AppendInt32(dst, v)
+	}
+	{
+		v := v.Groups
+		if isFlexible {
+			dst = kbin.AppendCompactArrayLen(dst, len(v))
+		} else {
+			dst = kbin.AppendArrayLen(dst, len(v))
+		}
+		for i := range v {
+			v := &v[i]
+			{
+				v := v.ErrorCode
+				dst = kbin.AppendInt16(dst, v)
+			}
+			{
+				v := v.ErrorMessage
+				if isFlexible {
+					dst = kbin.AppendCompactNullableString(dst, v)
+				} else {
+					dst = kbin.AppendNullableString(dst, v)
+				}
+			}
+			{
+				v := v.Group
+				if isFlexible {
+					dst = kbin.AppendCompactString(dst, v)
+				} else {
+					dst = kbin.AppendString(dst, v)
+				}
+			}
+			{
+				v := v.State
+				if isFlexible {
+					dst = kbin.AppendCompactString(dst, v)
+				} else {
+					dst = kbin.AppendString(dst, v)
+				}
+			}
+			{
+				v := v.Epoch
+				dst = kbin.AppendInt32(dst, v)
+			}
+			{
+				v := v.AssignmentEpoch
+				dst = kbin.AppendInt32(dst, v)
+			}
+			{
+				v := v.AssignorName
+				if isFlexible {
+					dst = kbin.AppendCompactString(dst, v)
+				} else {
+					dst = kbin.AppendString(dst, v)
+				}
+			}
+			{
+				v := v.Members
+				if isFlexible {
+					dst = kbin.AppendCompactArrayLen(dst, len(v))
+				} else {
+					dst = kbin.AppendArrayLen(dst, len(v))
+				}
+				for i := range v {
+					v := &v[i]
+					{
+						v := v.MemberID
+						if isFlexible {
+							dst = kbin.AppendCompactString(dst, v)
+						} else {
+							dst = kbin.AppendString(dst, v)
+						}
+					}
+					{
+						v := v.InstanceID
+						if isFlexible {
+							dst = kbin.AppendCompactNullableString(dst, v)
+						} else {
+							dst = kbin.AppendNullableString(dst, v)
+						}
+					}
+					{
+						v := v.RackID
+						if isFlexible {
+							dst = kbin.AppendCompactNullableString(dst, v)
+						} else {
+							dst = kbin.AppendNullableString(dst, v)
+						}
+					}
+					{
+						v := v.MemberEpoch
+						dst = kbin.AppendInt32(dst, v)
+					}
+					{
+						v := v.ClientID
+						if isFlexible {
+							dst = kbin.AppendCompactString(dst, v)
+						} else {
+							dst = kbin.AppendString(dst, v)
+						}
+					}
+					{
+						v := v.ClientHost
+						if isFlexible {
+							dst = kbin.AppendCompactString(dst, v)
+						} else {
+							dst = kbin.AppendString(dst, v)
+						}
+					}
+					{
+						v := v.SubscribedTopics
+						if isFlexible {
+							dst = kbin.AppendCompactArrayLen(dst, len(v))
+						} else {
+							dst = kbin.AppendArrayLen(dst, len(v))
+						}
+						for i := range v {
+							v := v[i]
+							if isFlexible {
+								dst = kbin.AppendCompactString(dst, v)
+							} else {
+								dst = kbin.AppendString(dst, v)
+							}
+						}
+					}
+					{
+						v := v.SubscribedTopicRegex
+						if isFlexible {
+							dst = kbin.AppendCompactNullableString(dst, v)
+						} else {
+							dst = kbin.AppendNullableString(dst, v)
+						}
+					}
+					{
+						v := &v.Assignment
+						{
+							v := v.TopicPartitions
+							if isFlexible {
+								dst = kbin.AppendCompactArrayLen(dst, len(v))
+							} else {
+								dst = kbin.AppendArrayLen(dst, len(v))
+							}
+							for i := range v {
+								v := &v[i]
+								{
+									v := v.TopicID
+									dst = kbin.AppendUuid(dst, v)
+								}
+								{
+									v := v.Topic
+									if isFlexible {
+										dst = kbin.AppendCompactString(dst, v)
+									} else {
+										dst = kbin.AppendString(dst, v)
+									}
+								}
+								{
+									v := v.Partitions
+									if isFlexible {
+										dst = kbin.AppendCompactArrayLen(dst, len(v))
+									} else {
+										dst = kbin.AppendArrayLen(dst, len(v))
+									}
+									for i := range v {
+										v := v[i]
+										dst = kbin.AppendInt32(dst, v)
+									}
+								}
+								if isFlexible {
+									dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+									dst = v.UnknownTags.AppendEach(dst)
+								}
+							}
+						}
+						if isFlexible {
+							dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+							dst = v.UnknownTags.AppendEach(dst)
+						}
+					}
+					{
+						v := &v.TargetAssignment
+						{
+							v := v.TopicPartitions
+							if isFlexible {
+								dst = kbin.AppendCompactArrayLen(dst, len(v))
+							} else {
+								dst = kbin.AppendArrayLen(dst, len(v))
+							}
+							for i := range v {
+								v := &v[i]
+								{
+									v := v.TopicID
+									dst = kbin.AppendUuid(dst, v)
+								}
+								{
+									v := v.Topic
+									if isFlexible {
+										dst = kbin.AppendCompactString(dst, v)
+									} else {
+										dst = kbin.AppendString(dst, v)
+									}
+								}
+								{
+									v := v.Partitions
+									if isFlexible {
+										dst = kbin.AppendCompactArrayLen(dst, len(v))
+									} else {
+										dst = kbin.AppendArrayLen(dst, len(v))
+									}
+									for i := range v {
+										v := v[i]
+										dst = kbin.AppendInt32(dst, v)
+									}
+								}
+								if isFlexible {
+									dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+									dst = v.UnknownTags.AppendEach(dst)
+								}
+							}
+						}
+						if isFlexible {
+							dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+							dst = v.UnknownTags.AppendEach(dst)
+						}
+					}
+					if isFlexible {
+						dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+						dst = v.UnknownTags.AppendEach(dst)
+					}
+				}
+			}
+			{
+				v := v.AuthorizedOperations
+				dst = kbin.AppendInt32(dst, v)
+			}
+			if isFlexible {
+				dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+				dst = v.UnknownTags.AppendEach(dst)
+			}
+		}
+	}
+	if isFlexible {
+		dst = kbin.AppendUvarint(dst, 0+uint32(v.UnknownTags.Len()))
+		dst = v.UnknownTags.AppendEach(dst)
+	}
+	return dst
+}
+
+func (v *ConsumerGroupDescribeResponse) ReadFrom(src []byte) error {
+	return v.readFrom(src, false)
+}
+
+func (v *ConsumerGroupDescribeResponse) UnsafeReadFrom(src []byte) error {
+	return v.readFrom(src, true)
+}
+
+func (v *ConsumerGroupDescribeResponse) readFrom(src []byte, unsafe bool) error {
+	v.Default()
+	b := kbin.Reader{Src: src}
+	version := v.Version
+	_ = version
+	isFlexible := version >= 0
+	_ = isFlexible
+	s := v
+	{
+		v := b.Int32()
+		s.ThrottleMillis = v
+	}
+	{
+		v := s.Groups
+		a := v
+		var l int32
+		if isFlexible {
+			l = b.CompactArrayLen()
+		} else {
+			l = b.ArrayLen()
+		}
+		if !b.Ok() {
+			return b.Complete()
+		}
+		a = a[:0]
+		if l > 0 {
+			a = append(a, make([]ConsumerGroupDescribeResponseGroup, l)...)
+		}
+		for i := int32(0); i < l; i++ {
+			v := &a[i]
+			v.Default()
+			s := v
+			{
+				v := b.Int16()
+				s.ErrorCode = v
+			}
+			{
+				var v *string
+				if isFlexible {
+					if unsafe {
+						v = b.UnsafeCompactNullableString()
+					} else {
+						v = b.CompactNullableString()
+					}
+				} else {
+					if unsafe {
+						v = b.UnsafeNullableString()
+					} else {
+						v = b.NullableString()
+					}
+				}
+				s.ErrorMessage = v
+			}
+			{
+				var v string
+				if unsafe {
+					if isFlexible {
+						v = b.UnsafeCompactString()
+					} else {
+						v = b.UnsafeString()
+					}
+				} else {
+					if isFlexible {
+						v = b.CompactString()
+					} else {
+						v = b.String()
+					}
+				}
+				s.Group = v
+			}
+			{
+				var v string
+				if unsafe {
+					if isFlexible {
+						v = b.UnsafeCompactString()
+					} else {
+						v = b.UnsafeString()
+					}
+				} else {
+					if isFlexible {
+						v = b.CompactString()
+					} else {
+						v = b.String()
+					}
+				}
+				s.State = v
+			}
+			{
+				v := b.Int32()
+				s.Epoch = v
+			}
+			{
+				v := b.Int32()
+				s.AssignmentEpoch = v
+			}
+			{
+				var v string
+				if unsafe {
+					if isFlexible {
+						v = b.UnsafeCompactString()
+					} else {
+						v = b.UnsafeString()
+					}
+				} else {
+					if isFlexible {
+						v = b.CompactString()
+					} else {
+						v = b.String()
+					}
+				}
+				s.AssignorName = v
+			}
+			{
+				v := s.Members
+				a := v
+				var l int32
+				if isFlexible {
+					l = b.CompactArrayLen()
+				} else {
+					l = b.ArrayLen()
+				}
+				if !b.Ok() {
+					return b.Complete()
+				}
+				a = a[:0]
+				if l > 0 {
+					a = append(a, make([]ConsumerGroupDescribeResponseGroupMember, l)...)
+				}
+				for i := int32(0); i < l; i++ {
+					v := &a[i]
+					v.Default()
+					s := v
+					{
+						var v string
+						if unsafe {
+							if isFlexible {
+								v = b.UnsafeCompactString()
+							} else {
+								v = b.UnsafeString()
+							}
+						} else {
+							if isFlexible {
+								v = b.CompactString()
+							} else {
+								v = b.String()
+							}
+						}
+						s.MemberID = v
+					}
+					{
+						var v *string
+						if isFlexible {
+							if unsafe {
+								v = b.UnsafeCompactNullableString()
+							} else {
+								v = b.CompactNullableString()
+							}
+						} else {
+							if unsafe {
+								v = b.UnsafeNullableString()
+							} else {
+								v = b.NullableString()
+							}
+						}
+						s.InstanceID = v
+					}
+					{
+						var v *string
+						if isFlexible {
+							if unsafe {
+								v = b.UnsafeCompactNullableString()
+							} else {
+								v = b.CompactNullableString()
+							}
+						} else {
+							if unsafe {
+								v = b.UnsafeNullableString()
+							} else {
+								v = b.NullableString()
+							}
+						}
+						s.RackID = v
+					}
+					{
+						v := b.Int32()
+						s.MemberEpoch = v
+					}
+					{
+						var v string
+						if unsafe {
+							if isFlexible {
+								v = b.UnsafeCompactString()
+							} else {
+								v = b.UnsafeString()
+							}
+						} else {
+							if isFlexible {
+								v = b.CompactString()
+							} else {
+								v = b.String()
+							}
+						}
+						s.ClientID = v
+					}
+					{
+						var v string
+						if unsafe {
+							if isFlexible {
+								v = b.UnsafeCompactString()
+							} else {
+								v = b.UnsafeString()
+							}
+						} else {
+							if isFlexible {
+								v = b.CompactString()
+							} else {
+								v = b.String()
+							}
+						}
+						s.ClientHost = v
+					}
+					{
+						v := s.SubscribedTopics
+						a := v
+						var l int32
+						if isFlexible {
+							l = b.CompactArrayLen()
+						} else {
+							l = b.ArrayLen()
+						}
+						if !b.Ok() {
+							return b.Complete()
+						}
+						a = a[:0]
+						if l > 0 {
+							a = append(a, make([]string, l)...)
+						}
+						for i := int32(0); i < l; i++ {
+							var v string
+							if unsafe {
+								if isFlexible {
+									v = b.UnsafeCompactString()
+								} else {
+									v = b.UnsafeString()
+								}
+							} else {
+								if isFlexible {
+									v = b.CompactString()
+								} else {
+									v = b.String()
+								}
+							}
+							a[i] = v
+						}
+						v = a
+						s.SubscribedTopics = v
+					}
+					{
+						var v *string
+						if isFlexible {
+							if unsafe {
+								v = b.UnsafeCompactNullableString()
+							} else {
+								v = b.CompactNullableString()
+							}
+						} else {
+							if unsafe {
+								v = b.UnsafeNullableString()
+							} else {
+								v = b.NullableString()
+							}
+						}
+						s.SubscribedTopicRegex = v
+					}
+					{
+						v := &s.Assignment
+						v.Default()
+						s := v
+						{
+							v := s.TopicPartitions
+							a := v
+							var l int32
+							if isFlexible {
+								l = b.CompactArrayLen()
+							} else {
+								l = b.ArrayLen()
+							}
+							if !b.Ok() {
+								return b.Complete()
+							}
+							a = a[:0]
+							if l > 0 {
+								a = append(a, make([]AssignmentTopicPartition, l)...)
+							}
+							for i := int32(0); i < l; i++ {
+								v := &a[i]
+								v.Default()
+								s := v
+								{
+									v := b.Uuid()
+									s.TopicID = v
+								}
+								{
+									var v string
+									if unsafe {
+										if isFlexible {
+											v = b.UnsafeCompactString()
+										} else {
+											v = b.UnsafeString()
+										}
+									} else {
+										if isFlexible {
+											v = b.CompactString()
+										} else {
+											v = b.String()
+										}
+									}
+									s.Topic = v
+								}
+								{
+									v := s.Partitions
+									a := v
+									var l int32
+									if isFlexible {
+										l = b.CompactArrayLen()
+									} else {
+										l = b.ArrayLen()
+									}
+									if !b.Ok() {
+										return b.Complete()
+									}
+									a = a[:0]
+									if l > 0 {
+										a = append(a, make([]int32, l)...)
+									}
+									for i := int32(0); i < l; i++ {
+										v := b.Int32()
+										a[i] = v
+									}
+									v = a
+									s.Partitions = v
+								}
+								if isFlexible {
+									s.UnknownTags = internalReadTags(&b)
+								}
+							}
+							v = a
+							s.TopicPartitions = v
+						}
+						if isFlexible {
+							s.UnknownTags = internalReadTags(&b)
+						}
+					}
+					{
+						v := &s.TargetAssignment
+						v.Default()
+						s := v
+						{
+							v := s.TopicPartitions
+							a := v
+							var l int32
+							if isFlexible {
+								l = b.CompactArrayLen()
+							} else {
+								l = b.ArrayLen()
+							}
+							if !b.Ok() {
+								return b.Complete()
+							}
+							a = a[:0]
+							if l > 0 {
+								a = append(a, make([]AssignmentTopicPartition, l)...)
+							}
+							for i := int32(0); i < l; i++ {
+								v := &a[i]
+								v.Default()
+								s := v
+								{
+									v := b.Uuid()
+									s.TopicID = v
+								}
+								{
+									var v string
+									if unsafe {
+										if isFlexible {
+											v = b.UnsafeCompactString()
+										} else {
+											v = b.UnsafeString()
+										}
+									} else {
+										if isFlexible {
+											v = b.CompactString()
+										} else {
+											v = b.String()
+										}
+									}
+									s.Topic = v
+								}
+								{
+									v := s.Partitions
+									a := v
+									var l int32
+									if isFlexible {
+										l = b.CompactArrayLen()
+									} else {
+										l = b.ArrayLen()
+									}
+									if !b.Ok() {
+										return b.Complete()
+									}
+									a = a[:0]
+									if l > 0 {
+										a = append(a, make([]int32, l)...)
+									}
+									for i := int32(0); i < l; i++ {
+										v := b.Int32()
+										a[i] = v
+									}
+									v = a
+									s.Partitions = v
+								}
+								if isFlexible {
+									s.UnknownTags = internalReadTags(&b)
+								}
+							}
+							v = a
+							s.TopicPartitions = v
+						}
+						if isFlexible {
+							s.UnknownTags = internalReadTags(&b)
+						}
+					}
+					if isFlexible {
+						s.UnknownTags = internalReadTags(&b)
+					}
+				}
+				v = a
+				s.Members = v
+			}
+			{
+				v := b.Int32()
+				s.AuthorizedOperations = v
+			}
+			if isFlexible {
+				s.UnknownTags = internalReadTags(&b)
+			}
+		}
+		v = a
+		s.Groups = v
+	}
+	if isFlexible {
+		s.UnknownTags = internalReadTags(&b)
+	}
+	return b.Complete()
+}
+
+// NewPtrConsumerGroupDescribeResponse returns a pointer to a default ConsumerGroupDescribeResponse
+// This is a shortcut for creating a new(struct) and calling Default yourself.
+func NewPtrConsumerGroupDescribeResponse() *ConsumerGroupDescribeResponse {
+	var v ConsumerGroupDescribeResponse
+	v.Default()
+	return &v
+}
+
+// Default sets any default fields. Calling this allows for future compatibility
+// if new fields are added to ConsumerGroupDescribeResponse.
+func (v *ConsumerGroupDescribeResponse) Default() {
+}
+
+// NewConsumerGroupDescribeResponse returns a default ConsumerGroupDescribeResponse
+// This is a shortcut for creating a struct and calling Default yourself.
+func NewConsumerGroupDescribeResponse() ConsumerGroupDescribeResponse {
+	var v ConsumerGroupDescribeResponse
 	v.Default()
 	return v
 }
@@ -43170,6 +46791,10 @@ func RequestForKey(key int16) Request {
 		return NewPtrListTransactionsRequest()
 	case 67:
 		return NewPtrAllocateProducerIDsRequest()
+	case 68:
+		return NewPtrConsumerGroupHeartbeatRequest()
+	case 69:
+		return NewPtrConsumerGroupDescribeRequest()
 	}
 }
 
@@ -43315,6 +46940,10 @@ func ResponseForKey(key int16) Response {
 		return NewPtrListTransactionsResponse()
 	case 67:
 		return NewPtrAllocateProducerIDsResponse()
+	case 68:
+		return NewPtrConsumerGroupHeartbeatResponse()
+	case 69:
+		return NewPtrConsumerGroupDescribeResponse()
 	}
 }
 
@@ -43460,6 +47089,10 @@ func NameForKey(key int16) string {
 		return "ListTransactions"
 	case 67:
 		return "AllocateProducerIDs"
+	case 68:
+		return "ConsumerGroupHeartbeat"
+	case 69:
+		return "ConsumerGroupDescribe"
 	}
 }
 
@@ -43535,6 +47168,8 @@ const (
 	DescribeTransactions         Key = 65
 	ListTransactions             Key = 66
 	AllocateProducerIDs          Key = 67
+	ConsumerGroupHeartbeat       Key = 68
+	ConsumerGroupDescribe        Key = 69
 )
 
 // Name returns the name for this key.
@@ -43558,7 +47193,6 @@ func (k Key) Int16() int16 { return int16(k) }
 // * 4 (BROKER)
 //
 // * 8 (BROKER_LOGGER)
-//
 type ConfigResourceType int8
 
 func (v ConfigResourceType) String() string {
@@ -43641,7 +47275,6 @@ func (e *ConfigResourceType) UnmarshalText(text []byte) error {
 //
 // * 6 (DYNAMIC_BROKER_LOGGER_CONFIG)
 // Broker logger; see KIP-412.
-//
 type ConfigSource int8
 
 func (v ConfigSource) String() string {
@@ -43741,7 +47374,6 @@ func (e *ConfigSource) UnmarshalText(text []byte) error {
 // * 8 (CLASS)
 //
 // * 9 (PASSWORD)
-//
 type ConfigType int8
 
 func (v ConfigType) String() string {
@@ -43849,7 +47481,6 @@ func (e *ConfigType) UnmarshalText(text []byte) error {
 // * 2 (APPEND)
 //
 // * 3 (SUBTRACT)
-//
 type IncrementalAlterConfigOp int8
 
 func (v IncrementalAlterConfigOp) String() string {
@@ -43932,7 +47563,6 @@ func (e *IncrementalAlterConfigOp) UnmarshalText(text []byte) error {
 // * 6 (DELEGATION_TOKEN)
 //
 // * 7 (USER)
-//
 type ACLResourceType int8
 
 func (v ACLResourceType) String() string {
@@ -44034,7 +47664,6 @@ func (e *ACLResourceType) UnmarshalText(text []byte) error {
 //
 // * 4 (PREFIXED)
 // The name must have our requested name as a prefix (that is, "foo" will match on "foobar").
-//
 type ACLResourcePatternType int8
 
 func (v ACLResourcePatternType) String() string {
@@ -44113,7 +47742,6 @@ func (e *ACLResourcePatternType) UnmarshalText(text []byte) error {
 //
 // * 3 (ALLOW)
 // Any allow permission.
-//
 type ACLPermissionType int8
 
 func (v ACLPermissionType) String() string {
@@ -44207,7 +47835,6 @@ func (e *ACLPermissionType) UnmarshalText(text []byte) error {
 // * 13 (CREATE_TOKENS)
 //
 // * 14 (DESCRIBE_TOKENS)
-//
 type ACLOperation int8
 
 func (v ACLOperation) String() string {
@@ -44353,7 +47980,6 @@ func (e *ACLOperation) UnmarshalText(text []byte) error {
 // * 6 (Dead)
 //
 // * 7 (PrepareEpochFence)
-//
 type TransactionState int8
 
 func (v TransactionState) String() string {
@@ -44455,7 +48081,6 @@ func (e *TransactionState) UnmarshalText(text []byte) error {
 //
 // * 2 (ANY)
 // Matches all named quotas and default quotas for the given EntityType.
-//
 type QuotasMatchType int8
 
 func (v QuotasMatchType) String() string {
@@ -44524,7 +48149,6 @@ func (e *QuotasMatchType) UnmarshalText(text []byte) error {
 // * 2 (QUORUM_REASSIGNMENT)
 //
 // * 3 (LEADER_CHANGE)
-//
 type ControlRecordKeyType int8
 
 func (v ControlRecordKeyType) String() string {

@@ -9,11 +9,11 @@ import (
 	"os"
 )
 
-func isRetriableBrokerErr(err error) bool {
+func isRetryableBrokerErr(err error) bool {
 	// The error could be nil if we are evaluating multiple errors at once,
 	// and only one is non-nil. The intent of this function is to evaluate
-	// whether an **error** is retriable, not a non-error. We return that
-	// nil is not retriable -- the calling code evaluating multiple errors
+	// whether an **error** is retryable, not a non-error. We return that
+	// nil is not retryable -- the calling code evaluating multiple errors
 	// at once would not call into this function if all errors were nil.
 	if err == nil {
 		return false
@@ -44,16 +44,16 @@ func isRetriableBrokerErr(err error) bool {
 		// If a dial fails, potentially we could retry if the resolver
 		// had a temporary hiccup, but we will err on the side of this
 		// being a slightly less temporary error.
-		return !isDialErr(err)
+		return !isDialNonTimeoutErr(err)
 	}
 	// EOF can be returned if a broker kills a connection unexpectedly, and
 	// we can retry that. Same for ErrClosed.
-	if isNetClosedErr(err) || errors.Is(err, io.EOF) {
+	if errors.Is(err, net.ErrClosed) || errors.Is(err, io.EOF) {
 		return true
 	}
-	// We could have a retriable producer ID failure, which then bubbled up
+	// We could have a retryable producer ID failure, which then bubbled up
 	// as errProducerIDLoadFail so as to be retried later.
-	if errors.Is(err, errProducerIDLoadFail) {
+	if pe := (*errProducerIDLoadFail)(nil); errors.As(err, &pe) {
 		return true
 	}
 	// We could have chosen a broker, and then a concurrent metadata update
@@ -88,13 +88,22 @@ func isRetriableBrokerErr(err error) bool {
 	return false
 }
 
-func isDialErr(err error) bool {
+func isDialNonTimeoutErr(err error) bool {
+	var ne *net.OpError
+	return errors.As(err, &ne) && ne.Op == "dial" && !ne.Timeout()
+}
+
+func isAnyDialErr(err error) bool {
 	var ne *net.OpError
 	return errors.As(err, &ne) && ne.Op == "dial"
 }
 
+func isContextErr(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
 func isSkippableBrokerErr(err error) bool {
-	// Some broker errors are not retriable for the given broker itself,
+	// Some broker errors are not retryable for the given broker itself,
 	// but we *could* skip the broker and try again on the next broker. For
 	// example, if the user input an invalid address and a valid address
 	// for seeds, when we fail dialing the first seed, we cannot retry that
@@ -106,9 +115,7 @@ func isSkippableBrokerErr(err error) bool {
 		return true
 	}
 	var ne *net.OpError
-	if errors.As(err, &ne) &&
-		!errors.Is(err, context.Canceled) &&
-		!errors.Is(err, context.DeadlineExceeded) {
+	if errors.As(err, &ne) && !isContextErr(err) {
 		return true
 	}
 	return false
@@ -131,8 +138,6 @@ var (
 	// request after a few tries to forcefully kill the connection and
 	// restart a new connection ourselves.
 	errSaslReauthLoop = errors.New("the broker is repeatedly giving us sasl lifetimes that are too short to write a request")
-
-	errProducerIDLoadFail = errors.New("unable to initialize a producer ID due to request failures")
 
 	// A temporary error returned when Kafka replies with a different
 	// correlation ID than we were expecting for the request the client
@@ -163,6 +168,10 @@ var (
 
 	// Returned for all buffered produce records when a user purges topics.
 	errPurged = errors.New("topic purged while buffered")
+
+	errMissingMetadataPartition = errors.New("metadata update is missing a partition that we were previously using")
+
+	errNoCommittedOffset = errors.New("partition has no prior committed offset")
 
 	//////////////
 	// EXTERNAL //
@@ -212,6 +221,19 @@ type ErrFirstReadEOF struct {
 	kind uint8
 	err  error
 }
+
+type errProducerIDLoadFail struct {
+	err error
+}
+
+func (e *errProducerIDLoadFail) Error() string {
+	if e.err == nil {
+		return "unable to initialize a producer ID due to request failures"
+	}
+	return fmt.Sprintf("unable to initialize a producer ID due to request failures: %v", e.err)
+}
+
+func (e *errProducerIDLoadFail) Unwrap() error { return e.err }
 
 const (
 	firstReadSASL uint8 = iota
@@ -283,4 +305,32 @@ func (e *errUnknownCoordinator) Error() string {
 		return fmt.Sprintf("broker replied to an unknown coordinator key %s (type %d) that it has a broker coordinator %d,"+
 			" but did not reply with that broker in the broker list", e.key.name, e.key.typ, e.coordinator)
 	}
+}
+
+// ErrGroupSession is injected into a poll if an error occurred such that your
+// consumer group member was kicked from the group or was never able to join
+// the group.
+type ErrGroupSession struct {
+	Err error
+}
+
+func (e *ErrGroupSession) Error() string {
+	return fmt.Sprintf("unable to join group session: %v", e.Err)
+}
+
+func (e *ErrGroupSession) Unwrap() error { return e.Err }
+
+type errDecompress struct {
+	err error
+}
+
+func (e *errDecompress) Error() string {
+	return fmt.Sprintf("unable to decompress batch: %v", e.err)
+}
+
+func (e *errDecompress) Unwrap() error { return e.err }
+
+func isDecompressErr(err error) bool {
+	var ed *errDecompress
+	return errors.As(err, &ed)
 }

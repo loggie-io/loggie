@@ -14,8 +14,15 @@ import (
 )
 
 type producer struct {
+	inflight atomicI64 // high 16: # waiters, low 48: # inflight
+
+	// mu and c are used for flush and drain notifications; mu is used for
+	// a few other tight locks.
+	mu sync.Mutex
+	c  *sync.Cond
+
 	bufferedRecords int64
-	inflight        int64 // high 16: # waiters, low 48: # inflight
+	bufferedBytes   int64
 
 	cl *Client
 
@@ -25,8 +32,9 @@ type producer struct {
 	// Hooks exist behind a pointer because likely they are not used.
 	// We only take up one byte vs. 6.
 	hooks *struct {
-		buffered   []HookProduceRecordBuffered
-		unbuffered []HookProduceRecordUnbuffered
+		buffered    []HookProduceRecordBuffered
+		partitioned []HookProduceRecordPartitioned
+		unbuffered  []HookProduceRecordUnbuffered
 	}
 
 	hasHookBatchWritten bool
@@ -38,23 +46,19 @@ type producer struct {
 	unknownTopics   map[string]*unknownTopicProduces
 
 	id           atomic.Value
-	producingTxn uint32 // 1 if in txn
+	producingTxn atomicBool
 
 	// We must have a producer field for flushing; we cannot just have a
 	// field on recBufs that is toggled on flush. If we did, then a new
 	// recBuf could be created and records sent to while we are flushing.
-	flushing int32 // >0 if flushing, can Flush many times concurrently
+	flushing     atomicI32 // >0 if flushing, can Flush many times concurrently
+	blocked      atomicI32 // >0 if over max recs or bytes
+	blockedBytes int64
 
-	aborting int32 // >0 if aborting, can abort many times concurrently
+	aborting atomicI32 // >0 if aborting, can abort many times concurrently
 
-	idMu       sync.Mutex
-	idVersion  int16
-	waitBuffer chan struct{}
-
-	// mu and c are used for flush and drain notifications; mu is used for
-	// a few other tight locks.
-	mu sync.Mutex
-	c  *sync.Cond
+	idMu      sync.Mutex
+	idVersion int16
 
 	batchPromises ringBatchPromise
 	promisesMu    sync.Mutex
@@ -83,12 +87,23 @@ type producer struct {
 // flushing records produced by your client (which can help determine network /
 // cluster health).
 func (cl *Client) BufferedProduceRecords() int64 {
-	return atomic.LoadInt64(&cl.producer.bufferedRecords)
+	cl.producer.mu.Lock()
+	defer cl.producer.mu.Unlock()
+	return cl.producer.bufferedRecords + int64(cl.producer.blocked.Load())
+}
+
+// BufferedProduceBytes returns the number of bytes currently buffered for
+// producing within the client. This is the sum of all keys, values, and header
+// keys/values. See the related [BufferedProduceRecords] for more information.
+func (cl *Client) BufferedProduceBytes() int64 {
+	cl.producer.mu.Lock()
+	defer cl.producer.mu.Unlock()
+	return cl.producer.bufferedBytes + cl.producer.blockedBytes
 }
 
 type unknownTopicProduces struct {
 	buffered []promisedRec
-	wait     chan error // retriable errors
+	wait     chan error // retryable errors
 	fatal    chan error // must-signal quit errors; capacity 1
 }
 
@@ -96,7 +111,6 @@ func (p *producer) init(cl *Client) {
 	p.cl = cl
 	p.topics = newTopicsPartitions()
 	p.unknownTopics = make(map[string]*unknownTopicProduces)
-	p.waitBuffer = make(chan struct{}, math.MaxInt32)
 	p.idVersion = -1
 	p.id.Store(&producerID{
 		id:    -1,
@@ -108,8 +122,9 @@ func (p *producer) init(cl *Client) {
 	inithooks := func() {
 		if p.hooks == nil {
 			p.hooks = &struct {
-				buffered   []HookProduceRecordBuffered
-				unbuffered []HookProduceRecordUnbuffered
+				buffered    []HookProduceRecordBuffered
+				partitioned []HookProduceRecordPartitioned
+				unbuffered  []HookProduceRecordUnbuffered
 			}{}
 		}
 	}
@@ -118,6 +133,10 @@ func (p *producer) init(cl *Client) {
 		if h, ok := h.(HookProduceRecordBuffered); ok {
 			inithooks()
 			p.hooks.buffered = append(p.hooks.buffered, h)
+		}
+		if h, ok := h.(HookProduceRecordPartitioned); ok {
+			inithooks()
+			p.hooks.partitioned = append(p.hooks.partitioned, h)
 		}
 		if h, ok := h.(HookProduceRecordUnbuffered); ok {
 			inithooks()
@@ -184,7 +203,7 @@ func (p *producer) purgeTopics(topics []string) {
 	}
 }
 
-func (p *producer) isAborting() bool { return atomic.LoadInt32(&p.aborting) > 0 }
+func (p *producer) isAborting() bool { return p.aborting.Load() > 0 }
 
 func noPromise(*Record, error) {}
 
@@ -258,7 +277,7 @@ func (cl *Client) ProduceSync(ctx context.Context, rs ...*Record) ProduceResults
 // This is similar to using ProduceResult's FirstErr function.
 type FirstErrPromise struct {
 	wg   sync.WaitGroup
-	once uint32
+	once atomicBool
 	err  error
 	cl   *Client
 }
@@ -278,7 +297,7 @@ func AbortingFirstErrPromise(cl *Client) *FirstErrPromise {
 // encountered.
 func (f *FirstErrPromise) promise(_ *Record, err error) {
 	defer f.wg.Done()
-	if err != nil && atomic.SwapUint32(&f.once, 1) == 0 {
+	if err != nil && !f.once.Swap(true) {
 		f.err = err
 		if f.cl != nil {
 			f.wg.Add(1)
@@ -307,8 +326,9 @@ func (f *FirstErrPromise) Err() error {
 }
 
 // TryProduce is similar to Produce, but rather than blocking if the client
-// currently has MaxBufferedRecords buffered, this fails immediately with
-// ErrMaxBuffered. See the Produce documentation for more details.
+// currently has MaxBufferedRecords or MaxBufferedBytes buffered, this fails
+// immediately with ErrMaxBuffered. See the Produce documentation for more
+// details.
 func (cl *Client) TryProduce(
 	ctx context.Context,
 	r *Record,
@@ -342,7 +362,11 @@ func (cl *Client) TryProduce(
 // retries. If any of these conditions are hit and it is currently safe to fail
 // records, all buffered records for the relevant partition are failed. Only
 // the first record's context in a batch is considered when determining whether
-// the batch should be canceled.
+// the batch should be canceled. A record is not safe to fail if the client
+// is idempotently producing and a request has been sent; in this case, the
+// client cannot know if the broker actually processed the request (if so, then
+// removing the records from the client will create errors the next time you
+// produce).
 //
 // If the client is transactional and a transaction has not been begun, the
 // promise is immediately called with an error corresponding to not being in a
@@ -370,51 +394,129 @@ func (cl *Client) produce(
 	if promise == nil {
 		promise = noPromise
 	}
+	if r.Topic == "" {
+		r.Topic = cl.cfg.defaultProduceTopic
+	}
 
 	p := &cl.producer
-	if p.hooks != nil {
+	if p.hooks != nil && len(p.hooks.buffered) > 0 {
 		for _, h := range p.hooks.buffered {
 			h.OnProduceRecordBuffered(r)
 		}
 	}
 
-	if atomic.AddInt64(&p.bufferedRecords, 1) > cl.cfg.maxBufferedRecords {
-		// If the client ctx cancels or the produce ctx cancels, we
-		// need to un-count our buffering of this record. We also need
-		// to drain a slot from the waitBuffer chan, which could be
-		// sent to right when we are erroring.
-		drainBuffered := func(err error) {
-			p.promiseRecord(promisedRec{ctx, promise, r}, err)
-			<-p.waitBuffer
+	// We can now fail the rec after the buffered hook.
+	if r.Topic == "" {
+		p.promiseRecordBeforeBuf(promisedRec{ctx, promise, r}, errNoTopic)
+		return
+	}
+	if cl.cfg.txnID != nil && !p.producingTxn.Load() {
+		p.promiseRecordBeforeBuf(promisedRec{ctx, promise, r}, errNotInTransaction)
+		return
+	}
+
+	userSize := r.userSize()
+	if cl.cfg.maxBufferedBytes > 0 && userSize > cl.cfg.maxBufferedBytes {
+		p.promiseRecordBeforeBuf(promisedRec{ctx, promise, r}, kerr.MessageTooLarge)
+		return
+	}
+
+	// We have to grab the produce lock to check if this record will exceed
+	// configured limits. We try to keep the logic tight since this is
+	// effectively a global lock around producing.
+	var (
+		nextBufRecs, nextBufBytes int64
+		overMaxRecs, overMaxBytes bool
+
+		calcNums = func() {
+			nextBufRecs = p.bufferedRecords + 1
+			nextBufBytes = p.bufferedBytes + userSize
+			overMaxRecs = nextBufRecs > cl.cfg.maxBufferedRecords
+			overMaxBytes = cl.cfg.maxBufferedBytes > 0 && nextBufBytes > cl.cfg.maxBufferedBytes
 		}
+	)
+	p.mu.Lock()
+	calcNums()
+	if overMaxRecs || overMaxBytes {
 		if !block || cl.cfg.manualFlushing {
-			drainBuffered(ErrMaxBuffered)
+			p.mu.Unlock()
+			p.promiseRecordBeforeBuf(promisedRec{ctx, promise, r}, ErrMaxBuffered)
 			return
 		}
+
+		// Before we potentially unlinger, add that we are blocked to
+		// ensure we do NOT start a linger anymore. We THEN wakeup
+		// anything that is actively lingering. Note that blocked is
+		// also used when finishing promises to see if we need to be
+		// notified.
+		p.blocked.Add(1)
+		p.blockedBytes += userSize
+		p.mu.Unlock()
+
+		cl.cfg.logger.Log(LogLevelDebug, "blocking Produce because we are either over max buffered records or max buffered bytes",
+			"over_max_records", overMaxRecs,
+			"over_max_bytes", overMaxBytes,
+		)
+
+		cl.unlingerDueToMaxRecsBuffered()
+
+		// We keep the lock when we exit. If we are flushing, we want
+		// this blocked record to be produced before we return from
+		// flushing. This blocked record will be accounted for in the
+		// bufferedRecords addition below, after being removed from
+		// blocked in the goroutine.
+		wait := make(chan struct{})
+		var quit bool
+		go func() {
+			defer close(wait)
+			p.mu.Lock()
+			calcNums()
+			for !quit && (overMaxRecs || overMaxBytes) {
+				p.c.Wait()
+				calcNums()
+			}
+			p.blocked.Add(-1)
+			p.blockedBytes -= userSize
+		}()
+
+		drainBuffered := func(err error) {
+			// The expected case here is that a context was
+			// canceled while we we waiting for space, so we are
+			// exiting and need to kill the goro above.
+			//
+			// However, it is possible that the goro above has
+			// already exited AND the context was canceled, and
+			// `select` chose the context-canceled case.
+			//
+			// So, to avoid a deadlock, we need to wakeup the
+			// goro above in another goroutine.
+			go func() {
+				p.mu.Lock()
+				quit = true
+				p.mu.Unlock()
+				p.c.Broadcast()
+			}()
+			<-wait // we wait for the goroutine to exit, then unlock again (since the goroutine leaves the mutex locked)
+			p.mu.Unlock()
+			p.promiseRecordBeforeBuf(promisedRec{ctx, promise, r}, err)
+		}
+
 		select {
-		case <-p.waitBuffer:
+		case <-wait:
+			cl.cfg.logger.Log(LogLevelDebug, "Produce block awoken, we now have space to produce, continuing to partition and produce")
 		case <-cl.ctx.Done():
 			drainBuffered(ErrClientClosed)
+			cl.cfg.logger.Log(LogLevelDebug, "client ctx canceled while blocked in Produce, returning")
 			return
 		case <-ctx.Done():
 			drainBuffered(ctx.Err())
+			cl.cfg.logger.Log(LogLevelDebug, "produce ctx canceled while blocked in Produce, returning")
 			return
 		}
 	}
-
-	// Neither of the errors below should be hit in applications.
-	if r.Topic == "" {
-		def := cl.cfg.defaultProduceTopic
-		if def == "" {
-			p.promiseRecord(promisedRec{ctx, promise, r}, errNoTopic)
-			return
-		}
-		r.Topic = def
-	}
-	if cl.cfg.txnID != nil && atomic.LoadUint32(&p.producingTxn) != 1 {
-		p.promiseRecord(promisedRec{ctx, promise, r}, errNotInTransaction)
-		return
-	}
+	p.bufferedRecords = nextBufRecs
+	p.bufferedBytes = nextBufBytes
+	p.mu.Unlock()
 
 	cl.partitionRecord(promisedRec{ctx, promise, r})
 }
@@ -424,6 +526,7 @@ type batchPromise struct {
 	pid        int64
 	epoch      int16
 	attrs      RecordAttrs
+	beforeBuf  bool
 	partition  int32
 	recs       []promisedRec
 	err        error
@@ -439,18 +542,36 @@ func (p *producer) promiseRecord(pr promisedRec, err error) {
 	p.promiseBatch(batchPromise{recs: []promisedRec{pr}, err: err})
 }
 
+func (p *producer) promiseRecordBeforeBuf(pr promisedRec, err error) {
+	p.promiseBatch(batchPromise{recs: []promisedRec{pr}, beforeBuf: true, err: err})
+}
+
 func (p *producer) finishPromises(b batchPromise) {
 	cl := p.cl
 	var more bool
+	var broadcast bool
+	defer func() {
+		if broadcast {
+			p.c.Broadcast()
+		}
+	}()
 start:
 	p.promisesMu.Lock()
 	for i, pr := range b.recs {
-		pr.Offset = b.baseOffset + int64(i)
+		pr.LeaderEpoch = 0
+		if b.baseOffset == -1 {
+			// if the base offset is invalid/unknown (-1), all record offsets should
+			// be treated as unknown
+			pr.Offset = -1
+		} else {
+			pr.Offset = b.baseOffset + int64(i)
+		}
 		pr.Partition = b.partition
 		pr.ProducerID = b.pid
 		pr.ProducerEpoch = b.epoch
 		pr.Attrs = b.attrs
-		cl.finishRecordPromise(pr, b.err)
+		recBroadcast := cl.finishRecordPromise(pr, b.err, b.beforeBuf)
+		broadcast = broadcast || recBroadcast
 		b.recs[i] = promisedRec{}
 	}
 	p.promisesMu.Unlock()
@@ -464,28 +585,37 @@ start:
 	}
 }
 
-func (cl *Client) finishRecordPromise(pr promisedRec, err error) {
+func (cl *Client) finishRecordPromise(pr promisedRec, err error, beforeBuffering bool) (broadcast bool) {
 	p := &cl.producer
 
-	if p.hooks != nil {
+	if p.hooks != nil && len(p.hooks.unbuffered) > 0 {
 		for _, h := range p.hooks.unbuffered {
 			h.OnProduceRecordUnbuffered(pr.Record, err)
 		}
 	}
 
-	// We call the promise before finishing the record; this allows users
-	// of Flush to know that all buffered records are completely done
-	// before Flush returns.
+	// Capture user size before potential modification by the promise.
+	//
+	// We call the promise before finishing the flush notification,
+	// allowing users of Flush to know all buf recs are done by the
+	// time we notify flush below.
+	userSize := pr.userSize()
 	pr.promise(pr.Record, err)
 
-	buffered := atomic.AddInt64(&p.bufferedRecords, -1)
-	if buffered >= cl.cfg.maxBufferedRecords {
-		p.waitBuffer <- struct{}{}
-	} else if buffered == 0 && atomic.LoadInt32(&p.flushing) > 0 {
-		p.mu.Lock()
-		p.mu.Unlock() //nolint:gocritic,staticcheck // We use the lock as a barrier, unlocking immediately is safe.
-		p.c.Broadcast()
+	// If this record was never buffered, it's size was never accounted
+	// for on any p field: return early.
+	if beforeBuffering {
+		return
 	}
+
+	// Keep the lock as tight as possible: the broadcast can come after.
+	p.mu.Lock()
+	p.bufferedBytes -= userSize
+	p.bufferedRecords--
+	broadcast = p.blocked.Load() > 0 || p.bufferedRecords == 0 && p.flushing.Load() > 0
+	p.mu.Unlock()
+
+	return broadcast
 }
 
 // partitionRecord loads the partitions for a topic and produce to them. If
@@ -576,7 +706,7 @@ func (cl *Client) ProducerID(ctx context.Context) (int64, int16, error) {
 
 	go func() {
 		defer close(done)
-		id, epoch, err = cl.producerID()
+		id, epoch, err = cl.producerID(ctx2fn(ctx))
 	}()
 
 	select {
@@ -598,7 +728,7 @@ var errReloadProducerID = errors.New("producer id needs reloading")
 // initProducerID initializes the client's producer ID for idempotent
 // producing only (no transactions, which are more special). After the first
 // load, this clears all buffered unknown topics.
-func (cl *Client) producerID() (int64, int16, error) {
+func (cl *Client) producerID(ctxFn func() context.Context) (int64, int16, error) {
 	p := &cl.producer
 
 	id := p.id.Load().(*producerID)
@@ -627,7 +757,7 @@ func (cl *Client) producerID() (int64, int16, error) {
 				}
 				p.id.Store(id)
 			} else {
-				newID, keep := cl.doInitProducerID(id.id, id.epoch)
+				newID, keep := cl.doInitProducerID(ctxFn, id.id, id.epoch)
 				if keep {
 					id = newID
 					// Whenever we have a new producer ID, we need
@@ -645,7 +775,7 @@ func (cl *Client) producerID() (int64, int16, error) {
 					id = &producerID{
 						id:    id.id,
 						epoch: id.epoch,
-						err:   errProducerIDLoadFail,
+						err:   &errProducerIDLoadFail{newID.err},
 					}
 				}
 			}
@@ -677,39 +807,52 @@ func (cl *Client) resetAllProducerSequences() {
 func (cl *Client) failProducerID(id int64, epoch int16, err error) {
 	p := &cl.producer
 
-	p.idMu.Lock()
-	defer p.idMu.Unlock()
-
-	current := p.id.Load().(*producerID)
-	if current.id != id || current.epoch != epoch {
-		cl.cfg.logger.Log(LogLevelInfo, "ignoring a fail producer id request due to current id being different",
-			"current_id", current.id,
-			"current_epoch", current.epoch,
-			"current_err", current.err,
-			"fail_id", id,
-			"fail_epoch", epoch,
-			"fail_err", err,
-		)
-		return // failed an old id
-	}
-
-	// If this is not UnknownProducerID, then we cannot recover production.
+	// We do not lock the idMu when failing a producer ID, for two reasons.
 	//
-	// If this is UnknownProducerID without a txnID, then we are here from
-	// stopOnDataLoss in sink.go (see large comment there).
+	// 1) With how we store below, we do not need to. We only fail if the
+	// ID we are failing has not changed and if the ID we are failing has
+	// not failed already. Failing outside the lock is the same as failing
+	// within the lock.
 	//
-	// If this is UnknownProducerID with a txnID, then EndTransaction will
-	// recover us.
-	p.id.Store(&producerID{
+	// 2) Locking would cause a deadlock, because producerID locks
+	// idMu=>recBuf.Mu, whereas we failing while locked within a recBuf in
+	// sink.go.
+	new := &producerID{
 		id:    id,
 		epoch: epoch,
 		err:   err,
-	})
+	}
+	for {
+		current := p.id.Load().(*producerID)
+		if current.id != id || current.epoch != epoch {
+			cl.cfg.logger.Log(LogLevelInfo, "ignoring a fail producer id request due to current id being different",
+				"current_id", current.id,
+				"current_epoch", current.epoch,
+				"current_err", current.err,
+				"fail_id", id,
+				"fail_epoch", epoch,
+				"fail_err", err,
+			)
+			return
+		}
+		if current.err != nil {
+			cl.cfg.logger.Log(LogLevelInfo, "ignoring a fail producer id because our producer id has already been failed",
+				"current_id", current.id,
+				"current_epoch", current.epoch,
+				"current_err", current.err,
+				"fail_err", err,
+			)
+			return
+		}
+		if p.id.CompareAndSwap(current, new) {
+			return
+		}
+	}
 }
 
 // doInitProducerID inits the idempotent ID and potentially the transactional
 // producer epoch, returning whether to keep the result.
-func (cl *Client) doInitProducerID(lastID int64, lastEpoch int16) (*producerID, bool) {
+func (cl *Client) doInitProducerID(ctxFn func() context.Context, lastID int64, lastEpoch int16) (*producerID, bool) {
 	cl.cfg.logger.Log(LogLevelInfo, "initializing producer id")
 	req := kmsg.NewPtrInitProducerIDRequest()
 	req.TransactionalID = cl.cfg.txnID
@@ -719,7 +862,8 @@ func (cl *Client) doInitProducerID(lastID int64, lastEpoch int16) (*producerID, 
 		req.TransactionTimeoutMillis = int32(cl.cfg.txnTimeout.Milliseconds())
 	}
 
-	resp, err := req.RequestWith(cl.ctx, cl)
+	ctx := ctxFn()
+	resp, err := req.RequestWith(ctx, cl)
 	if err != nil {
 		if errors.Is(err, errUnknownRequestKey) || errors.Is(err, errBrokerTooOld) {
 			cl.cfg.logger.Log(LogLevelInfo, "unable to initialize a producer id because the broker is too old or the client is pinned to an old version, continuing without a producer id")
@@ -741,7 +885,7 @@ func (cl *Client) doInitProducerID(lastID int64, lastEpoch int16) (*producerID, 
 		// We could receive concurrent transactions; this is ignorable
 		// and we just want to re-init.
 		if kerr.IsRetriable(err) || errors.Is(err, kerr.ConcurrentTransactions) {
-			cl.cfg.logger.Log(LogLevelInfo, "producer id initialization resulted in retriable error, discarding initialization attempt", "err", err)
+			cl.cfg.logger.Log(LogLevelInfo, "producer id initialization resulted in retryable error, discarding initialization attempt", "err", err)
 			return &producerID{lastID, lastEpoch, err}, false
 		}
 		cl.cfg.logger.Log(LogLevelInfo, "producer id initialization errored", "err", err)
@@ -790,7 +934,7 @@ func (cl *Client) partitionsForTopicProduce(pr promisedRec) (*topicPartitions, *
 
 			p.topics.storeTopics([]string{topic})
 			cl.addUnknownTopicRecord(pr)
-			cl.triggerUpdateMetadataNow("forced load because we are producing to a new topic for the first time")
+			cl.triggerUpdateMetadataNow("forced load because we are producing to a topic for the first time")
 			return nil, nil
 		}
 	}
@@ -824,13 +968,14 @@ func (cl *Client) addUnknownTopicRecord(pr promisedRec) {
 	}
 	unknown.buffered = append(unknown.buffered, pr)
 	if len(unknown.buffered) == 1 {
-		go cl.waitUnknownTopic(pr.ctx, pr.Topic, unknown)
+		go cl.waitUnknownTopic(pr.ctx, pr.Record.Context, pr.Topic, unknown)
 	}
 }
 
 // waitUnknownTopic waits for a notification
 func (cl *Client) waitUnknownTopic(
-	rctx context.Context,
+	pctx context.Context, // context passed to Produce
+	rctx context.Context, // context on the record itself
 	topic string,
 	unknown *unknownTopicProduces,
 ) {
@@ -858,6 +1003,8 @@ func (cl *Client) waitUnknownTopic(
 
 	for err == nil {
 		select {
+		case <-pctx.Done():
+			err = pctx.Err()
 		case <-rctx.Done():
 			err = rctx.Err()
 		case <-cl.ctx.Done():
@@ -865,20 +1012,20 @@ func (cl *Client) waitUnknownTopic(
 		case <-after:
 			err = ErrRecordTimeout
 		case err = <-unknown.fatal:
-		case retriableErr, ok := <-unknown.wait:
+		case retryableErr, ok := <-unknown.wait:
 			if !ok {
 				cl.cfg.logger.Log(LogLevelInfo, "done waiting for metadata for new topic", "topic", topic)
 				return // metadata was successful!
 			}
-			cl.cfg.logger.Log(LogLevelInfo, "new topic metadata wait failed, retrying wait", "topic", topic, "err", retriableErr)
+			cl.cfg.logger.Log(LogLevelInfo, "new topic metadata wait failed, retrying wait", "topic", topic, "err", retryableErr)
 			tries++
 			if int64(tries) >= cl.cfg.recordRetries {
-				err = fmt.Errorf("no partitions available after attempting to refresh metadata %d times, last err: %w", tries, retriableErr)
+				err = fmt.Errorf("no partitions available after attempting to refresh metadata %d times, last err: %w", tries, retryableErr)
 			}
-			if cl.cfg.maxUnknownFailures >= 0 && errors.Is(retriableErr, kerr.UnknownTopicOrPartition) {
+			if cl.cfg.maxUnknownFailures >= 0 && errors.Is(retryableErr, kerr.UnknownTopicOrPartition) {
 				unknownTries++
 				if unknownTries > cl.cfg.maxUnknownFailures {
-					err = retriableErr
+					err = retryableErr
 				}
 			}
 		}
@@ -908,6 +1055,18 @@ func (cl *Client) waitUnknownTopic(
 	})
 }
 
+func (cl *Client) unlingerDueToMaxRecsBuffered() {
+	if cl.cfg.linger <= 0 {
+		return
+	}
+	for _, parts := range cl.producer.topics.load() {
+		for _, part := range parts.load().partitions {
+			part.records.unlingerAndManuallyDrain()
+		}
+	}
+	cl.cfg.logger.Log(LogLevelDebug, "unlingered all partitions due to hitting max buffered")
+}
+
 // Flush hangs waiting for all buffered records to be flushed, stopping all
 // lingers if necessary.
 //
@@ -920,8 +1079,8 @@ func (cl *Client) Flush(ctx context.Context) error {
 
 	// Signal to finishRecord that we want to be notified once buffered hits 0.
 	// Also forbid any new producing to start a linger.
-	atomic.AddInt32(&p.flushing, 1)
-	defer atomic.AddInt32(&p.flushing, -1)
+	p.flushing.Add(1)
+	defer p.flushing.Add(-1)
 
 	cl.cfg.logger.Log(LogLevelInfo, "flushing")
 	defer cl.cfg.logger.Log(LogLevelDebug, "flushed")
@@ -945,7 +1104,7 @@ func (cl *Client) Flush(ctx context.Context) error {
 		defer p.mu.Unlock()
 		defer close(done)
 
-		for !quit && atomic.LoadInt64(&p.bufferedRecords) > 0 {
+		for !quit && p.bufferedRecords+int64(p.blocked.Load()) > 0 {
 			p.c.Wait()
 		}
 	}()
@@ -963,7 +1122,7 @@ func (cl *Client) Flush(ctx context.Context) error {
 }
 
 func (p *producer) pause(ctx context.Context) error {
-	atomic.AddInt64(&p.inflight, 1<<48)
+	p.inflight.Add(1 << 48)
 
 	quit := false
 	done := make(chan struct{})
@@ -971,7 +1130,7 @@ func (p *producer) pause(ctx context.Context) error {
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		defer close(done)
-		for !quit && atomic.LoadInt64(&p.inflight)&((1<<48)-1) != 0 {
+		for !quit && p.inflight.Load()&((1<<48)-1) != 0 {
 			p.c.Wait()
 		}
 	}()
@@ -990,7 +1149,7 @@ func (p *producer) pause(ctx context.Context) error {
 }
 
 func (p *producer) resume() {
-	if atomic.AddInt64(&p.inflight, -1<<48) == 0 {
+	if p.inflight.Add(-1<<48) == 0 {
 		p.cl.allSinksAndSources(func(sns sinkAndSource) {
 			sns.sink.maybeDrain()
 		})
@@ -998,10 +1157,10 @@ func (p *producer) resume() {
 }
 
 func (p *producer) maybeAddInflight() bool {
-	if atomic.LoadInt64(&p.inflight)>>48 > 0 {
+	if p.inflight.Load()>>48 > 0 {
 		return false
 	}
-	if atomic.AddInt64(&p.inflight, 1)>>48 > 0 {
+	if p.inflight.Add(1)>>48 > 0 {
 		p.decInflight()
 		return false
 	}
@@ -1009,7 +1168,9 @@ func (p *producer) maybeAddInflight() bool {
 }
 
 func (p *producer) decInflight() {
-	if atomic.AddInt64(&p.inflight, -1)>>48 > 0 {
+	if p.inflight.Add(-1)>>48 > 0 {
+		p.mu.Lock()
+		p.mu.Unlock() //nolint:gocritic,staticcheck // We use the lock as a barrier, unlocking immediately is safe.
 		p.c.Broadcast()
 	}
 }
@@ -1023,7 +1184,7 @@ func (p *producer) decInflight() {
 //   - if we cannot add partitions to a txn due to RequestWith errors, producing is useless
 //
 // Note that these are specifically due to RequestWith errors, not due to
-// receiving a response that has a retriable error code. That is, if our
+// receiving a response that has a retryable error code. That is, if our
 // request keeps dying.
 func (cl *Client) bumpRepeatedLoadErr(err error) {
 	p := &cl.producer

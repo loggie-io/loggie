@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/rand"
 	"net"
 	"os"
 	"strconv"
@@ -82,11 +83,22 @@ type promisedResp struct {
 	readEnqueue  time.Time
 }
 
+// NodeName returns the name of a node, given the kgo internal node ID.
+//
+// Internally, seed brokers are stored with very negative node IDs, and these
+// node IDs are visible in the BrokerMetadata struct. You can use NodeName to
+// convert the negative node ID into "seed_#". Brokers discovered through
+// metadata responses have standard non-negative numbers and this function just
+// returns the number as a string.
+func NodeName(nodeID int32) string {
+	return logID(nodeID)
+}
+
 func logID(id int32) string {
 	if id >= -10 {
 		return strconv.FormatInt(int64(id), 10)
 	}
-	return "seed " + strconv.FormatInt(int64(id)-math.MinInt32, 10)
+	return "seed_" + strconv.FormatInt(int64(id)-math.MinInt32, 10)
 }
 
 // BrokerMetadata is metadata for a broker.
@@ -96,7 +108,8 @@ type BrokerMetadata struct {
 	// NodeID is the broker node ID.
 	//
 	// Seed brokers will have very negative IDs; kgo does not try to map
-	// seed brokers to loaded brokers.
+	// seed brokers to loaded brokers. You can use NodeName to convert
+	// the seed node ID into a formatted string.
 	NodeID int32
 
 	// Port is the port of the broker.
@@ -155,7 +168,7 @@ type broker struct {
 	// reqs manages incoming message requests.
 	reqs ringReq
 	// dead is an atomic so a backed up reqs cannot block broker stoppage.
-	dead int32
+	dead atomicBool
 }
 
 // brokerVersions is loaded once (and potentially a few times concurrently if
@@ -214,7 +227,7 @@ func (cl *Client) newBroker(nodeID int32, host string, port int32, rack *string)
 
 // stopForever permanently disables this broker.
 func (b *broker) stopForever() {
-	if atomic.SwapInt32(&b.dead, 1) == 1 {
+	if b.dead.Swap(true) {
 		return
 	}
 
@@ -290,7 +303,7 @@ start:
 			// It is rare, but it is possible that the broker has
 			// an immediate issue on a new connection. We retry
 			// once.
-			if isRetriableBrokerErr(err) && !retriedOnNewConnection {
+			if isRetryableBrokerErr(err) && !retriedOnNewConnection {
 				retriedOnNewConnection = true
 				goto start
 			}
@@ -474,7 +487,7 @@ type bufPool struct{ p *sync.Pool }
 
 func newBufPool() bufPool {
 	return bufPool{
-		p: &sync.Pool{New: func() interface{} { r := make([]byte, 1<<10); return &r }},
+		p: &sync.Pool{New: func() any { r := make([]byte, 1<<10); return &r }},
 	}
 }
 
@@ -502,7 +515,7 @@ func (b *broker) loadConnection(ctx context.Context, req kmsg.Request) (*brokerC
 		pcxn = &b.cxnSlow
 	}
 
-	if *pcxn != nil && atomic.LoadInt32(&(*pcxn).dead) == 0 {
+	if *pcxn != nil && !(*pcxn).dead.Load() {
 		return *pcxn, nil
 	}
 
@@ -559,9 +572,10 @@ func (cl *Client) reapConnectionsLoop() {
 
 func (cl *Client) reapConnections(idleTimeout time.Duration) (total int) {
 	cl.brokersMu.Lock()
-	brokers := make([]*broker, 0, len(cl.brokers)+len(cl.seeds))
+	seeds := cl.loadSeeds()
+	brokers := make([]*broker, 0, len(cl.brokers)+len(seeds))
 	brokers = append(brokers, cl.brokers...)
-	brokers = append(brokers, cl.seeds...)
+	brokers = append(brokers, seeds...)
 	cl.brokersMu.Unlock()
 
 	for _, broker := range brokers {
@@ -581,7 +595,7 @@ func (b *broker) reapConnections(idleTimeout time.Duration) (total int) {
 		b.cxnGroup,
 		b.cxnSlow,
 	} {
-		if cxn == nil || atomic.LoadInt32(&cxn.dead) == 1 {
+		if cxn == nil || cxn.dead.Load() {
 			continue
 		}
 
@@ -592,11 +606,11 @@ func (b *broker) reapConnections(idleTimeout time.Duration) (total int) {
 		// - produce can write but never read
 		// - fetch can hang for a while reading (infrequent writes)
 
-		lastWrite := time.Unix(0, atomic.LoadInt64(&cxn.lastWrite))
-		lastRead := time.Unix(0, atomic.LoadInt64(&cxn.lastRead))
+		lastWrite := time.Unix(0, cxn.lastWrite.Load())
+		lastRead := time.Unix(0, cxn.lastRead.Load())
 
-		writeIdle := time.Since(lastWrite) > idleTimeout && atomic.LoadUint32(&cxn.writing) == 0
-		readIdle := time.Since(lastRead) > idleTimeout && atomic.LoadUint32(&cxn.reading) == 0
+		writeIdle := time.Since(lastWrite) > idleTimeout && !cxn.writing.Load()
+		readIdle := time.Since(lastRead) > idleTimeout && !cxn.reading.Load()
 
 		if writeIdle && readIdle {
 			cxn.die()
@@ -618,7 +632,7 @@ func (b *broker) connect(ctx context.Context) (net.Conn, error) {
 		}
 	})
 	if err != nil {
-		if !errors.Is(err, ErrClientClosed) && !strings.Contains(err.Error(), "operation was canceled") {
+		if !errors.Is(err, ErrClientClosed) && !errors.Is(err, context.Canceled) && !strings.Contains(err.Error(), "operation was canceled") {
 			if errors.Is(err, io.EOF) {
 				b.cl.cfg.logger.Log(LogLevelWarn, "unable to open connection to broker due to an immediate EOF, which often means the client is using TLS when the broker is not expecting it (is TLS misconfigured?)", "addr", b.addr, "broker", logID(b.meta.NodeID), "err", err)
 				return nil, &ErrFirstReadEOF{kind: firstReadTLS, err: err}
@@ -634,7 +648,7 @@ func (b *broker) connect(ctx context.Context) (net.Conn, error) {
 // brokerCxn manages an actual connection to a Kafka broker. This is separate
 // the broker struct to allow lazy connection (re)creation.
 type brokerCxn struct {
-	throttleUntil int64 // atomic nanosec
+	throttleUntil atomicI64 // atomic nanosec
 
 	conn net.Conn
 
@@ -651,17 +665,17 @@ type brokerCxn struct {
 	// The following four fields are used for connection reaping.
 	// Write is only updated in one location; read is updated in three
 	// due to readConn, readConnAsync, and discard.
-	lastWrite int64
-	lastRead  int64
-	writing   uint32
-	reading   uint32
+	lastWrite atomicI64
+	lastRead  atomicI64
+	writing   atomicBool
+	reading   atomicBool
 
 	successes uint64
 
 	// resps manages reading kafka responses.
 	resps ringResp
 	// dead is an atomic so that a backed up resps cannot block cxn death.
-	dead int32
+	dead atomicBool
 	// closed in cloneConn; allows throttle waiting to quit
 	deadCh chan struct{}
 }
@@ -671,7 +685,7 @@ func (cxn *brokerCxn) init(isProduceCxn bool) error {
 	if !hasVersions {
 		if cxn.b.cl.cfg.maxVersions == nil || cxn.b.cl.cfg.maxVersions.HasKey(18) {
 			if err := cxn.requestAPIVersions(); err != nil {
-				if !errors.Is(err, ErrClientClosed) && !isRetriableBrokerErr(err) {
+				if !errors.Is(err, ErrClientClosed) && !isRetryableBrokerErr(err) {
 					cxn.cl.cfg.logger.Log(LogLevelError, "unable to request api versions", "broker", logID(cxn.b.meta.NodeID), "err", err)
 				}
 				return err
@@ -684,7 +698,7 @@ func (cxn *brokerCxn) init(isProduceCxn bool) error {
 	}
 
 	if err := cxn.sasl(); err != nil {
-		if !errors.Is(err, ErrClientClosed) && !isRetriableBrokerErr(err) {
+		if !errors.Is(err, ErrClientClosed) && !isRetryableBrokerErr(err) {
 			cxn.cl.cfg.logger.Log(LogLevelError, "unable to initialize sasl", "broker", logID(cxn.b.meta.NodeID), "err", err)
 		}
 		return err
@@ -935,7 +949,9 @@ func (cxn *brokerCxn) doSasl(authenticate bool) error {
 		if latencyMillis > minPessimismMillis {
 			minPessimismMillis = latencyMillis
 		}
-		maxPessimismMillis := float64(lifetimeMillis) * (0.05 - 0.03*cxn.b.cl.rng()) // 95 to 98% of lifetime (pessimism 2% to 5%)
+		var random float64
+		cxn.b.cl.rng(func(r *rand.Rand) { random = r.Float64() })
+		maxPessimismMillis := float64(lifetimeMillis) * (0.05 - 0.03*random) // 95 to 98% of lifetime (pessimism 2% to 5%)
 
 		// Our minimum lifetime is always 1s (or latency, if larger).
 		// When our max pessimism becomes more than min pessimism,
@@ -982,7 +998,7 @@ func maybeUpdateCtxErr(clientCtx, reqCtx context.Context, err *error) {
 func (cxn *brokerCxn) writeRequest(ctx context.Context, enqueuedForWritingAt time.Time, req kmsg.Request) (corrID int32, bytesWritten int, writeWait, timeToWrite time.Duration, readEnqueue time.Time, writeErr error) {
 	// A nil ctx means we cannot be throttled.
 	if ctx != nil {
-		throttleUntil := time.Unix(0, atomic.LoadInt64(&cxn.throttleUntil))
+		throttleUntil := time.Unix(0, cxn.throttleUntil.Load())
 		if sleep := time.Until(throttleUntil); sleep > 0 {
 			after := time.NewTimer(sleep)
 			select {
@@ -1028,6 +1044,9 @@ func (cxn *brokerCxn) writeRequest(ctx context.Context, enqueuedForWritingAt tim
 	}
 	corrID = cxn.corrID
 	cxn.corrID++
+	if cxn.corrID < 0 {
+		cxn.corrID = 0
+	}
 	return
 }
 
@@ -1037,10 +1056,10 @@ func (cxn *brokerCxn) writeConn(
 	timeout time.Duration,
 	enqueuedForWritingAt time.Time,
 ) (bytesWritten int, writeWait, timeToWrite time.Duration, readEnqueue time.Time, writeErr error) {
-	atomic.SwapUint32(&cxn.writing, 1)
+	cxn.writing.Store(true)
 	defer func() {
-		atomic.StoreInt64(&cxn.lastWrite, time.Now().UnixNano())
-		atomic.SwapUint32(&cxn.writing, 0)
+		cxn.lastWrite.Store(time.Now().UnixNano())
+		cxn.writing.Store(false)
 	}()
 
 	if ctx == nil {
@@ -1085,10 +1104,10 @@ func (cxn *brokerCxn) readConn(
 	timeout time.Duration,
 	enqueuedForReadingAt time.Time,
 ) (nread int, buf []byte, readWait, timeToRead time.Duration, err error) {
-	atomic.SwapUint32(&cxn.reading, 1)
+	cxn.reading.Store(true)
 	defer func() {
-		atomic.StoreInt64(&cxn.lastRead, time.Now().UnixNano())
-		atomic.SwapUint32(&cxn.reading, 0)
+		cxn.lastRead.Store(time.Now().UnixNano())
+		cxn.reading.Store(false)
 	}()
 
 	if ctx == nil {
@@ -1150,7 +1169,7 @@ func (cxn *brokerCxn) parseReadSize(sizeBuf []byte) (int32, error) {
 		return 0, fmt.Errorf("invalid negative response size %d", size)
 	}
 	if maxSize := cxn.b.cl.cfg.maxBrokerReadBytes; size > maxSize {
-		if maxSize == 0x48545450 { // "HTTP"
+		if size == 0x48545450 { // "HTTP"
 			return 0, fmt.Errorf("invalid large response size %d > limit %d; the four size bytes are 'HTTP' in ascii, the beginning of an HTTP response; is your broker port correct?", size, maxSize)
 		}
 		// A TLS alert is 21, and a TLS alert has the version
@@ -1201,10 +1220,10 @@ func (cxn *brokerCxn) readResponse(
 	bytesRead, buf, readWait, timeToRead, readErr := cxn.readConn(ctx, timeout, readEnqueue)
 
 	cxn.cl.cfg.hooks.each(func(h Hook) {
-		switch h := h.(type) {
-		case HookBrokerRead:
+		if h, ok := h.(HookBrokerRead); ok {
 			h.OnBrokerRead(cxn.b.meta, key, bytesRead, readWait, timeToRead, readErr)
-		case HookBrokerE2E:
+		}
+		if h, ok := h.(HookBrokerE2E); ok {
 			h.OnBrokerE2E(cxn.b.meta, key, BrokerE2E{
 				BytesWritten: bytesWritten,
 				BytesRead:    bytesRead,
@@ -1256,7 +1275,7 @@ func (cxn *brokerCxn) closeConn() {
 // die kills a broker connection (which could be dead already) and replies to
 // all requests awaiting responses appropriately.
 func (cxn *brokerCxn) die() {
-	if cxn == nil || atomic.SwapInt32(&cxn.dead, 1) == 1 {
+	if cxn == nil || cxn.dead.Swap(true) {
 		return
 	}
 	cxn.closeConn()
@@ -1364,10 +1383,10 @@ func (cxn *brokerCxn) discard() {
 			}
 			deadlineMu.Unlock()
 
-			atomic.SwapUint32(&cxn.reading, 1)
+			cxn.reading.Store(true)
 			defer func() {
-				atomic.StoreInt64(&cxn.lastRead, time.Now().UnixNano())
-				atomic.SwapUint32(&cxn.reading, 0)
+				cxn.lastRead.Store(time.Now().UnixNano())
+				cxn.reading.Store(false)
 			}()
 
 			readStart := time.Now()
@@ -1444,9 +1463,9 @@ func (cxn *brokerCxn) handleResp(pr promisedResp) {
 	if err != nil {
 		if !errors.Is(err, ErrClientClosed) && !errors.Is(err, context.Canceled) {
 			if cxn.successes > 0 || len(cxn.b.cl.cfg.sasls) > 0 {
-				cxn.b.cl.cfg.logger.Log(LogLevelDebug, "read from broker errored, killing connection", "addr", cxn.b.addr, "broker", logID(cxn.b.meta.NodeID), "successful_reads", cxn.successes, "err", err)
+				cxn.b.cl.cfg.logger.Log(LogLevelDebug, "read from broker errored, killing connection", "req", kmsg.Key(pr.resp.Key()).Name(), "addr", cxn.b.addr, "broker", logID(cxn.b.meta.NodeID), "successful_reads", cxn.successes, "err", err)
 			} else {
-				cxn.b.cl.cfg.logger.Log(LogLevelWarn, "read from broker errored, killing connection after 0 successful responses (is SASL missing?)", "addr", cxn.b.addr, "broker", logID(cxn.b.meta.NodeID), "err", err)
+				cxn.b.cl.cfg.logger.Log(LogLevelWarn, "read from broker errored, killing connection after 0 successful responses (is SASL missing?)", "req", kmsg.Key(pr.resp.Key()).Name(), "addr", cxn.b.addr, "broker", logID(cxn.b.meta.NodeID), "err", err)
 				if err == io.EOF { // specifically avoid checking errors.Is to ensure this is not already wrapped
 					err = &ErrFirstReadEOF{kind: firstReadSASL, err: err}
 				}
@@ -1468,10 +1487,11 @@ func (cxn *brokerCxn) handleResp(pr promisedResp) {
 		if throttleResponse, ok := pr.resp.(kmsg.ThrottleResponse); ok {
 			millis, throttlesAfterResp := throttleResponse.Throttle()
 			if millis > 0 {
+				cxn.b.cl.cfg.logger.Log(LogLevelInfo, "broker is throttling us in response", "broker", logID(cxn.b.meta.NodeID), "req", kmsg.Key(pr.resp.Key()).Name(), "throttle_millis", millis, "throttles_after_resp", throttlesAfterResp)
 				if throttlesAfterResp {
 					throttleUntil := time.Now().Add(time.Millisecond * time.Duration(millis)).UnixNano()
-					if throttleUntil > cxn.throttleUntil {
-						atomic.StoreInt64(&cxn.throttleUntil, throttleUntil)
+					if throttleUntil > cxn.throttleUntil.Load() {
+						cxn.throttleUntil.Store(throttleUntil)
 					}
 				}
 				cxn.cl.cfg.hooks.each(func(h Hook) {

@@ -47,14 +47,14 @@ func (fn plain) Authenticate(ctx context.Context, _ string) (sasl.Session, []byt
 	if err != nil {
 		return nil, nil, err
 	}
+	if auth.User == "" || auth.Pass == "" {
+		return nil, nil, errors.New("PLAIN user and pass must be non-empty")
+	}
 	return session{}, []byte(auth.Zid + "\x00" + auth.User + "\x00" + auth.Pass), nil
 }
 
 type session struct{}
 
-func (session) Challenge(resp []byte) (bool, []byte, error) {
-	if len(resp) != 0 {
-		return false, nil, errors.New("unexpected data in plain response")
-	}
+func (session) Challenge([]byte) (bool, []byte, error) {
 	return true, nil, nil
 }

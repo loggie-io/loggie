@@ -5,7 +5,7 @@ import (
 	"compress/gzip"
 	"encoding/binary"
 	"errors"
-	"io/ioutil"
+	"io"
 	"runtime"
 	"sync"
 
@@ -14,15 +14,7 @@ import (
 	"github.com/pierrec/lz4/v4"
 )
 
-// sliceWriter a reusable slice as an io.Writer
-type sliceWriter struct{ inner []byte }
-
-func (s *sliceWriter) Write(p []byte) (int, error) {
-	s.inner = append(s.inner, p...)
-	return len(p), nil
-}
-
-var sliceWriters = sync.Pool{New: func() interface{} { r := make([]byte, 8<<10); return &sliceWriter{inner: r} }}
+var byteBuffers = sync.Pool{New: func() any { return bytes.NewBuffer(make([]byte, 8<<10)) }}
 
 type codecType int8
 
@@ -41,7 +33,7 @@ const (
 // for that batch.
 type CompressionCodec struct {
 	codec codecType
-	level int8
+	level int
 }
 
 // NoCompression is a compression option that avoids compression. This can
@@ -68,10 +60,7 @@ func ZstdCompression() CompressionCodec { return CompressionCodec{codecZstd, 0} 
 //
 // If the level is invalid, compressors just use a default level.
 func (c CompressionCodec) WithLevel(level int) CompressionCodec {
-	if level > 127 {
-		level = 127 // lz4 could theoretically be large, I guess
-	}
-	c.level = int8(level)
+	c.level = level
 	return c
 }
 
@@ -116,21 +105,21 @@ out:
 		case codecGzip:
 			level := gzip.DefaultCompression
 			if codec.level != 0 {
-				if _, err := gzip.NewWriterLevel(nil, int(codec.level)); err != nil {
-					level = int(codec.level)
+				if _, err := gzip.NewWriterLevel(nil, codec.level); err != nil {
+					level = codec.level
 				}
 			}
-			c.gzPool = sync.Pool{New: func() interface{} { c, _ := gzip.NewWriterLevel(nil, level); return c }}
+			c.gzPool = sync.Pool{New: func() any { c, _ := gzip.NewWriterLevel(nil, level); return c }}
 		case codecSnappy: // (no pool needed for snappy)
 		case codecLZ4:
 			level := codec.level
 			if level < 0 {
 				level = 0 // 0 == lz4.Fast
 			}
-			fn := func() interface{} { return lz4.NewWriter(new(bytes.Buffer)) }
+			fn := func() any { return lz4.NewWriter(new(bytes.Buffer)) }
 			w := lz4.NewWriter(new(bytes.Buffer))
 			if err := w.Apply(lz4.CompressionLevelOption(lz4.CompressionLevel(level))); err == nil {
-				fn = func() interface{} {
+				fn = func() any {
 					w := lz4.NewWriter(new(bytes.Buffer))
 					w.Apply(lz4.CompressionLevelOption(lz4.CompressionLevel(level)))
 					return w
@@ -144,7 +133,7 @@ out:
 				zstd.WithEncoderConcurrency(1),
 				zstd.WithZeroFrames(true),
 			}
-			fn := func() interface{} {
+			fn := func() any {
 				zstdEnc, _ := zstd.NewWriter(nil, opts...)
 				r := &zstdEncoder{zstdEnc}
 				runtime.SetFinalizer(r, func(r *zstdEncoder) { r.inner.Close() })
@@ -175,9 +164,7 @@ type zstdEncoder struct {
 //
 // The writer should be put back to its pool after the returned slice is done
 // being used.
-func (c *compressor) compress(dst *sliceWriter, src []byte, produceRequestVersion int16) ([]byte, codecType) {
-	dst.inner = dst.inner[:0]
-
+func (c *compressor) compress(dst *bytes.Buffer, src []byte, produceRequestVersion int16) ([]byte, codecType) {
 	var use codecType
 	for _, option := range c.options {
 		if option == codecZstd && produceRequestVersion < 7 {
@@ -187,6 +174,7 @@ func (c *compressor) compress(dst *sliceWriter, src []byte, produceRequestVersio
 		break
 	}
 
+	var out []byte
 	switch use {
 	case codecNone:
 		return src, 0
@@ -200,10 +188,7 @@ func (c *compressor) compress(dst *sliceWriter, src []byte, produceRequestVersio
 		if err := gz.Close(); err != nil {
 			return nil, -1
 		}
-
-	case codecSnappy:
-		dst.inner = s2.EncodeSnappy(dst.inner[:cap(dst.inner)], src)
-
+		out = dst.Bytes()
 	case codecLZ4:
 		lz := c.lz4Pool.Get().(*lz4.Writer)
 		defer c.lz4Pool.Put(lz)
@@ -214,13 +199,34 @@ func (c *compressor) compress(dst *sliceWriter, src []byte, produceRequestVersio
 		if err := lz.Close(); err != nil {
 			return nil, -1
 		}
+		out = dst.Bytes()
+	case codecSnappy:
+		// Because the Snappy and Zstd codecs do not accept an io.Writer interface
+		// and directly take a []byte slice, here, the underlying []byte slice (`dst`)
+		// obtained from the bytes.Buffer{} from the pool is passed.
+		// As the `Write()` method on the buffer isn't used, its internal
+		// book-keeping goes out of sync, making the buffer unusable for further
+		// reading and writing via it's (eg: accessing via `Byte()`). For subsequent
+		// reads, the underlying slice has to be used directly.
+		//
+		// In this particular context, it is acceptable as there there are no subsequent
+		// operations performed on the buffer and it is immediately returned to the
+		// pool and `Reset()` the next time it is obtained and used where `compress()`
+		// is called.
+		if l := s2.MaxEncodedLen(len(src)); l > dst.Cap() {
+			dst.Grow(l)
+		}
+		out = s2.EncodeSnappy(dst.Bytes(), src)
 	case codecZstd:
 		zstdEnc := c.zstdPool.Get().(*zstdEncoder)
 		defer c.zstdPool.Put(zstdEnc)
-		dst.inner = zstdEnc.inner.EncodeAll(src, dst.inner)
+		if l := zstdEnc.inner.MaxEncodedSize(len(src)); l > dst.Cap() {
+			dst.Grow(l)
+		}
+		out = zstdEnc.inner.EncodeAll(src, dst.Bytes())
 	}
 
-	return dst.inner, use
+	return out, use
 }
 
 type decompressor struct {
@@ -232,13 +238,13 @@ type decompressor struct {
 func newDecompressor() *decompressor {
 	d := &decompressor{
 		ungzPool: sync.Pool{
-			New: func() interface{} { return new(gzip.Reader) },
+			New: func() any { return new(gzip.Reader) },
 		},
 		unlz4Pool: sync.Pool{
-			New: func() interface{} { return lz4.NewReader(nil) },
+			New: func() any { return lz4.NewReader(nil) },
 		},
 		unzstdPool: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				zstdDec, _ := zstd.NewReader(nil,
 					zstd.WithDecoderLowmem(true),
 					zstd.WithDecoderConcurrency(1),
@@ -259,30 +265,51 @@ type zstdDecoder struct {
 }
 
 func (d *decompressor) decompress(src []byte, codec byte) ([]byte, error) {
-	switch codec {
-	case 0:
+	// Early return in case there is no compression
+	compCodec := codecType(codec)
+	if compCodec == codecNone {
 		return src, nil
-	case 1:
+	}
+	out := byteBuffers.Get().(*bytes.Buffer)
+	out.Reset()
+	defer byteBuffers.Put(out)
+
+	switch compCodec {
+	case codecGzip:
 		ungz := d.ungzPool.Get().(*gzip.Reader)
 		defer d.ungzPool.Put(ungz)
 		if err := ungz.Reset(bytes.NewReader(src)); err != nil {
 			return nil, err
 		}
-		return ioutil.ReadAll(ungz)
-	case 2:
+		if _, err := io.Copy(out, ungz); err != nil {
+			return nil, err
+		}
+		return append([]byte(nil), out.Bytes()...), nil
+	case codecSnappy:
 		if len(src) > 16 && bytes.HasPrefix(src, xerialPfx) {
 			return xerialDecode(src)
 		}
-		return s2.Decode(nil, src)
-	case 3:
+		decoded, err := s2.Decode(out.Bytes(), src)
+		if err != nil {
+			return nil, err
+		}
+		return append([]byte(nil), decoded...), nil
+	case codecLZ4:
 		unlz4 := d.unlz4Pool.Get().(*lz4.Reader)
 		defer d.unlz4Pool.Put(unlz4)
 		unlz4.Reset(bytes.NewReader(src))
-		return ioutil.ReadAll(unlz4)
-	case 4:
+		if _, err := io.Copy(out, unlz4); err != nil {
+			return nil, err
+		}
+		return append([]byte(nil), out.Bytes()...), nil
+	case codecZstd:
 		unzstd := d.unzstdPool.Get().(*zstdDecoder)
 		defer d.unzstdPool.Put(unzstd)
-		return unzstd.inner.DecodeAll(src, nil)
+		decoded, err := unzstd.inner.DecodeAll(src, out.Bytes())
+		if err != nil {
+			return nil, err
+		}
+		return append([]byte(nil), decoded...), nil
 	default:
 		return nil, errors.New("unknown compression codec")
 	}

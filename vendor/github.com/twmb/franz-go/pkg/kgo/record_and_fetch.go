@@ -120,7 +120,7 @@ type Record struct {
 	// before the record is unbuffered.
 	ProducerEpoch int16
 
-	// ProducerEpoch is the producer ID of this message if it was produced
+	// ProducerID is the producer ID of this message if it was produced
 	// with a producer ID. An epoch and ID of 0 means it was not.
 	//
 	// For producing, this is left unset. This will be set by the client
@@ -145,21 +145,30 @@ type Record struct {
 	// Context is an optional field that is used for enriching records.
 	//
 	// If this field is nil when producing, it is set to the Produce ctx
-	// arg. This field can be used to propagate record encrichment across
+	// arg. This field can be used to propagate record enrichment across
 	// producer hooks. It can also be set in a consumer hook to propagate
 	// enrichment to consumer clients.
 	Context context.Context
 }
 
+func (r *Record) userSize() int64 {
+	s := len(r.Key) + len(r.Value)
+	for _, h := range r.Headers {
+		s += len(h.Key) + len(h.Value)
+	}
+	return int64(s)
+}
+
 // When buffering records, we calculate the length and tsDelta ahead of time
 // (also because number width affects encoding length). We repurpose the Offset
 // field to save space.
-func (r *Record) setLengthAndTimestampDelta(length, tsDelta int32) {
-	r.Offset = int64(uint64(uint32(length))<<32 | uint64(uint32(tsDelta)))
+func (r *Record) setLengthAndTimestampDelta(length int32, tsDelta int64) {
+	r.LeaderEpoch = length
+	r.Offset = tsDelta
 }
 
-func (r *Record) lengthAndTimestampDelta() (length, tsDelta int32) {
-	return int32(uint32(uint64(r.Offset) >> 32)), int32(uint32(uint64(r.Offset)))
+func (r *Record) lengthAndTimestampDelta() (length int32, tsDelta int64) {
+	return r.LeaderEpoch, r.Offset
 }
 
 // AppendFormat appends a record to b given the layout or returns an error if
@@ -176,7 +185,7 @@ func (r *Record) AppendFormat(b []byte, layout string) ([]byte, error) {
 
 // StringRecord returns a Record with the Value field set to the input value
 // string. For producing, this function is useful in tandem with the
-// client-level DefailtProduceTopic option.
+// client-level DefaultProduceTopic option.
 //
 // This function uses the 'unsafe' package to avoid copying value into a slice.
 //
@@ -195,7 +204,7 @@ func StringRecord(value string) *Record {
 
 // KeyStringRecord returns a Record with the Key and Value fields set to the
 // input key and value strings. For producing, this function is useful in
-// tandem with the client-level DefailtProduceTopic option.
+// tandem with the client-level DefaultProduceTopic option.
 //
 // This function uses the 'unsafe' package to avoid copying value into a slice.
 //
@@ -215,14 +224,14 @@ func KeyStringRecord(key, value string) *Record {
 
 // SliceRecord returns a Record with the Value field set to the input value
 // slice. For producing, this function is useful in tandem with the
-// client-level DefailtProduceTopic option.
+// client-level DefaultProduceTopic option.
 func SliceRecord(value []byte) *Record {
 	return &Record{Value: value}
 }
 
 // KeySliceRecord returns a Record with the Key and Value fields set to the
 // input key and value slices. For producing, this function is useful in
-// tandem with the client-level DefailtProduceTopic option.
+// tandem with the client-level DefaultProduceTopic option.
 func KeySliceRecord(key, value []byte) *Record {
 	return &Record{Key: key, Value: value}
 }
@@ -235,7 +244,7 @@ type FetchPartition struct {
 	// Err is an error for this partition in the fetch.
 	//
 	// Note that if this is a fatal error, such as data loss or non
-	// retriable errors, this partition will never be fetched again.
+	// retryable errors, this partition will never be fetched again.
 	Err error
 	// HighWatermark is the current high watermark for this partition, that
 	// is, the current offset that is on all in sync replicas.
@@ -265,6 +274,9 @@ func (p *FetchPartition) EachRecord(fn func(*Record)) {
 type FetchTopic struct {
 	// Topic is the topic this is for.
 	Topic string
+	// TopicID is the ID of the topic, if your cluster supports returning
+	// topic IDs in fetch responses (Kafka 3.1+).
+	TopicID [16]byte
 	// Partitions contains individual partitions in the topic that were
 	// fetched.
 	Partitions []FetchPartition
@@ -323,10 +335,10 @@ type FetchError struct {
 // Errors returns all errors in a fetch with the topic and partition that
 // errored.
 //
-// There are four classes of errors possible:
+// There are a few classes of errors possible:
 //
-//  1. a normal kerr.Error; these are usually the non-retriable kerr.Errors,
-//     but theoretically a non-retriable error can be fixed at runtime (auth
+//  1. a normal kerr.Error; these are usually the non-retryable kerr.Errors,
+//     but theoretically a non-retryable error can be fixed at runtime (auth
 //     error? fix auth). It is worth restarting the client for these errors if
 //     you do not intend to fix this problem at runtime.
 //
@@ -336,14 +348,25 @@ type FetchError struct {
 //     client for.
 //
 //  3. an untyped batch parse failure; these are usually unrecoverable by
-//     restarts, and it may be best to just let the client continue. However,
-//     restarting is an option, but you may need to manually repair your
+//     restarts, and it may be best to just let the client continue.
+//     Restarting is an option, but you may need to manually repair your
 //     partition.
 //
 //  4. an injected ErrClientClosed; this is a fatal informational error that
 //     is returned from every Poll call if the client has been closed.
 //     A corresponding helper function IsClientClosed can be used to detect
 //     this error.
+//
+//  5. an injected context error; this can be present if the context you were
+//     using for polling timed out or was canceled.
+//
+//  6. an injected ErrGroupSession; this is an informational error that is
+//     injected once a group session is lost in a way that is not the standard
+//     rebalance. This error can signify that your consumer member is not able
+//     to connect to the group (ACL problems, unreachable broker), or you
+//     blocked rebalancing for too long, or your callbacks took too long.
+//
+// This list may grow over time.
 func (fs Fetches) Errors() []FetchError {
 	var errs []FetchError
 	fs.EachError(func(t string, p int32, err error) {
@@ -540,6 +563,7 @@ func (fs Fetches) EachTopic(fn func(FetchTopic)) {
 	for topic, partitions := range topics {
 		fn(FetchTopic{
 			topic,
+			[16]byte{},
 			partitions,
 		})
 	}
