@@ -18,53 +18,117 @@ package runtime
 
 import (
 	"strconv"
+	"sync"
 
+	"github.com/barkimedes/go-deepcopy"
 	"github.com/pkg/errors"
 )
 
 type Object struct {
+	mu   *sync.RWMutex
 	data interface{}
 }
 
-func NewObject(obj map[string]interface{}) *Object {
+func NewObject(obj any) *Object {
 	return &Object{
 		data: obj,
+		mu:   &sync.RWMutex{},
 	}
 }
 
+type safeMap struct {
+	mu   *sync.Mutex
+	data map[string]interface{}
+}
+
+func (s *safeMap) Value() map[string]interface{} {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.data
+}
+
+func (s *safeMap) Copy() (map[string]interface{}, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ret, err := deepcopy.Anything(s.data)
+	if err != nil {
+		return nil, err
+	}
+	if r, ok := ret.(map[string]interface{}); ok {
+		return r, nil
+	}
+	return nil, errors.New("type assert to map[string]interface{} failed")
+}
+
+func (s *safeMap) Set(key string, val interface{}) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.data[key] = val
+}
+
 func (obj *Object) Map() (map[string]interface{}, error) {
+	obj.mu.RLock()
+	defer obj.mu.RUnlock()
 	if ret, ok := obj.data.(map[string]interface{}); ok {
 		return ret, nil
 	}
 	return nil, errors.New("type assert to map[string]interface{} failed")
 }
+func (obj *Object) Copy() (*Object, error) {
+	obj.mu.Lock()
+	defer obj.mu.Unlock()
+	ret, err := deepcopy.Anything(obj.data)
+	if err != nil {
+		return nil, err
+	}
+	return NewObject(ret), nil
+}
 
 func (obj *Object) Get(key string) *Object {
 	m, err := obj.Map()
 	if err == nil {
+		obj.mu.RLock()
+		defer obj.mu.RUnlock()
 		if val, ok := m[key]; ok {
 			return &Object{
 				data: val,
+				mu:   obj.mu,
 			}
 		}
 	}
-	return &Object{nil}
+	return &Object{data: nil, mu: obj.mu}
 }
 
 func (obj *Object) GetPath(query string) *Object {
+	obj.mu.RLock()
+	defer obj.mu.RUnlock()
 	paths := GetQueryPaths(query)
 	return obj.GetPaths(paths)
 }
 
 func (obj *Object) GetPaths(paths []string) *Object {
+	obj.mu.RLock()
 	o := obj
+	obj.mu.RUnlock()
 	for _, p := range paths {
-		o = o.Get(p)
+		m, err := o.Map()
+		if err != nil {
+			return &Object{data: nil, mu: obj.mu}
+		}
+		obj.mu.RLock()
+		val, ok := m[p]
+		obj.mu.RUnlock()
+		if !ok {
+			return &Object{data: nil, mu: obj.mu}
+		}
+		o = &Object{data: val, mu: obj.mu}
 	}
 	return o
 }
 
 func (obj *Object) Set(key string, val interface{}) {
+	obj.mu.Lock()
+	defer obj.mu.Unlock()
 	m, err := obj.Map()
 	if err != nil {
 		return
@@ -78,12 +142,16 @@ func (obj *Object) SetPath(query string, val interface{}) {
 }
 
 func (obj *Object) SetPaths(paths []string, val interface{}) {
+	obj.mu.Lock() // 加写锁保护整个修改过程
+	defer obj.mu.Unlock()
+
 	if len(paths) == 0 {
 		obj.data = val
 		return
 	}
 
-	if _, ok := (obj.data).(map[string]interface{}); !ok {
+	// 确保当前数据是 map 类型
+	if _, ok := obj.data.(map[string]interface{}); !ok {
 		obj.data = make(map[string]interface{})
 	}
 	curr := obj.data.(map[string]interface{})
@@ -96,13 +164,14 @@ func (obj *Object) SetPaths(paths []string, val interface{}) {
 			curr = n
 			continue
 		}
-
-		if _, ok := curr[b].(map[string]interface{}); !ok {
+		// 若当前值不是 map，强制转为 map
+		if childMap, ok := curr[b].(map[string]interface{}); ok {
+			curr = childMap
+		} else {
 			n := make(map[string]interface{})
 			curr[b] = n
+			curr = n
 		}
-
-		curr = curr[b].(map[string]interface{})
 	}
 
 	curr[paths[len(paths)-1]] = val
@@ -113,6 +182,8 @@ func (obj *Object) Del(key string) {
 	if err != nil {
 		return
 	}
+	obj.mu.Lock()
+	defer obj.mu.Unlock()
 	delete(m, key)
 }
 
@@ -126,17 +197,24 @@ func (obj *Object) DelPaths(paths []string) {
 		return
 	}
 	if len(paths) == 1 {
-		obj.Del(paths[0])
+		obj.Del(paths[0]) // 直接调用 Del（内部会加写锁）
 		return
 	}
 
+	// 先获取子路径的对象（仅用读锁）
+	obj.mu.RLock()
 	prefix := paths[:len(paths)-1]
 	fin := paths[len(paths)-1]
+	obj.mu.RUnlock() // 提前释放读锁，避免后续写锁冲突
 	tmp := obj.GetPaths(prefix)
+
+	// 对临时对象执行删除（此时无读锁，可安全获取写锁）
 	tmp.Del(fin)
 }
 
 func (obj *Object) String() (string, error) {
+	obj.mu.RLock()
+	defer obj.mu.RUnlock()
 	if obj.data == nil {
 		return "", nil
 	}
@@ -147,6 +225,8 @@ func (obj *Object) String() (string, error) {
 }
 
 func (obj *Object) Int64() (int64, error) {
+	obj.mu.RLock()
+	defer obj.mu.RUnlock()
 	if obj.data == nil {
 		return 0, nil
 	}
@@ -157,6 +237,8 @@ func (obj *Object) Int64() (int64, error) {
 }
 
 func (obj *Object) Float64() (float64, error) {
+	obj.mu.RLock()
+	defer obj.mu.RUnlock()
 	if obj.data == nil {
 		return 0, nil
 	}
@@ -167,6 +249,8 @@ func (obj *Object) Float64() (float64, error) {
 }
 
 func (obj *Object) IsNull() bool {
+	obj.mu.RLock()
+	defer obj.mu.RUnlock()
 	if obj == nil || obj.data == nil {
 		return true
 	}
@@ -174,23 +258,34 @@ func (obj *Object) IsNull() bool {
 }
 
 func (obj *Object) Value() interface{} {
+	obj.mu.RLock()
+	defer obj.mu.RUnlock()
 	return obj.data
 }
 
 func (obj *Object) FlatKeyValue(token string) (map[string]interface{}, error) {
-	m, err := obj.Map()
+	o, err := obj.Copy()
+	if err != nil {
+		return nil, err
+	}
+	m, err := o.Map()
 	if err != nil {
 		return nil, err
 	}
 	if len(m) == 0 {
 		return m, nil
 	}
-	dest := make(map[string]interface{})
+	obj.mu.Lock()
+	dest := &safeMap{
+		mu:   &sync.Mutex{},
+		data: make(map[string]interface{}),
+	}
 	flatten(token, "", m, dest)
-	return dest, nil
+	obj.mu.Unlock()
+	return dest.Copy()
 }
 
-func flatten(token string, prefix string, src map[string]interface{}, dest map[string]interface{}) {
+func flatten(token string, prefix string, src map[string]interface{}, dest *safeMap) {
 	if len(prefix) > 0 {
 		prefix += token
 	}
@@ -200,17 +295,17 @@ func flatten(token string, prefix string, src map[string]interface{}, dest map[s
 			flatten(token, prefix+k, child, dest)
 		case []interface{}:
 			for i := 0; i < len(child); i++ {
-				dest[prefix+k+token+strconv.Itoa(i)] = child[i]
+				dest.Set(prefix+k+token+strconv.Itoa(i), child[i])
 			}
 		default:
-			dest[prefix+k] = v
+			dest.Set(prefix+k, v)
 		}
 	}
 }
 
 type convertKeyFunc func(key string) string
 
-// ConvertKeys All keys in the object are processed by the convertKeyFunc function.
+// ConvertKeys All keys in the Object are processed by the convertKeyFunc function.
 // If convertKeyFunc returns empty, the key will not be processed.
 func (obj *Object) ConvertKeys(keyFunc convertKeyFunc) error {
 	m, err := obj.Map()
@@ -220,8 +315,9 @@ func (obj *Object) ConvertKeys(keyFunc convertKeyFunc) error {
 	if len(m) == 0 {
 		return nil
 	}
-
+	obj.mu.Lock()
 	convertKeys(m, keyFunc)
+	obj.mu.Unlock()
 	return nil
 }
 

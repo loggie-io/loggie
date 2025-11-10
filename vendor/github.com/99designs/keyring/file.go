@@ -3,14 +3,11 @@ package keyring
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	jose "github.com/dvsekhvalnov/jose2go"
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/mtibben/percent"
 )
 
@@ -39,22 +36,15 @@ func (k *fileKeyring) resolveDir() (string, error) {
 		return "", fmt.Errorf("No directory provided for file keyring")
 	}
 
-	dir := k.dir
-
-	// expand tilde for home directory
-	if strings.HasPrefix(dir, "~") {
-		home, err := homedir.Dir()
-		if err != nil {
-			return "", err
-		}
-		dir = strings.Replace(dir, "~", home, 1)
-		debugf("Expanded file dir to %s", dir)
+	dir, err := ExpandTilde(k.dir)
+	if err != nil {
+		return "", err
 	}
 
 	stat, err := os.Stat(dir)
 	if os.IsNotExist(err) {
 		err = os.MkdirAll(dir, 0700)
-	} else if err != nil && !stat.IsDir() {
+	} else if err != nil && stat != nil && !stat.IsDir() {
 		err = fmt.Errorf("%s is a file, not a directory", dir)
 	}
 
@@ -68,7 +58,7 @@ func (k *fileKeyring) unlock() error {
 	}
 
 	if k.password == "" {
-		pwd, err := k.passwordFunc(fmt.Sprintf("Enter passphrase to unlock %s", dir))
+		pwd, err := k.passwordFunc(fmt.Sprintf("Enter passphrase to unlock %q", dir))
 		if err != nil {
 			return err
 		}
@@ -84,7 +74,7 @@ func (k *fileKeyring) Get(key string) (Item, error) {
 		return Item{}, err
 	}
 
-	bytes, err := ioutil.ReadFile(filename)
+	bytes, err := os.ReadFile(filename)
 	if os.IsNotExist(err) {
 		return Item{}, ErrKeyNotFound
 	} else if err != nil {
@@ -153,7 +143,7 @@ func (k *fileKeyring) Set(i Item) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(filename, []byte(token), 0600)
+	return os.WriteFile(filename, []byte(token), 0600)
 }
 
 func (k *fileKeyring) filename(key string) (string, error) {
@@ -181,7 +171,7 @@ func (k *fileKeyring) Keys() ([]string, error) {
 	}
 
 	var keys = []string{}
-	files, _ := ioutil.ReadDir(dir)
+	files, _ := os.ReadDir(dir)
 	for _, f := range files {
 		keys = append(keys, filenameUnescape(f.Name()))
 	}

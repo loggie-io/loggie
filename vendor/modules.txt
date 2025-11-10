@@ -1,5 +1,8 @@
-# github.com/99designs/keyring v1.1.6
-## explicit; go 1.14
+# github.com/99designs/go-keychain v0.0.0-20191008050251-8e49817e8af4
+## explicit
+github.com/99designs/go-keychain
+# github.com/99designs/keyring v1.2.2
+## explicit; go 1.19
 github.com/99designs/keyring
 # github.com/AthenZ/athenz v1.10.39
 ## explicit; go 1.13
@@ -55,6 +58,9 @@ github.com/apache/rocketmq-client-go/v2/rlog
 # github.com/ardielle/ardielle-go v1.5.2
 ## explicit
 github.com/ardielle/ardielle-go/rdl
+# github.com/barkimedes/go-deepcopy v0.0.0-20220514131651-17c30cfc62df
+## explicit
+github.com/barkimedes/go-deepcopy
 # github.com/beorn7/perks v1.0.1
 ## explicit; go 1.11
 github.com/beorn7/perks/quantile
@@ -99,8 +105,8 @@ github.com/chenzhuoyu/base64x
 # github.com/creasty/defaults v1.7.0
 ## explicit; go 1.14
 github.com/creasty/defaults
-# github.com/danieljoos/wincred v1.0.2
-## explicit
+# github.com/danieljoos/wincred v1.1.2
+## explicit; go 1.13
 github.com/danieljoos/wincred
 # github.com/davecgh/go-spew v1.1.1
 ## explicit
@@ -153,8 +159,8 @@ github.com/docker/go-units
 # github.com/dustin/go-humanize v1.0.0
 ## explicit
 github.com/dustin/go-humanize
-# github.com/dvsekhvalnov/jose2go v0.0.0-20200901110807-248326c1351b
-## explicit
+# github.com/dvsekhvalnov/jose2go v1.5.0
+## explicit; go 1.15
 github.com/dvsekhvalnov/jose2go
 github.com/dvsekhvalnov/jose2go/aes
 github.com/dvsekhvalnov/jose2go/arrays
@@ -330,7 +336,7 @@ github.com/google/gnostic/extensions
 github.com/google/gnostic/jsonschema
 github.com/google/gnostic/openapiv2
 github.com/google/gnostic/openapiv3
-# github.com/google/go-cmp v0.5.9
+# github.com/google/go-cmp v0.6.0
 ## explicit; go 1.13
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/cmpopts
@@ -412,9 +418,6 @@ github.com/jpillora/backoff
 # github.com/json-iterator/go v1.1.12
 ## explicit; go 1.12
 github.com/json-iterator/go
-# github.com/keybase/go-keychain v0.0.0-20190712205309-48d3d31d256d
-## explicit
-github.com/keybase/go-keychain
 # github.com/klauspost/compress v1.15.9
 ## explicit; go 1.16
 github.com/klauspost/compress
@@ -471,9 +474,6 @@ github.com/mattn/go-zglob/fastwalk
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 ## explicit; go 1.9
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/mitchellh/go-homedir v1.1.0
-## explicit
-github.com/mitchellh/go-homedir
 # github.com/mmaxiaolei/backoff v0.0.0-20210104115436-e015e09efaba
 ## explicit; go 1.15
 github.com/mmaxiaolei/backoff
@@ -643,9 +643,10 @@ github.com/spf13/pflag
 # github.com/stathat/consistent v1.0.0
 ## explicit
 github.com/stathat/consistent
-# github.com/stretchr/testify v1.8.2
-## explicit; go 1.13
+# github.com/stretchr/testify v1.10.0
+## explicit; go 1.17
 github.com/stretchr/testify/assert
+github.com/stretchr/testify/assert/yaml
 # github.com/tidwall/gjson v1.13.0
 ## explicit; go 1.12
 github.com/tidwall/gjson
@@ -706,7 +707,7 @@ github.com/xdg/stringprep
 # github.com/yusufpapurcu/wmi v1.2.2
 ## explicit; go 1.16
 github.com/yusufpapurcu/wmi
-# go.opencensus.io v0.23.0
+# go.opencensus.io v0.24.0
 ## explicit; go 1.13
 go.opencensus.io
 go.opencensus.io/internal
@@ -724,19 +725,18 @@ go.uber.org/automaxprocs/maxprocs
 # golang.org/x/arch v0.0.0-20210923205945-b76863e36670
 ## explicit; go 1.17
 golang.org/x/arch/x86/x86asm
-# golang.org/x/crypto v0.14.0
-## explicit; go 1.17
+# golang.org/x/crypto v0.32.0
+## explicit; go 1.20
 golang.org/x/crypto/md4
 golang.org/x/crypto/pbkdf2
 golang.org/x/crypto/sha3
-golang.org/x/crypto/ssh/terminal
-# golang.org/x/mod v0.8.0
-## explicit; go 1.17
+# golang.org/x/mod v0.17.0
+## explicit; go 1.18
 golang.org/x/mod/internal/lazyregexp
 golang.org/x/mod/module
 golang.org/x/mod/semver
-# golang.org/x/net v0.17.0
-## explicit; go 1.17
+# golang.org/x/net v0.25.0
+## explicit; go 1.18
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/http/httpguts
@@ -753,18 +753,20 @@ golang.org/x/net/trace
 golang.org/x/oauth2
 golang.org/x/oauth2/clientcredentials
 golang.org/x/oauth2/internal
-# golang.org/x/sys v0.13.0
-## explicit; go 1.17
+# golang.org/x/sync v0.10.0
+## explicit; go 1.18
+golang.org/x/sync/errgroup
+# golang.org/x/sys v0.29.0
+## explicit; go 1.18
 golang.org/x/sys/cpu
-golang.org/x/sys/execabs
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.13.0
-## explicit; go 1.17
+# golang.org/x/term v0.28.0
+## explicit; go 1.18
 golang.org/x/term
-# golang.org/x/text v0.13.0
-## explicit; go 1.17
+# golang.org/x/text v0.21.0
+## explicit; go 1.18
 golang.org/x/text/encoding
 golang.org/x/text/encoding/charmap
 golang.org/x/text/encoding/internal
@@ -784,27 +786,29 @@ golang.org/x/text/width
 # golang.org/x/time v0.0.0-20220609170525-579cf78fd858
 ## explicit
 golang.org/x/time/rate
-# golang.org/x/tools v0.6.0
-## explicit; go 1.18
+# golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d
+## explicit; go 1.19
 golang.org/x/tools/go/ast/astutil
 golang.org/x/tools/go/gcexportdata
 golang.org/x/tools/go/internal/packagesdriver
 golang.org/x/tools/go/packages
+golang.org/x/tools/go/types/objectpath
 golang.org/x/tools/imports
+golang.org/x/tools/internal/aliases
 golang.org/x/tools/internal/event
 golang.org/x/tools/internal/event/core
 golang.org/x/tools/internal/event/keys
 golang.org/x/tools/internal/event/label
-golang.org/x/tools/internal/fastwalk
 golang.org/x/tools/internal/gcimporter
 golang.org/x/tools/internal/gocommand
 golang.org/x/tools/internal/gopathwalk
 golang.org/x/tools/internal/imports
 golang.org/x/tools/internal/packagesinternal
 golang.org/x/tools/internal/pkgbits
+golang.org/x/tools/internal/stdlib
 golang.org/x/tools/internal/tokeninternal
-golang.org/x/tools/internal/typeparams
 golang.org/x/tools/internal/typesinternal
+golang.org/x/tools/internal/versions
 # golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1
 ## explicit; go 1.11
 golang.org/x/xerrors

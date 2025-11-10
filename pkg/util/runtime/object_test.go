@@ -17,10 +17,13 @@ limitations under the License.
 package runtime
 
 import (
-	"github.com/stretchr/testify/assert"
 	"reflect"
 	"regexp"
+	"sync"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 var data = map[string]interface{}{
@@ -75,11 +78,9 @@ func TestObject_Get(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obj := &Object{
-				data: tt.fields.data,
-			}
+			obj := NewObject(tt.fields.data)
 			got := obj.Get(tt.args.key)
-			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.want.data, got.data)
 		})
 	}
 }
@@ -112,11 +113,9 @@ func TestObject_GetPaths(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obj := &Object{
-				data: tt.fields.data,
-			}
-			if got := obj.GetPaths(tt.args.paths); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetPaths() = %v, want %v", got, tt.want)
+			obj := NewObject(tt.fields.data)
+			if got := obj.GetPaths(tt.args.paths); !reflect.DeepEqual(got.data, tt.want.data) {
+				t.Errorf("GetPaths() = %v, want %v", got.data, tt.want.data)
 			}
 		})
 	}
@@ -156,13 +155,11 @@ func TestObject_DelPaths(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obj := &Object{
-				data: tt.fields.data,
-			}
+			obj := NewObject(tt.fields.data)
 			obj.DelPaths(tt.args.paths)
 
-			if !reflect.DeepEqual(obj, tt.want) {
-				t.Errorf("DelPaths() = %v, want %v", obj, tt.want)
+			if !reflect.DeepEqual(obj.data, tt.want.data) {
+				t.Errorf("DelPaths() = %v, want %v", obj.data, tt.want.data)
 			}
 
 		})
@@ -212,12 +209,11 @@ func TestObject_SetPaths(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obj := &Object{
-				data: tt.fields.data,
-			}
+			obj := NewObject(tt.fields.data)
+
 			obj.SetPaths(tt.args.paths, tt.args.val)
-			if !reflect.DeepEqual(obj, tt.want) {
-				t.Errorf("SetPaths() = %v, want %v", obj, tt.want)
+			if !reflect.DeepEqual(obj.data, tt.want.data) {
+				t.Errorf("SetPaths() = %v, want %v", obj.data, tt.want.data)
 			}
 		})
 	}
@@ -277,11 +273,10 @@ func TestObject_GetPath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obj := &Object{
-				data: tt.fields.data,
-			}
-			if got := obj.GetPath(tt.args.query); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("GetPath() = %v, want %v", got, tt.want)
+			obj := NewObject(tt.fields.data)
+
+			if got := obj.GetPath(tt.args.query); !reflect.DeepEqual(got.data, tt.want.data) {
+				t.Errorf("GetPath() = %v, want %v", got.data, tt.want.data)
 			}
 		})
 	}
@@ -314,14 +309,102 @@ func TestObject_FlatKeyValue(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obj := &Object{
-				data: tt.fields.data,
-			}
+			obj := NewObject(tt.fields.data)
 			got, err := obj.FlatKeyValue("_")
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestObject_FlattenConcurrent(t *testing.T) {
+	t.Skip("此测试故意触发崩溃，默认跳过")
+	dest := &safeMap{
+		mu:   &sync.Mutex{},
+		data: make(map[string]interface{}),
+	}
+	src := map[string]interface{}{
+		"a": 1,
+		"b": map[string]interface{}{"c": 2},
+		"d": []interface{}{3, 4},
+	}
+
+	var wg sync.WaitGroup
+
+	// 启动一个 goroutine 持续修改 dest（调用  写入）
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 500000; i++ { // 多次写入触发冲突
+			time.Sleep(time.Nanosecond)
+			flatten(".", "", src, dest)
+		}
+	}()
+
+	// 启动另一个 goroutine 持续迭代 dest（触发并发迭代）
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 500000; i++ { // 多次迭代触发冲突
+			ret, _ := dest.Copy()
+			for range ret { // 仅迭代键，不关心值
+				time.Sleep(time.Nanosecond) // 增加冲突概率
+			}
+			for range src { // 仅迭代键，不关心值
+				time.Sleep(time.Nanosecond) // 增加冲突概率
+			}
+		}
+	}()
+
+	wg.Wait()
+	// 如果未崩溃，说明测试未触发冲突（概率性），可增加循环次数
+	t.Error("未触发并发 map 错误（可能是概率问题）")
+}
+
+func TestObject_FlatKeyValueConcurrent(t *testing.T) {
+	t.Skip("此测试故意触发崩溃，默认跳过")
+	var dest map[string]interface{}
+	src := map[string]interface{}{
+		"a": 1,
+		"b": map[string]interface{}{"c": 2},
+		"d": []interface{}{3, 4},
+	}
+	obj := NewObject(src)
+	var wg sync.WaitGroup
+
+	// 启动一个 goroutine 持续修改 dest（调用  写入）
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000000; i++ { // 多次写入触发冲突
+			time.Sleep(time.Nanosecond)
+			dest, _ = obj.FlatKeyValue("token")
+		}
+	}()
+
+	// 启动另一个 goroutine 持续迭代 dest（触发并发迭代）
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 1000000; i++ { // 多次迭代触发冲突
+			for range dest { // 仅迭代键，不关心值
+				time.Sleep(time.Nanosecond) // 增加冲突概率
+			}
+			for range src { // 仅迭代键，不关心值
+				time.Sleep(time.Nanosecond) // 增加冲突概率
+			}
+			_, _ = obj.Map()
+			_ = obj.Get("a")
+			_, _ = obj.String()
+			obj.GetPaths([]string{"a", "b", "c"})
+			obj.SetPath("c", map[string]interface{}{"c": 2})
+			obj.DelPaths([]string{"a", "b", "c"})
+		}
+	}()
+
+	wg.Wait()
+	// 如果未崩溃，说明测试未触发冲突（概率性），可增加循环次数
+	t.Error("未触发并发 map 错误（可能是概率问题）")
 }
 
 func TestObject_ConvertKeys(t *testing.T) {
@@ -401,12 +484,10 @@ func TestObject_ConvertKeys(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			obj := &Object{
-				data: tt.fields.data,
-			}
+			obj := NewObject(tt.fields.data)
 			err := obj.ConvertKeys(tt.args.keyFunc)
 			assert.NoError(t, err)
-			assert.Equal(t, tt.want, obj)
+			assert.Equal(t, tt.want.data, obj.data)
 		})
 	}
 }

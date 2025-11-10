@@ -1,3 +1,4 @@
+//go:build darwin && cgo
 // +build darwin,cgo
 
 package keyring
@@ -6,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 
-	gokeychain "github.com/keybase/go-keychain"
+	gokeychain "github.com/99designs/go-keychain"
 )
 
 type keychain struct {
@@ -226,7 +227,12 @@ func (k *keychain) Remove(key string) error {
 	}
 
 	debugf("Removing keychain item service=%q, account=%q, keychain %q", k.service, key, k.path)
-	return gokeychain.DeleteItem(item)
+	err := gokeychain.DeleteItem(item)
+	if err == gokeychain.ErrorItemNotFound {
+		return ErrKeyNotFound
+	}
+
+	return err
 }
 
 func (k *keychain) Keys() ([]string, error) {

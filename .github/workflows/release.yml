@@ -9,12 +9,12 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.18
-        uses: actions/setup-go@v2
+      - name: Set up Go 1.21
+        uses: actions/setup-go@v6
         with:
-          go-version: 1.18
+          go-version: 1.21
         id: go
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v5
       - name: Run build-amd64-bin
         run: make build GOOS=linux GOARCH=amd64
       - name: Create Release and Upload Release Asset
