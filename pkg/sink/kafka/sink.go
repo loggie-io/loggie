@@ -118,6 +118,11 @@ func (s *Sink) Start() error {
 func (s *Sink) Stop() {
 	if s.writer != nil {
 		_ = s.writer.Close()
+		if s.writer.Transport != nil {
+			if transport, ok := s.writer.Transport.(*kafka.Transport); ok {
+				transport.CloseIdleConnections()
+			}
+		}
 	}
 }
 
