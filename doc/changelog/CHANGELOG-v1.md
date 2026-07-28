@@ -6,6 +6,11 @@
 
 ### :bug: Bug Fixes
 - Fixed `replaceRegex(body)` and `replace(body)` not working when target is `body`, `eventops.Set` now correctly writes to event body instead of header (#xxx)
+- Fixed container crash caused by `sigs.k8s.io/json` `reflect.Value.SetString` panic, upgraded `sigs.k8s.io/json` to latest and Go to 1.25 (#xxx)
+
+### :wrench: Dependencies
+- Upgraded `sigs.k8s.io/json` from `v0.0.0-20220713155537` to `v0.0.0-20250730193827`
+- Upgraded Go from `1.18` to `1.25`, Dockerfile builder image updated to `golang:1.25`
 
 # Release v1.5.0-rc.0
 
