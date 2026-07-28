@@ -10,7 +10,8 @@
 
 ### :wrench: Dependencies
 - Upgraded `sigs.k8s.io/json` from `v0.0.0-20220713155537` to `v0.0.0-20250730193827`
-- Upgraded Go from `1.18` to `1.25`, Dockerfile builder image updated to `golang:1.25`
+- Upgraded `bytedance/sonic` from `v1.9.2` to `v1.15.2` for Go 1.23+ compatibility
+- Upgraded Go from `1.18` to `1.25.12`, Dockerfile builder image updated to `golang:1.25.12`
 
 # Release v1.5.0-rc.0
 

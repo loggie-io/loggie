@@ -1,6 +1,6 @@
 module github.com/loggie-io/loggie
 
-go 1.23
+go 1.25.12
 
 require (
 	github.com/aliyun/aliyun-log-go-sdk v0.1.35
