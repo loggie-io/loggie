@@ -16,8 +16,16 @@ limitations under the License.
 
 package dev
 
+import "time"
+
+// ContentConfig is a map of key-value pairs for static content.
+// The key "body" is treated as the event body, other keys are set as header fields.
+type ContentConfig map[string]interface{}
+
 type Config struct {
-	Qps         int   `yaml:"qps,omitempty" default:"1000"`
-	ByteSize    int   `yaml:"byteSize,omitempty" default:"1024"`
-	EventsTotal int64 `yaml:"eventsTotal,omitempty" default:"-1"`
+	Qps         int             `yaml:"qps,omitempty" default:"1000"`
+	ByteSize    int             `yaml:"byteSize,omitempty" default:"1024"`
+	EventsTotal int64           `yaml:"eventsTotal,omitempty" default:"-1"`
+	Interval    time.Duration   `yaml:"interval,omitempty"`
+	Contents    []ContentConfig `yaml:"content,omitempty"`
 }
