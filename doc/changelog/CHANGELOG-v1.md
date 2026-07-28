@@ -1,3 +1,12 @@
+# Release v1.5.1
+
+### :star2: Features
+- dev source: supported static `content` configuration with custom key-value pairs, `body` key is treated as event body while other keys are set as header fields (#xxx)
+- dev source: supported `interval` field for time-based event generation in static content mode (#xxx)
+
+### :bug: Bug Fixes
+- Fixed `replaceRegex(body)` and `replace(body)` not working when target is `body`, `eventops.Set` now correctly writes to event body instead of header (#xxx)
+
 # Release v1.5.0-rc.0
 
 ### :star2: Features
