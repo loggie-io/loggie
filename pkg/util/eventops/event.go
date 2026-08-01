@@ -88,6 +88,23 @@ func GetNumber(e api.Event, key string) (*Number, error) {
 }
 
 func Set(e api.Event, key string, val interface{}) {
+	// set body directly
+	if key == event.Body {
+		switch v := val.(type) {
+		case string:
+			if de, ok := e.(*event.DefaultEvent); ok {
+				de.Fill(e.Meta(), e.Header(), []byte(v))
+			}
+		case []byte:
+			if de, ok := e.(*event.DefaultEvent); ok {
+				de.Fill(e.Meta(), e.Header(), v)
+			}
+		default:
+			log.Warn("cannot set body with value type %T", val)
+		}
+		return
+	}
+
 	obj := runtime.NewObject(e.Header())
 
 	obj.SetPath(key, val)

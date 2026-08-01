@@ -39,3 +39,17 @@ interceptors:
         then:
           - action: dropEvent()
 
+---
+## timestampOffset: parse @timestamp (RFC3339 ms), format as UTC string, write ±5min before/after as unix_ms timestamps
+## test data: {"@timestamp": "2026-08-01T06:06:23.582Z"}
+interceptors:
+  - type: transformer
+    actions:
+      - action: timestampOffset(@timestamp)
+        fromLayout: "2006-01-02T15:04:05.000Z"
+        toLayout: "2006-01-02 15:04:05"
+        beforeKey: "event_time_before"
+        afterKey: "event_time_after"
+        offsetToLayout: "unix_ms"
+        offsetDuration: "5m"
+

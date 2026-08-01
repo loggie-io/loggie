@@ -1,15 +1,141 @@
 pipelines:
-  - name: local
+  - name: test-replaceregex
     sources:
-      - type: file
-        name: demo
-        paths:
-          - /tmp/log/*.log
-        fields:
-          topic: "loggie"
+      - type: dev
+        name: d1
+        interval: 2s
+        codec:
+          type: json
+        # 使用 body2 自定义 key 测试
+        content:
+
+          # - body: " User SSN is 123-45-6789, IP is 192.168.1.1, email is test@example.com \" \" \" \" and some other text. "
+          - body: " 
+                    [2026-07-29 09:33:43.516][http-nio-9707-exec-9][2744397376293970456][263][ERROR][Global exception:] java.lang.OutOfMemoryError: [No servers  available for service: robot-device-server] : 
+                      \n[EC]: 0026-00000001
+                      \n\tat java.base/\"xxxxx\"(Collectors.java:135) ~[?:?]
+                      \n\tat com.m/\"ccccc\"(deviceList.java:182) ~[?:?]
+                      \n\tat org.springframework/\"ooooo\"(ReduceOps.java:169) ~[?:?]
+
+                    "
+
+
+    interceptors:
+      - type: schema
+        addMeta:
+          timestamp:
+            key: "@timestamp"
+      - type: transformer
+        actions:
+          - action: timestampOffset(@timestamp)
+            fromLayout: "2006-01-02T15:04:05.000Z"
+            toLayout: "2006-01-02 15:04:05"
+            beforeKey: "event_time_before"
+            afterKey: "event_time_after"
+            offsetToLayout: "unix_ms"
+            offsetDuration: "5m"
+          - action: copy(body, level_tmp)
+            condition: match(body, \[(INFO|WARN|ERROR|DEBUG|TRACE|FATAL|CRITICAL)\])
+            ignoreError: true
+
+          - action: regex(level_tmp)
+            condition: exist(level_tmp)
+            pattern: '(?s).*?\[(?P<level>INFO|WARN|ERROR|DEBUG|TRACE|FATAL|CRITICAL)\]'
+            ignoreError: true
+
+          - action: del(level_tmp)
+            condition: exist(level_tmp)
+            ignoreError: true
+
+          - if: contain(body, [Global flags])
+            then:
+              - action: add(exception, exception)
+              - action: add(alertname, Pod Is Starting UP And Initializing Global Flags)
+              - action: add(body_tmp, [Global flags])
+              - action: return()
+
+          - if: contain(body, No servers available for service)
+            then:
+              - action: add(exception, exception)
+              - action: add(alertname, No Servers Available For Service)
+              - action: copy(body, body_tmp)
+              - action: replaceRegex(body_tmp)
+                expression: '"|\n|\t'
+                replace: ' '
+                ignoreError: true
+              - action: return()
+              
+          - if: contain(body, [Global exception :])
+            then:
+              - action: add(exception, exception)
+              - action: add(alertname, Global Exception)
+              - action: copy(body, body_tmp)
+              - action: replaceRegex(body_tmp)
+                expression: '"|\n|\t'
+                replace: ' '
+                ignoreError: true
+              - action: split(body_tmp)
+                condition: exist(body_tmp) AND match(body_tmp, \s*at\s*)
+                separator: "at "
+                max: 2
+                keys: ["message_n0", "message_tmp"]  
+                ignoreError: true
+              - action: split(message_tmp)
+                condition: exist(message_tmp) AND match(message_tmp, \s*at\s*)
+                separator: "at "
+                max: 2
+                keys: ["message_n1", "message_n2"]  
+                ignoreError: true
+              - action: del(message_n2)
+                condition: exist(message_n2)
+                ignoreError: true
+              - action: return()
+
+          - if: contain(body, OutOfMemoryError:)
+            then:
+              - action: add(exception, exception)
+              - action: add(alertname, Out Of Memory Error)
+              - action: copy(body, body_tmp)
+              - action: replaceRegex(body_tmp)
+                expression: '"|\n|\t'
+                replace: ' '
+                ignoreError: true
+              - action: split(body_tmp)
+                condition: exist(body_tmp) AND match(body_tmp, \s*at\s*)
+                separator: "at "
+                max: 2
+                keys: ["message_n0", "message_tmp"]  
+                ignoreError: true
+              - action: split(message_tmp)
+                condition: exist(message_tmp) AND match(message_tmp, \s*at\s*)
+                separator: "at "
+                max: 2
+                keys: ["message_n1", "message_n2"]  
+                ignoreError: true
+              - action: del(message_n2)
+                condition: exist(message_n2)
+                ignoreError: true
+              - action: return()
+
+          # # 替换双引号
+          # - action: replaceRegex(body)
+          #   expression: '"'
+          #   replace: '*'
+          # # 替换 SSN
+          # - action: replaceRegex(body)
+          #   expression: '([0-9]{3}-[0-9]{2}-[0-9]{4})'
+          #   replace: '*SSN*'
+
+          # # 替换 IPv4 地址
+          # - action: replaceRegex(body)
+          #   expression: '(\d{1,3}[.]\d{1,3}[.]\d{1,3}[.]\d{1,3})'
+          #   replace: '*IP4*'
+
+          # # 替换 Email
+          # - action: replaceRegex(body)
+          #   expression: '([\w\.=-]+@[\w\.-]+\.[\w]{2,64})'
+          #   replace: '*email*'
+
     sink:
       type: dev
-      codec:
-        type: json
-        printEvents: true
-        pretty: true
+      printEvents: true

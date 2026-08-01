@@ -1,6 +1,7 @@
 // Copyright (c) 2015 Klaus Post, released under MIT License. See LICENSE file.
 
-//+build arm64,!gccgo,!noasm,!appengine
+//go:build arm64 && !gccgo && !noasm && !appengine
+// +build arm64,!gccgo,!noasm,!appengine
 
 package cpuid
 
@@ -9,6 +10,7 @@ import "runtime"
 func getMidr() (midr uint64)
 func getProcFeatures() (procFeatures uint64)
 func getInstAttributes() (instAttrReg0, instAttrReg1 uint64)
+func getVectorLength() (vl, pl uint64)
 
 func initCPU() {
 	cpuid = func(uint32) (a, b, c, d uint32) { return 0, 0, 0, 0 }
@@ -23,7 +25,7 @@ func addInfo(c *CPUInfo, safe bool) {
 	detectOS(c)
 
 	// ARM64 disabled since it may crash if interrupt is not intercepted by OS.
-	if safe && !c.Supports(ARMCPUID) && runtime.GOOS != "freebsd" {
+	if safe && !c.Has(ARMCPUID) && runtime.GOOS != "freebsd" {
 		return
 	}
 	midr := getMidr()
