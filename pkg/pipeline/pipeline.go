@@ -394,7 +394,13 @@ func (p *Pipeline) finalizeBatch(batch api.Batch) {
 		nes[sourceName] = es
 	}
 	for sn, es := range nes {
-		p.ns[sn].Commit(es)
+		// events replayed from a persistence queue after restart carry a source
+		// name that does not belong to any running source and must not be committed
+		s, ok := p.ns[sn]
+		if !ok || s == nil {
+			continue
+		}
+		s.Commit(es)
 	}
 
 	batch.Release()
